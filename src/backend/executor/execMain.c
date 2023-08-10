@@ -164,6 +164,8 @@ ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook = NULL;
  *  executor_run_nesting_level.
  */
 static int executor_run_nesting_level = 0;
+/* Hook for plugins to get control in DtxTransaction Management */
+SetDtxFlag_hook_type SetDtxFlag_hook = NULL;
 
 /* decls for local routines only used within this module */
 static void InitPlan(QueryDesc *queryDesc, int eflags);
@@ -645,6 +647,8 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			 * work for this query.
 			 */
 			needDtx = ExecutorSaysTransactionDoesWrites();
+			if (SetDtxFlag_hook)
+				needDtx = SetDtxFlag_hook(needDtx);
 			if (needDtx)
 				setupDtxTransaction();
 

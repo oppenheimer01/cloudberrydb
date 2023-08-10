@@ -95,6 +95,7 @@
 #include "cdb/cdbsrlz.h"
 #include "cdb/cdbtm.h"
 #include "cdb/cdbdtxcontextinfo.h"
+#include "cdb/cdbdisp_extra.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbendpoint.h"
@@ -151,6 +152,11 @@ cancel_pending_hook_type cancel_pending_hook = NULL;
  * Hook for query execution.
  */
 exec_simple_query_hook_type exec_simple_query_hook = NULL;
+
+/*
+ * Hook for plugins to handle the txn message
+ */
+HandleTxnCommand_hook_type HandleTxnCommand_hook = NULL;
 
 /* ----------------
  *		private typedefs etc
@@ -513,6 +519,7 @@ SocketBackend(StringInfo inBuf)
 
 			break;
 
+		case 't':
 		case 'T':				/* Apache Cloudberry dispatched transaction protocol from QD */
 			maxmsglen = PQ_LARGE_MESSAGE_LIMIT;
 			doing_extended_query_message = false;
@@ -5811,6 +5818,8 @@ PostgresMain(int argc, char *argv[],
 						SetTempNamespaceStateAfterBoot(tempNamespaceId, tempToastNamespaceId);
 					}
 
+					UnPackExtraMsgs(&input_message);
+
 					pq_getmsgend(&input_message);
 
 					elog((Debug_print_full_dtm ? LOG : DEBUG5), "MPP dispatched stmt from QD: %s.",query_string);
@@ -5927,6 +5936,18 @@ PostgresMain(int argc, char *argv[],
 
 					send_ready_for_query = true;
             	}
+				break;
+
+    		case 't': /* handle plugin's MPP dispatched txn protocol command from QD */
+				{
+					if (HandleTxnCommand_hook)
+						HandleTxnCommand_hook(&input_message, &send_ready_for_query);
+					else
+						ereport(FATAL,
+								(errcode(ERRCODE_PROTOCOL_VIOLATION),
+								errmsg("invalid frontend message type %d", firstchar),
+								errdetail("HandleTxnCommand_hook is NULL")));
+				}
 				break;
 
 			case 'P':			/* parse */

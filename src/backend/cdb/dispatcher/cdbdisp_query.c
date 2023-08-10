@@ -44,6 +44,7 @@
 #include "mb/pg_wchar.h"
 
 #include "cdb/cdbdisp.h"
+#include "cdb/cdbdisp_extra.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdisp_dtx.h"	/* for qdSerializeDtxContextInfo() */
 #include "cdb/cdbdispatchresult.h"
@@ -105,6 +106,12 @@ typedef struct DispatchCommandQueryParms
 	char	   *serializedDtxContextInfo;
 	int			serializedDtxContextInfolen;
 } DispatchCommandQueryParms;
+
+/*
+ * Hooks for plugins to get control in command dispatch
+ */
+CdbNeedDispatchCommand_hook_type CdbNeedDispatchCommand_hook = NULL;
+CdbNeedDispatchUtility_hook_type CdbNeedDispatchUtility_hook = NULL;
 
 static int fillSliceVector(SliceTable *sliceTable,
 				int sliceIndex,
@@ -402,7 +409,12 @@ CdbDispatchCommandToSegments(const char *strCommand,
 							 CdbPgResults *cdb_pgresults)
 {
 	DispatchCommandQueryParms *pQueryParms;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
+
+	if (CdbNeedDispatchCommand_hook && !CdbNeedDispatchCommand_hook(strCommand, &flags, segments, cdb_pgresults))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 
 	if (needTwoPhase)
 		setupDtxTransaction();
@@ -440,9 +452,14 @@ CdbDispatchUtilityStatement(struct Node *stmt,
 							CdbPgResults *cdb_pgresults)
 {
 	DispatchCommandQueryParms *pQueryParms;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
 
 	Assert(Gp_role == GP_ROLE_DISPATCH && ENABLE_DISPATCH());
+
+	if (CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook(stmt, &flags))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 	if (needTwoPhase)
 		setupDtxTransaction();
 
@@ -886,6 +903,8 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			total_query_len;
 	char	   *shared_query,
 			   *pos;
+	char		*extraMsgs;
+	int			extraLen;		   
 	MemoryContext oldContext;
 
 	/*
@@ -934,6 +953,9 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sizeof(tempNamespaceId) +
 		sizeof(tempToastNamespaceId) +
 		0;
+
+	extraMsgs = PackExtraMsgs(&extraLen);
+	total_query_len += extraLen;
 
 	shared_query = palloc(total_query_len);
 
@@ -1037,6 +1059,15 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	pos += sizeof(tempNamespaceId);
 	memcpy(pos, &tempToastNamespaceId, sizeof(tempToastNamespaceId));
 	pos += sizeof(tempToastNamespaceId);
+
+	if (extraLen > 0)
+	{
+		memcpy(pos, extraMsgs, extraLen);
+		pos += extraLen;
+		pfree(extraMsgs);
+	}
+
+	len = pos - shared_query - 1;
 
 	/*
 	 * fill in length placeholder
@@ -1335,8 +1366,12 @@ CdbDispatchCopyStart(struct CdbCopy *cdbCopy, Node *stmt, int flags)
 	CdbDispatcherState *ds;
 	Gang *primaryGang;
 	ErrorData *error = NULL;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
 
+	if (CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook(stmt, &flags))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 	if (needTwoPhase)
 		setupDtxTransaction();
 
