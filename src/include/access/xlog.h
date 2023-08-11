@@ -192,10 +192,6 @@ extern XLOGDropDatabase_hook_type XLOGDropDatabase_hook;
 typedef void (*XLogFlush_hook_type) (XLogRecPtr record);
 extern PGDLLIMPORT XLogFlush_hook_type XLogFlush_hook;
 
-/* Hook for plugins to get control in CreateCheckPoint */
-typedef void (*CreateCheckPoint_hook_type)(int flags);
-extern PGDLLIMPORT CreateCheckPoint_hook_type CreateCheckPoint_hook;
-
 /* Archive modes */
 typedef enum ArchiveMode
 {
@@ -259,16 +255,7 @@ extern PGDLLIMPORT int wal_level;
 		(DataChecksumsEnabled() || FileEncryptionEnabled || wal_log_hints)
 
 /* Do we need to WAL-log information required only for Hot Standby and logical replication? */
-#ifdef SERVERLESS
-/*
- * This is not necessary.
- * 
- * Standby is not needed in serverless, so we do not need to WAL-log anything.
- */
-#define XLogStandbyInfoActive() (false)
-#else
 #define XLogStandbyInfoActive() (wal_level >= WAL_LEVEL_REPLICA)
-#endif
 
 /* Do we need to WAL-log information required only for logical replication? */
 #define XLogLogicalInfoActive() (wal_level >= WAL_LEVEL_LOGICAL)
