@@ -37,8 +37,6 @@ extern bool enable_password_profile;
 
 extern int	terminal_fd;
 
-extern bool enable_serverless;
-
 #ifdef WIN32
 extern HANDLE PostmasterHandle;
 #else
