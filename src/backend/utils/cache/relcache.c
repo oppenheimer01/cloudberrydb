@@ -1284,16 +1284,6 @@ retry:
 	/* make sure relation is marked as having no open file yet */
 	relation->rd_smgr = NULL;
 
-	if (enable_serverless && !OidIsValid(GetCurrentWarehouseId()) &&
-		Gp_role == GP_ROLE_DISPATCH && !IsSystemRelation(relation))
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_GP_FEATURE_NOT_YET),
-					errmsg("cannot access table \"%s\" in current transaction",
-						get_rel_name(targetRelId)),
-					errhint("Switch to exist warehouse before any query.")));
-	}
-
     /*
      * initialize Apache Cloudberry partitioning info
      */
