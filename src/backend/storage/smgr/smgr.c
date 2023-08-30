@@ -56,7 +56,8 @@ smgr_init_hook_type smgr_init_hook = NULL;
 smgr_hook_type smgr_hook = NULL;
 smgr_shutdown_hook_type smgr_shutdown_hook = NULL;
 #define SMGR_MAX_ID UINT8_MAX
-static f_smgr smgrsw[SMGR_MAX_ID + 1] = {
+
+f_smgr smgrsw[] = {
 	/* magnetic disk */
 	{
 		.smgr_name = "heap",
@@ -100,6 +101,31 @@ static f_smgr smgrsw[SMGR_MAX_ID + 1] = {
 		.smgr_nblocks = mdnblocks,
 		.smgr_truncate = mdtruncate,
 		.smgr_immedsync = mdimmedsync,
+	},
+	/* extensible smgr's slot for other storage format */
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
+	},
+	{
+		0
 	}
 };
 
@@ -220,6 +246,8 @@ SMgrImpl smgr_get_impl(const Relation rel)
 
 	return smgr_impl;
 }
+
+static int32 last_assigned_smgr_kind = SMGR_LAST_DEFAULT;
 
 /*
  *	smgrinit(), smgrshutdown() -- Initialize or shut down storage
@@ -875,4 +903,21 @@ const char *smgr_get_name(SMgrImpl impl)
 	if (impl > SMGR_MAX_ID)
 		return "invalid";
 	return smgrsw[impl].smgr_name ? smgrsw[impl].smgr_name : "unknown";
+}
+
+/*
+ * When need to add a new storage format smgr in extension, we should
+ * call add_smgr_kind to get a slot, then init the slot.
+ */
+SMgrImpl
+add_smgr_kind(void)
+{
+	/* Now, only support NSmgr smgrs */
+	if (last_assigned_smgr_kind >= NSmgr)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("extensible smgr types limit exceeded")));
+
+	last_assigned_smgr_kind++;
+	return (SMgrImpl) last_assigned_smgr_kind;
 }

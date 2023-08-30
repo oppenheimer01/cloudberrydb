@@ -163,7 +163,7 @@ RelationCreateStorage(RelFileNode rnode, char relpersistence, SMgrImpl smgr_whic
 	pending->relnode.isTempRelation = backend == TempRelBackendId;
 	pending->atCommit = false;	/* delete if abort */
 	pending->nestLevel = GetCurrentTransactionNestLevel();
-	pending->relnode.smgr_which = smgr_which;
+	pending->relnode.smgr_which = srel->smgr_which;
 	pending->action = &storage_pending_rel_deletes_action;
 	RegisterPendingDelete(pending);
 
@@ -204,6 +204,11 @@ void
 RelationDropStorage(Relation rel)
 {
 	PendingRelDelete *pending;
+	SMgrRelation srel;
+
+	srel = smgropen(rel->rd_node, rel->rd_backend,
+				      RelationIsAppendOptimized(rel) ? SMGR_AO : SMGR_MD,
+				      rel);
 
 	/* Add the relation to the list of stuff to delete at commit */
 	pending = (PendingRelDelete *)
@@ -212,7 +217,7 @@ RelationDropStorage(Relation rel)
 	pending->relnode.isTempRelation = rel->rd_backend == TempRelBackendId;
 	pending->atCommit = true;	/* delete if commit */
 	pending->nestLevel = GetCurrentTransactionNestLevel();
-	pending->relnode.smgr_which = smgr_get_impl(rel);
+	pending->relnode.smgr_which = srel->smgr_which;
 	pending->action = &storage_pending_rel_deletes_action;
 	RegisterPendingDelete(pending);
 
@@ -226,6 +231,7 @@ RelationDropStorage(Relation rel)
 	 * for now I'll keep the logic simple.
 	 */
 
+	smgrclose(srel);
 	RelationCloseSmgr(rel);
 }
 
