@@ -1414,6 +1414,9 @@ dispatchDtxCommand(const char *cmd)
 
 	elog(DTM_DEBUG5, "dispatchDtxCommand: '%s'", cmd);
 
+	if (enable_serverless)
+		return true;
+
 	if (currentGxactWriterGangLost())
 	{
 		ereport(WARNING,
