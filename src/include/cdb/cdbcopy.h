@@ -23,6 +23,8 @@
 
 #define COPYOUT_CHUNK_SIZE 16 * 1024
 
+struct pg_result;                   /* PGresult ... #include "libpq-fe.h" */
+
 struct CdbDispatcherState;
 struct CopyFromStateData;
 struct CopyToStateData;
@@ -53,5 +55,11 @@ extern void cdbCopyAbort(CdbCopy *c);
 extern void cdbCopyEnd(CdbCopy *c,
 		   int64 *total_rows_completed_p,
 		   int64 *total_rows_rejected_p);
+
+typedef void (*CopyProcessResult_hook_type) (struct pg_result *res);
+extern PGDLLIMPORT CopyProcessResult_hook_type CopyProcessResult_hook;
+
+typedef void (*CdbCopyEnd_hook_type) (void);
+extern PGDLLIMPORT CdbCopyEnd_hook_type CdbCopyEnd_hook;
 
 #endif   /* CDBCOPY_H */

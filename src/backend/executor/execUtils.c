@@ -100,7 +100,6 @@
 static bool tlist_matches_tupdesc(PlanState *ps, List *tlist, Index varno, TupleDesc tupdesc);
 static void ShutdownExprContext(ExprContext *econtext, bool isCommit);
 static List *flatten_logic_exprs(Node *node);
-ProcessDispatchResult_hook_type ProcessDispatchResult_hook = NULL;
 
 
 /* ----------------------------------------------------------------
@@ -2055,9 +2054,6 @@ void mppExecutorFinishup(QueryDesc *queryDesc)
 			FlushErrorState();
 			ThrowErrorData(qeError);
 		}
-
-		if (ProcessDispatchResult_hook)
-			ProcessDispatchResult_hook(ds);
 
 		/* collect pgstat from QEs for current transaction level */
 		pgstat_combine_from_qe(pr, primaryWriterSliceIndex);
