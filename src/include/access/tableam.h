@@ -2335,5 +2335,4 @@ enum CmdType;
 typedef void (*ext_dml_func_hook_type) (Relation relation, enum CmdType operation);
 extern PGDLLIMPORT ext_dml_func_hook_type ext_dml_init_hook;
 extern PGDLLIMPORT ext_dml_func_hook_type ext_dml_finish_hook;
-
 #endif							/* TABLEAM_H */
