@@ -156,9 +156,10 @@ typedef enum ObjectClass
 	OCLASS_EXTPROTOCOL,			/* pg_extprotocol */
 	OCLASS_MATVIEW_AUX,			/* gp_matview_aux */
 	OCLASS_TASK,				/* pg_task */
+	OCLASS_MAIN_MANIFEST		/* main_manifest */
 } ObjectClass;
 
-#define LAST_OCLASS		OCLASS_TASK
+#define LAST_OCLASS		OCLASS_MAIN_MANIFEST
 
 /* flag bits for performDeletion/performMultipleDeletions: */
 #define PERFORM_DELETION_INTERNAL			0x0001	/* internal action */

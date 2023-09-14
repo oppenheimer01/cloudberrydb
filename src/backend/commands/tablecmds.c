@@ -14466,6 +14466,7 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 			case OCLASS_STORAGE_USER_MAPPING:
 			case OCLASS_TAG:
 			case OCLASS_TAG_DESCRIPTION:
+			case OCLASS_MAIN_MANIFEST:
 
 				/*
 				 * We don't expect any of these sorts of objects to depend on

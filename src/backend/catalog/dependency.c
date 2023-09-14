@@ -23,6 +23,7 @@
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/heap.h"
 #include "catalog/index.h"
+#include "catalog/main_manifest.h"
 #include "catalog/namespace.h"
 #include "catalog/objectaccess.h"
 #include "catalog/pg_am.h"
@@ -217,6 +218,7 @@ static const Oid object_classes[] = {
 	ExtprotocolRelationId,		/* OCLASS_EXTPROTOCOL */
 	GpMatviewAuxId,				/* OCLASS_MATVIEW_AUX */
 	TaskRelationId,				/* OCLASS_TASK */
+	ManifestRelationId			/* MAIN_MANIFEST */
 };
 
 
@@ -1592,6 +1594,9 @@ doDeletion(const ObjectAddress *object, int flags)
 			break;
 		case OCLASS_TASK:
 			RemoveTaskById(object->objectId);
+			break;
+		case OCLASS_MAIN_MANIFEST:
+			RemoveMainManifestByRelid(object->objectId);
 			break;
 
 		case OCLASS_MATVIEW_AUX:
@@ -3041,6 +3046,9 @@ getObjectClass(const ObjectAddress *object)
 
 		case TagDescriptionRelationId:
 			return OCLASS_TAG_DESCRIPTION;
+
+		case ManifestRelationId:
+			return OCLASS_MAIN_MANIFEST;
 
 		default:
 		{

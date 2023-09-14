@@ -4290,6 +4290,9 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				if (coc && coc->object_desc)
 					coc->object_desc(coc, object, missing_ok, &buffer);
 			}
+
+		case OCLASS_MAIN_MANIFEST:
+			break;
 	}
 
 	/* an empty buffer is equivalent to no object found */
@@ -4897,6 +4900,15 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			appendStringInfoString(&buffer, "tag description");
 			break;
 
+		case OCLASS_MAIN_MANIFEST:
+			appendStringInfoString(&buffer, "manifest");
+			break;
+			/*
+			 * There's intentionally no default: case here; we want the
+			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 */
+			break;
+
 		default:
 		{
 			struct CustomObjectClass *coc;
@@ -4904,11 +4916,6 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			coc = find_custom_object_class_by_classid(object->classId, false);
 			if (coc->object_type_desc)
 				coc->object_type_desc(coc, object, missing_ok, &buffer);
-			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
-			 */
-			break;
 		}
 	}
 
@@ -6366,6 +6373,9 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
+		case OCLASS_MAIN_MANIFEST:
+			break;
+
 		default:
 		{
 			struct CustomObjectClass *coc;
@@ -6373,6 +6383,8 @@ getObjectIdentityParts(const ObjectAddress *object,
 			coc = find_custom_object_class_by_classid(object->classId, false);
 			if (coc->object_identity_parts)
 				coc->object_identity_parts(coc, object, objname, objargs, missing_ok, &buffer);
+
+
 			/*
 			 * There's intentionally no default: case here; we want the
 			 * compiler to warn if a new OCLASS hasn't been handled above.
