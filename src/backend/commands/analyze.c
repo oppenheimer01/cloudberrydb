@@ -203,6 +203,8 @@ static void acquire_hll_by_query(Relation onerel, int nattrs, VacAttrStats **att
 
 static int16 AcquireCountOfSegmentFile(Relation onerel);
 
+void parse_record_to_string(char *string, TupleDesc tupdesc, char** values, bool *nulls);
+
 /*
  *	analyze_rel() -- analyze one relation
  *
@@ -1674,12 +1676,22 @@ acquire_sample_rows(Relation onerel, int elevel,
 	Assert(targrows > 0);
 
 	if (Gp_role == GP_ROLE_DISPATCH &&
-		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
-	{
-		/* Fetch sample from the segments. */
-		return acquire_sample_rows_dispatcher(onerel, false, elevel,
-											  rows, targrows,
-											  totalrows, totaldeadrows);
+		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy)) 
+	{	
+		int flags = 0;
+		VacuumStmt *stmt = makeNode(VacuumStmt);
+		stmt->is_vacuumcmd = false;
+		if(CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook((Node*)stmt, &flags))
+		{
+			pfree(stmt);
+		}
+		else
+		{
+			pfree(stmt);
+			/* Fetch sample from the segments. */
+			return acquire_sample_rows_dispatcher(
+				onerel, false, elevel, rows, targrows, totalrows, totaldeadrows);
+		}
 	}
 
 	/*
@@ -1744,7 +1756,13 @@ acquire_sample_rows(Relation onerel, int elevel,
 	/* Prepare for sampling rows */
 	reservoir_init_selection_state(&rstate, targrows);
 
-	scan = table_beginscan_analyze(onerel);
+	AnalyzeContext ctx;
+	if(Gp_role == GP_ROLE_DISPATCH) 
+	{
+		ctx.targrows = targrows;
+	}
+	
+	scan = table_beginscan_analyze(onerel, &ctx);
 	slot = table_slot_create(onerel, NULL);
 
 #ifdef USE_PREFETCH
@@ -1973,6 +1991,29 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 				i;
 	ListCell   *lc;
 	bool		has_child;
+
+	/*
+	 * Like in acquire_sample_rows(), if we're in the QD, fetch the sample
+	 * from segments.
+	 */
+	if (Gp_role == GP_ROLE_DISPATCH)
+	{
+		int flags = 0;
+		VacuumStmt *stmt = makeNode(VacuumStmt);
+		stmt->is_vacuumcmd = false;
+		if(CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook((Node*)stmt, &flags))
+		{
+			pfree(stmt);
+		}
+		else
+		{
+			pfree(stmt);
+			return acquire_sample_rows_dispatcher(onerel,
+											  true, /* inherited stats */
+											  elevel, rows, targrows,
+											  totalrows, totaldeadrows);
+		}
+	}
 
 	/*
 	 * Find all members of inheritance set.  We only need AccessShareLock on
@@ -2458,7 +2499,7 @@ acquire_index_number_of_blocks(Relation indexrel, Relation tablerel)
  * CDB: a copy of record_in, but only parse the record string
  * into separate strs for each column.
  */
-static void
+void
 parse_record_to_string(char *string, TupleDesc tupdesc, char** values, bool *nulls)
 {
 	char	*ptr;
