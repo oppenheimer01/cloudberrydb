@@ -19,6 +19,7 @@
 #include "catalog/pg_am.h"
 #include "executor/executor.h"
 #include "executor/tuptable.h"
+#include "nodes/altertablenodes.h"
 #include "nodes/execnodes.h"
 #include "access/htup.h"
 #include "catalog/dependency.h"
@@ -135,4 +136,8 @@ extern void GpRenameChildPartitions(Relation targetrelation,
 extern void set_random_distribution_if_drop_distkey(Relation rel, AttrNumber attnum);
 
 extern Datum get_rel_opts(Relation rel);
+
+typedef void (*ATRewriteTable_hook_type)(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode);
+extern PGDLLIMPORT ATRewriteTable_hook_type ATRewriteTable_hook;
+
 #endif							/* TABLECMDS_H */
