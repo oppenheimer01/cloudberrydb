@@ -83,6 +83,7 @@
 #include "catalog/pg_user_mapping.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/gp_storage_server.h"
+#include "catalog/gp_warehouse.h"
 #include "lib/qunique.h"
 #include "utils/catcache.h"
 #include "utils/rel.h"
@@ -548,6 +549,28 @@ static const struct cachedesc cacheinfo[] = {
 			0
 		},
 		1024
+	},
+	{GpWarehouseRelationId,               /* GPWAREHOUSENAME */
+	 	GpWarehouseNameIndexId,
+	 	1,
+	 	{
+		 	Anum_gp_warehouse_warehouse_name,
+		 	0,
+		 	0,
+		 	0
+	 	},
+	 	4
+	},
+	{GpWarehouseRelationId,                /* GPWAREHOUSEOID */
+		GpWarehouseOidIndexId,
+		1,
+		{
+			Anum_gp_warehouse_oid,
+			0,
+			0,
+			0
+		},
+		4
 	},
 	{AppendOnlyRelationId,	/* AORELID */
 		AppendOnlyRelidIndexId,
