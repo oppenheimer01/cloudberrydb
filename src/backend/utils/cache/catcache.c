@@ -61,12 +61,6 @@
 #define CACHE_elog(...)
 #endif
 
-/* Hook for plugins to get control in SearchCatCache */
-SearchCatCache_hook_type SearchCatCache_hook = NULL;
-
-/* Hook for plugins to get control in ReleaseCatCache */
-ReleaseCatCache_hook_type ReleaseCatCache_hook = NULL;
-
 /* Cache management header --- pointer is NULL until created */
 static CatCacheHeader *CacheHdr = NULL;
 
@@ -1275,9 +1269,6 @@ SearchCatCacheInternal(CatCache *cache,
 
 	Assert(cache->cc_nkeys == nkeys);
 
-	if (SearchCatCache_hook)
-		return (*SearchCatCache_hook)(cache, nkeys, v1, v2, v3, v4);
-
 	/*
 	 * one-time startup overhead for each cache
 	 */
@@ -1514,9 +1505,6 @@ SearchCatCacheMiss(CatCache *cache,
 void
 ReleaseCatCache(HeapTuple tuple)
 {
-	if (ReleaseCatCache_hook)
-		return (*ReleaseCatCache_hook)(tuple);
-
 	CatCTup    *ct = (CatCTup *) (((char *) tuple) -
 								  offsetof(CatCTup, tuple));
 
