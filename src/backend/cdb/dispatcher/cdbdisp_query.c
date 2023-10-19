@@ -44,6 +44,7 @@
 #include "mb/pg_wchar.h"
 
 #include "cdb/cdbdisp.h"
+#include "cdb/cdbdisp_extra.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdisp_dtx.h"	/* for qdSerializeDtxContextInfo() */
 #include "cdb/cdbdispatchresult.h"
@@ -107,7 +108,7 @@ static int fillSliceVector(SliceTable *sliceTable,
 				int len);
 
 static char *buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
-				   int *finalLen);
+				   int *finalLen, int flags);
 
 static DispatchCommandQueryParms *cdbdisp_buildPlanQueryParms(struct QueryDesc *queryDesc, bool planRequiresTxn);
 static DispatchCommandQueryParms *cdbdisp_buildUtilityQueryParms(struct Node *stmt, int flags, List *oid_assignments);
@@ -312,7 +313,7 @@ CdbDispatchSetCommand(const char *strCommand, bool cancelOnError)
 
 	ds = cdbdisp_makeDispatcherState(false);
 
-	queryText = buildGpQueryString(pQueryParms, &queryTextLength);
+	queryText = buildGpQueryString(pQueryParms, &queryTextLength, DF_WITH_SNAPSHOT);
 
 	primaryGang = AllocateGang(ds, GANGTYPE_PRIMARY_WRITER, cdbcomponent_getCdbComponentsList());
 	if (gp_print_create_gang_time)
@@ -490,7 +491,7 @@ cdbdisp_dispatchCommandInternal(DispatchCommandQueryParms *pQueryParms,
 	if (system_relation_modified)
 		ds->destroyIdleReaderGang = true;
 
-	queryText = buildGpQueryString(pQueryParms, &queryTextLength);
+	queryText = buildGpQueryString(pQueryParms, &queryTextLength, flags);
 
 	/*
 	 * Allocate a primary QE for every available segDB in the system.
@@ -857,7 +858,7 @@ fillSliceVector(SliceTable *sliceTbl, int rootIdx,
  */
 static char *
 buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
-				   int *finalLen)
+				   int *finalLen, int flags)
 {
 	const char *command = pQueryParms->strCommand;
 	int			command_len;
@@ -881,7 +882,11 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			total_query_len;
 	char	   *shared_query,
 			   *pos;
+
+	char		*extraMsgs;
+	int			extraLen = 0;
 	MemoryContext oldContext;
+	bool 		need_snapshot;
 
 	/*
 	 * Must allocate query text within DispatcherContext,
@@ -929,6 +934,10 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sizeof(tempNamespaceId) +
 		sizeof(tempToastNamespaceId) +
 		0;
+
+	need_snapshot = flags & DF_WITH_SNAPSHOT;
+	extraMsgs = PackExtraMsgs(&extraLen, need_snapshot);
+	total_query_len += extraLen;
 
 	shared_query = palloc(total_query_len);
 
@@ -1105,7 +1114,7 @@ cdbdisp_dispatchX(QueryDesc* queryDesc,
 	sliceTbl->ic_instance_id = ++gp_interconnect_id;
 
 	pQueryParms = cdbdisp_buildPlanQueryParms(queryDesc, planRequiresTxn);
-	queryText = buildGpQueryString(pQueryParms, &queryTextLength);
+	queryText = buildGpQueryString(pQueryParms, &queryTextLength, DF_WITH_SNAPSHOT);
 
 	/*
 	 * Allocate result array with enough slots for QEs of primary gangs.
@@ -1347,7 +1356,7 @@ CdbDispatchCopyStart(struct CdbCopy *cdbCopy, Node *stmt, int flags)
 	 */
 	ds = cdbdisp_makeDispatcherState(false);
 
-	queryText = buildGpQueryString(pQueryParms, &queryTextLength);
+	queryText = buildGpQueryString(pQueryParms, &queryTextLength, flags);
 
 	/*
 	 * Allocate a primary QE for every available segDB in the system.
