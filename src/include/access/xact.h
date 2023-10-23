@@ -467,6 +467,9 @@ typedef struct xl_xact_distributed_forget
 	DistributedTransactionId gxid;
 } xl_xact_distributed_forget;
 
+struct TransactionStateData;
+typedef struct TransactionStateData *TransactionState;
+
 /* ----------------
  *		extern definitions
  * ----------------
@@ -554,7 +557,14 @@ extern XLogRecPtr RecordDistributedForgetCommitted(DistributedTransactionId gxid
 extern bool IsSubTransactionAssignmentPending(void);
 extern void MarkSubTransactionAssigned(void);
 extern FullTransactionId *GetAllXids(int *nxids);
-extern int GetNumOfTxnStatesWithoutXid(void);
+extern TransactionId *GetAllChildXids(int *nxids);
+extern void SetChildXids(int nChildXids, TransactionId *childXids);
+extern int GetNumOfTxnStatesWithoutXid(TransactionState transactionState);
+extern TransactionState GetCurrentTransactionState(void);
+extern TransactionState GetParentTransactionState(TransactionState transactionState);
+extern int GetTransactionNestLevel(TransactionState transactionState);
+extern FullTransactionId GetFullTransactionId(TransactionState transactionState);
+extern void SetCurrentTransactionState(TransactionState transactionState);
 
 extern int	xactGetCommittedChildren(TransactionId **ptr);
 
