@@ -80,6 +80,11 @@
 MemoryContext CdbComponentsContext = NULL;
 static CdbComponentDatabases *cdb_component_dbs = NULL;
 
+/*
+ * Hook for plugins to get control in getgpsegmentCount.
+ */
+getgpsegmentCount_hook_type getgpsegmentCount_hook = NULL;
+
 #ifdef USE_INTERNAL_FTS
 
 /*
@@ -1877,6 +1882,9 @@ getgpsegmentCount(void)
 {
 	/* 1 represents a singleton postgresql in utility mode */
 	int32 numsegments = 1;
+
+	if (getgpsegmentCount_hook)
+		return (*getgpsegmentCount_hook)();
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 		numsegments = cdbcomponent_getCdbComponents()->total_segments;
@@ -4098,6 +4106,9 @@ getgpsegmentCount(void)
 {
 	/* 1 represents a singleton postgresql in utility mode */
 	int32 numsegments = 1;
+
+	if (getgpsegmentCount_hook)
+		return (*getgpsegmentCount_hook)();
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 		numsegments = cdbcomponent_getCdbComponents()->total_segments;

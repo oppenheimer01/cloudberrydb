@@ -52,7 +52,13 @@ typedef enum SegmentType
 }SegmentType;
 
 /*
- * performs all necessary setup required for initializing Apache Cloudberry components.
+ * Hook for plugins to get control in getgpsegmentCount.
+ */
+typedef int (*getgpsegmentCount_hook_type)(void);
+extern PGDLLIMPORT getgpsegmentCount_hook_type getgpsegmentCount_hook;
+
+/*
+ * performs all necessary setup required for initializing Cloudberry Database components.
  *
  * This includes cdblink_setup() and initializing the Motion Layer.
  *
