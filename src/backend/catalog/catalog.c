@@ -590,11 +590,6 @@ IsSharedRelation(Oid relationId)
 		return true;
 	}
 
-	if (relationId == ManifestRelationId)
-	{
-		return true;
-	}
-
 	return false;
 }
 
