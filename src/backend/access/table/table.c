@@ -232,8 +232,11 @@ CdbTryOpenTable(Oid relid, LOCKMODE reqmode, bool *lockUpgraded)
 			lockmode = RowExclusiveLock;
 			rel = try_table_open(relid, lockmode, false);
 
-			if (RelationIsValid(rel) &&
-				RelationIsNonblockRelation(rel))
+#ifdef SERVERLESS
+			if (RelationIsNonblockRelation(rel))
+#else /* SERVERLESS */
+			if (RelationIsAppendOptimized(rel))
+#endif /* SERVERLESS */
 			{
 				/*
 				 * AO|AOCO table does not support concurrently
