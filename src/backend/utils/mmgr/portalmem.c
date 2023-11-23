@@ -50,6 +50,7 @@
  * ----------------
  */
 
+#if 0
 #define MAX_PORTALNAME_LEN		NAMEDATALEN
 
 typedef struct portalhashent
@@ -57,6 +58,7 @@ typedef struct portalhashent
 	char		portalname[MAX_PORTALNAME_LEN];
 	Portal		portal;
 } PortalHashEnt;
+#endif
 
 static HTAB *PortalHashTable = NULL;
 
@@ -1503,8 +1505,8 @@ GetAllParallelRetrieveCursorPortals(void)
 int
 GetNumOfParallelRetrieveCursors(void)
 {
-	List   *portals;
-	int		sum;
+	List * portals;
+	int sum;
 
 	portals = GetAllParallelRetrieveCursorPortals();
 	sum = list_length(portals);
@@ -1512,4 +1514,10 @@ GetNumOfParallelRetrieveCursors(void)
 	list_free(portals);
 
 	return sum;
+}
+
+HTAB *
+GetPortalHashTable(void)
+{
+	return PortalHashTable;
 }
