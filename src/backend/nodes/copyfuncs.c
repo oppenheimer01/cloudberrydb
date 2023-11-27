@@ -6338,6 +6338,18 @@ _copyCreateDirectoryTableStmt(const CreateDirectoryTableStmt *from)
 	return newnode;
 }
 
+static CreateWarehouseStmt *
+_copyCreateWarehouseStmt(const CreateWarehouseStmt *from)
+{
+	CreateWarehouseStmt *newnode = makeNode(CreateWarehouseStmt);
+
+	COPY_STRING_FIELD(whname);
+	COPY_NODE_FIELD(options);
+	COPY_NODE_FIELD(wh_options);
+
+	return newnode;
+}
+
 static AlterDirectoryTableStmt *
 _copyAlterDirectoryTableStmt(const AlterDirectoryTableStmt *from)
 {
@@ -6374,6 +6386,16 @@ _copyEphemeralNamedRelationInfo(const EphemeralNamedRelationInfo *from)
 	newnode->tuple = CreateTupleDescCopyConstr(from->tuple);
 	COPY_SCALAR_FIELD(enrtype);
 	COPY_SCALAR_FIELD(enrtuples);
+
+	return newnode;
+}
+
+static DropWarehouseStmt *
+_copyDropWarehouseStmt(const DropWarehouseStmt *from)
+{
+	DropWarehouseStmt *newnode = makeNode(DropWarehouseStmt);
+
+	COPY_STRING_FIELD(whname);
 
 	return newnode;
 }
@@ -7558,6 +7580,15 @@ copyObjectImpl(const void *from)
 		case T_EphemeralNamedRelationInfo:
 			retval = _copyEphemeralNamedRelationInfo(from);
 			break;
+
+		case T_CreateWarehouseStmt:
+			retval = _copyCreateWarehouseStmt(from);
+			break;
+
+		case T_DropWarehouseStmt:
+			retval = _copyDropWarehouseStmt(from);
+			break;
+
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(from));
 			retval = 0;			/* keep compiler quiet */

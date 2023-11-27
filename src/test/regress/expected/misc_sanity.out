@@ -105,6 +105,7 @@ ORDER BY 1, 2;
 --------------------------+--------------------+--------------
  gp_configuration_history | desc               | text
  gp_version_at_initdb     | productversion     | text
+ gp_warehouse             | status             | text
  gp_warehouse             | warehouse_name     | text
  pg_attribute             | attacl             | aclitem[]
  pg_attribute             | attfdwoptions      | text[]
