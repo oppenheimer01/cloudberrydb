@@ -120,7 +120,8 @@ static void remove_dbtablespaces(Oid db_id);
 static bool check_db_file_conflict(Oid db_id);
 static int	errdetail_busy_db(int notherbackends, int npreparedxacts);
 
-
+CreateDb_hook_type CreateDb_hook = NULL;
+DropDb_hook_type DropDb_hook = NULL;
 /*
  * CREATE DATABASE
  */
@@ -275,6 +276,14 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errmsg("LOCATION is not supported anymore"),
 					 errhint("Consider using tablespaces instead."),
 					 parser_errposition(pstate, defel->location)));
+		}
+		else if (strcmp(defel->defname, "encryption_enable") == 0)
+		{
+			if (FileEncryptionEnabled)
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("If tde for whole cluster, can not create encrypted database"),
+						 parser_errposition(pstate, defel->location)));
 		}
 		else
 			ereport(ERROR,
@@ -635,6 +644,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 	   dboid,
 					 	   dbname);
 	}
+
+	if (CreateDb_hook)
+		CreateDb_hook(stmt, dboid);
 
 	if (shouldDispatch)
 	{
@@ -1168,6 +1180,9 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	 * according to pg_database, which is not good.
 	 */
 	ForceSyncCommit();
+
+	if (DropDb_hook)
+		DropDb_hook(db_id);
 }
 
 

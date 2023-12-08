@@ -44,6 +44,7 @@ static char * segmentsListToString(const char *prefix, List *segments);
 DispatcherInternalFuncs *pDispatchFuncs = &DispatcherAsyncFuncs;
 
 PGResStausOK_hook_type PGResStausOK_hook = NULL;
+ProcessDekInfo_hook_type ProcessDekInfo_hook = NULL;
 
 /*
  * cdbdisp_dispatchToGang:

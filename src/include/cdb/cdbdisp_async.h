@@ -13,8 +13,13 @@
  *
  *-------------------------------------------------------------------------
  */
+#include "libpq-fe.h"
+
 #ifndef CDBDISP_ASYNC_H
 #define CDBDISP_ASYNC_H
+
+typedef void (*ProcessDekInfo_hook_type) (char *message, PGconn *conn);
+extern PGDLLIMPORT ProcessDekInfo_hook_type ProcessDekInfo_hook;
 
 extern DispatcherInternalFuncs DispatcherAsyncFuncs;
 

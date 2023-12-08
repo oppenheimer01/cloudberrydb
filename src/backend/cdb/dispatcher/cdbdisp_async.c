@@ -1202,6 +1202,11 @@ processResults(CdbDispatchResult *dispatchResult)
 			/* Don't free the notify here since it in queue now */
 			qnotifies = NULL;
 		}
+		else if ( (strcmp(qnotifies->relname, CDB_NOTIFY_DEK_INFO) == 0)
+			 && ProcessDekInfo_hook)
+		{
+			ProcessDekInfo_hook(qnotifies->extra, segdbDesc->conn);
+		}
 		else
 		{
 			/* Got an unknown PGnotify, just record it in log */

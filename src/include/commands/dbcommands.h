@@ -19,6 +19,11 @@
 #include "lib/stringinfo.h"
 #include "parser/parse_node.h"
 
+typedef void(*CreateDb_hook_type)(const CreatedbStmt *stmt, Oid dbOid);
+extern PGDLLIMPORT CreateDb_hook_type CreateDb_hook;
+typedef void(*DropDb_hook_type)(Oid dbOid);
+extern PGDLLIMPORT DropDb_hook_type DropDb_hook;
+
 extern Oid	createdb(ParseState *pstate, const CreatedbStmt *stmt);
 extern void dropdb(const char *dbname, bool missing_ok, bool force);
 extern void DropDatabase(ParseState *pstate, DropdbStmt *stmt);

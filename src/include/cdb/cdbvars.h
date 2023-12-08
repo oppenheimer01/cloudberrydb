@@ -831,4 +831,7 @@ bool (*AlterWarehouse_hook)(char *warehouse_name,
 
 extern WarehouseMethod *warehouse_method;
 
+/* notification condition name of dek info, used in PGnotify */
+#define CDB_NOTIFY_DEK_INFO "dek_info"
+
 #endif   /* CDBVARS_H */
