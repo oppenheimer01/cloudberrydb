@@ -334,6 +334,11 @@ typedef struct Plan
 	 * How much memory (in KB) should be used to execute this plan node?
 	 */
 	uint64 operatorMemKB;
+
+	/*
+	 * extra information of plan(NULL if not needed).
+	 */
+	List *info_context;
 } Plan;
 
 /* ----------------

@@ -20,6 +20,7 @@
 extern SeqScanState *ExecInitSeqScan(SeqScan *node, EState *estate, int eflags);
 extern SeqScanState *ExecInitSeqScanForPartition(SeqScan *node, EState *estate,
 							Relation currentRelation);
+extern TupleTableSlot *ExecSeqScan(PlanState *pstate);
 extern void ExecEndSeqScan(SeqScanState *node);
 extern void ExecReScanSeqScan(SeqScanState *node);
 

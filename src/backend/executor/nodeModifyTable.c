@@ -2582,7 +2582,7 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
  *		if needed.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
+TupleTableSlot *
 ExecModifyTable(PlanState *pstate)
 {
 	ModifyTableState *node = castNode(ModifyTableState, pstate);

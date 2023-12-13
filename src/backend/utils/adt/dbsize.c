@@ -553,7 +553,7 @@ pg_relation_size(PG_FUNCTION_ARGS)
 	// TODO directory table
 	size = calculate_relation_size(rel, forkNumber);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 

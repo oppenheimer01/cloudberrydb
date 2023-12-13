@@ -20,6 +20,7 @@ extern void ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
 									   CmdType cmdtype);
 
 extern ModifyTableState *ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags);
+extern TupleTableSlot *ExecModifyTable(PlanState *pstate);
 extern void ExecEndModifyTable(ModifyTableState *node);
 extern void ExecReScanModifyTable(ModifyTableState *node);
 extern void ExecSquelchModifyTable(ModifyTableState *node, bool force);

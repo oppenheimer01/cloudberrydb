@@ -1699,6 +1699,7 @@ ReadCommonPlan(Plan *local_node)
 #endif /* COMPILING_BINARY_FUNCS */
 
 	READ_UINT64_FIELD(operatorMemKB);
+	READ_NODE_FIELD(info_context);
 }
 
 /*

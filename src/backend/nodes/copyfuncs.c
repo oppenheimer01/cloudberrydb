@@ -261,6 +261,7 @@ CopyPlanFields(const Plan *from, Plan *newnode)
 	COPY_SCALAR_FIELD(parallel);
 
 	COPY_SCALAR_FIELD(operatorMemKB);
+	COPY_NODE_FIELD(info_context);
 }
 
 /*
@@ -6400,6 +6401,18 @@ _copyDropWarehouseStmt(const DropWarehouseStmt *from)
 	return newnode;
 }
 
+static TupleDescNode *
+_copyTupleDescNode(const TupleDescNode *from)
+{
+	TupleDescNode *newnode = makeNode(TupleDescNode);
+
+	COPY_SCALAR_FIELD(natts);
+
+	newnode->tuple = CreateTupleDescCopyConstr(from->tuple);
+
+	return newnode;
+}
+
 /*
  * copyObjectImpl -- implementation of copyObject(); see nodes/nodes.h
  *
@@ -7523,6 +7536,9 @@ copyObjectImpl(const void *from)
 			break;
 		case T_DenyLoginPoint:
 			retval = _copyDenyLoginPoint(from);
+			break;
+		case T_TupleDescNode:
+			retval = _copyTupleDescNode(from);
 			break;
 
 		case T_CookedConstraint:

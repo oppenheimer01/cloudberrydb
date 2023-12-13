@@ -141,7 +141,7 @@ SeqRecheck(SeqScanState *node, TupleTableSlot *slot)
  *		access method functions.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
+TupleTableSlot *
 ExecSeqScan(PlanState *pstate)
 {
 	SeqScanState *node = castNode(SeqScanState, pstate);

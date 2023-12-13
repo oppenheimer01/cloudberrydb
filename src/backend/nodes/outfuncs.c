@@ -415,6 +415,7 @@ _outPlanInfo(StringInfo str, const Plan *node)
 #endif /* COMPILING_BINARY_FUNCS */
 
 	WRITE_UINT64_FIELD(operatorMemKB);
+	WRITE_NODE_FIELD(info_context);
 }
 
 /*

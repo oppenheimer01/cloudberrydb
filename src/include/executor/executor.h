@@ -101,6 +101,13 @@ extern PGDLLIMPORT ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook;
 typedef bool (*SetDtxFlag_hook_type) (bool needDxt);
 extern PGDLLIMPORT SetDtxFlag_hook_type SetDtxFlag_hook;
 
+/* Hook for plugins to get control in ExecInitNode() */
+typedef PlanState *(*ExecInitNode_hook_type)(Plan *node, EState *estate, int eflags);
+extern PGDLLIMPORT ExecInitNode_hook_type ExecInitNode_hook;
+
+/* Hook for plugins to get control in ExecEndNode() */
+typedef void (*ExecEndNode_hook_type)(PlanState *node);
+extern PGDLLIMPORT ExecEndNode_hook_type ExecEndNode_hook;
 /*
  * prototypes from functions in execAmi.c
  */
@@ -261,9 +268,11 @@ extern Node *attrMapExpr(TupleConversionMap *map, Node *expr);
  * functions in execProcnode.c
  */
 extern PlanState *ExecInitNode(Plan *node, EState *estate, int eflags);
+extern PlanState *ExecInitNode_Internal(Plan *node, EState *estate, int eflags);
 extern void ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function);
 extern Node *MultiExecProcNode(PlanState *node);
 extern void ExecEndNode(PlanState *node);
+extern void ExecEndNode_Internal(PlanState *node);
 extern bool ExecShutdownNode(PlanState *node);
 extern void ExecSetTupleBound(int64 tuples_needed, PlanState *child_node);
 

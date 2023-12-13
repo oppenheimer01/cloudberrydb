@@ -17,9 +17,11 @@
 
 #include "nodes/execnodes.h"
 
+extern TupleTableSlot *ExecMotion(PlanState *pstate);
 extern MotionState *ExecInitMotion(Motion *node, EState *estate, int eflags);
 extern void ExecEndMotion(MotionState *node);
 extern void ExecReScanMotion(MotionState *node);
+extern int CdbMergeComparator(Datum lhs, Datum rhs, void *context);
 
 extern void ExecSquelchMotion(MotionState *node, bool force);
 

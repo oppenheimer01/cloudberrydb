@@ -16,6 +16,7 @@
 
 #include "nodes/execnodes.h"
 
+extern TupleTableSlot *ExecResult(PlanState *pstate);
 extern ResultState *ExecInitResult(Result *node, EState *estate, int eflags);
 extern void ExecEndResult(ResultState *node);
 extern void ExecResultMarkPos(ResultState *node);

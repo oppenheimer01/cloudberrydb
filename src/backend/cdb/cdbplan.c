@@ -1088,6 +1088,7 @@ mutate_plan_fields(Plan *newplan, Plan *oldplan, Node *(*mutator) (), void *cont
 	/* Bitmapsets aren't nodes but need to be copied to palloc'd space. */
 	newplan->extParam = bms_copy(oldplan->extParam);
 	newplan->allParam = bms_copy(oldplan->allParam);
+	newplan->info_context = copyObject(oldplan->info_context);
 }
 
 

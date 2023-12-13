@@ -2383,11 +2383,8 @@ AcquireNumberOfBlocks(Relation onerel)
 		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
 	{
 		/* Query the segments using pg_relation_size(<rel>). */
-		char		relsize_sql[100];
-
-		snprintf(relsize_sql, sizeof(relsize_sql),
-				 "select pg_catalog.pg_relation_size(%u, 'main')", RelationGetRelid(onerel));
-		totalbytes = get_size_from_segDBs(relsize_sql);
+		totalbytes = DatumGetInt64(DirectFunctionCall2(pg_relation_size,
+						ObjectIdGetDatum(RelationGetRelid(onerel)), CStringGetTextDatum("main")));
 		if (GpPolicyIsReplicated(onerel->rd_cdbpolicy))
 		{
 			/*
