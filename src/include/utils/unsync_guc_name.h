@@ -139,7 +139,6 @@
 		"event_source",
 		"exit_on_error",
 		"external_pid_file",
-		"extra_float_digits",
 		"from_collapse_limit",
 		"fsync",
 		"full_page_writes",

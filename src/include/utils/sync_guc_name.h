@@ -46,6 +46,7 @@
 		"enable_parallel",
 		"execute_pruned_plan",
 		"explain_memory_verbosity",
+		"extra_float_digits",
 		"force_parallel_mode",
 		"gin_fuzzy_search_limit",
 		"gin_pending_list_limit",
