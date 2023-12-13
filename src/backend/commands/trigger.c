@@ -2580,7 +2580,10 @@ ExecBRDeleteTriggers(EState *estate, EPQState *epqstate,
 	bool		should_free = false;
 	int			i;
 
-	Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
+	if(enable_serverless)
+		Assert(HeapTupleIsValid(fdw_trigtuple) || ItemPointerIsValid(tupleid));
+	else
+		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
 	if (fdw_trigtuple == NULL)
 	{
 		TupleTableSlot *epqslot_candidate = NULL;
@@ -2823,7 +2826,16 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 	/* Determine lock mode to use */
 	lockmode = ExecUpdateLockMode(estate, relinfo);
 
-	Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
+	/*
+	 * FIXME: In the serverless architecture, For update operation, we save the 
+	 * oldtuple to avoid high-cost table_tuple_fetch_row_version. Thus, fdw_trigtuple
+	 * and tupleid are all valid. We also change the assert of ExecBRDeleteTriggers
+	 * because update partition table will trigger ExecBRDeleteTriggers.
+	 */
+	if(enable_serverless)
+		Assert(HeapTupleIsValid(fdw_trigtuple) || ItemPointerIsValid(tupleid));
+	else
+		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
 	if (fdw_trigtuple == NULL)
 	{
 		TupleTableSlot *epqslot_candidate = NULL;
