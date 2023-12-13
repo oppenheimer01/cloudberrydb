@@ -22,6 +22,15 @@
 
 #define DEFAULT_TYPDELIM		','
 
+/* result structure for get_rels_with_domain() */
+typedef struct
+{
+	Relation	rel;			/* opened and locked relation */
+	int			natts;			/* number of attributes of interest */
+	int		   *atts;			/* attribute numbers */
+	/* atts[] is of allocated length RelationGetNumberOfAttributes(rel) */
+} RelToCheck;
+
 extern ObjectAddress DefineType(ParseState *pstate, List *names, List *parameters);
 extern void RemoveTypeById(Oid typeOid);
 extern ObjectAddress DefineDomain(CreateDomainStmt *stmt);
@@ -40,6 +49,8 @@ extern ObjectAddress AlterDomainNotNull(List *names, bool notNull);
 extern ObjectAddress AlterDomainAddConstraint(List *names, Node *constr,
 											  ObjectAddress *constrAddr);
 extern ObjectAddress AlterDomainValidateConstraint(List *names, const char *constrName);
+extern void validateDomainConstraint(Oid domainoid, char *ccbin);
+extern List *get_rels_with_domain(Oid domainOid, LOCKMODE lockmode);
 extern ObjectAddress AlterDomainDropConstraint(List *names, const char *constrName,
 											   DropBehavior behavior, bool missing_ok);
 
