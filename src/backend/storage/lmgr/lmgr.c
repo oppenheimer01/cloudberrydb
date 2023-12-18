@@ -812,7 +812,7 @@ LockWarehouse(Oid warehouseOid, LOCKMODE lockmode)
 
 	SET_LOCKTAG_WAREHOUSE(tag, warehouseOid);
 
-	lockResult = LockAcquireExtended(&tag, lockmode, true, true, true, &locallock);
+	lockResult = LockAcquireExtended(&tag, lockmode, true, false, true, &locallock);
 
 	/*
 	 * Now that we have the lock, check for invalidation messages;

@@ -297,8 +297,8 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 		CreateTableSpaceStmt CreateFdwStmt CreateForeignServerStmt CreateForeignTableStmt CreateDirectoryTableStmt
 		CreateAssertionStmt CreateTransformStmt CreateTrigStmt CreateEventTrigStmt
 		CreateUserStmt CreateUserMappingStmt CreateRoleStmt CreatePolicyStmt
-		CreatedbStmt CreateWarehouseStmt DeclareCursorStmt DefineStmt DeleteStmt DiscardStmt DoStmt
-		DropDirectoryTableStmt DropOpClassStmt DropOpFamilyStmt DropStmt DropWarehouseStmt
+		CreatedbStmt DeclareCursorStmt DefineStmt DeleteStmt DiscardStmt DoStmt
+		DropDirectoryTableStmt DropOpClassStmt DropOpFamilyStmt DropStmt
 		DropCastStmt DropRoleStmt
 		DropdbStmt DropTableSpaceStmt
 		DropTransformStmt
@@ -321,10 +321,10 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 		RetrieveStmt CreateTaskStmt AlterTaskStmt DropTaskStmt
 
 /* GPDB-specific commands */
-%type <node>	AlterProfileStmt AlterQueueStmt AlterResourceGroupStmt AlterSchemaStmt AlterTagStmt
+%type <node>	AlterProfileStmt AlterQueueStmt AlterResourceGroupStmt AlterSchemaStmt AlterTagStmt AlterWarehouseStmt
 		CreateExternalStmt
-		CreateProfileStmt CreateQueueStmt CreateResourceGroupStmt CreateTagStmt
-		DropProfileStmt DropQueueStmt DropResourceGroupStmt DropTagStmt
+		CreateProfileStmt CreateQueueStmt CreateResourceGroupStmt CreateWarehouseStmt CreateTagStmt
+		DropProfileStmt DropQueueStmt DropResourceGroupStmt DropWarehouseStmt DropTagStmt
 		ExtTypedesc ExtSingleRowErrorHandling
 
 %type<list> 	OptSingleRowErrorHandling
@@ -1459,6 +1459,7 @@ stmt:
 			| AlterTSDictionaryStmt
 			| AlterUserMappingStmt
 			| AlterStorageUserMappingStmt
+			| AlterWarehouseStmt
 			| AnalyzeStmt
 			| CallStmt
 			| CheckPointStmt
@@ -13405,6 +13406,12 @@ WarehouseOptElem:
 				}
 		;
 
+/*****************************************************************************
+ *
+ *	QUERY:
+ *		DROP WAREHOUSE name
+ *
+ *****************************************************************************/
 
 DropWarehouseStmt: DROP WAREHOUSE name
 						{
@@ -13414,6 +13421,24 @@ DropWarehouseStmt: DROP WAREHOUSE name
 						}
 				;
 
+/*****************************************************************************
+ *
+ *	QUERY:
+ *		ALTER WAREHOUSE name SET WAREHOUSE_SIZE warehouse_size
+ *
+ *****************************************************************************/
+
+AlterWarehouseStmt:
+			ALTER WAREHOUSE name SET WAREHOUSE_SIZE SignedIconst
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE;
+					n->whname = $3;
+					n->warehouse_size = $6;
+					n->options = NULL;
+					$$ = (Node *)n;
+				}
+		;
 
 /*****************************************************************************
  *

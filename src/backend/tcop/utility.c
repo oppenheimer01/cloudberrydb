@@ -270,6 +270,7 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_CreateTaskStmt:
 		case T_CreateTagStmt:
 		case T_AlterTaskStmt:
+		case T_AlterWarehouseStmt:
 		case T_DropTaskStmt:
 		case T_DropProfileStmt:
 		case T_DropQueueStmt:
@@ -1977,6 +1978,7 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_CreateWarehouseStmt:
 			case T_DropWarehouseStmt:
+			case T_AlterWarehouseStmt:
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("warehouse feature is not supported")));
@@ -4074,6 +4076,9 @@ CreateCommandTag(Node *parsetree)
 		case T_DropWarehouseStmt:
 			tag = CMDTAG_DROP_WAREHOUSE;
 			break;
+		case T_AlterWarehouseStmt:
+			tag = CMDTAG_ALTER_WAREHOUSE;
+			break;
 
 		case T_ExtensibleNode:
 			tag = CMDTAG_EXTENSIBLE;
@@ -4588,6 +4593,10 @@ GetCommandLogLevel(Node *parsetree)
 			break;
 
 		case T_DropWarehouseStmt:
+			lev = LOGSTMT_DDL;
+			break;
+
+		case T_AlterWarehouseStmt:
 			lev = LOGSTMT_DDL;
 			break;
 

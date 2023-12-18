@@ -114,7 +114,7 @@ gp_expand_protect_catalog_changes(Relation relation)
 	int					oldVersion;
 	int					newVersion;
 
-	if (Gp_role != GP_ROLE_DISPATCH)
+	if (Gp_role != GP_ROLE_DISPATCH || enable_serverless)
 		/* only lock catalog updates on qd */
 		return;
 

@@ -572,6 +572,7 @@ typedef enum NodeTag
 	T_CreateWarehouseStmt,
 	T_DropWarehouseStmt,
 	T_AddForeignSegStmt,
+	T_AlterWarehouseStmt,
 
 	/*
 	 * TAGS FOR PARSE TREE NODES (parsenodes.h)

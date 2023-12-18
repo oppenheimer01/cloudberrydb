@@ -6401,6 +6401,19 @@ _copyDropWarehouseStmt(const DropWarehouseStmt *from)
 	return newnode;
 }
 
+static AlterWarehouseStmt *
+_copyAlterWarehouseStmt(const AlterWarehouseStmt *from)
+{
+	AlterWarehouseStmt *newnode = makeNode(AlterWarehouseStmt);
+
+	COPY_SCALAR_FIELD(kind);
+	COPY_STRING_FIELD(whname);
+	COPY_SCALAR_FIELD(warehouse_size);
+	COPY_NODE_FIELD(options);
+
+	return newnode;
+}
+
 static TupleDescNode *
 _copyTupleDescNode(const TupleDescNode *from)
 {
@@ -7603,6 +7616,10 @@ copyObjectImpl(const void *from)
 
 		case T_DropWarehouseStmt:
 			retval = _copyDropWarehouseStmt(from);
+			break;
+
+		case T_AlterWarehouseStmt:
+			retval = _copyAlterWarehouseStmt(from);
 			break;
 
 		default:

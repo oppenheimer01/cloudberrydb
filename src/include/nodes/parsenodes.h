@@ -4483,4 +4483,19 @@ typedef struct DropWarehouseStmt
 	char		*whname;
 } DropWarehouseStmt;
 
+typedef enum AlterWarehouseType
+{
+	ALTER_WAREHOUSE_OPTIONS,
+	ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE
+} AlterWarehouseType;
+
+typedef struct AlterWarehouseStmt
+{
+	NodeTag				type;
+	AlterWarehouseType	kind; 	  		/* ALTER_WAREHOUSE_OPTIONS, etc */
+	char	   			*whname;  		/* Name of the warehouse */
+	int					warehouse_size;	/* New size of warehouse if set warehouse_size command */
+	List				*options; 		/* List of DefElem nodes */
+} AlterWarehouseStmt;
+
 #endif							/* PARSENODES_H */
