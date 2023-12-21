@@ -427,6 +427,8 @@ GpPolicyFetch(Oid tbloid)
 		switch (policyform->policytype)
 		{
 			case SYM_POLICYTYPE_REPLICATED:
+				if (policyform->numsegments == 0)
+					policyform->numsegments = getgpsegmentCount();
 				policy = createReplicatedGpPolicy(policyform->numsegments);
 				break;
 			case SYM_POLICYTYPE_PARTITIONED:
