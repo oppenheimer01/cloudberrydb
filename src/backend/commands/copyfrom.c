@@ -4257,6 +4257,7 @@ InitCopyFromDispatchSplit(CopyFromState cstate, GpDistributionData *distData,
 	else
 	{
 		int			fieldno;
+		List		*whereVars;
 		/*
 		 * We need all the columns that form the distribution key.
 		 */
@@ -4264,6 +4265,14 @@ InitCopyFromDispatchSplit(CopyFromState cstate, GpDistributionData *distData,
 		{
 			for (int i = 0; i < distData->policy->nattrs; i++)
 				needed_cols = bms_add_member(needed_cols, distData->policy->attrs[i]);
+		}
+
+		/* Also need all the columns that in copy where clause. */
+		whereVars = pull_var_clause(cstate->whereClause, 0);
+		foreach(lc, whereVars)
+		{
+			Var *var = lfirst(lc);
+			needed_cols = bms_add_member(needed_cols, var->varattno);
 		}
 
 		/* Get the max fieldno that contains one of the needed attributes. */
