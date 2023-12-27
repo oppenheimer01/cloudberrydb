@@ -140,4 +140,6 @@ extern Datum get_rel_opts(Relation rel);
 typedef void (*ATRewriteTable_hook_type)(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode);
 extern PGDLLIMPORT ATRewriteTable_hook_type ATRewriteTable_hook;
 
+typedef void (*ATExecSetRelOptionsCheck_hook_type) (Relation rel, DefElem *def);
+extern PGDLLIMPORT ATExecSetRelOptionsCheck_hook_type ATExecSetRelOptionsCheck_hook;
 #endif							/* TABLECMDS_H */
