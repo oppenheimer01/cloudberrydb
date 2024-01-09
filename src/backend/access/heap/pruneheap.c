@@ -76,6 +76,9 @@ typedef struct
 	int8		htsv[MaxHeapTuplesPerPage + 1];
 } PruneState;
 
+/* Hook for plugins to get control in heap_page_prune_opt */
+heap_page_prune_opt_hook_type heap_page_prune_opt_hook = NULL;
+
 /* Local functions */
 static HTSV_Result heap_prune_satisfies_vacuum(Relation relation, PruneState *prstate,
 											   HeapTuple tup,
@@ -104,6 +107,15 @@ static void heap_prune_record_unused(PruneState *prstate, OffsetNumber offnum);
  */
 void
 heap_page_prune_opt(Relation relation, Buffer buffer)
+{
+	if (heap_page_prune_opt_hook)
+		return (*heap_page_prune_opt_hook)(relation, buffer);
+	
+	heap_page_prune_opt_internal(relation, buffer);
+}
+
+void
+heap_page_prune_opt_internal(Relation relation, Buffer buffer)
 {
 	Page		page = BufferGetPage(buffer);
 	TransactionId prune_xid;
