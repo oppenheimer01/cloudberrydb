@@ -714,21 +714,6 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 						NameListToString(stmt->funcname), "trigger")));
 	}
 
-	/* Check GPDB limitations */
-	if (RelationIsNonblockRelation(rel) &&
-		TRIGGER_FOR_ROW(tgtype) &&
-		!stmt->isconstraint)
-	{
-		if (TRIGGER_FOR_UPDATE(tgtype) && TRIGGER_FOR_BEFORE(tgtype))
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("ON UPDATE triggers are not supported on append-only tables")));
-		if (TRIGGER_FOR_DELETE(tgtype) && TRIGGER_FOR_BEFORE(tgtype))
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("ON DELETE triggers are not supported on append-only tables")));
-	}
-
 	/*
 	 * Scan pg_trigger to see if there is already a trigger of the same name.
 	 * Skip this for internally generated triggers, since we'll modify the
@@ -4351,13 +4336,12 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 						ExecDropSingleTupleTableSlot(slot2);
 						slot1 = slot2 = NULL;
 					}
-//					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
-//					{
+					{
 						slot1 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
 						slot2 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
-//					}
+					}
 					if (trigdesc == NULL)	/* should not happen */
 						elog(ERROR, "relation %u has no triggers",
 							 evtshared->ats_relid);
