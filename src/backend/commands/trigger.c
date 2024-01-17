@@ -719,11 +719,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		TRIGGER_FOR_ROW(tgtype) &&
 		!stmt->isconstraint)
 	{
-		if (TRIGGER_FOR_UPDATE(tgtype) && TRIGGER_FOR_AFTER(tgtype))
+		if (TRIGGER_FOR_UPDATE(tgtype) && TRIGGER_FOR_BEFORE(tgtype))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("ON UPDATE triggers are not supported on append-only tables")));
-		if (TRIGGER_FOR_DELETE(tgtype) && TRIGGER_FOR_AFTER(tgtype))
+		if (TRIGGER_FOR_DELETE(tgtype) && TRIGGER_FOR_BEFORE(tgtype))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("ON DELETE triggers are not supported on append-only tables")));
@@ -4071,6 +4071,7 @@ AfterTriggerExecute(EState *estate,
 			break;
 
 		default:
+		{
 			if (ItemPointerIsValid(&(event->ate_ctid1)))
 			{
 				LocTriggerData.tg_trigslot = ExecGetTriggerOldSlot(estate, relInfo);
@@ -4080,7 +4081,8 @@ AfterTriggerExecute(EState *estate,
 												   LocTriggerData.tg_trigslot))
 					elog(ERROR, "failed to fetch tuple1 for AFTER trigger");
 				LocTriggerData.tg_trigtuple =
-					ExecFetchSlotHeapTuple(LocTriggerData.tg_trigslot, false, &should_free_trig);
+						ExecFetchSlotHeapTuple(LocTriggerData.tg_trigslot, false,
+											   &should_free_trig);
 			}
 			else
 			{
@@ -4099,12 +4101,14 @@ AfterTriggerExecute(EState *estate,
 												   LocTriggerData.tg_newslot))
 					elog(ERROR, "failed to fetch tuple2 for AFTER trigger");
 				LocTriggerData.tg_newtuple =
-					ExecFetchSlotHeapTuple(LocTriggerData.tg_newslot, false, &should_free_new);
+						ExecFetchSlotHeapTuple(LocTriggerData.tg_newslot, false,
+											   &should_free_new);
 			}
 			else
 			{
 				LocTriggerData.tg_newtuple = NULL;
 			}
+		}
 	}
 
 	/*
@@ -4347,13 +4351,13 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 						ExecDropSingleTupleTableSlot(slot2);
 						slot1 = slot2 = NULL;
 					}
-					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
-					{
+//					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+//					{
 						slot1 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
 						slot2 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
-					}
+//					}
 					if (trigdesc == NULL)	/* should not happen */
 						elog(ERROR, "relation %u has no triggers",
 							 evtshared->ats_relid);
@@ -5943,7 +5947,7 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 							modifiedCols, oldslot, newslot))
 			continue;
 
-		if (relkind == RELKIND_FOREIGN_TABLE && row_trigger)
+		if (row_trigger)
 		{
 			if (fdw_tuplestore == NULL)
 			{

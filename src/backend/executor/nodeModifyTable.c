@@ -2075,12 +2075,12 @@ lreplace:;
 
 	/* AFTER ROW UPDATE Triggers */
 	/* GPDB: AO and AOCO tables don't support triggers */
-	if (!RelationIsNonblockRelation(resultRelationDesc))
-		ExecARUpdateTriggers(estate, resultRelInfo, tupleid, oldtuple, slot,
-						 recheckIndexes,
-						 mtstate->operation == CMD_INSERT ?
-						 mtstate->mt_oc_transition_capture :
-						 mtstate->mt_transition_capture);
+	//if (!RelationIsNonblockRelation(resultRelationDesc))
+	ExecARUpdateTriggers(estate, resultRelInfo, tupleid, oldtuple, slot,
+					 recheckIndexes,
+					 mtstate->operation == CMD_INSERT ?
+					 mtstate->mt_oc_transition_capture :
+					 mtstate->mt_transition_capture);
 
 	list_free(recheckIndexes);
 
