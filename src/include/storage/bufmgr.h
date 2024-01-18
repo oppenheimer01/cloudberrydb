@@ -177,6 +177,8 @@ extern PGDLLIMPORT ReadBuffer_hook_type ReadBuffer_hook;
 /*
  * prototypes for functions in bufmgr.c
  */
+typedef struct BufferDesc BufferDesc;
+extern bool StartBufferIO(BufferDesc *buf, bool forInput);
 extern PrefetchBufferResult PrefetchSharedBuffer(struct SMgrRelationData *smgr_reln,
 												 ForkNumber forkNum,
 												 BlockNumber blockNum);
@@ -256,6 +258,7 @@ extern bool IsBufferCleanupOK(Buffer buffer);
 extern bool HoldingBufferPinThatDelaysRecovery(void);
 
 extern void AbortBufferIO(void);
+extern BufferDesc *GetInProgressBuf(void);
 
 extern void BufmgrCommit(void);
 extern bool BgBufferSync(struct WritebackContext *wb_context);

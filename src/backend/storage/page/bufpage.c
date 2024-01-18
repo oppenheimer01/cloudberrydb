@@ -102,7 +102,10 @@ PageIsVerifiedExtended(Page page, ForkNumber forknum,
 	 */
 	if (!PageIsNew(page))
 	{
-		if (DataChecksumsEnabled())
+		/*
+		 * In serverless architecture, the page is checked in smgrread.
+		 */
+		if (DataChecksumsEnabled() && !enable_serverless)
 		{
 			checksum = pg_checksum_page((char *) page, blkno);
 
