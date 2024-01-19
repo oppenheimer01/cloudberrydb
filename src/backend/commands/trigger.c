@@ -226,7 +226,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		 * does not support constraint(deferred) trigger now.
 		 */
 		if (stmt->isconstraint && enable_serverless &&
-			(!RelationIsHeap(rel) && !RelationIsAppendOptimized(rel)))
+			(RelationIsNonblockRelation(rel)))
 			ereport(ERROR,
 					(errcode(ERRCODE_GP_FEATURE_NOT_YET),
 					 errmsg("\"%s\" is not a heap table and AO table",
@@ -726,6 +726,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 						NameListToString(stmt->funcname), "trigger")));
 	}
 
+#ifndef SERVERLESS
 	/* Check GPDB limitations */
 	if (RelationIsAppendOptimized(rel) &&
 		TRIGGER_FOR_ROW(tgtype) &&
@@ -740,6 +741,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("ON DELETE triggers are not supported on append-only tables")));
 	}
+#endif
 
 	/*
 	 * Scan pg_trigger to see if there is already a trigger of the same name.
@@ -3127,12 +3129,13 @@ GetTupleForTrigger(EState *estate,
 {
 	Relation	relation = relinfo->ri_RelationDesc;
 
+#ifdef SERVERLESS
 	/*
 	 * FIXME: table which is not a heap table and AO table does not support
 	 * concurrently update or delete. So we can fetch tuple directly
 	 * without locking tuple.
 	 */
-	if(enable_serverless && (!RelationIsHeap(relation) && !RelationIsAppendOptimized(relation)))
+	if(!RelationIsHeap(relation) && !RelationIsAppendOptimized(relation))
 	{
 		/*
 		 * We expect the tuple to be present, thus very simple error handling
@@ -3143,11 +3146,13 @@ GetTupleForTrigger(EState *estate,
 			elog(ERROR, "failed to fetch tuple for trigger");
 		return true;
 	}
+#else
 	/* these should be rejected when you try to create such triggers, but let's check */
-	if (RelationIsAppendOptimized(relation))
+	if (RelationIsNonblockRelation(relation))
 		elog(ERROR, "UPDATE and DELETE triggers are not supported on append-only tables");
 
 	Assert(RelationIsHeap(relation));
+#endif
 
 	if (epqslot != NULL)
 	{
@@ -4387,7 +4392,7 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 						slot1 = slot2 = NULL;
 					}
 					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE ||
-						(enable_serverless && (!RelationIsHeap(rel) && !RelationIsAppendOptimized(rel))))
+						RelationIsNonblockRelation(rel))
 					{
 						slot1 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
@@ -5999,7 +6004,7 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 		 * throught its ctid.
 		 */
 		if (row_trigger && (relkind == RELKIND_FOREIGN_TABLE ||
-			(enable_serverless && (!RelationIsHeap(rel) && !RelationIsAppendOptimized(rel)))))
+			(enable_serverless && (RelationIsNonblockRelation(rel)))))
 		{
 			if (fdw_tuplestore == NULL)
 			{
