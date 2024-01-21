@@ -46,6 +46,8 @@
 #include "utils/timestamp.h"
 #define DISPATCH_WAIT_TIMEOUT_MSEC 2000
 
+PGResStausOK_hook_type PGResStausOK_hook = NULL;
+
 /*
  * Ideally, we should set timeout to zero to cancel QEs as soon as possible,
  * but considering the cost of sending cancel signal is high, we want to process

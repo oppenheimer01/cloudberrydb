@@ -1041,6 +1041,20 @@ transientrel_shutdown(DestReceiver *self)
 
 		table_close(matviewRel, NoLock);
 	}
+	else if(enable_serverless && Gp_role == GP_ROLE_DISPATCH && !myState->concurrent)
+	{
+		Relation	matviewRel;
+
+		matviewRel = table_open(myState->oldreloid, NoLock);
+
+		/*
+		 * In serverless architecture, QD should collect trucate stat. And QE will 
+		 * collect insert stat and send to QD. we combine the stat in 
+		 * pgstat_combine_from_qe.
+		 */
+		pgstat_count_truncate(matviewRel);	
+		table_close(matviewRel, NoLock);
+	}
 }
 
 /*

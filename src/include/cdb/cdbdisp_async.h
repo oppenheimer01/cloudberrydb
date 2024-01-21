@@ -38,4 +38,7 @@ extern void	cdbdisp_waitDispatchFinish_async(struct CdbDispatcherState *ds);
 
 extern bool	cdbdisp_checkForCancel_async(struct CdbDispatcherState *ds);
 extern int *cdbdisp_getWaitSocketFds_async(struct CdbDispatcherState *ds, int *nsocks);
+
+typedef bool (*PGResStausOK_hook_type) (ExecStatusType statusType);
+extern PGDLLIMPORT PGResStausOK_hook_type PGResStausOK_hook;
 #endif

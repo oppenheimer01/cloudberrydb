@@ -21,6 +21,7 @@
 #include "utils/wait_event.h"	/* for backward compatibility */
 
 #include "postmaster/autostats.h"
+#include "cdb/cdbdispatchresult.h"
 
 
 /* ----------
@@ -980,6 +981,48 @@ typedef struct PgStat_FunctionCallUsage
 	instr_time	f_start;
 } PgStat_FunctionCallUsage;
 
+/*
+ * Tuple insertion/deletion counts for an open transaction can't be propagated
+ * into PgStat_TableStatus counters until we know if it is going to commit
+ * or abort.  Hence, we keep these counts in per-subxact structs that live
+ * in TopTransactionContext.  This data structure is designed on the assumption
+ * that subxacts won't usually modify very many tables.
+ */
+typedef struct PgStat_SubXactStatus
+{
+	int			nest_level;		/* subtransaction nest level */
+	struct PgStat_SubXactStatus *prev;	/* higher-level subxact if any */
+	PgStat_TableXactStatus *first;	/* head of list for this subxact */
+} PgStat_SubXactStatus;
+
+/* Record that's written to 2PC state file when pgstat state is persisted */
+typedef struct TwoPhasePgStatRecord
+{
+	PgStat_Counter tuples_inserted; /* tuples inserted in xact */
+	PgStat_Counter tuples_updated;	/* tuples updated in xact */
+	PgStat_Counter tuples_deleted;	/* tuples deleted in xact */
+	PgStat_Counter inserted_pre_trunc;	/* tuples inserted prior to truncate */
+	PgStat_Counter updated_pre_trunc;	/* tuples updated prior to truncate */
+	PgStat_Counter deleted_pre_trunc;	/* tuples deleted prior to truncate */
+	Oid			t_id;			/* table's OID */
+	bool		t_shared;		/* is it a shared catalog? */
+	bool		t_truncated;	/* was the relation truncated? */
+} TwoPhasePgStatRecord;
+
+typedef struct PgStatTabRecordFromQE
+{
+	TwoPhasePgStatRecord 	table_stat;
+	int						nest_level;
+} PgStatTabRecordFromQE;
+
+/*
+ * pgStatTabHash entry: map from relation OID to PgStat_TableStatus pointer
+ */
+typedef struct TabStatHashEntry
+{
+	Oid			t_id;
+	PgStat_TableStatus *tsa_entry;
+} TabStatHashEntry;
 
 /* ----------
  * GUC parameters
@@ -1017,11 +1060,14 @@ extern PgStat_Counter pgStatBlockWriteTime;
 extern PgStat_Counter pgStatActiveTime;
 extern PgStat_Counter pgStatTransactionIdleTime;
 
-
 /*
  * Updated by the traffic cop and in errfinish()
  */
 extern SessionEndType pgStatSessionEndCause;
+
+extern PgStat_SubXactStatus *pgStatXactStack;
+
+extern HTAB *pgStatTabHash;
 
 /* ----------
  * Functions called from postmaster
@@ -1291,5 +1337,14 @@ extern void pgstat_count_slru_flush(int slru_idx);
 extern void pgstat_count_slru_truncate(int slru_idx);
 extern const char *pgstat_slru_name(int slru_idx);
 extern int	pgstat_slru_index(const char *name);
+extern PgStat_TableStatus *get_tabstat_entry(Oid rel_id, bool isshared);
+extern PgStat_SubXactStatus *get_tabstat_stack_level(int nest_level);
+extern void add_tabstat_xact_level(PgStat_TableStatus *pgstat_info, int nest_level);
 
+
+typedef void (*pgstat_send_qd_tabstats_hook_type) (void);
+extern pgstat_send_qd_tabstats_hook_type  pgstat_send_qd_tabstats_hook;
+
+typedef void (*pgstat_combine_from_qe_hook_type)(CdbDispatchResults *results, int writerSliceIndex) ; 
+extern pgstat_combine_from_qe_hook_type  pgstat_combine_from_qe_hook;
 #endif							/* PGSTAT_H */

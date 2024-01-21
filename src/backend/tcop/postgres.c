@@ -1435,8 +1435,10 @@ exec_mpp_query(const char *query_string,
 
 		/*
 		 * If writer QE, sent current pgstat for tables to QD.
+		 * In serverless architecture, all the slice send their stat like 
+		 * seq_scan to QD.
 		 */
-		if (Gp_role == GP_ROLE_EXECUTE && Gp_is_writer)
+		if (Gp_role == GP_ROLE_EXECUTE && (Gp_is_writer || enable_serverless))
 			pgstat_send_qd_tabstats();
 
 		(*receiver->rDestroy) (receiver);
