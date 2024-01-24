@@ -4737,8 +4737,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 		m_is_tgt_tbl_distributed = true;
 	}
 
-	if (CMD_UPDATE == m_cmd_type &&
-		gpdb::HasUpdateTriggers(CMDIdGPDB::CastMdid(mdid_target_table)->Oid()))
+	if ((CMD_UPDATE == m_cmd_type || CMD_DELETE == m_cmd_type) &&
+			gpdb::HasUpdateDeleteTriggers(CMDIdGPDB::CastMdid(mdid_target_table)->Oid()))
 	{
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
 				   GPOS_WSZ_LIT("UPDATE on a table with UPDATE triggers"));

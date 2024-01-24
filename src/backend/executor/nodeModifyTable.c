@@ -2768,7 +2768,8 @@ ExecModifyTable(PlanState *pstate)
 				 * PAX_STORAGE_FIXME(gongxun):we reuse the logic of the AO table to implement ExecUpdate,
 				 * If there is a better implementation, we need to revert it
 				 */
-				if (operation == CMD_UPDATE && RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc) &&
+				if ((operation == CMD_UPDATE || operation == CMD_DELETE) &&
+					RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc) &&
 					AttributeNumberIsValid(resultRelInfo->ri_WholeRowNo))
 				{
 					/* ri_WholeRowNo refers to a wholerow attribute */
@@ -3280,7 +3281,8 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 					elog(ERROR, "could not find junk ctid column");
 
 				/* extra GPDB junk columns for update AO table */
-				if (operation == CMD_UPDATE && RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc))
+				if ((operation == CMD_UPDATE || operation == CMD_DELETE)
+					&& RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc))
 				{
 					resultRelInfo->ri_WholeRowNo =
 						ExecFindJunkAttributeInTlist(subplan->targetlist, "wholerow");

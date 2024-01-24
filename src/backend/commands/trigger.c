@@ -2668,7 +2668,6 @@ ExecARDeleteTriggers(EState *estate, ResultRelInfo *relinfo,
 	{
 		TupleTableSlot *slot = ExecGetTriggerOldSlot(estate, relinfo);
 
-		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
 		if (fdw_trigtuple == NULL)
 			GetTupleForTrigger(estate,
 							   NULL,

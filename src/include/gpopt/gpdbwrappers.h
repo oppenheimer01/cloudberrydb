@@ -577,7 +577,7 @@ unsigned int CdbHashRandomSeg(int num_segments);
 void CheckRTPermissions(List *rtable);
 
 // throw an error if table has update triggers.
-bool HasUpdateTriggers(Oid relid);
+bool HasUpdateDeleteTriggers(Oid relid);
 
 // get index operator family properties
 void IndexOpProperties(Oid opno, Oid opfamily, StrategyNumber *strategynumber,

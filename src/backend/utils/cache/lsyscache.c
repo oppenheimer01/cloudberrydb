@@ -1753,7 +1753,7 @@ get_oprjoin(Oid opno)
  * So having an extra parameter including_children only for ORCA.
  */
 bool
-has_update_triggers(Oid relid, bool including_children)
+has_update_delete_triggers(Oid relid)
 {
 	Relation	relation;
 	bool		result = false;
@@ -1773,7 +1773,8 @@ has_update_triggers(Oid relid, bool including_children)
 			{
 				Trigger trigger = relation->trigdesc->triggers[i];
 				found = trigger_enabled(trigger.tgoid) &&
-					(get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_UPDATE) == TRIGGER_TYPE_UPDATE;
+						((get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_UPDATE) == TRIGGER_TYPE_UPDATE ||
+						 (get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_DELETE) == TRIGGER_TYPE_DELETE);
 				if (found)
 				{
 					result = true;
