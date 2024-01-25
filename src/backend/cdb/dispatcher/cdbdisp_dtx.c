@@ -290,3 +290,9 @@ buildGpDtxProtocolCommand(DispatchCommandDtxProtocolParms *pDtxProtocolParms,
 	MemoryContextSwitchTo(oldContext);
 	return shared_query;
 }
+
+DtxContextInfo *
+GetTempQDDtxContext(void)
+{
+	return &TempQDDtxContextInfo;
+}

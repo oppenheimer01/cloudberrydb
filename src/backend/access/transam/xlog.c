@@ -4022,6 +4022,12 @@ PreallocXlogFiles(XLogRecPtr endptr)
 	bool		use_existent;
 	uint64		offset;
 
+	/*
+	 * In serverless architecture, do not need xlog files any more.
+	 */
+	if (enable_serverless)
+		return;
+
 	XLByteToPrevSeg(endptr, _logSegNo, wal_segment_size);
 	offset = XLogSegmentOffset(endptr - 1, wal_segment_size);
 	if (offset >= (uint32) (0.75 * wal_segment_size))

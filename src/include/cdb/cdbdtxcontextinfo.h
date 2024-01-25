@@ -49,4 +49,6 @@ extern void DtxContextInfo_Deserialize(const char *serializedDtxContextInfo,
 									   DtxContextInfo *dtxContextInfo);
 
 extern void DtxContextInfo_Copy(DtxContextInfo *target, DtxContextInfo *source);
+
+extern DtxContextInfo *GetTempQDDtxContext(void);
 #endif   /* CDBDTXCONTEXTINFO_H */
