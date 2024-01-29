@@ -1996,7 +1996,7 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 	 * Like in acquire_sample_rows(), if we're in the QD, fetch the sample
 	 * from segments.
 	 */
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && ENABLE_DISPATCH())
 	{
 		int flags = 0;
 		VacuumStmt *stmt = makeNode(VacuumStmt);
