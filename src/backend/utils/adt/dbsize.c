@@ -732,7 +732,7 @@ pg_table_size(PG_FUNCTION_ARGS)
 
 	size = calculate_table_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 
@@ -762,7 +762,7 @@ pg_indexes_size(PG_FUNCTION_ARGS)
 
 	size = calculate_indexes_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 
@@ -823,7 +823,7 @@ pg_total_relation_size(PG_FUNCTION_ARGS)
 
 	size = calculate_total_relation_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 
