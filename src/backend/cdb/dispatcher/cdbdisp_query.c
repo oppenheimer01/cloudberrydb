@@ -60,6 +60,7 @@ extern bool gp_print_create_gang_time;
 
 ExtendProtocolDataStore epd_storage = {0};
 ExtendProtocolData epd = &epd_storage;
+CdbDispatchPlan_hook_type CdbDispatchPlan_hook = NULL;
 
 typedef struct ParamWalkerContext
 {
@@ -188,6 +189,19 @@ static SerializedParams *serializeParamsForDispatch(QueryDesc *queryDesc,
  */
 void
 CdbDispatchPlan(struct QueryDesc *queryDesc,
+				ParamExecData *execParams,
+				bool planRequiresTxn,
+				bool cancelOnError)
+{
+	if(CdbDispatchPlan_hook){
+		return CdbDispatchPlan_hook(queryDesc, execParams, planRequiresTxn, cancelOnError);
+	}
+
+	return CdbDispatchPlanInternal(queryDesc, execParams, planRequiresTxn, cancelOnError);
+}
+
+void
+CdbDispatchPlanInternal(struct QueryDesc *queryDesc,
 				ParamExecData *execParams,
 				bool planRequiresTxn,
 				bool cancelOnError)

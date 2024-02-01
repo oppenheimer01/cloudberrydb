@@ -52,6 +52,12 @@ extern PGDLLIMPORT CdbNeedDispatchCommand_hook_type CdbNeedDispatchCommand_hook;
 typedef bool (*CdbNeedDispatchUtility_hook_type) (struct Node *stmt, int *flags);
 extern PGDLLIMPORT CdbNeedDispatchUtility_hook_type CdbNeedDispatchUtility_hook;
 
+typedef void (*CdbDispatchPlan_hook_type) (struct QueryDesc *queryDesc,
+											ParamExecData *execParams,
+											bool planRequiresTxn,
+											bool cancelOnError);
+extern PGDLLIMPORT CdbDispatchPlan_hook_type CdbDispatchPlan_hook;
+
 /* Compose and dispatch the MPPEXEC commands corresponding to a plan tree
  * within a complete parallel plan.
  *
@@ -70,6 +76,10 @@ extern PGDLLIMPORT CdbNeedDispatchUtility_hook_type CdbNeedDispatchUtility_hook;
  * suggested that the caller use cdbdisp_finishCommand().
  */
 extern void CdbDispatchPlan(struct QueryDesc *queryDesc,
+							ParamExecData *execParams,
+							bool planRequiresTxn,
+							bool cancelOnError);
+extern void CdbDispatchPlanInternal(struct QueryDesc *queryDesc,
 							ParamExecData *execParams,
 							bool planRequiresTxn,
 							bool cancelOnError);
