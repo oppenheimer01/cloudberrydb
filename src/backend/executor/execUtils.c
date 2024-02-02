@@ -2050,7 +2050,19 @@ void mppExecutorFinishup(QueryDesc *queryDesc)
 
 		if (qeError)
 		{
+#ifdef SERVERLESS
+			/* 
+			 * The dispatcherState will be cleaned up at transaction/subtransation abort,
+			 * but in serverless architecture, we will dispatch the sub-abort statement before
+			 * dispatcherState cleanup at subtransation abort, this will throw error again.
+			 * 
+			 * We should not set dispatcherState to NULL here, the Error
+			 * is re-throwed, and mppExecutorCleanup will do the necessary cleanup before
+			 * we dispatch the sub-abort statement.
+			 */
+#else 
 			estate->dispatcherState = NULL;
+#endif
 			FlushErrorState();
 			ThrowErrorData(qeError);
 		}
