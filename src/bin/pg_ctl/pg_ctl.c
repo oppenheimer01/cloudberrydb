@@ -712,8 +712,13 @@ wait_for_postmaster_start(pgpid_t pm_pid, bool do_checkpoint)
 				 * The READY status for coordinator is `dtmready`, while the READY
 				 * status is really ready for other nodes.
 				 */
+#ifndef SERVERLESS
 				if (strcmp(pmstatus, is_coordinator ? PM_STATUS_DTM_RECOVERED : PM_STATUS_READY) == 0 ||
 					strcmp(pmstatus, PM_STATUS_STANDBY) == 0)
+#else
+				if (strcmp(pmstatus, PM_STATUS_READY) == 0 ||
+					strcmp(pmstatus, PM_STATUS_STANDBY) == 0)
+#endif
 				{
 					/* postmaster is done starting up */
 					free_readfile(optlines);
