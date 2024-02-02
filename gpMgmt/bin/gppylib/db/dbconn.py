@@ -96,8 +96,9 @@ class DbURL:
     pgpass='pass'
     timeout=None
     retries=None
+    warehouse=None
 
-    def __init__(self,hostname=None,port=0,dbname=None,username=None,password=None,timeout=None,retries=None):
+    def __init__(self,hostname=None,port=0,dbname=None,username=None,password=None,timeout=None,retries=None,warehouse=None):
 
         if hostname is None:
             self.pghost = os.environ.get('PGHOST', 'localhost')
@@ -142,6 +143,9 @@ class DbURL:
             self.retries = 1
         else:
             self.retries = int(retries)
+
+        if warehouse is not None:
+            self.warehouse = warehouse
 
 
     def __str__(self):
@@ -230,6 +234,9 @@ def connect(dburl, utility=False, verbose=False,
     # unset search path due to CVE-2018-1058
     if unsetSearchPath:
         options.append("-c search_path=")
+
+    if dburl.warehouse:
+        options.append("-c hashdata.warehouse=%s" % dburl.warehouse)
 
     if allowSystemTableMods:
         options.append("-c allow_system_table_mods=true")

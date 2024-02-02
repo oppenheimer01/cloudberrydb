@@ -65,6 +65,8 @@ def parseargs():
     parser.add_option('-M', '--mirrorvalue', type='string')
     parser.add_option('-f', '--file', action='store_true')
     parser.add_option('--file-compare', dest='file_compare', action='store_true')
+    parser.add_option('-w', '--warehouse', dest='warehouse', type='string', default='test')
+
     parser.setHelp([])
 
     (options, _) = parser.parse_args()
@@ -218,7 +220,7 @@ def print_verbosely(options, hostname, directory):
 
 def do_list(skipvalidation):
     try:
-        dburl = dbconn.DbURL()
+        dburl = dbconn.DbURL(warehouse=options.warehouse)
         conn = dbconn.connect(dburl, True)
         rows = dbconn.query(conn, GucQuery().query)
 
@@ -235,7 +237,7 @@ def do_list(skipvalidation):
 
 def get_gucs_from_database(gucname):
     try:
-        dburl = dbconn.DbURL()
+        dburl = dbconn.DbURL(warehouse=options.warehouse)
         # we always want to unset search path except when getting the
         # 'search_path' GUC itself
         unsetSearchPath = gucname != 'search_path'
@@ -296,7 +298,7 @@ def do_change(options):
 
     try:
         if not options.skipvalidation:
-            conn = dbconn.connect(dbconn.DbURL(), True)
+            conn = dbconn.connect(dbconn.DbURL(warehouse=options.warehouse), True)
             guc = get_normal_guc(conn, options)
 
             # Force the postgresql.conf parser to detect vartype string as GUC_STRING in the guc-file.c/guc-file.l
@@ -535,6 +537,7 @@ def check_gpexpand():
         sys.exit(1)
 
 def do_main():
+    global options
     options = parseargs()
     _set_gparray()
 
