@@ -593,7 +593,9 @@ HandleCheckpointerInterrupts(void)
 		 * the statistics to the stats collector.
 		 */
 		BgWriterStats.m_requested_checkpoints++;
+	#ifndef SERVERLESS
 		ShutdownXLOG(0, 0);
+	#endif
 		pgstat_send_bgwriter();
 		pgstat_send_wal(true);
 
