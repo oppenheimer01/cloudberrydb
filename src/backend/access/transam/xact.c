@@ -7714,6 +7714,8 @@ GetAllChildXids(int *nxids)
 		xact = xact->parent;
 	}
 
+	if (xids == NULL && xact)
+		xids = (TransactionId *)palloc(sizeof(TransactionId) * len);
 	while (xact)
 	{
 		int index = 0;
@@ -7723,9 +7725,7 @@ GetAllChildXids(int *nxids)
 		if (xact->parent)
 			nChildXids += 1;
 
-		if (xids == NULL)
-			xids = (TransactionId *)palloc(sizeof(TransactionId) * len);
-		else if ((*nxids) + nChildXids >= len)
+		if ((*nxids) + nChildXids >= len)
 		{
 			len = ((*nxids) + nChildXids) * 2;
 			
