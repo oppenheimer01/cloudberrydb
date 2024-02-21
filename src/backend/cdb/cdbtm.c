@@ -1414,15 +1414,16 @@ dispatchDtxCommand(const char *cmd)
 
 	elog(DTM_DEBUG5, "dispatchDtxCommand: '%s'", cmd);
 
-	if (enable_serverless)
-		return true;
-
 	if (currentGxactWriterGangLost())
 	{
 		ereport(WARNING,
 				(errmsg("writer gang of current global transaction is lost")));
 		return false;
 	}
+
+#ifdef SERVERLESS
+	return true;
+#endif
 
 	CdbDispatchCommand(cmd, DF_NEED_TWO_PHASE, &cdb_pgresults);
 

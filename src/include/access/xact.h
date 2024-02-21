@@ -565,6 +565,7 @@ extern TransactionState GetParentTransactionState(TransactionState transactionSt
 extern int GetTransactionNestLevel(TransactionState transactionState);
 extern FullTransactionId GetFullTransactionId(TransactionState transactionState);
 extern void SetCurrentTransactionState(TransactionState transactionState);
+extern SubTransactionId GetSubTransactionIdCounter(void);
 
 extern int	xactGetCommittedChildren(TransactionId **ptr);
 

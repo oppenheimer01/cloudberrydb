@@ -7870,3 +7870,12 @@ SetCurrentTransactionState(TransactionState transactionState)
 {
 	CurrentTransactionState = transactionState;
 }
+
+/*
+ * Get subtransaction ID counter
+ */
+SubTransactionId
+GetSubTransactionIdCounter(void)
+{
+	return currentSubTransactionId;
+}
