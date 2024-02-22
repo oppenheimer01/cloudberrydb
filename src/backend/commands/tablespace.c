@@ -1693,13 +1693,18 @@ GetDefaultTablespace(char relpersistence, bool partitioned)
 {
 	Oid			result;
 
-	/* The temp-table case is handled elsewhere */
+	/* 
+	 * The temp-table case is handled elsewhere.
+	 * FIXME:In serverless mode, we use the default table space 
+	 * just for pg_regress, maybe need to fix it.
+	 */
+#ifndef SERVERLESS
 	if (relpersistence == RELPERSISTENCE_TEMP)
 	{
 		PrepareTempTablespaces();
 		return GetNextTempTableSpace();
 	}
-
+#endif
 	/* Fast path for default_tablespace == "" */
 	if (default_tablespace == NULL || default_tablespace[0] == '\0')
 		return InvalidOid;
