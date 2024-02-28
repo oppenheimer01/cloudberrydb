@@ -117,13 +117,6 @@ LocalBufferAlloc(SMgrRelation smgr, ForkNumber forkNum, BlockNumber blockNum,
 	bool		found;
 	uint32		buf_state;
 
-	/*
-	 * Local buffers are used for temp tables in PostgreSQL.  As temp tables
-	 * use shared buffers in Cloudberry, we shouldn't be useing local buffers
-	 * for anything.
-	 */
-	Assert(false);
-
 	INIT_BUFFERTAG(newTag, smgr->smgr_rnode.node, forkNum, blockNum);
 
 	/* Initialize local buffers if first request in this session */
