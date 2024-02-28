@@ -33,6 +33,10 @@ struct AlterTableUtilityContext;	/* avoid including tcop/utility.h here */
 
 extern const char *synthetic_sql;
 
+/* Hook for plugins to get control in ATExecSetDistributedBy */
+typedef void (*ATExecSetDistributedBy_hook_type)(Relation rel, Node *node, AlterTableCmd *cmd);
+extern PGDLLIMPORT ATExecSetDistributedBy_hook_type ATExecSetDistributedBy_hook;
+
 extern void	DefineExternalRelation(CreateExternalStmt *stmt);
 
 extern ObjectAddress DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,

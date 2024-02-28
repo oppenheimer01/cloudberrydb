@@ -141,6 +141,9 @@
 
 const char *synthetic_sql = "(internally generated SQL command)";
 
+/* Hook for plugins to get control in ATExecSetDistributedBy */
+ATExecSetDistributedBy_hook_type ATExecSetDistributedBy_hook = NULL;
+
 /*
  * ON COMMIT action list
  */
@@ -18764,6 +18767,9 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 	bool 				save_optimizer_replicated_table_insert;
 	Oid					relationOid = InvalidOid;
 	AutoStatsCmdType 	cmdType = AUTOSTATS_CMDTYPE_SENTINEL;
+
+	if (ATExecSetDistributedBy_hook)
+		return (*ATExecSetDistributedBy_hook)(rel, node, cmd);
 
 	/* Can't ALTER TABLE SET system catalogs */
 	if (IsSystemRelation(rel))
