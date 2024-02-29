@@ -2652,7 +2652,11 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 		return false;
 	}
 
-	is_appendoptimized = RelationStorageIsAO(rel);
+#ifdef SERVERLESS
+	is_appendoptimized = RelationIsNonblockRelation(rel);
+#else
+	is_appendoptimized = RelationIsAppendOptimized(rel);
+#endif
 	is_toast = (rel->rd_rel->relkind == RELKIND_TOASTVALUE);
 
 	if (ao_vacuum_phase && !(is_appendoptimized || is_toast))
