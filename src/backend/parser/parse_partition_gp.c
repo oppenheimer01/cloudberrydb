@@ -930,6 +930,11 @@ makePartitionCreateStmt(Relation parentrel, char *partname, PartitionBoundSpec *
 	childstmt->if_not_exists = false;
 	childstmt->origin = origin;
 	childstmt->distributedBy = make_distributedby_for_rel(parentrel);
+#ifdef SERVERLESS
+	/* make sure the numsegments of distribution policy is zero for partition child tables */
+	if (childstmt->distributedBy)
+		childstmt->distributedBy->numsegments = 0;
+#endif
 	childstmt->partitionBy = NULL;
 	childstmt->relKind = 0;
 	childstmt->ownerid = parentrel->rd_rel->relowner;
