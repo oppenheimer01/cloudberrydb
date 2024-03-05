@@ -336,6 +336,14 @@ SharedFileSetPath(char *path, SharedFileSet *fileset, Oid tablespace)
 static Oid
 ChooseTablespace(const SharedFileSet *fileset, const char *name)
 {
+#ifdef SERVERLESS
+/* 
+ * fix the problem of temp tablesapces when store temp data or share data,
+ * as create tablespace statement doesn't dispatched from QD,
+ * maybe have better soltuion?
+ */ 
+  return DEFAULTTABLESPACE_OID;
+#endif
 	uint32		hash = hash_any((const unsigned char *) name, strlen(name));
 
 	return fileset->tablespaces[hash % fileset->ntablespaces];
