@@ -22,11 +22,12 @@
  * introduced schemas.  When connected to an older version from code that
  * might work with the old server, skip this.
  */
-
-#define ALWAYS_SET_SEARCH_PATH_SQL \
+#ifdef SERVERLESS
+#define ALWAYS_SECURE_SEARCH_PATH_SQL \
 	"set search_path='';"
-
+#else  /* SERVERLESS */
 #define ALWAYS_SECURE_SEARCH_PATH_SQL \
 	"SELECT pg_catalog.set_config('search_path', '', false);"
+#endif /* SERVERLESS */
 
 #endif							/* CONNECT_H */
