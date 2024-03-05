@@ -32,7 +32,7 @@
 #include "postmaster/postmaster.h"
 #include "utils/snapmgr.h"
 
-static struct pollfd *PollFds;
+struct pollfd *PollFds = NULL;
 
 static CdbComponentDatabaseInfo *
 FtsGetPeerSegment(CdbComponentDatabases *cdbs,
@@ -253,7 +253,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				 "primary dbid=%d, mirror dbid=%d",
 				 ftsInfo->primary_cdbinfo->config->segindex,
 				 ftsInfo->primary_cdbinfo->config->dbid,
-				 ftsInfo->mirror_cdbinfo->config->dbid);
+				 ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 		}
 		else
 		{
@@ -266,7 +266,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				   (uint32) tmpptr,
 				   ftsInfo->primary_cdbinfo->config->segindex,
 				   ftsInfo->primary_cdbinfo->config->dbid,
-				   ftsInfo->mirror_cdbinfo->config->dbid);
+				   ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 		}
 	}
 	else if (strstr(PQerrorMessage(ftsInfo->conn), _(POSTMASTER_IN_RESET_MSG)))
@@ -291,7 +291,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
  *
  * Upon failure, transition that object to a failed state.
  */
-static void
+void
 ftsConnect(fts_context *context)
 {
 	int i;
@@ -433,7 +433,7 @@ ftsCheckTimeout(fts_segment_info *ftsInfo, pg_time_t now)
 	}
 }
 
-static void
+void
 ftsPoll(fts_context *context)
 {
 	int i;
@@ -546,7 +546,7 @@ ftsPoll(fts_context *context)
 /*
  * Send FTS query
  */
-static void
+void
 ftsSend(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -663,7 +663,7 @@ probeRecordResponse(fts_segment_info *ftsInfo, PGresult *result)
 /*
  * Receive segment response
  */
-static void
+void
 ftsReceive(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -832,7 +832,7 @@ retryForFtsFailed(fts_segment_info *ftsInfo, pg_time_t now)
  * corresponding to their failure state.  If retries have exhausted, leave the
  * segment in the failure state.
  */
-static void
+void
 processRetry(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -850,6 +850,9 @@ processRetry(fts_context *context)
 				 * mirror as down prematurely.  If mirror is already marked
 				 * down in configuration, there is no need to retry.
 				 */
+				if (enable_serverless)
+					break;
+
 				if (!(ftsInfo->result.retryRequested &&
 					  SEGMENT_IS_ALIVE(ftsInfo->mirror_cdbinfo)))
 					break;
@@ -941,13 +944,13 @@ updateConfiguration(CdbComponentDatabaseInfo *primary,
 
 		if (UpdatePrimary)
 			probeWalRepUpdateConfig(primary->config->dbid, primary->config->segindex,
-									newPrimaryRole, IsPrimaryAlive,
-									IsInSync);
+									primary->config->warehouseid,
+									newPrimaryRole, IsPrimaryAlive, IsInSync);
 
 		if (UpdateMirror)
 			probeWalRepUpdateConfig(mirror->config->dbid, mirror->config->segindex,
-									newMirrorRole, IsMirrorAlive,
-									IsInSync);
+									primary->config->warehouseid,
+									newMirrorRole, IsMirrorAlive, IsInSync);
 
 		CommitTransactionCommand();
 		CurrentResourceOwner = save;

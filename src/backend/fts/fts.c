@@ -174,8 +174,8 @@ CdbComponentDatabases *readCdbComponentInfoAndUpdateStatus(void)
 }
 
 void
-probeWalRepUpdateConfig(int16 dbid, int16 segindex, char role,
-						bool IsSegmentAlive, bool IsInSync)
+probeWalRepUpdateConfig(int16 dbid, int16 segindex, Oid warehouseid,
+						char role, bool IsSegmentAlive, bool IsInSync)
 {
 	AssertImply(IsInSync, IsSegmentAlive);
 
@@ -240,7 +240,7 @@ probeWalRepUpdateConfig(int16 dbid, int16 segindex, char role,
 		ScanKeyInit(&scankey[1],
 					Anum_gp_segment_configuration_warehouseid,
 					BTEqualStrategyNumber, F_OIDEQ,
-					ObjectIdGetDatum(GetCurrentWarehouseId()));
+					ObjectIdGetDatum(warehouseid));
 		sscan = systable_beginscan(configrel, GpSegmentConfigDbidWarehouseIndexId,
 								   true, NULL, 2, scankey);
 

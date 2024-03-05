@@ -119,8 +119,14 @@ typedef struct
 	fts_segment_info *perSegInfos;
 } fts_context;
 
+extern struct pollfd *PollFds;
 
 extern bool FtsWalRepMessageSegments(CdbComponentDatabases *context);
+extern void ftsConnect(fts_context *context);
+extern void ftsPoll(fts_context *context);
+extern void ftsSend(fts_context *context);
+extern void ftsReceive(fts_context *context);
+extern void processRetry(fts_context *context);
 #endif  /* USE_INTERNAL_FTS */
 
 #endif

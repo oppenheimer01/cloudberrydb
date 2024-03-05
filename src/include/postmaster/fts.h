@@ -48,8 +48,8 @@ extern void SetSkipFtsProbe(bool skipFtsProbe);
  * Interface for WALREP specific checking
  */
 extern void HandleFtsMessage(const char* query_string);
-extern void probeWalRepUpdateConfig(int16 dbid, int16 segindex, char role,
-									bool IsSegmentAlive, bool IsInSync);
+extern void probeWalRepUpdateConfig(int16 dbid, int16 segindex, Oid warehouseid, 
+									char role, bool IsSegmentAlive, bool IsInSync);
 
 extern bool FtsProbeStartRule(Datum main_arg);
 extern void FtsProbeMain (Datum main_arg);
