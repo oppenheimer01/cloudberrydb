@@ -976,6 +976,8 @@ use_physical_tlist(PlannerInfo *root, Path *path, int flags)
 	if (rel->amflags & AMFLAG_HAS_COLUMN_ORIENTED_SCAN)
 		return false;
 
+	if (AMHandlerIsHashdataCols(rel->amhandler))
+		return false;
 	/*
 	 * Also, don't do it to a CustomPath; the premise that we're extracting
 	 * columns from a simple physical tuple is unlikely to hold for those.

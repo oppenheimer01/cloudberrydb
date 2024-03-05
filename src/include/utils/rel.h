@@ -546,6 +546,7 @@ typedef struct ViewOptions
  */
 #define PAX_AM_OID 7047
 #define HASHDATA_AM_OID 7015
+#define HASHDATA_TBALE_AM_OID 7604
 
 #define RelationIsPax(relation) \
 	((relation)->rd_rel->relam == PAX_AM_OID)
@@ -569,6 +570,8 @@ typedef struct ViewOptions
 	 (relation)->rd_rel->relam == PAX_AM_OID || \
 	 (relation)->rd_rel->relam == HASHDATA_AM_OID)
 
+#define AMHandlerIsHashdataCols(amhandler) \
+	((amhandler) == HASHDATA_TBALE_AM_OID)
 /*
  * RelationIsBitmapIndex
  *      True iff relation is a bitmap index
