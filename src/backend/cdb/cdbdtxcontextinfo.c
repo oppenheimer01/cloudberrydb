@@ -46,9 +46,11 @@ DtxContextInfo_CreateOnMaster(DtxContextInfo *dtxContextInfo, bool inCursor,
 
 	DtxContextInfo_Reset(dtxContextInfo);
 
+#ifdef SERVERLESS
+	dtxContextInfo->distributedXid = MyProc->lxid;
+#else /* SERVERLESS */
 	dtxContextInfo->distributedXid = getDistributedTransactionId();
-	if (enable_serverless)
-		dtxContextInfo->distributedXid = MyProc->lxid;
+#endif /* SERVERLESS */
 	if (dtxContextInfo->distributedXid != InvalidDistributedTransactionId)
 		dtxContextInfo->curcid = curcid;
 

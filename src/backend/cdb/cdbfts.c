@@ -79,15 +79,16 @@ FtsShmemInit(void)
 void
 FtsNotifyProber(void)
 {
+#ifdef SERVERLESS
+	return;
+#endif /* SERVERLESS */
+
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	int32			initial_started;
 	int32			started;
 	int32			done;
 
 	if (am_ftsprobe)
-		return;
-
-	if (enable_serverless)
 		return;
 
 	SpinLockAcquire(&ftsProbeInfo->lock);
@@ -180,8 +181,9 @@ getFtsVersion(void)
 void
 FtsNotifyProber(void)
 {
-	if (enable_serverless)
-		return;
+#ifdef SERVERLESS
+	return;
+#endif /* SERVERLESS */
 
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);

@@ -586,12 +586,25 @@ cdbgang_parse_gpqeid_params(struct Port *port pg_attribute_unused(),
 		qe_idx = (int) strtol(cp, NULL, 10);
 	}
 
+	if (gpqeid_next_param(&cp, &np))
+	{
+#ifdef SERVERLESS
+		GpIdentity.segindex = (int32)strtol(cp, NULL, 10);
+#endif /* SERVERLESS */
+	}
+
+	if (gpqeid_next_param(&cp, &np))
+	{
+#ifdef SERVERLESS
+		GpIdentity.dbid = (int32)strtol(cp, NULL, 10);
+#endif /* SERVERLESS */
+	}
+
 	if (parse_gpqeid_params_hook)
 	{
-		while(gpqeid_next_param(&cp, &np))
+		if (gpqeid_next_param(&cp, &np))
 		{
-			if (!(*parse_gpqeid_params_hook)(cp))
-				break;
+			(*parse_gpqeid_params_hook)(cp);
 		}
 	}
 

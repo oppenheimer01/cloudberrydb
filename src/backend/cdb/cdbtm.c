@@ -1138,7 +1138,11 @@ tmShmemInit(void)
 		/* Initialize locks and shared memory area */
 	{
 		*shmNextSnapshotId = 0;
-		*shmDtmStarted = enable_serverless;
+#ifdef SERVERLESS
+		*shmDtmStarted = true;
+#else
+		*shmDtmStarted = false;
+#endif
 		*shmCleanupBackends = false;
 		*shmDtxRecoveryPid = 0;
 		*shmDtxRecoveryEvents = DTX_RECOVERY_EVENT_ABORT_PREPARED;
@@ -1647,10 +1651,13 @@ isDtxQueryDispatcher(void)
 	isDtmStarted = (shmDtmStarted != NULL && *shmDtmStarted);
 	isSharedLocalSnapshotSlotPresent = (SharedLocalSnapshotSlot != NULL);
 
+#ifdef SERVERLESS
+	return false;
+#else /* SERVERLESS */
 	return (Gp_role == GP_ROLE_DISPATCH &&
 			isDtmStarted &&
-			isSharedLocalSnapshotSlotPresent &&
-			!enable_serverless);
+			isSharedLocalSnapshotSlotPresent);
+#endif /* SERVERLESS */
 }
 
 /*

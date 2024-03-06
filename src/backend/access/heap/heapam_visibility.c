@@ -184,11 +184,13 @@ SetHintBits(HeapTupleHeader tuple, Buffer buffer, Relation rel,
 	 * On QE, we can see any changes on catalog relations(dirty read) in InitProcessing Mode
 	 * because of the latest snapshot, do not set hint bits.
 	 */
-	if (enable_serverless && IsInitProcessingMode() &&
-		Gp_role == GP_ROLE_EXECUTE && GpIdentity.segindex != MASTER_CONTENT_ID)
+#ifdef SERVERLESS
+	if (IsInitProcessingMode() && Gp_role == GP_ROLE_EXECUTE &&
+		GpIdentity.segindex != MASTER_CONTENT_ID)
 	{
 		return;
 	}
+#endif /* SERVERLESS */
 
 	if (TransactionIdIsValid(xid))
 	{

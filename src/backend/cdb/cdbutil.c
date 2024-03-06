@@ -492,12 +492,14 @@ getCdbComponentInfo(void)
 	/*
 	 * In singlenode deployment, total_segment_dbs is zero and it should still work.
 	 */
-	if (component_databases->total_segment_dbs == 0 && !IS_SINGLENODE() && !enable_serverless)
+#ifndef SERVERLESS
+	if (component_databases->total_segment_dbs == 0 && !IS_SINGLENODE())
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
 				 errmsg("number of segment databases cannot be 0")));
 	}
+#endif /* SERVERLESS */
 	if (component_databases->total_entry_dbs == 0)
 	{
 		ereport(ERROR,
@@ -2916,12 +2918,14 @@ getCdbComponentInfo(void)
 	 * Validate that there exists at least one entry and one segment database
 	 * in the configuration
 	 */
-	if (component_databases->total_segment_dbs == 0 && !enable_serverless)
+#ifndef SERVERLESS
+	if (component_databases->total_segment_dbs == 0)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
 				 errmsg("number of segment databases cannot be 0")));
 	}
+#endif /*SERVERLESS */
 	if (component_databases->total_entry_dbs == 0)
 	{
 		ereport(ERROR,

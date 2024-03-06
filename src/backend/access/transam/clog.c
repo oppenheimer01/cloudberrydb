@@ -171,8 +171,11 @@ TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 	/*
 	 * Only master can set transaction status
 	 */
-	if (enable_serverless && (Gp_role != GP_ROLE_DISPATCH && GpIdentity.segindex != MASTER_CONTENT_ID))
+#ifdef SERVERLESS
+	if (IsNormalProcessingMode() &&
+		IS_QUERY_EXECUTOR_BACKEND())
 		return;
+#endif /* SERVERLESS */
 
 	Assert(status == TRANSACTION_STATUS_COMMITTED ||
 		   status == TRANSACTION_STATUS_ABORTED);
