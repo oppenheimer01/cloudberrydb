@@ -481,7 +481,8 @@ DoCopyTo(CopyToState cstate)
 		 * doing COPY (SELECT) we just go straight to work, without
 		 * dispatching COPY commands to executors.
 		 */
-		if (Gp_role == GP_ROLE_DISPATCH && cstate->rel && cstate->rel->rd_cdbpolicy)
+		if (Gp_role == GP_ROLE_DISPATCH && cstate->rel && cstate->rel->rd_cdbpolicy &&
+			!GpPolicyIsEntry(cstate->rel->rd_cdbpolicy))
 			processed = CopyToDispatch(cstate);
 		else
 			processed = CopyTo(cstate);

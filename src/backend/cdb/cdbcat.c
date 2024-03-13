@@ -512,7 +512,11 @@ GpPolicyStore(Oid tbloid, const GpPolicy *policy)
 
 	/* Sanity check the policy and its opclasses before storing it. */
 	if (policy->ptype == POLICYTYPE_ENTRY)
+#ifdef SERVERLESS
+		return;
+#else
 		elog(ERROR, "cannot store entry-type policy in gp_distribution_policy");
+#endif
 	for (i = 0; i < policy->nattrs; i++)
 	{
 		if (policy->opclasses[i] == InvalidOid)
