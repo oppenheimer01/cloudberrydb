@@ -169,6 +169,14 @@ ftsConnectStart(fts_segment_info *ftsInfo)
 			 GPCONN_TYPE_FTS);
 	ftsInfo->conn = PQconnectStart(conninfo);
 
+	/*
+	 * Pass and set the Coordinator env declared GUCs in FTS process which can
+	 * raising undefined behaviour, since the two callback functions for an GUC
+	 * can touch any resource but FTS process does not prepare ready.
+	 */
+	if (ftsInfo->conn->pgoptions)
+		ftsInfo->conn->pgoptions = NULL;
+
 	if (ftsInfo->conn == NULL)
 	{
 		elog(ERROR, "FTS: cannot create libpq connection object, possibly out"
