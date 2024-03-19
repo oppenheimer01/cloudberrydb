@@ -520,3 +520,4 @@ XX002    E    ERRCODE_INDEX_CORRUPTED                                        ind
 # This is used for ERRORs induced on purpose for testing purposes. Shouldn't
 # appear in production, only in regression tests.
 XX009    E    ERRCODE_FAULT_INJECT                                           fault_inject
+XX00A    E    ERRCODE_CHAOS_FRAMEWORK                                        chaos_framework

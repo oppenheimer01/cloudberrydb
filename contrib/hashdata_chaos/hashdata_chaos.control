@@ -1,0 +1,5 @@
+# hashdata_chaos extension
+comment = 'chaos switch warehouse'
+default_version = '1.0'
+module_pathname = '$libdir/hashdata_chaos'
+relocatable = true

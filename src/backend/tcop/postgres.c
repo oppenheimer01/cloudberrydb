@@ -158,6 +158,11 @@ exec_simple_query_hook_type exec_simple_query_hook = NULL;
  */
 HandleTxnCommand_hook_type HandleTxnCommand_hook = NULL;
 
+/*
+ * Hook for plugins to process query
+ */
+exec_simple_query_hook execSimpleQuery_Hook = NULL;
+
 /* ----------------
  *		private typedefs etc
  * ----------------
@@ -5704,7 +5709,12 @@ PostgresMain(int argc, char *argv[],
 					else if (exec_simple_query_hook)
 						exec_simple_query_hook(query_string);
 					else
+					{
+						if (execSimpleQuery_Hook)
+							execSimpleQuery_Hook(&exec_simple_query, &whereToSendOutput);
+
 						exec_simple_query(query_string);
+					}
 
 					send_ready_for_query = true;
 				}
