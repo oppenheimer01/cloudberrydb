@@ -4063,6 +4063,11 @@ SendCopyFromForwardedError(CopyFromState cstate, CdbCopy *cdbCopy, char *errorms
 	int			target_seg;
 	int			errormsg_len = strlen(errormsg);
 
+#ifdef SERVERLESS
+	if (cstate->rel && GpPolicyIsEntry(cstate->rel->rd_cdbpolicy))
+		return;
+#endif
+
 	msgbuf = cstate->dispatch_msgbuf;
 	resetStringInfo(msgbuf);
 	enlargeStringInfo(msgbuf, SizeOfCopyFromDispatchError);

@@ -60,6 +60,9 @@ typedef struct
 	int			every_location;
 } PartEveryIterator;
 
+/* Hook for plugins to get control in makePartitionCreateStmt() */
+makePartitionCreateStmt_hook_type makePartitionCreateStmt_hook = NULL;
+
 static List *generateRangePartitions(ParseState *pstate,
 									 Relation parentrel,
 									 GpPartDefElem *elem,
@@ -899,6 +902,10 @@ makePartitionCreateStmt(Relation parentrel, char *partname, PartitionBoundSpec *
 	char	   *schemaname;
 	const char *final_part_name;
 
+	if (makePartitionCreateStmt_hook)
+		return (*makePartitionCreateStmt_hook) (parentrel, partname, boundspec,
+												subPart, elem, partnamecomp);
+
 	if (partnamecomp->tablename)
 		final_part_name = partnamecomp->tablename;
 	else
@@ -930,11 +937,6 @@ makePartitionCreateStmt(Relation parentrel, char *partname, PartitionBoundSpec *
 	childstmt->if_not_exists = false;
 	childstmt->origin = origin;
 	childstmt->distributedBy = make_distributedby_for_rel(parentrel);
-#ifdef SERVERLESS
-	/* make sure the numsegments of distribution policy is zero for partition child tables */
-	if (childstmt->distributedBy)
-		childstmt->distributedBy->numsegments = 0;
-#endif
 	childstmt->partitionBy = NULL;
 	childstmt->relKind = 0;
 	childstmt->ownerid = parentrel->rd_rel->relowner;
