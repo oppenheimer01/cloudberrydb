@@ -67,6 +67,8 @@
 /* Hook for plugins to get control in get_attavgwidth() */
 get_attavgwidth_hook_type get_attavgwidth_hook = NULL;
 
+/* Hook for plugins to get control in func_exec_location() */
+func_exec_location_hook_type func_exec_location_hook = NULL;
 
 /*				---------- AMOP CACHES ----------						 */
 
@@ -2498,6 +2500,9 @@ func_exec_location(Oid funcid)
 	HeapTuple	tp;
 	char		result;
 	bool		isnull;
+
+	if (func_exec_location_hook)
+		return (*func_exec_location_hook)(funcid);
 
 	tp = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(tp))

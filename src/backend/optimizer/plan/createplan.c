@@ -622,11 +622,13 @@ create_plan_recurse(PlannerInfo *root, Path *best_path, int flags)
 			break;
 	}
 
-	Assert(best_path->parallel_workers == best_path->locus.parallel_workers);
+	Assert(CdbPathLocus_IsEntry(best_path->locus) ||
+		   best_path->parallel_workers == best_path->locus.parallel_workers);
 	if (plan->locustype == CdbLocusType_Null)
 	{
 		plan->locustype = best_path->locus.locustype;
 	}
+
 	plan->parallel = best_path->locus.parallel_workers;
 
 	return plan;

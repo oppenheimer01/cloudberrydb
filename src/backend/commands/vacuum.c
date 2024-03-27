@@ -1694,9 +1694,13 @@ vac_update_relstats(Relation relation,
 	{
 		if (Gp_role == GP_ROLE_DISPATCH)
 		{
-			num_pages = relation->rd_rel->relpages;
-			num_tuples = relation->rd_rel->reltuples;
-			num_all_visible_pages = relation->rd_rel->relallvisible;
+			if (GpPolicyIsPartitioned(relation->rd_cdbpolicy) ||
+				GpPolicyIsReplicated(relation->rd_cdbpolicy))
+			{
+				num_pages = relation->rd_rel->relpages;
+				num_tuples = relation->rd_rel->reltuples;
+				num_all_visible_pages = relation->rd_rel->relallvisible;
+			}
 		}
 		else if (Gp_role == GP_ROLE_EXECUTE)
 		{

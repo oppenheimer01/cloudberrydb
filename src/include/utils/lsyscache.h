@@ -80,6 +80,10 @@ typedef struct AttStatsSlot
 typedef int32 (*get_attavgwidth_hook_type) (Oid relid, AttrNumber attnum);
 extern PGDLLIMPORT get_attavgwidth_hook_type get_attavgwidth_hook;
 
+/* Hook for plugins to get control in func_exec_location() */
+typedef char (*func_exec_location_hook_type) (Oid funcid);
+extern PGDLLIMPORT func_exec_location_hook_type func_exec_location_hook;
+
 extern bool op_in_opfamily(Oid opno, Oid opfamily);
 extern int	get_op_opfamily_strategy(Oid opno, Oid opfamily);
 extern Oid	get_op_opfamily_sortfamily(Oid opno, Oid opfamily);
