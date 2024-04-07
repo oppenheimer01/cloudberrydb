@@ -27,6 +27,7 @@
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
 #include "catalog/gp_storage_server.h"
+#include "catalog/gp_warehouse.h"
 #include "catalog/heap.h"
 #include "catalog/indexing.h"
 #include "catalog/objectaccess.h"
@@ -95,6 +96,9 @@
  */
 bool		revoked_something = false;
 
+/* Hook for plugins to get control in ExecGrantStmt_oids() */
+ExecGrantStmt_oids_hook_type ExecGrantStmt_oids_hook = NULL;
+
 /*
  * Internal format used by ALTER DEFAULT PRIVILEGES.
  */
@@ -148,11 +152,6 @@ static void expand_all_col_privileges(Oid table_oid, Form_pg_class classForm,
 									  int num_col_privileges);
 static AclMode string_to_privilege(const char *privname);
 static const char *privilege_to_string(AclMode privilege);
-static AclMode restrict_and_check_grant(bool is_grant, AclMode avail_goptions,
-										bool all_privs, AclMode privileges,
-										Oid objectId, Oid grantorId,
-										ObjectType objtype, const char *objname,
-										AttrNumber att_number, const char *colname);
 static AclMode pg_aclmask(ObjectType objtype, Oid table_oid, AttrNumber attnum,
 						  Oid roleid, AclMode mask, AclMaskHow how);
 static void recordExtensionInitPriv(Oid objoid, Oid classoid, int objsubid,
@@ -168,7 +167,7 @@ static void recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid
  *
  * NB: the original old_acl is pfree'd.
  */
-static Acl *
+Acl *
 merge_acl_with_grant(Acl *old_acl, bool is_grant,
 					 bool grant_option, DropBehavior behavior,
 					 List *grantees, AclMode privileges,
@@ -227,7 +226,7 @@ merge_acl_with_grant(Acl *old_acl, bool is_grant,
  * Restrict the privileges to what we can actually grant, and emit
  * the standards-mandated warning and error messages.
  */
-static AclMode
+AclMode
 restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 						 AclMode privileges, Oid objectId, Oid grantorId,
 						 ObjectType objtype, const char *objname,
@@ -283,6 +282,9 @@ restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 			break;
 		case OBJECT_EXTPROTOCOL:
 			whole_mask = ACL_ALL_RIGHTS_EXTPROTOCOL;
+			break;
+		case OBJECT_WAREHOUSE:
+			whole_mask = ACL_ALL_RIGHTS_WAREHOUSE;
 			break;
 		default:
 			elog(ERROR, "unrecognized object type: %d", objtype);
@@ -540,6 +542,10 @@ ExecuteGrantStmt(GrantStmt *stmt)
 			all_privileges = ACL_ALL_RIGHTS_EXTPROTOCOL;
 			errormsg = gettext_noop("invalid privilege type %s for external protocol");
 			break;
+		case OBJECT_WAREHOUSE:
+			all_privileges = ACL_ALL_RIGHTS_WAREHOUSE;
+			errormsg = gettext_noop("invalid privilege type %s for warehouse");
+			break;
 		default:
 			elog(ERROR, "unrecognized GrantStmt.objtype: %d",
 				 (int) stmt->objtype);
@@ -649,8 +655,8 @@ ExecuteGrantStmt(GrantStmt *stmt)
  *
  * Internal entry point for granting and revoking privileges.
  */
-static void
-ExecGrantStmt_oids(InternalGrant *istmt)
+void
+ExecGrantStmt_oids_internal(InternalGrant *istmt)
 {
 	switch (istmt->objtype)
 	{
@@ -691,6 +697,11 @@ ExecGrantStmt_oids(InternalGrant *istmt)
 		case OBJECT_EXTPROTOCOL:
 			ExecGrant_ExtProtocol(istmt);
 			break;
+		case OBJECT_WAREHOUSE:
+			ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("warehouse features are not supported")));
+			break;
 		default:
 			elog(ERROR, "unrecognized GrantStmt.objtype: %d",
 				 (int) istmt->objtype);
@@ -704,6 +715,15 @@ ExecGrantStmt_oids(InternalGrant *istmt)
 	 */
 	if (EventTriggerSupportsObjectType(istmt->objtype))
 		EventTriggerCollectGrant(istmt);
+}
+
+static void
+ExecGrantStmt_oids(InternalGrant *istmt)
+{
+	if (ExecGrantStmt_oids_hook)
+		return (*ExecGrantStmt_oids_hook)(istmt);
+
+	return ExecGrantStmt_oids_internal(istmt);
 }
 
 /*
@@ -889,6 +909,26 @@ objectNamesToOids(ObjectType objtype, List *objnames)
 
 				objects = lappend_oid(objects, ptcid);
 			}
+			break;
+		case OBJECT_WAREHOUSE:
+            foreach(cell, objnames)
+            {
+                char    *warehouse_name = strVal(lfirst(cell));
+                Oid     warehouse_oid;
+
+				HeapTuple tuple = SearchSysCache1(GPWAREHOUSENAME,
+									PointerGetDatum(cstring_to_text(warehouse_name)));
+				if (HeapTupleIsValid(tuple))
+				{
+					warehouse_oid = ((Form_gp_warehouse) GETSTRUCT(tuple))->oid;
+					ReleaseSysCache(tuple);
+				}
+				else
+					ereport(ERROR,
+						(errcode(ERRCODE_UNDEFINED_OBJECT),
+						errmsg("warehouse \"%s\" does not exist", warehouse_name)));
+                objects = lappend_oid(objects, warehouse_oid);
+            }
 			break;
 		default:
 			elog(ERROR, "unrecognized GrantStmt.objtype: %d",
@@ -1647,6 +1687,9 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 			case ExtprotocolRelationId:
 				istmt.objtype = OBJECT_EXTPROTOCOL;
 				break;
+			case GpWarehouseRelationId:
+				istmt.objtype = OBJECT_WAREHOUSE;
+				break;			
 			default:
 				elog(ERROR, "unexpected object class %u", classid);
 				break;
@@ -3796,6 +3839,9 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 					case OBJECT_TAG:
 						msg = gettext_noop("permission denied for tag %s");
 						break;
+					case OBJECT_WAREHOUSE:
+						msg = gettext_noop("permission denied for warehouse %s");
+						break;
 						/* these currently aren't used */
 					case OBJECT_ACCESS_METHOD:
 					case OBJECT_AMOP:
@@ -3934,6 +3980,9 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 					case OBJECT_EXTPROTOCOL:
 						msg = gettext_noop("must be owner of external protocol %s");
 						break;
+					case OBJECT_WAREHOUSE:
+						msg = gettext_noop("must be owner of warehouse %s");
+						break;
 
 						/*
 						 * Special cases: For these, the error message talks
@@ -4040,6 +4089,8 @@ pg_aclmask(ObjectType objtype, Oid table_oid, AttrNumber attnum, Oid roleid,
 			return pg_class_aclmask(table_oid, roleid, mask, how);
 		case OBJECT_DATABASE:
 			return pg_database_aclmask(table_oid, roleid, mask, how);
+		case OBJECT_WAREHOUSE:
+			return mask;
 		case OBJECT_FUNCTION:
 			return pg_proc_aclmask(table_oid, roleid, mask, how);
 		case OBJECT_LANGUAGE:

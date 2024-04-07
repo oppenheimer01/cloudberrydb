@@ -1969,6 +1969,10 @@ AlterOptRoleElem:
 						$$ = makeDefElem("createdb", (Node *)makeInteger(true), @1);
 					else if (strcmp($1, "nocreatedb") == 0)
 						$$ = makeDefElem("createdb", (Node *)makeInteger(false), @1);
+					else if (strcmp($1, "createwh") == 0)
+						$$ = makeDefElem("createwh", (Node *)makeInteger(true), @1);
+					else if (strcmp($1, "nocreatewh") == 0)
+						$$ = makeDefElem("createwh", (Node *)makeInteger(false), @1);
 					else if (strcmp($1, "login") == 0)
 						$$ = makeDefElem("canlogin", (Node *)makeInteger(true), @1);
 					else if (strcmp($1, "nologin") == 0)
@@ -10659,6 +10663,14 @@ privilege_target:
 					n->objs = $2;
 					$$ = n;
 				}
+			| WAREHOUSE name_list
+				{
+					PrivTarget *n = (PrivTarget *) palloc(sizeof(PrivTarget));
+					n->targtype = ACL_TARGET_OBJECT;
+					n->objtype = OBJECT_WAREHOUSE;
+					n->objs = $2;
+					$$ = n;
+				}
 			| DOMAIN_P any_name_list
 				{
 					PrivTarget *n = (PrivTarget *) palloc(sizeof(PrivTarget));
@@ -13435,6 +13447,17 @@ AlterWarehouseStmt:
 					n->kind = ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE;
 					n->whname = $3;
 					n->warehouse_size = $6;
+					n->options = NULL;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name OWNER TO RoleSpec
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_ALTER_OWNER;
+					n->whname = $3;
+					n->warehouse_size = 0;
+					n->newowner = $6;
 					n->options = NULL;
 					$$ = (Node *)n;
 				}

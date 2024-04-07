@@ -122,6 +122,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	bool		inherit = true; /* Auto inherit privileges? */
 	bool		createrole = false; /* Can this user create roles? */
 	bool		createdb = false;	/* Can the user create databases? */
+	bool		createwh = false;	/* Can the user create warehouse? */
 	bool		canlogin = false;	/* Can this user login? */
 	bool		isreplication = false;	/* Is this a replication role? */
 	bool		createrextgpfd = false; /* Can create readable gpfdist exttab? */
@@ -151,6 +152,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	DefElem    *dinherit = NULL;
 	DefElem    *dcreaterole = NULL;
 	DefElem    *dcreatedb = NULL;
+	DefElem    *dcreatewh = NULL;
 	DefElem    *dcanlogin = NULL;
 	DefElem    *disreplication = NULL;
 	DefElem    *dconnlimit = NULL;
@@ -233,6 +235,15 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 						 errmsg("conflicting or redundant options"),
 						 parser_errposition(pstate, defel->location)));
 			dcreatedb = defel;
+		}
+		else if (strcmp(defel->defname, "createwh") == 0)
+		{
+			if (dcreatewh)
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("conflicting or redundant options"),
+						 parser_errposition(pstate, defel->location)));
+			dcreatewh = defel;
 		}
 		else if (strcmp(defel->defname, "canlogin") == 0)
 		{
@@ -388,6 +399,8 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 		createrole = intVal(dcreaterole->arg) != 0;
 	if (dcreatedb)
 		createdb = intVal(dcreatedb->arg) != 0;
+	if (dcreatewh)
+		createwh = intVal(dcreatewh->arg) != 0;		
 	if (dcanlogin)
 		canlogin = intVal(dcanlogin->arg) != 0;
 	if (disreplication)
@@ -565,6 +578,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	new_record[Anum_pg_authid_rolinherit - 1] = BoolGetDatum(inherit);
 	new_record[Anum_pg_authid_rolcreaterole - 1] = BoolGetDatum(createrole);
 	new_record[Anum_pg_authid_rolcreatedb - 1] = BoolGetDatum(createdb);
+	new_record[Anum_pg_authid_rolcreatewh - 1] = BoolGetDatum(createwh);
 	new_record[Anum_pg_authid_rolcanlogin - 1] = BoolGetDatum(canlogin);
 	new_record[Anum_pg_authid_rolreplication - 1] = BoolGetDatum(isreplication);
 	new_record[Anum_pg_authid_rolconnlimit - 1] = Int32GetDatum(connlimit);
@@ -931,6 +945,7 @@ AlterRole(AlterRoleStmt *stmt)
 	int			inherit = -1;	/* Auto inherit privileges? */
 	int			createrole = -1;	/* Can this user create roles? */
 	int			createdb = -1;	/* Can the user create databases? */
+	int			createwh = -1;	/* Can the use create warehouse? */
 	int			canlogin = -1;	/* Can this user login? */
 	int			isreplication = -1; /* Is this a replication role? */
 	int			connlimit = -1; /* maximum connections allowed */
@@ -953,6 +968,7 @@ AlterRole(AlterRoleStmt *stmt)
 	DefElem    *dinherit = NULL;
 	DefElem    *dcreaterole = NULL;
 	DefElem    *dcreatedb = NULL;
+	DefElem    *dcreatewh = NULL;
 	DefElem    *dcanlogin = NULL;
 	DefElem    *disreplication = NULL;
 	DefElem    *dconnlimit = NULL;
@@ -1042,6 +1058,15 @@ AlterRole(AlterRoleStmt *stmt)
 						 errmsg("conflicting or redundant options")));
 			dcreatedb = defel;
 			if (1 == numopts) alter_subtype = "CREATEDB";
+		}
+		else if (strcmp(defel->defname, "createwh") == 0)
+		{
+			if (dcreatewh)
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("conflicting or redundant options")));
+			dcreatewh = defel;
+			if (1 == numopts) alter_subtype = "CREATEWH";
 		}
 		else if (strcmp(defel->defname, "canlogin") == 0)
 		{
@@ -1192,6 +1217,8 @@ AlterRole(AlterRoleStmt *stmt)
 		createrole = intVal(dcreaterole->arg);
 	if (dcreatedb)
 		createdb = intVal(dcreatedb->arg);
+	if (dcreatewh)
+		createwh = intVal(dcreatewh->arg);
 	if (dcanlogin)
 		canlogin = intVal(dcanlogin->arg);
 	if (disreplication)
@@ -1310,6 +1337,7 @@ AlterRole(AlterRoleStmt *stmt)
 		if (!(inherit < 0 &&
 			  createrole < 0 &&
 			  createdb < 0 &&
+			  createwh < 0 &&
 			  canlogin < 0 &&
 			  !dconnlimit &&
 			  !rolemembers &&
@@ -1408,6 +1436,12 @@ AlterRole(AlterRoleStmt *stmt)
 	{
 		new_record[Anum_pg_authid_rolcreatedb - 1] = BoolGetDatum(createdb > 0);
 		new_record_repl[Anum_pg_authid_rolcreatedb - 1] = true;
+	}
+
+	if (createwh >= 0)
+	{
+		new_record[Anum_pg_authid_rolcreatewh - 1] = BoolGetDatum(createwh > 0);
+		new_record_repl[Anum_pg_authid_rolcreatewh - 1] = true;
 	}
 
 	if (canlogin >= 0)

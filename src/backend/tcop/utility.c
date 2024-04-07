@@ -3040,6 +3040,9 @@ AlterObjectTypeCommandTag(ObjectType objtype)
 		case OBJECT_EXTPROTOCOL:
 			tag = CMDTAG_ALTER_PROTOCOL;
 			break;
+		case OBJECT_WAREHOUSE:
+			tag = CMDTAG_ALTER_WAREHOUSE;
+			break;
 		default:
 			tag = CMDTAG_UNKNOWN;
 			break;

@@ -1959,6 +1959,7 @@ typedef enum ObjectType
 	OBJECT_USER_MAPPING,
 	OBJECT_STORAGE_USER_MAPPING,
 	OBJECT_VIEW,
+	OBJECT_WAREHOUSE,
 	OBJECT_RESQUEUE,
 	OBJECT_RESGROUP,
 	OBJECT_DIRECTORY_TABLE
@@ -4486,7 +4487,8 @@ typedef struct DropWarehouseStmt
 typedef enum AlterWarehouseType
 {
 	ALTER_WAREHOUSE_OPTIONS,
-	ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE
+	ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE,
+	ALTER_WAREHOUSE_ALTER_OWNER
 } AlterWarehouseType;
 
 typedef struct AlterWarehouseStmt
@@ -4495,6 +4497,7 @@ typedef struct AlterWarehouseStmt
 	AlterWarehouseType	kind; 	  		/* ALTER_WAREHOUSE_OPTIONS, etc */
 	char	   			*whname;  		/* Name of the warehouse */
 	int					warehouse_size;	/* New size of warehouse if set warehouse_size command */
+	RoleSpec			*newowner;		/* the new owner */
 	List				*options; 		/* List of DefElem nodes */
 } AlterWarehouseStmt;
 

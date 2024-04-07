@@ -21,6 +21,7 @@
 #include "catalog/dependency.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
+#include "catalog/gp_warehouse.h"
 #include "catalog/heap.h"
 #include "catalog/index.h"
 #include "catalog/main_manifest.h"
@@ -218,7 +219,8 @@ static const Oid object_classes[] = {
 	ExtprotocolRelationId,		/* OCLASS_EXTPROTOCOL */
 	GpMatviewAuxId,				/* OCLASS_MATVIEW_AUX */
 	TaskRelationId,				/* OCLASS_TASK */
-	ManifestRelationId			/* MAIN_MANIFEST */
+	ManifestRelationId,			/* MAIN_MANIFEST */
+	GpWarehouseRelationId		/* OCLASS_WAREHOUSE */
 };
 
 
@@ -1638,6 +1640,7 @@ doDeletion(const ObjectAddress *object, int flags)
 		case OCLASS_STORAGE_USER_MAPPING:
 		case OCLASS_TAG:
 		case OCLASS_TAG_DESCRIPTION:
+		case OCLASS_WAREHOUSE:
 			elog(ERROR, "global objects cannot be deleted by doDeletion");
 			break;
 
@@ -3049,6 +3052,12 @@ getObjectClass(const ObjectAddress *object)
 
 		case ManifestRelationId:
 			return OCLASS_MAIN_MANIFEST;
+
+		case ManifestRelationId:
+			return OCLASS_MAIN_MANIFEST;
+
+		case GpWarehouseRelationId:
+			return OCLASS_WAREHOUSE;
 
 		default:
 		{

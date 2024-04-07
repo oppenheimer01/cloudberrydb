@@ -943,6 +943,7 @@ EventTriggerSupportsObjectType(ObjectType obtype)
 		case OBJECT_PROFILE:
 		case OBJECT_STORAGE_SERVER:
 		case OBJECT_STORAGE_USER_MAPPING:
+		case OBJECT_WAREHOUSE:
 			/* no support for global objects */
 			return false;
 		case OBJECT_EVENT_TRIGGER:
@@ -1033,6 +1034,7 @@ EventTriggerSupportsObjectClass(ObjectClass objclass)
 		case OCLASS_STORAGE_USER_MAPPING:
 		case OCLASS_TAG:
 		case OCLASS_TAG_DESCRIPTION:
+		case OCLASS_WAREHOUSE:
 			/* no support for global objects */
 			return false;
 		case OCLASS_EVENT_TRIGGER:
@@ -2143,6 +2145,8 @@ stringify_grant_objtype(ObjectType objtype)
 			return "TABLESPACE";
 		case OBJECT_TYPE:
 			return "TYPE";
+		case OBJECT_WAREHOUSE:
+			return "WAREHOUSE";
 			/* these currently aren't used */
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_AGGREGATE:
@@ -2234,6 +2238,8 @@ stringify_adefprivs_objtype(ObjectType objtype)
 			return "TABLESPACES";
 		case OBJECT_TYPE:
 			return "TYPES";
+		case OBJECT_WAREHOUSE:
+			return "WAREHOUSE";
 			/* these currently aren't used */
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_AGGREGATE:

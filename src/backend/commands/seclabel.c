@@ -99,6 +99,7 @@ SecLabelSupportsObjectType(ObjectType objtype)
 		case OBJECT_RESGROUP:
 		case OBJECT_STORAGE_SERVER:
 		case OBJECT_STORAGE_USER_MAPPING:
+		case OBJECT_WAREHOUSE:
 			return false;
 
 			/*

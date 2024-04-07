@@ -804,6 +804,10 @@ acldefault(ObjectType objtype, Oid ownerId)
 			world_default = ACL_USAGE;
 			owner_default = ACL_ALL_RIGHTS_TYPE;
 			break;
+		case OBJECT_WAREHOUSE:
+			world_default = ACL_NO_RIGHTS;
+			owner_default = ACL_ALL_RIGHTS_WAREHOUSE;
+			break;
 		default:
 			elog(ERROR, "unrecognized objtype: %d", (int) objtype);
 			world_default = ACL_NO_RIGHTS;	/* keep compiler quiet */
@@ -900,6 +904,9 @@ acldefault_sql(PG_FUNCTION_ARGS)
 			break;
 		case 'E':
 			objtype = OBJECT_EXTPROTOCOL;
+			break;
+		case 'W':
+			objtype = OBJECT_WAREHOUSE;
 			break;
 		default:
 			elog(ERROR, "unrecognized objtype abbreviation: %c", objtypec);

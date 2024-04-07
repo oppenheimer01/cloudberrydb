@@ -743,6 +743,7 @@ AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
 		case OCLASS_TAG:
 		case OCLASS_TAG_DESCRIPTION:
 		case OCLASS_MAIN_MANIFEST:
+		case OCLASS_WAREHOUSE:
 			/* ignore object types that don't have schema-qualified names */
 			break;
 
@@ -1003,6 +1004,12 @@ ExecAlterOwnerStmt_internal(AlterOwnerStmt *stmt)
 
 				return address;
 			}
+			break;
+
+		case OBJECT_WAREHOUSE:
+			ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("warehouse features are not supported")));
 			break;
 
 		default:

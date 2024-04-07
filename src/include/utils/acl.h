@@ -35,6 +35,7 @@
 #include "access/htup.h"
 #include "nodes/parsenodes.h"
 #include "parser/parse_node.h"
+#include "utils/aclchk_internal.h"
 #include "utils/snapshot.h"
 
 
@@ -167,6 +168,7 @@ typedef struct ArrayType Acl;
 #define ACL_ALL_RIGHTS_SCHEMA		(ACL_USAGE|ACL_CREATE)
 #define ACL_ALL_RIGHTS_TABLESPACE	(ACL_CREATE)
 #define ACL_ALL_RIGHTS_TYPE			(ACL_USAGE)
+#define ACL_ALL_RIGHTS_WAREHOUSE	(ACL_USAGE)
 
 /* operation codes for pg_*_aclmask */
 typedef enum
@@ -226,11 +228,24 @@ extern void initialize_acl(void);
 
 extern bool revoked_something;
 
+/* Hook for plugins to get control in ExecGrantStmt_oids() */
+typedef void (*ExecGrantStmt_oids_hook_type) (InternalGrant *istmt);
+extern PGDLLIMPORT ExecGrantStmt_oids_hook_type ExecGrantStmt_oids_hook;
 
 /*
  * prototypes for functions in aclchk.c
  */
+extern Acl *merge_acl_with_grant(Acl *old_acl, bool is_grant,
+										bool grant_option, DropBehavior behavior,
+										List *grantees, AclMode privileges,
+										Oid grantorId, Oid ownerId);
+extern AclMode restrict_and_check_grant(bool is_grant, AclMode avail_goptions,
+										bool all_privs, AclMode privileges,
+										Oid objectId, Oid grantorId,
+										ObjectType objtype, const char *objname,
+										AttrNumber att_number, const char *colname);
 extern void ExecuteGrantStmt(GrantStmt *stmt);
+extern void ExecGrantStmt_oids_internal(InternalGrant *istmt);
 extern void ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *stmt);
 
 extern void RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid);
