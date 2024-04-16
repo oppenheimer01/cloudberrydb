@@ -4479,6 +4479,7 @@ typedef struct CreateWarehouseStmt
 	char		*whname;
 	List		*options;		/* List of DefElem nodes */
 	List		*wh_options;	/* generic options to warehouse */
+	bool		if_not_exists;
 	List		*tags;			/* List of tag DefElem nodes */
 } CreateWarehouseStmt;
 
@@ -4486,6 +4487,7 @@ typedef struct DropWarehouseStmt
 {
 	NodeTag		type;
 	char		*whname;
+	bool		missing_ok;
 } DropWarehouseStmt;
 
 typedef enum AlterWarehouseType

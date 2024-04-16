@@ -6350,6 +6350,7 @@ _copyCreateWarehouseStmt(const CreateWarehouseStmt *from)
 	COPY_STRING_FIELD(whname);
 	COPY_NODE_FIELD(options);
 	COPY_NODE_FIELD(wh_options);
+	COPY_SCALAR_FIELD(if_not_exists);
 
 	return newnode;
 }
@@ -6400,6 +6401,7 @@ _copyDropWarehouseStmt(const DropWarehouseStmt *from)
 	DropWarehouseStmt *newnode = makeNode(DropWarehouseStmt);
 
 	COPY_STRING_FIELD(whname);
+	COPY_SCALAR_FIELD(missing_ok);
 
 	return newnode;
 }

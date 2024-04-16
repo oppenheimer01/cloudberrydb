@@ -13489,7 +13489,17 @@ CreateWarehouseStmt: CREATE WAREHOUSE name OptWarehouseOptList create_generic_op
 							n->whname = $3;
 							n->options = $4;
 							n->wh_options = $5;
+							n->if_not_exists = false;
 							n->tags = $6;
+							$$ = (Node *) n;
+						}
+					| CREATE WAREHOUSE IF_P NOT EXISTS name OptWarehouseOptList create_generic_options
+						{
+							CreateWarehouseStmt *n = makeNode(CreateWarehouseStmt);
+							n->whname = $6;
+							n->options = $7;
+							n->wh_options = $8;
+							n->if_not_exists = true;
 							$$ = (Node *) n;
 						}
 				;
@@ -13520,6 +13530,14 @@ DropWarehouseStmt: DROP WAREHOUSE name
 						{
 							DropWarehouseStmt *n = makeNode(DropWarehouseStmt);
 							n->whname = $3;
+							n->missing_ok = false;
+							$$ = (Node *) n;
+						}
+					| DROP WAREHOUSE IF_P EXISTS name
+						{
+							DropWarehouseStmt *n = makeNode(DropWarehouseStmt);
+							n->whname = $5;
+							n->missing_ok = true;
 							$$ = (Node *) n;
 						}
 				;
