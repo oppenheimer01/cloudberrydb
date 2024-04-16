@@ -717,6 +717,8 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %type <partelem>	part_elem
 %type <list>		part_params
 %type <partboundspec> PartitionBoundSpec
+%type <boolean> autopart_default
+%type <partboundspec> OptAutoPartitionBoundSpec
 %type <list>		hash_partbound
 %type <defelt>		hash_partbound_elem
 
@@ -751,6 +753,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %token <keyword> ABORT_P ABSOLUTE_P ACCESS ACTION ADD_P ADMIN AFTER
 	AGGREGATE ALL ALSO ALTER ALWAYS ANALYSE ANALYZE AND ANY ARRAY AS ASC
 	ASENSITIVE ASSERTION ASSIGNMENT ASYMMETRIC ATOMIC AT ATTACH ATTRIBUTE AUTHORIZATION
+	AUTO
 
 	BACKWARD BEFORE BEGIN_P BETWEEN BIGINT BINARY BIT
 	BOOLEAN_P BOTH BREADTH BY
@@ -4087,6 +4090,74 @@ alter_identity_column_option:
 				}
 		;
 
+autopart_default: WITHOUT DEFAULT
+				{
+					$$ = false;
+				}
+			| WITH DEFAULT
+				{
+					$$ = true;
+				}
+			;
+/*
+ * So far, auto partition only support one level hash partition
+ */
+OptAutoPartitionBoundSpec:
+			AUTO BY '(' NonReservedWord Iconst ')'
+				{
+ 					/* HASH partition */
+					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
+
+					n->strategy = PARTITION_STRATEGY_HASH;
+					n->modulus = n->remainder = -1;
+
+					if (strcmp($4, "modulus") == 0)
+					{
+							n->modulus = $5;
+					}
+					else
+					{
+						ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								 errmsg("unrecognized auto hash partition bound specification \"%s\"",
+										$4),
+								 parser_errposition(@4)));
+					}
+					$$ = n;
+				}
+			| AUTO BY ENUM_P
+				{
+ 					/* LIST partition */
+					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
+					n->strategy = PARTITION_STRATEGY_LIST;
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("auto partition do not support list yet")));
+					$$ = n; 
+				}
+			| AUTO START '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
+				{
+					/* Open Range partition */
+					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
+					n->strategy = PARTITION_STRATEGY_RANGE;
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+						 	 errmsg("auto partition do not support open space range yet")));
+					$$ = n;
+				}
+			| AUTO START '(' expr_list ')' END_P '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
+				{
+					/* Close Range partition with default */
+					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
+					n->strategy = PARTITION_STRATEGY_RANGE;
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+						 	 errmsg("auto partition do not support close space range yet")));
+					$$ = n;
+				}
+			| { $$ = NULL; }
+			;
+
 PartitionBoundSpec:
 			/* a HASH partition */
 			FOR VALUES WITH '(' hash_partbound ')'
@@ -5994,6 +6065,23 @@ OptFirstPartitionSpec: PartitionSpec opt_list_subparts OptTabPartitionSpec
 				{
 					$1->gpPartDef = (GpPartitionDefinition *) $3;
 					$1->subPartSpec = (PartitionSpec *) $2;
+#ifdef SERVERLESS
+					if ($1->subPartSpec)
+					{
+						bool error = ($1->autoPartBound != NULL);
+						for (PartitionSpec *current = $1; current; current = current->subPartSpec)
+						{
+							error |= ($1->autoPartBound != NULL);
+						}
+
+						if (error)
+						{
+							ereport(ERROR,
+									(errcode(ERRCODE_SYNTAX_ERROR),
+									 errmsg("auto partition do not support multi level partition yet")));
+						}
+					}
+#endif /* SEVERLESS */
 					/*
 					 * Only if GPDB legacy partition syntax, check for expression in partition
 					 * key. If gpPartDef is present then only its legacy syntax.
@@ -6050,13 +6138,16 @@ OptSecondPartitionSpec:
 				}
 		;
 
-PartitionSpec: PARTITION BY ColId '(' part_params ')'
+PartitionSpec: PARTITION BY ColId '(' part_params ')' OptAutoPartitionBoundSpec
 				{
 					PartitionSpec *n = makeNode(PartitionSpec);
 
 					n->strategy = $3;
 					n->partParams = $5;
 					n->location = @1;
+#ifdef SERVERLESS
+					n->autoPartBound = $7;
+#endif /* SERVERLESS */
 
 					$$ = n;
 				}
@@ -6634,7 +6725,7 @@ TabSubPartition:
 
 					$$ = $1;
 				}
-			| TabSubPartitionBy { $$ = $1; }
+			| TabSubPartitionBy OptAutoPartitionBoundSpec { $$ = $1; }
 			| TabSubPartitionBy TabSubPartition
 				{
 					PartitionSpec *n = (PartitionSpec *) $1;
@@ -19659,6 +19750,7 @@ unreserved_keyword:
 			| ATOMIC
 			| ATTACH
 			| ATTRIBUTE
+			| AUTO
 			| BACKWARD
 			| BEFORE
 			| BEGIN_P
@@ -20591,6 +20683,7 @@ bare_label_keyword:
 			| ATTACH
 			| ATTRIBUTE
 			| AUTHORIZATION
+			| AUTO
 			| BACKWARD
 			| BEFORE
 			| BEGIN_P

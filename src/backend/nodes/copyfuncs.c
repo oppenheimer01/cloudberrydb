@@ -5970,6 +5970,9 @@ _copyPartitionSpec(const PartitionSpec *from)
 	COPY_NODE_FIELD(partParams);
 	COPY_NODE_FIELD(gpPartDef);
 	COPY_NODE_FIELD(subPartSpec);
+#ifdef SERVERLESS
+	COPY_NODE_FIELD(autoPartBound);
+#endif /* SERVERLESS */
 	COPY_LOCATION_FIELD(location);
 
 	return newnode;

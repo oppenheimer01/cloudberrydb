@@ -4093,6 +4093,9 @@ _outPartitionSpec(StringInfo str, const PartitionSpec *node)
 
 	WRITE_STRING_FIELD(strategy);
 	WRITE_NODE_FIELD(partParams);
+#ifdef SERVERLESS
+	WRITE_NODE_FIELD(autoPartBound);
+#endif /* SERVERLESS */
 	WRITE_LOCATION_FIELD(location);
 }
 
