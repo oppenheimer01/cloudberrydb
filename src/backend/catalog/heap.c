@@ -4488,6 +4488,17 @@ StorePartitionBound(Relation rel, Relation parent, PartitionBoundSpec *bound)
 								 new_val, new_null, new_repl);
 	/* Also set the flag */
 	((Form_pg_class) GETSTRUCT(newtuple))->relispartition = true;
+#ifdef SERVERLESS
+	/*
+	 * Fill in relreuseattrs value.
+	 * True if partition has the same physical column definitions with its parent.
+	 */
+	TupleDesc	rel_tupleDesc = RelationGetDescr(rel);
+	TupleDesc	parent_tupleDesc = RelationGetDescr(parent);
+
+	((Form_pg_class) GETSTRUCT(newtuple))->relreuseattrs =
+		equalTupleDescs(rel_tupleDesc, parent_tupleDesc, true, true);
+#endif
 	CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
 	heap_freetuple(newtuple);
 	table_close(classRel, RowExclusiveLock);

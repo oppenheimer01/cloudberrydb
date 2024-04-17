@@ -2207,7 +2207,7 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 				if (childrows > 0 &&
 					!equalTupleDescs(RelationGetDescr(childrel),
 									 RelationGetDescr(onerel),
-									 false))
+									 false, false))
 				{
 					TupleConversionMap *map;
 

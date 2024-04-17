@@ -233,7 +233,7 @@ shared_record_table_compare(const void *a, const void *b, size_t size,
 	else
 		t2 = k2->u.local_tupdesc;
 
-	return equalTupleDescs(t1, t2, true) ? 0 : 1;
+	return equalTupleDescs(t1, t2, true, false) ? 0 : 1;
 }
 
 /*
@@ -1976,7 +1976,7 @@ record_type_typmod_compare(const void *a, const void *b, size_t size)
 	RecordCacheEntry *left = (RecordCacheEntry *) a;
 	RecordCacheEntry *right = (RecordCacheEntry *) b;
 
-	return equalTupleDescs(left->tupdesc, right->tupdesc, true) ? 0 : 1;
+	return equalTupleDescs(left->tupdesc, right->tupdesc, true, false) ? 0 : 1;
 }
 
 /*

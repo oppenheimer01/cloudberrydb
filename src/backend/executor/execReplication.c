@@ -303,7 +303,7 @@ RelationFindReplTupleSeq(Relation rel, LockTupleMode lockmode,
 	bool		found;
 	TupleDesc	desc PG_USED_FOR_ASSERTS_ONLY = RelationGetDescr(rel);
 
-	Assert(equalTupleDescs(desc, outslot->tts_tupleDescriptor, true));
+	Assert(equalTupleDescs(desc, outslot->tts_tupleDescriptor, true, false));
 
 	eq = palloc0(sizeof(*eq) * outslot->tts_tupleDescriptor->natts);
 

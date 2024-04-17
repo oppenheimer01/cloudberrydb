@@ -2871,7 +2871,7 @@ RelationClearRelation(Relation relation, bool rebuild)
 			elog(ERROR, "relation %u deleted while still in use", save_relid);
 		}
 
-		keep_tupdesc = equalTupleDescs(relation->rd_att, newrel->rd_att, true);
+		keep_tupdesc = equalTupleDescs(relation->rd_att, newrel->rd_att, true, false);
 		keep_rules = equalRuleLocks(relation->rd_rules, newrel->rd_rules);
 		keep_gp_policy = GpPolicyEqual(relation->rd_cdbpolicy, newrel->rd_cdbpolicy);
 		keep_policies = equalRSDesc(relation->rd_rsdesc, newrel->rd_rsdesc);

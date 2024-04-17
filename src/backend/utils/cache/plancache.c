@@ -735,7 +735,7 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		/* OK */
 	}
 	else if (resultDesc == NULL || plansource->resultDesc == NULL ||
-			 !equalTupleDescs(resultDesc, plansource->resultDesc, true))
+			 !equalTupleDescs(resultDesc, plansource->resultDesc, true, false))
 	{
 		/* can we give a better error message? */
 		if (plansource->fixed_result)

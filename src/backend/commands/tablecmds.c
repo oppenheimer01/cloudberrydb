@@ -595,6 +595,10 @@ static void checkATSetDistributedByStandalone(AlteredTableInfo *tab, Relation re
 static void populate_rel_col_encodings(Relation rel, List *stenc, List *withOptions, Oid newAm);
 static void clear_rel_opts(Relation rel);
 
+#ifdef SERVERLESS
+static void maintenance_relreuseattrs(Relation rel);
+static void maintenance_relreuseattrs_guts(Relation rel);
+#endif
 
 /* ----------------------------------------------------------------
  *		DefineRelation
@@ -6439,6 +6443,36 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
 			}
 			break;
 	}
+
+#ifdef SERVERLESS
+	/*
+	 * maintenance_relreuseattrs
+	 * Not all ALTER COLUMN commands are considered, some commands like
+	 * ALTER COLUMN SET(options) doesn't have an impact on Attributes Reuse.
+	 */
+	if (cmd != NULL)
+	{
+		switch (cmd->subtype)
+		{
+			case AT_DropNotNull:	/* ALTER COLUMN DROP NOT NULL */
+			case AT_SetNotNull:		/* ALTER COLUMN SET NOT NULL */
+			case AT_ColumnDefault:	/* ALTER COLUMN DEFAULT */
+			case AT_AddIdentity:
+			case AT_SetIdentity:
+			case AT_DropIdentity:
+			case AT_DropExpression:
+			case AT_SetStatistics:	/* ALTER COLUMN SET STATISTICS */
+			case AT_SetStorage:		/* ALTER COLUMN SET STORAGE */
+			case AT_AlterColumnType:	/* ALTER COLUMN TYPE */
+			case AT_SetCompression:
+				maintenance_relreuseattrs(rel);
+				break;
+			default:
+				/* do nothing. */
+				break;
+		}
+	}
+#endif
 
 	/*
 	 * Report the subcommand to interested event triggers.
@@ -22523,6 +22557,9 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
 								 new_val, new_null, new_repl);
 
 	((Form_pg_class) GETSTRUCT(newtuple))->relispartition = false;
+#ifdef SERVERLESS
+	((Form_pg_class) GETSTRUCT(newtuple))->relreuseattrs = false;
+#endif
 	CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
 	heap_freetuple(newtuple);
 	table_close(classRel, RowExclusiveLock);
@@ -23264,3 +23301,97 @@ ATExecSetRelOptionsCheck(Relation rel, DefElem *def)
 		ATExecSetRelOptionsCheck_hook(rel, def);
 	return;
 }
+
+#ifdef SERVERLESS
+static void
+maintenance_relreuseattrs(Relation rel)
+{
+	if (unlikely(Gp_role != GP_ROLE_DISPATCH))
+		return;
+	CommandCounterIncrement();
+	maintenance_relreuseattrs_guts(rel);
+}
+
+/*
+ * SERVERLESS
+ * maintenance pg_class.relreuseattrs
+ * If column of one relation of a partition tree is altered:
+ * 1.Check columns with its parent(if exists)
+ * 2.Check columns with its children recursively (if exists)
+ *       t1
+ *      / \
+ *    p1  p2
+ *       /  \
+ *     p2_1 p2_2
+ * example: alter table p2 alter column set xxx;
+ * check p2's columns with t1, update p2.relreuseattrs.
+ * check p2_1, p2_2's columns with p2, update relreuseattrs of p2_1, p2_2.
+ */
+static void
+maintenance_relreuseattrs_guts(Relation rel)
+{
+	Relation	classRel;
+	bool    	could_reuse;
+	Datum		new_val[Natts_pg_class];
+	bool		new_null[Natts_pg_class], new_repl[Natts_pg_class];
+	HeapTuple	tuple, newtuple;
+	Form_pg_class classform;
+	Relation    parentrel;
+	TupleDesc   rel_tupleDesc;
+	TupleDesc   parent_tupleDesc;
+	Oid         parent_oid;
+	Oid relid = RelationGetRelid(rel);
+
+	/* check with parent */
+	if (rel->rd_rel->relispartition)
+	{
+		parent_oid = get_partition_parent(relid, true);
+		if (OidIsValid(parent_oid))
+		{
+			classRel = table_open(RelationRelationId, RowExclusiveLock);
+			parentrel = relation_open(parent_oid, AccessShareLock);
+			rel_tupleDesc = RelationGetDescr(rel);
+			parent_tupleDesc = RelationGetDescr(parentrel);
+			could_reuse = equalTupleDescs(rel_tupleDesc, parent_tupleDesc, true, true);
+			tuple = SearchSysCacheCopy1(RELOID, relid);
+			if (!HeapTupleIsValid(tuple))
+				elog(ERROR, "cache lookup failed for relation %u", relid);
+			classform = (Form_pg_class) GETSTRUCT(tuple);
+			if (classform->relreuseattrs != could_reuse)
+			{
+				memset(new_val, 0, sizeof(new_val));
+				memset(new_null, false, sizeof(new_null));
+				memset(new_repl, false, sizeof(new_repl));
+				new_val[Anum_pg_class_relreuseattrs - 1] = could_reuse;
+				new_null[Anum_pg_class_relreuseattrs - 1] = false;
+				new_repl[Anum_pg_class_relreuseattrs - 1] = true;
+				newtuple = heap_modify_tuple(tuple, RelationGetDescr(classRel), new_val, new_null, new_repl);
+				CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
+				heap_freetuple(newtuple);
+				CommandCounterIncrement();
+			}
+			table_close(classRel, RowExclusiveLock);
+			relation_close(parentrel, NoLock);
+		}
+	}
+
+	/* not partitioned, do nothing */
+	if (rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
+		return;
+
+	List	*children;
+	ListCell   *child;
+	children = find_inheritance_children(relid,  AccessExclusiveLock);
+	foreach(child, children)
+	{
+		Oid			childrelid = lfirst_oid(child);
+		Relation	childrel;
+		/* find_inheritance_children already got lock */
+		childrel = table_open(childrelid, NoLock);
+		CheckTableNotInUse(childrel, "ALTER TABLE");
+		maintenance_relreuseattrs_guts(childrel);
+		table_close(childrel, NoLock);
+	}
+}
+
+#endif

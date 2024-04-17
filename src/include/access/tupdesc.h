@@ -141,7 +141,7 @@ extern void DecrTupleDescRefCount(TupleDesc tupdesc);
 			DecrTupleDescRefCount(tupdesc); \
 	} while (0)
 
-extern bool equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict);
+extern bool equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict, bool for_partition_reuse_attrs);
 
 extern uint32 hashTupleDesc(TupleDesc tupdesc);
 

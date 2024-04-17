@@ -137,6 +137,12 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* all multixacts in this rel are >= this; it is really a MultiXactId */
 	TransactionId relminmxid BKI_DEFAULT(1);	/* FirstMultiXactId */
 
+	/*
+	 * Can partition relation reuse attributes (have the same column definitions) of its parent? 
+	 * This filed is pointless if rel is not a partition.
+	 */
+	bool		relreuseattrs BKI_DEFAULT(f);
+
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
 	/* NOTE: These fields are not present in a relcache entry's rd_rel field. */
 	/* access permissions */
