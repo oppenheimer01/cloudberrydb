@@ -8724,7 +8724,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		 * should be smarter..
 		 */
 
-		if (!RelationIsHeap(rel))
+		if (!(table_scan_flags(rel) & SCAN_SUPPORT_DEFAULT_COLUMNS))
 		{
 			if (!defval)
 				defval = (Expr *) makeNullConst(typeOid, -1, collOid);

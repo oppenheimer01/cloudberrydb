@@ -59,6 +59,10 @@ typedef struct AnalyzeContext{
 	int32		targrows;
 } AnalyzeContext;
 
+#define SCAN_SUPPORT_VECTORIZATION (1 << 8) /* support vectorization scan */
+/* support scan with column default value, but not in storage */
+#define SCAN_SUPPORT_DEFAULT_COLUMNS (1 << 7) 
+
 /*
  * Bitmask values for the flags argument to the scan_begin callback.
  */

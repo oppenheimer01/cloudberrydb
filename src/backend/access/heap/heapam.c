@@ -1624,7 +1624,7 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 uint32
 heap_scan_flags(Relation relation)
 {
-	return 0;
+	return (uint32)SCAN_SUPPORT_DEFAULT_COLUMNS;
 }
 
 /*
