@@ -239,6 +239,10 @@ ExecScan(ScanState *node,
 		 * when the qual is null ... saves only a few cycles, but they add up
 		 * ...
 		 */
+		/*
+		 * fetch qual again in case ExecScanFetch updated it
+		 */
+		qual = node->ps.qual;
 		if (qual == NULL || ExecQual(qual, econtext))
 		{
 			/*
