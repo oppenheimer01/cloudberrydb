@@ -1598,7 +1598,7 @@ doDeletion(const ObjectAddress *object, int flags)
 			RemoveTaskById(object->objectId);
 			break;
 		case OCLASS_MAIN_MANIFEST:
-			RemoveMainManifestByRelnode(object->objectId);
+			RemoveManifestRecord(object->objectId);
 			break;
 
 		case OCLASS_MATVIEW_AUX:

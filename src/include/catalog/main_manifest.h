@@ -30,6 +30,8 @@ CATALOG(main_manifest,9004,ManifestRelationId)
 
 typedef FormData_main_manifest *Form_main_manifest;
 
-extern void RemoveMainManifestByRelnode(Oid relnode);
+extern void InsertManifestRecord(Oid relid, RelFileNodeId relnode, text* path);
+extern void RemoveManifestRecord(RelFileNodeId relnode);
+extern void UpdateManifestRecord(RelFileNodeId relnode, text* path);
 
 #endif /* MAIN_MANIFEST.h */
