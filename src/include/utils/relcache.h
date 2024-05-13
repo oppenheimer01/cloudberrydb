@@ -26,6 +26,9 @@
  */
 #define RELCACHE_INIT_FILENAME	"pg_internal.init"
 
+typedef bool (*write_relcache_init_file_hook_type) (void);
+extern PGDLLIMPORT write_relcache_init_file_hook_type write_relcache_init_file_hook;
+
 typedef struct RelationData *Relation;
 
 /* ----------------

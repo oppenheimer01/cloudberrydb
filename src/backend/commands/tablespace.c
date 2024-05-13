@@ -112,13 +112,9 @@
 char	   *default_tablespace = NULL;
 char	   *temp_tablespaces = NULL;
 
-
-static void create_tablespace_directories(const char *location,
-										  const Oid tablespaceoid);
 static bool destroy_tablespace_directories(Oid tablespaceoid, bool redo);
 
 static bool is_tablespace_empty(const Oid tablespace_oid);
-static void ensure_tablespace_directory_is_empty(const Oid tablespaceoid, const char *tablespace_name);
 
 static void unlink_during_redo(Oid tablepace_oid_to_unlink);
 static void unlink_without_redo(Oid tablespace_oid_to_unlink);
@@ -605,7 +601,7 @@ is_tablespace_empty(const Oid tablespace_oid)
 }
 
 
-static void 
+void 
 ensure_tablespace_directory_is_empty(const Oid tablespace_oid,
 									 const char *tablespace_name) {
 	if (tablespace_oid == InvalidOid)
@@ -850,7 +846,7 @@ DropTableSpace(DropTableSpaceStmt *stmt)
  *	Attempt to create filesystem infrastructure linking $PGDATA/pg_tblspc/
  *	to the specified directory
  */
-static void
+void
 create_tablespace_directories(const char *location, const Oid tablespaceoid)
 {
 	char	   *linkloc;

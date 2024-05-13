@@ -286,6 +286,8 @@ typedef struct opclasscacheent
 static HTAB *OpClassCache = NULL;
 
 
+write_relcache_init_file_hook_type write_relcache_init_file_hook = NULL;
+
 /* non-export function prototypes */
 
 static void RelationDestroyRelation(Relation relation, bool remember_tupdesc);
@@ -6557,6 +6559,8 @@ write_relcache_init_file(bool shared)
 	RelIdCacheEnt *idhentry;
 	int			i;
 
+	if (write_relcache_init_file_hook && write_relcache_init_file_hook())
+		return;
 	/*
 	 * If we have already received any relcache inval events, there's no
 	 * chance of succeeding so we may as well skip the whole thing.

@@ -2195,6 +2195,28 @@ make_postgres(FILE *cmdfd)
 }
 
 /*
+ * copy template1 to postgres
+ */
+static void
+make_hashdatadb(FILE *cmdfd)
+{
+	const char *const *line;
+	static const char *const postgres_setup[] = {
+		"CREATE DATABASE hashdatadb;\n\n",
+		"COMMENT ON DATABASE hashdatadb IS 'default administrative connection database';\n\n",
+		/*
+		 * Clean out dead rows in pg_database
+		 */
+		"VACUUM FULL pg_database;\n\n",
+		NULL
+	};
+
+	for (line = postgres_setup; *line; line++)
+		PG_CMD_PUTS(*line);
+}
+
+
+/*
  * signal handler in case we are interrupted.
  *
  * The Windows runtime docs at
@@ -3264,6 +3286,10 @@ initialize_data_directory(void)
 	 * will be reported in gp_replica_check.
 	 */
 	vacuum_db(cmdfd);
+
+#ifdef SERVERLESS
+	make_hashdatadb(cmdfd);
+#endif
 
 	PG_CMD_CLOSE;
 
