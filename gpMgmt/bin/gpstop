@@ -300,6 +300,9 @@ class GpStop:
         self.gphome = gp.get_gphome()
         if self.coordinator_datadir is None:
             self.coordinator_datadir = gp.get_coordinatordatadir()
+        if is_external_fts:
+            if self.fts_hosts is None:
+                self.fts_hosts = self.coordinator_datadir + '/config' + '/fts_host'
         self.user = unix.getUserName()
         gp.check_permissions(self.user)
         self._read_postgresqlconf()
@@ -956,14 +959,6 @@ class GpStop:
         if options.timeout < SEGMENT_STOP_TIMEOUT_DEFAULT and not options.skipvalidation:
             raise ProgramArgumentValidationException(
                 "Invalid timeout value.  Must be greater than %s seconds." % SEGMENT_STOP_TIMEOUT_DEFAULT)
-        
-        if is_external_fts:
-            if options.fts_hosts is None:
-                coordinator_data_directory = os.getenv('COORDINATOR_DATA_DIRECTORY')
-                if coordinator_data_directory is None:
-                    coordinator_data_directory = options.coordinatorDataDirectory
-                
-                options.fts_hosts = coordinator_data_directory + '/config' + '/fts_host'
 
         if args:
             raise ProgramArgumentValidationException(

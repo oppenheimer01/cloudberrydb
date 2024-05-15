@@ -1,0 +1,9 @@
+COORDINATOR_HOST: 127.0.0.1
+SEGMENT_HOST:
+  - gpadmin@127.0.0.1
+  - 127.0.0.1
+  - 127.0.0.1
+PORT_BASE: 5433
+RUN_BEFORE_SSH_COMMAND: source ~/install/hashdata_cloud/greenplum_path.sh
+WAREHOUSE:
+  NAME: test

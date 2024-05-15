@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+import argparse
+import shlex
+import subprocess
+import textwrap
+import time
+
+import yaml
+
+
+class HdConfig:
+    def __init__(self, file):
+        self.file_name = file.name
+        self.__config: dict = yaml.safe_load(file)
+
+    def __getitem__(self, item):
+        if item not in self.__config:
+            raise EnvironmentError(f"required config {item} not found in {self.file_name}")
+        return self.__config[item]
+
+    def __contains__(self, item):
+        return item in self.__config
+
+    def get(self, item, default):
+        return self.__config.get(item, default)
+
+
+Config: HdConfig
+PaddingToLength = 0
+DefaultFormatterClass = argparse.ArgumentDefaultsHelpFormatter
+MaxPgIsReadyWaitMs = 2000
+Debug_MockSSH = False
+
+
+class SSHCommandException(Exception):
+    def __init__(self, msg: str, retcode: int, conn: str):
+        self.retcode = retcode
+        self.conn = conn
+        super().__init__(f"[{conn}] {msg}")
+
+    @classmethod
+    def from_exec(cls, cmd: str, stderr: str, retcode: int, conn: str):
+        return cls(f"`{cmd}` failed with {retcode}: {stderr}", retcode, conn)
+
+
+class HdConnection:
+    def __init__(self, conn_str: str):
+        host = conn_str
+        if conn_str.find('@') >= 0:
+            host = conn_str.split('@')[1]
+        self.host = host
+        self.__hostname = ""
+        self.conn_str = conn_str
+        self.padding_length = PaddingToLength - len(conn_str)
+        self.GP_HOME, _ = self.exec("echo $GPHOME")
+        if not self.GP_HOME and not Debug_MockSSH:
+            raise EnvironmentError(f"$GPHOME is invalid on {self.conn_str}")
+
+    def hostname(self) -> str:
+        """Get hostname lazily"""
+        if not self.__hostname:
+            self.__hostname = self.exec("echo `hostname`")[0]
+        return self.__hostname
+
+    def exec(self, cmd: str, newline=True) -> (str, int):
+        """Run cmd on this peer
+        :param cmd: command to run
+        :param newline: Whether to end the log line with a newline
+        """
+        if not Debug_MockSSH:
+            print(f"[{self.conn_str}]{' ' * self.padding_length} {cmd}", end='\n' if newline else '')
+        run_before = Config.get('RUN_BEFORE_SSH_COMMAND', None)
+        cmd = f'{run_before}; {cmd}' if run_before else cmd
+        cmd = f"ssh {self.conn_str} {shlex.quote(cmd)}"
+        if Debug_MockSSH:
+            print(cmd)
+            return '', 0
+        res = subprocess.run(cmd, check=False, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ret = res.returncode
+
+        def drain(s):
+            return s.decode().strip('\n')
+
+        if ret == 0:
+            return drain(res.stdout), ret
+        else:
+            raise SSHCommandException.from_exec(cmd, drain(res.stderr), ret, self.conn_str)
+
+    def exec_gphome_bin(self, cmd: str) -> (str, int):
+        return self.exec(f"{self.GP_HOME}/bin/{cmd}")
+
+    def write(self, content: str, dest: str):
+        self.exec(textwrap.dedent("""\
+            cat <<EOF > "{}"
+            {}
+            EOF""").format(dest, content))
+
+
+class HdCoordinator(HdConnection):
+    def psql(self, sql: str, inline=False):
+        out, _ = self.exec(f'psql -c "{sql}" postgres', newline=not inline)
+        if inline:
+            print(' -> ', end='')
+        print(out)
+
+    def dump_str_guc_as_conf_lines(self, *guc_names: str):
+        """Dump string GUC values as postgresql.conf lines. Warning: GUC values are treated as strings"""
+        values = [self.exec(f'psql -tc "show {guc_name}" postgres')[0].strip() for guc_name in guc_names]
+        return '\n'.join([f"{k} = '{v}'" for k, v in zip(guc_names, values)])
+
+    def __init__(self, conn_str: str):
+        super().__init__(conn_str)
+
+
+class HdSegment(HdConnection):
+    def create(self):
+        self.exec(f'mkdir -p "{self.datadir}"')
+        self.exec_gphome_bin(f'initdb -D "{self.datadir}" -k -E utf-8')
+        self.write(textwrap.dedent(f"""\
+            include_if_exists = '$HOME/data/global.conf'
+            gp_contentid = {self.contentid}
+            gp_dbid = {self.dbid}
+            port = {self.port}
+            listen_addresses = '*'"""), f"{self.datadir}/postgresql.conf")
+        global_conf_lines = self.coordinator.dump_str_guc_as_conf_lines("unionstore.tenant_id",
+                                                                        "unionstore.timeline_id",
+                                                                        "unionstore.safekeepers",
+                                                                        "unionstore.pageserver_connstring")
+        self.write(global_conf_lines, "$HOME/data/global.conf")
+        pg_ctl_cmd = f'pg_ctl -D "{self.datadir}" -l "{self.startup_log}" -w -t 600 -o "-p {self.port} -c gp_role=execute" start'
+        try:
+            self.exec_gphome_bin(pg_ctl_cmd)
+        except SSHCommandException as e:
+            cat_log_cmd = f'cat {self.startup_log}'
+            print(f"\nCommand `{pg_ctl_cmd}` failed. Automatically fetch log with {cat_log_cmd}...")
+            print(self.exec(cat_log_cmd)[0])
+            raise e
+        # probe
+        ret, total_wait_ms, attempts = 1, 0, 0
+        while total_wait_ms < MaxPgIsReadyWaitMs:
+            try:
+                _, ret = self.exec_gphome_bin(f"pg_isready -d postgres -p {self.port}")
+            except SSHCommandException as e:
+                ret = e.retcode
+            if ret == 0:
+                break
+            wait_ms = 100
+            time.sleep(wait_ms / 1000)
+            total_wait_ms += wait_ms
+            attempts += 1
+        if ret != 0:
+            raise SSHCommandException(f"pg_isready still returns {ret} after {attempts} attempts", ret, self.conn_str)
+
+    def drop(self):
+        try:
+            self.exec_gphome_bin(f'pg_ctl -D "{self.datadir}" -l "{self.startup_log}" -w -t 120 -m i stop')
+        except SSHCommandException as e:
+            print(e)
+        self.exec(f'rm -rf "{self.datadir}"')
+
+    def __init__(self, conn_str: str, dbid: int, contentid: int, port: int, datadir: str, coordinator: HdCoordinator):
+        super().__init__(conn_str)
+        self.dbid = dbid
+        self.contentid = contentid
+        self.port = port
+        self.datadir = self.exec(f"realpath {datadir}")[0]
+        self.startup_log = f"{self.datadir}/log/startup.log"
+        self.coordinator = coordinator
+
+
+class HdWarehouse:
+    def on_all_segments(self, func_name: str):
+        """Helper function to call func_name on all segments"""
+        for p in self.segments:
+            getattr(p, func_name)()
+
+    def create(self):
+        self.on_all_segments('create')
+        config_array_content = ','.join([f"'{p.port},{p.hostname()},{p.host},{p.datadir}'" for p in self.segments])
+        self.coordinator.psql(f"select pg_catalog.create_warehouse_callback('{self.name}', 'SUCCESS', array[{config_array_content}])")
+
+    def drop(self):
+        self.on_all_segments('drop')
+        self.coordinator.psql(f"select pg_catalog.drop_warehouse_callback('{self.name}')")
+
+    def recreate(self):
+        print("\nDropping...")
+        self.drop()
+        print("\nCreating...")
+        self.create()
+
+    def list(self):
+        self.coordinator.psql("select * from gp_warehouse")
+        self.coordinator.psql("select * from gp_segment_configuration")
+
+    def __init__(self, name: str, conn_strs: [str], base_port: int, coordinator: HdCoordinator):
+        self.name = name
+        self.coordinator = coordinator
+        self.segments = []
+        for i, conn_str in enumerate(conn_strs):
+            port = base_port + i
+            self.segments.append(HdSegment(conn_str, i + 2, i, port, f"$HOME/data/primary{port}", coordinator))
+
+
+class ArgParseShim:
+    """Backports some ArgParse functionalities to older version of Python 3"""
+
+    def __init__(self):
+        self.subparsers = []
+
+    def add_required_subparsers(self, p):
+        """Backports p.add_subparsers(required=True) which is added in Python 3.7"""
+        res = p.add_subparsers()
+        self.subparsers.append(res)
+        return res
+
+    def epilogue(self):
+        """MUST BE CALLED after parsing has been configured"""
+        for sub in self.subparsers:
+            keys = sub.choices.keys()
+            assert len(keys) > 0, "required subparsers must have sub parser"
+            sub.metavar = '{' + ','.join(keys) + '}'
+            sub.required = True
+
+
+if __name__ == '__main__':
+    shim = ArgParseShim()
+    parser = argparse.ArgumentParser(formatter_class=DefaultFormatterClass)
+    subs = shim.add_required_subparsers(parser)
+    parser_warehouse = subs.add_parser("warehouse", help="Sub-commands to manage warehouse.", formatter_class=DefaultFormatterClass)
+    parser_warehouse.add_argument("--config", "-c", help="Path of the configuration file.", default="./hd_ctl.config.yaml")
+    warehouse_subs = shim.add_required_subparsers(parser_warehouse)
+    create_warehouse = warehouse_subs.add_parser("create")
+    drop_warehouse = warehouse_subs.add_parser("drop")
+    recreate_warehouse = warehouse_subs.add_parser("recreate")
+    shim.epilogue()
+    parsed = parser.parse_args()  # parse before initialization so that syntax errors can be reported early
+    with open(parsed.config, 'r') as f:
+        Config = HdConfig(f)
+
+    segments = Config['SEGMENT_HOST']
+    PaddingToLength = max(len(x) for x in segments)
+    qd = HdCoordinator(Config['COORDINATOR_HOST'])
+    warehouse = HdWarehouse(Config['WAREHOUSE']['NAME'], Config['SEGMENT_HOST'], Config['PORT_BASE'], qd)
+
+    create_warehouse.set_defaults(func=warehouse.create)
+    drop_warehouse.set_defaults(func=warehouse.drop)
+    recreate_warehouse.set_defaults(func=warehouse.recreate)
+    parser.parse_args().func()  # parse a second time which is guaranteed to succeed
+
+    warehouse.list()
