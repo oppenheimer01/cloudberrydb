@@ -45,6 +45,9 @@ CATALOG(gp_warehouse,8690,GpWarehouseRelationId) BKI_SHARED_RELATION
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
     text    status          BKI_FORCE_NOT_NULL; /* status */
     aclitem warehouse_acl[1];       /* access permissions */
+
+    /* warehouse options */
+    text		whoptions[1] BKI_DEFAULT(_null_);
 #endif
 } FormData_gp_warehouse;
 
