@@ -236,7 +236,7 @@ def connect(dburl, utility=False, verbose=False,
         options.append("-c search_path=")
 
     if dburl.warehouse:
-        options.append("-c hashdata.warehouse=%s" % dburl.warehouse)
+        options.append("-c warehouse=%s" % dburl.warehouse)
 
     if allowSystemTableMods:
         options.append("-c allow_system_table_mods=true")

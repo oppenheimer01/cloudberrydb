@@ -190,7 +190,7 @@ generate_cmd(Oid id, char *buffer, int lengh)
 	if (HeapTupleIsValid(tuple))
 	{
 		text *warehouse_name = &((Form_gp_warehouse) GETSTRUCT(tuple))->warehouse_name;
-		snprintf(buffer, lengh,"set hashdata.warehouse to %s;", text_to_cstring(warehouse_name));
+		snprintf(buffer, lengh,"set warehouse to %s;", text_to_cstring(warehouse_name));
         success = true;
 	}
 	systable_endscan(scan);

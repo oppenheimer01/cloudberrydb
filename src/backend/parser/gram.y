@@ -768,7 +768,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA
 	CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER CURSOR CYCLE
 
-	DATA_P DATABASE DAY_P DEALLOCATE DEC DECIMAL_P DECLARE DEFAULT DEFAULTS
+	DATA_P DATABASE DAY_P DEALLOCATE DEC DECIMAL_P DECLARE DEFAULT DEFAULTS DEFAULTWAREHOUSE
 	DEFERRABLE DEFERRED DEFINER DELETE_P DELIMITER DELIMITERS DEPENDS DEPTH DESC
 	DETACH DICTIONARY DIRECTORY DISABLE_P DISCARD DISTINCT DO DOCUMENT_P DOMAIN_P
 	DOUBLE_P DROP DYNAMIC
@@ -1038,6 +1038,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc DEALLOCATE
 			%nonassoc DECLARE
 			%nonassoc DEFAULTS
+			%nonassoc DEFAULTWAREHOUSE
 			%nonassoc DEFERRED
 			%nonassoc DEFINER
 			%nonassoc DELETE_P
@@ -2022,6 +2023,10 @@ CreateOptRoleElem:
 			| IN_P GROUP_P role_list
 				{
 					$$ = makeDefElem("addroleto", (Node *)$3, @1);
+				}
+			| DEFAULTWAREHOUSE name
+				{
+					$$ = makeDefElem("default_warehosue", (Node *) makeString($2), @1);
 				}
 		;
 
@@ -19819,6 +19824,7 @@ unreserved_keyword:
 			| DEALLOCATE
 			| DECLARE
 			| DEFAULTS
+			| DEFAULTWAREHOUSE
 			| DEFERRED
 			| DEFINER
 			| DELETE_P
@@ -20778,6 +20784,7 @@ bare_label_keyword:
 			| DECODE
 			| DEFAULT
 			| DEFAULTS
+			| DEFAULTWAREHOUSE
 			| DEFERRABLE
 			| DEFERRED
 			| DEFINER

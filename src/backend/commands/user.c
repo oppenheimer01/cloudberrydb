@@ -70,6 +70,7 @@ int			Password_encryption = PASSWORD_TYPE_SCRAM_SHA_256;
 
 /* Hook to check passwords in CreateRole() and AlterRole() */
 check_password_hook_type check_password_hook = NULL;
+ExecSetDefault_hook_type ExecSetDefault_hook = NULL;
 
 static void AddRoleMems(const char *rolename, Oid roleid,
 						List *memberSpecs, List *memberIds,
@@ -142,6 +143,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	char	   *resgroup = NULL;		/* resource group for this role */
 	bool		account_is_lock = false;	/* whether the account will be locked/unlocked */
 	bool 		enable_profile = false;		/* whether user can use password profile */
+	char	   *default_warehosue = NULL;   /* default warehouse for this role */
 	int16		account_status = ROLE_ACCOUNT_STATUS_OPEN; /* default accountstatus is 'OPEN' */
 	TimestampTz 		now = 0;		/* current timestamp with time zone */
 	List	   *addintervals = NIL;	/* list of time intervals for which login should be denied */
@@ -164,6 +166,8 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	DefElem    *dprofile = NULL;
 	DefElem    *daccountIsLock = NULL;
 	DefElem    *denableProfile = NULL;
+	DefElem    *ddefaultwarehosue = NULL;
+	List	   *parse_options = NIL;
 
 	now = GetCurrentTimestamp();
 
@@ -384,6 +388,14 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 					 errmsg("conflicting or redundant options")));
 			denableProfile = defel;
 		}
+		else if (strcmp(defel->defname, "default_warehosue") == 0)
+		{
+			if (ddefaultwarehosue)
+				ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("conflicting or redundant options")));
+			ddefaultwarehosue = defel;
+		}
 		else
 			elog(ERROR, "option \"%s\" not recognized",
 				 defel->defname);
@@ -433,6 +445,8 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 		account_is_lock = intVal(daccountIsLock->arg) != 0;
 	if (denableProfile)
 		enable_profile = intVal(denableProfile->arg) != 0;
+	if (ddefaultwarehosue)
+		default_warehosue = strVal(ddefaultwarehosue->arg);
 
 	/*
 	 * Only the super user has the privileges of profile.
@@ -817,7 +831,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 	 * Advance command counter so we can see new record; else tests in
 	 * AddRoleMems may fail.
 	 */
-	if (addroleto || adminmembers || rolemembers)
+	if (addroleto || adminmembers || rolemembers || default_warehosue)
 		CommandCounterIncrement();
 
 	/*
@@ -875,6 +889,16 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot create superuser with DENY rules")));
 		AddRoleDenials(stmt->role, roleid, addintervals);
+	}
+
+	if (default_warehosue)
+	{
+		parse_options = lappend(parse_options, ddefaultwarehosue);
+	}
+
+	if (ExecSetDefault_hook)
+	{
+		(*ExecSetDefault_hook)(parse_options, roleid);
 	}
 
 	/*

@@ -3097,7 +3097,7 @@ psql_completion(const char *text, int start, int end)
 					  "NOLOGIN", "NOREPLICATION", "NOSUPERUSER", "PASSWORD",
 					  "REPLICATION", "ROLE", "SUPERUSER", "SYSID",
 					  "VALID UNTIL", "WITH", "PROFILE", "ENABLE PROFILE",
-					  "DISABLE PROFILE", "ACCOUNT");
+					  "DISABLE PROFILE", "ACCOUNT", "DEFAULTWAREHOUSE");
 
 /* CREATE ROLE,USER,GROUP <name> WITH */
 	else if (Matches("CREATE", "ROLE|GROUP|USER", MatchAny, "WITH"))

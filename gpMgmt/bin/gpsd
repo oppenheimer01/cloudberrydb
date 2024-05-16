@@ -142,7 +142,7 @@ def main():
     inclHLL = options.dumpHLL
 
     if options.warehouse:
-        warehouse_opt = "-c hashdata.warehouse=%s" % options.warehouse
+        warehouse_opt = "-c warehouse=%s" % options.warehouse
         pgoptions = warehouse_opt + " " + pgoptions
 
     envOpts['PGOPTIONS'] = pgoptions
