@@ -45,4 +45,7 @@ extern const Oid fmgr_last_builtin_oid; /* highest function OID in table */
 #define InvalidOidBuiltinMapping PG_UINT16_MAX
 extern const uint16 fmgr_builtin_oid_index[];
 
+typedef const FmgrBuiltin *(*fmgr_isbuiltin_hook_type) (Oid fn_oid);
+extern PGDLLIMPORT fmgr_isbuiltin_hook_type fmgr_isbuiltin_hook;
+
 #endif							/* FMGRTAB_H */
