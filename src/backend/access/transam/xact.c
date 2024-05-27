@@ -261,6 +261,7 @@ typedef TransactionStateData *TransactionState;
 static int fastNodeCount;
 static TransactionState previousFastLink;
 
+
 /*
  * Serialized representation used to transmit transaction state to parallel
  * workers through shared memory.
@@ -2767,6 +2768,11 @@ StartTransaction(void)
 					  DtxContextToString(DistributedTransactionContext),
 					  IsoLevelAsUpperString(XactIsoLevel), XactReadOnly,
 					  LocalDistribXact_DisplayString(MyProc->pgprocno))));
+#ifdef SERVERLESS
+	CallXactCallbacks(s->blockState == TBLOCK_PARALLEL_INPROGRESS ?
+					  XACT_EVENT_PARALLEL_BEGIN : XACT_EVENT_BEGIN);
+#endif
+	
 }
 
 /*

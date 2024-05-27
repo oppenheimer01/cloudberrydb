@@ -113,3 +113,23 @@ UpdateManifestRecord(RelFileNodeId relfilenode, text *path)
 	systable_endscan(scan);
 	heap_close(rel, NoLock);
 }
+
+void
+DeleteManifestCatalog(RelFileNodeId relnode)
+{
+	Relation entrance_rel = heap_open(ManifestRelationId, AccessExclusiveLock);
+	SysScanDesc	scan;
+	HeapTuple tuple;
+
+	ScanKeyData key;
+	ScanKeyInit(&key, 1, BTEqualStrategyNumber, F_INT8EQ,
+				UInt64GetDatum(relnode));
+	scan = systable_beginscan(entrance_rel, InvalidOid, false, NULL, 1, &key);
+
+	tuple = systable_getnext(scan);
+	if (HeapTupleIsValid(tuple))
+		CatalogTupleDelete(entrance_rel, &tuple->t_self);
+
+	systable_endscan(scan);
+	table_close(entrance_rel, AccessExclusiveLock);
+}

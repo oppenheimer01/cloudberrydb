@@ -149,4 +149,7 @@ extern void ReadyForQuery(CommandDest dest);
 
 extern void sendQEDetails(void);
 
+typedef void (*EndCommand_hook_type) ();
+extern PGDLLIMPORT EndCommand_hook_type EndCommand_hook;
+
 #endif							/* DEST_H */
