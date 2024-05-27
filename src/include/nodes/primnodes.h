@@ -1754,4 +1754,26 @@ typedef struct DMLActionExpr
 	Expr        xpr;
 } DMLActionExpr;
 
+#ifdef SERVERLESS
+typedef struct APListExpr
+{
+	Expr		xpr;
+} APListExpr;
+
+typedef struct APHashExpr
+{
+	Expr		xpr;
+	int			modulus;
+} APHashExpr;
+
+typedef struct APRangeExpr
+{
+	Expr		xpr;
+	bool		hasdefault;
+	List		*lower; /* List of PartitionRangeDatums */
+	List		*upper; /* List of PartitionRangeDatums */
+	List		*step;  /* every specification */
+} APRangeExpr;
+#endif /* SERVERLESS */
+
 #endif							/* PRIMNODES_H */

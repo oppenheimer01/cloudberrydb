@@ -1962,6 +1962,17 @@ _outNode(StringInfo str, void *obj)
 			case T_TransferTuple:
 				_outTranderTuple(str, obj);
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				_outAPHashExpr(str, obj);
+				break;
+			case T_APListExpr:
+				_outAPListExpr(str, obj);
+				break;
+			case T_APRangeExpr:
+				_outAPRangeExpr(str, obj);
+				break;
+#endif /* SERVERLESS */
 			default:
 				elog(ERROR, "could not serialize unrecognized node type: %d",
 						 (int) nodeTag(obj));

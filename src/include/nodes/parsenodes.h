@@ -894,7 +894,7 @@ typedef struct PartitionSpec
 	struct GpPartitionDefinition *gpPartDef;
 	struct PartitionSpec         *subPartSpec;     /* subpartition specification */
 	#ifdef SERVERLESS
-	PartitionBoundSpec			 *autoPartBound; /* is autopartition if not null*/
+	Expr		*apExpr;
 	#endif
 	int                          location;		/* token location, or -1 if unknown */
 } PartitionSpec;

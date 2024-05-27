@@ -3428,7 +3428,7 @@ _equalPartitionSpec(const PartitionSpec *a, const PartitionSpec *b)
 	COMPARE_STRING_FIELD(strategy);
 	COMPARE_NODE_FIELD(partParams);
 #ifdef SERVERLESS
-	COMPARE_NODE_FIELD(autoPartBound);
+	COMPARE_NODE_FIELD(apExpr);
 #endif /* SERVERLESS */
 	COMPARE_LOCATION_FIELD(location);
 

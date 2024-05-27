@@ -598,9 +598,54 @@ static void clear_rel_opts(Relation rel);
 #ifdef SERVERLESS
 static void maintenance_relreuseattrs(Relation rel);
 static void maintenance_relreuseattrs_guts(Relation rel);
+
+static List *
+validateAndMergeAPExprs(CreateStmt *stmt)
+{
+	PartitionSpec *partspec = stmt->partspec;
+	GpPolicy *policy = stmt->intoPolicy;
+	List *apExprs = NIL;
+	if (partspec->apExpr)
+	{
+		if (GpPolicyIsEntry(policy))
+			ereport(ERROR, (errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+							errmsg("AutoPartition do not support entry policy")));
+
+		for (PartitionSpec *curSpec = partspec;
+			 curSpec;
+			 curSpec = partspec->subPartSpec)
+		{
+			if (pg_strcasecmp(curSpec->strategy, "hash") == 0 &&
+				!IsA(curSpec->apExpr, APHashExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("Hash AutoPartition grammar error")));
+			}
+			else if (pg_strcasecmp(partspec->strategy, "list") == 0 &&
+					 !IsA(curSpec->apExpr, APListExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("List AutoPartition grammar error")));
+
+			}
+			else if (pg_strcasecmp(partspec->strategy, "range") == 0 &&
+					 !IsA(curSpec->apExpr, APRangeExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("Range AutoPartition grammar error")));
+			}
+
+			apExprs = lappend(apExprs, curSpec->apExpr);
+		}
+	}
+	return apExprs;
+}
 #endif
 
-/* ----------------------------------------------------------------
+	/* ----------------------------------------------------------------
  *		DefineRelation
  *				Creates a new relation.
  *
@@ -623,10 +668,10 @@ static void maintenance_relreuseattrs_guts(Relation rel);
  * responsibility to dispatch.
  * ----------------------------------------------------------------
  */
-ObjectAddress
-DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
-			   ObjectAddress *typaddress, const char *queryString,
-			   bool dispatch, bool useChangedOpts, GpPolicy *intoPolicy)
+	ObjectAddress
+	DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+				   ObjectAddress *typaddress, const char *queryString,
+				   bool dispatch, bool useChangedOpts, GpPolicy *intoPolicy)
 {
 	char		relname[NAMEDATALEN];
 	Oid			namespaceId;
@@ -1502,6 +1547,13 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		Oid			partopclass[PARTITION_MAX_KEYS];
 		Oid			partcollation[PARTITION_MAX_KEYS];
 		List	   *partexprs = NIL;
+#ifdef SERVERLESS
+		/* 
+		 * `transformPartitionSpec` will modify partspec, so eager merge all
+		 * auto partition expr from sub partspec
+		 */
+		List		*apExprs = validateAndMergeAPExprs(stmt);
+#endif
 
 		pstate = make_parsestate(NULL);
 		pstate->p_sourcetext = queryString;
@@ -1531,6 +1583,11 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		StorePartitionKey(rel, strategy, partnatts, partattrs, partexprs,
 						  partopclass, partcollation);
 
+#ifdef SERVERLESS
+	/* Process and store auto partition spec, if any. */
+	if (apExprs)
+		StorePartitionSpec(rel, apExprs);
+#endif
 		/* make it all visible */
 		CommandCounterIncrement();
 	}

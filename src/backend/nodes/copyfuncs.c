@@ -5971,7 +5971,7 @@ _copyPartitionSpec(const PartitionSpec *from)
 	COPY_NODE_FIELD(gpPartDef);
 	COPY_NODE_FIELD(subPartSpec);
 #ifdef SERVERLESS
-	COPY_NODE_FIELD(autoPartBound);
+	COPY_NODE_FIELD(apExpr);
 #endif /* SERVERLESS */
 	COPY_LOCATION_FIELD(location);
 
@@ -6430,6 +6430,38 @@ _copyTupleDescNode(const TupleDescNode *from)
 
 	return newnode;
 }
+
+#ifdef SERVERLESS
+static APHashExpr*
+_copyAPHashExpr(const APHashExpr *from)
+{
+	APHashExpr *newnode = makeNode(APHashExpr);
+	COPY_SCALAR_FIELD(modulus);
+
+	return newnode;
+}
+
+static APListExpr*
+_copyAPListExpr(const APListExpr *from)
+{
+	APListExpr *newnode = makeNode(APListExpr);
+
+	return newnode;
+}
+
+static APRangeExpr*
+_copyAPRangeExpr(const APRangeExpr *from)
+{
+	APRangeExpr *newnode = makeNode(APRangeExpr);
+	COPY_SCALAR_FIELD(hasdefault);
+	COPY_NODE_FIELD(lower);
+	COPY_NODE_FIELD(upper);
+	COPY_NODE_FIELD(step);
+
+	return newnode;
+}
+
+#endif /* SERVERLESS */
 
 /*
  * copyObjectImpl -- implementation of copyObject(); see nodes/nodes.h
@@ -7626,6 +7658,18 @@ copyObjectImpl(const void *from)
 		case T_AlterWarehouseStmt:
 			retval = _copyAlterWarehouseStmt(from);
 			break;
+
+#ifdef SERVERLESS
+		case T_APHashExpr:
+			retval = _copyAPHashExpr(from);
+			break;
+		case T_APListExpr:
+			retval = _copyAPListExpr(from);
+			break;
+		case T_APRangeExpr:
+			retval = _copyAPRangeExpr(from);
+			break;
+#endif /* SERVERLESS */
 
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(from));

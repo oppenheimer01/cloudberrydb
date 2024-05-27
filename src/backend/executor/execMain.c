@@ -2573,12 +2573,18 @@ ExecPostprocessPlan(EState *estate)
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
 		/* Fire after triggers. */
-		foreach(lc, estate->es_auxmodifytables)
+		foreach (lc, estate->es_auxmodifytables)
 		{
+			/* 
+			 * FIXME: Trigger ASTrigger in execMain is really broken pg policy.
+			 * since customscan also do DML
+			 */
 			PlanState  *ps = (PlanState *) lfirst(lc);
-			ModifyTableState *node = castNode(ModifyTableState, ps);
-
-			fireASTriggers(node);
+			if (IsA(ps, ModifyTableState))
+			{
+				ModifyTableState *node = castNode(ModifyTableState, ps);
+				fireASTriggers(node);
+			}
 		}
 		return;
 	}

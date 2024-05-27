@@ -4093,9 +4093,6 @@ _outPartitionSpec(StringInfo str, const PartitionSpec *node)
 
 	WRITE_STRING_FIELD(strategy);
 	WRITE_NODE_FIELD(partParams);
-#ifdef SERVERLESS
-	WRITE_NODE_FIELD(autoPartBound);
-#endif /* SERVERLESS */
 	WRITE_LOCATION_FIELD(location);
 }
 
@@ -4174,6 +4171,33 @@ _outDropTaskStmt(StringInfo str, const DropTaskStmt *node)
 	WRITE_STRING_FIELD(taskname);
 	WRITE_BOOL_FIELD(missing_ok);
 }
+
+#ifdef SERVERLESS
+static void
+_outAPHashExpr(StringInfo str, const APHashExpr *node)
+{
+	WRITE_NODE_TYPE("APHASHEXPR");
+
+	WRITE_INT_FIELD(modulus);
+}
+
+static void
+_outAPListExpr(StringInfo str, const APListExpr *node)
+{
+	WRITE_NODE_TYPE("APLISTEXPR");
+}
+
+static void
+_outAPRangeExpr(StringInfo str, const APRangeExpr *node)
+{
+	WRITE_NODE_TYPE("APRANGEEXPR");
+
+	WRITE_BOOL_FIELD(hasdefault);
+	WRITE_NODE_FIELD(lower);
+	WRITE_NODE_FIELD(upper);
+	WRITE_NODE_FIELD(step);
+}
+#endif /* SERVERLESS */
 
 #include "outfuncs_common.c"
 #ifndef COMPILING_BINARY_FUNCS
@@ -5362,6 +5386,17 @@ outNode(StringInfo str, const void *obj)
 			case T_DropTaskStmt:
 				_outDropTaskStmt(str, obj);
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				_outAPHashExpr(str, obj);
+				break;
+			case T_APListExpr:
+				_outAPListExpr(str, obj);
+				break;
+			case T_APRangeExpr:
+				_outAPRangeExpr(str, obj);
+				break;
+#endif /* SERVERLESS */
 			default:
 
 				/*

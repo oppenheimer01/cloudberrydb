@@ -834,3 +834,34 @@ makeReindexIndexInfo(Oid indexId, Oid tableId, Oid amId, bool safe)
 	r->safe = safe;
 	return r;
 }
+
+#ifdef SERVERLESS
+Node *
+makeAPHashExpr(int modulus)
+{
+	APHashExpr *hexpr = makeNode(APHashExpr);
+	hexpr->modulus = modulus;
+
+	return (Node *) hexpr;
+}
+
+Node *
+makeAPRangeExpr(List *lower, List *upper, List *step, bool has_default)
+{
+	APRangeExpr *rexpr = makeNode(APRangeExpr);
+	rexpr->lower = lower;
+	rexpr->upper = upper;
+	rexpr->step = step;
+	rexpr->hasdefault = has_default;
+
+	return (Node *) rexpr;
+}
+
+Node *
+makeAPListExpr(void)
+{
+	APListExpr *lexpr = makeNode(APListExpr);
+
+	return (Node *)lexpr;
+}
+#endif /* SERVERLESS */

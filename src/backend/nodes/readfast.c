@@ -2976,6 +2976,17 @@ readNodeBinary(void)
 			case T_TransferTuple:
 				return_value = _readTransferTuple();
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				return_value = _readAPHashExpr();
+				break;
+			case T_APListExpr:
+				return_value = _readAPListExpr();
+				break;
+			case T_APRangeExpr:
+				return_value = _readAPRangeExpr();
+				break;
+#endif /* SERVERLESS */
 			default:
 				return_value = NULL; /* keep the compiler silent */
 				elog(ERROR, "could not deserialize unrecognized node type: %d",

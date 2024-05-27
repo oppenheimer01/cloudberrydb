@@ -718,7 +718,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %type <list>		part_params
 %type <partboundspec> PartitionBoundSpec
 %type <boolean> autopart_default
-%type <partboundspec> OptAutoPartitionBoundSpec
+%type <node> OptAutoPartitionBoundSpec
 %type <list>		hash_partbound
 %type <defelt>		hash_partbound_elem
 
@@ -4111,16 +4111,7 @@ OptAutoPartitionBoundSpec:
 			AUTO BY '(' NonReservedWord Iconst ')'
 				{
  					/* HASH partition */
-					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
-
-					n->strategy = PARTITION_STRATEGY_HASH;
-					n->modulus = n->remainder = -1;
-
-					if (strcmp($4, "modulus") == 0)
-					{
-							n->modulus = $5;
-					}
-					else
+					if (strcmp($4, "modulus"))
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_SYNTAX_ERROR),
@@ -4128,37 +4119,31 @@ OptAutoPartitionBoundSpec:
 										$4),
 								 parser_errposition(@4)));
 					}
-					$$ = n;
+					$$ = makeAPHashExpr($5);
 				}
 			| AUTO BY ENUM_P
 				{
  					/* LIST partition */
-					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
-					n->strategy = PARTITION_STRATEGY_LIST;
 					ereport(ERROR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
 							 errmsg("auto partition do not support list yet")));
-					$$ = n; 
+					$$ = makeAPListExpr();
 				}
 			| AUTO START '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
 				{
 					/* Open Range partition */
-					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
-					n->strategy = PARTITION_STRATEGY_RANGE;
 					ereport(ERROR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
 						 	 errmsg("auto partition do not support open space range yet")));
-					$$ = n;
+					$$ = makeAPRangeExpr($4, NULL, $8, $10);
 				}
 			| AUTO START '(' expr_list ')' END_P '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
 				{
 					/* Close Range partition with default */
-					PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
-					n->strategy = PARTITION_STRATEGY_RANGE;
 					ereport(ERROR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
 						 	 errmsg("auto partition do not support close space range yet")));
-					$$ = n;
+					$$ = makeAPRangeExpr($4, $8, $12, $14);
 				}
 			| { $$ = NULL; }
 			;
@@ -6073,18 +6058,15 @@ OptFirstPartitionSpec: PartitionSpec opt_list_subparts OptTabPartitionSpec
 #ifdef SERVERLESS
 					if ($1->subPartSpec)
 					{
-						bool error = ($1->autoPartBound != NULL);
+						bool error = ($1->apExpr != NULL);
 						for (PartitionSpec *current = $1; current; current = current->subPartSpec)
-						{
-							error |= ($1->autoPartBound != NULL);
-						}
+							error |= ($1->apExpr != NULL);
 
 						if (error)
-						{
 							ereport(ERROR,
 									(errcode(ERRCODE_SYNTAX_ERROR),
 									 errmsg("auto partition do not support multi level partition yet")));
-						}
+
 					}
 #endif /* SEVERLESS */
 					/*
@@ -6151,7 +6133,7 @@ PartitionSpec: PARTITION BY ColId '(' part_params ')' OptAutoPartitionBoundSpec
 					n->partParams = $5;
 					n->location = @1;
 #ifdef SERVERLESS
-					n->autoPartBound = $7;
+					n->apExpr = (Expr *)$7;
 #endif /* SERVERLESS */
 
 					$$ = n;
@@ -6730,7 +6712,12 @@ TabSubPartition:
 
 					$$ = $1;
 				}
-			| TabSubPartitionBy OptAutoPartitionBoundSpec { $$ = $1; }
+			| TabSubPartitionBy OptAutoPartitionBoundSpec
+				{
+					PartitionSpec *n = (PartitionSpec *) $1;
+					n->apExpr = (Expr *)$2;
+					$$ = $1;
+				}
 			| TabSubPartitionBy TabSubPartition
 				{
 					PartitionSpec *n = (PartitionSpec *) $1;

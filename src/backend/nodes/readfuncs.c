@@ -2911,6 +2911,40 @@ _readPartitionRangeDatum(void)
 	READ_DONE();
 }
 
+#ifdef SERVERLESS
+static APHashExpr *
+_readAPHashExpr(void)
+{
+	READ_LOCALS(APHashExpr);
+
+	READ_INT_FIELD(modulus);
+
+	READ_DONE();
+}
+
+static APListExpr *
+_readAPListExpr(void)
+{
+	READ_LOCALS_NO_FIELDS(APListExpr);
+
+	READ_DONE();
+}
+
+static APRangeExpr *
+_readAPRangeExpr(void)
+{
+	READ_LOCALS(APRangeExpr);
+
+	READ_BOOL_FIELD(hasdefault);
+	READ_NODE_FIELD(lower);
+	READ_NODE_FIELD(upper);
+	READ_NODE_FIELD(step);
+
+	READ_DONE();
+
+}
+#endif /* SERVERLESS */
+
 #include "readfuncs_common.c"
 #ifndef COMPILING_BINARY_FUNCS
 /*
@@ -3428,6 +3462,14 @@ parseNodeString(void)
 		return_value = _readReturnStmt();
 	else if (MATCHX("DROPDIRECTORYTABLESTMT"))
 		return_value = _readDropDirectoryTableStmt();
+#ifdef SERVERLESS
+	else if (MATCHX("APHASHEXPR"))
+		return_value = _readAPHashExpr();
+	else if (MATCHX("APLISTEXPR"))
+		return_value = _readAPListExpr();
+	else if (MATCHX("APRANGEEXPR"))
+		return_value = _readAPRangeExpr();
+#endif /* SERVERLESS*/
 	else
 	{
         ereport(ERROR,

@@ -153,6 +153,11 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 
 	/* partition bound node tree */
 	pg_node_tree relpartbound BKI_DEFAULT(_null_);
+
+#ifdef SERVERLESS
+	/* cbdb auto paritition spec */
+	pg_node_tree relpartspec BKI_DEFAULT(_null_);
+#endif /* SERVERLESS */
 #endif
 } FormData_pg_class;
 

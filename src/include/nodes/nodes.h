@@ -688,6 +688,14 @@ typedef enum NodeTag
 	T_EphemeralNamedRelationInfo, /* utils/queryenvironment.h */
 	T_SystemTableTransferNode,
 	T_TransferTuple,
+	T_FileFragment,
+	T_FileScanTask,
+	T_ExternalTableMetadata,
+#ifdef SERVERLESS
+	T_APListExpr,
+	T_APRangeExpr,
+	T_APHashExpr,
+#endif /* SERVERLESS */
 } NodeTag;
 
 /*

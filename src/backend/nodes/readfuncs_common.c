@@ -1474,9 +1474,6 @@ _readPartitionSpec(void)
 
 	READ_STRING_FIELD(strategy);
 	READ_NODE_FIELD(partParams);
-#ifdef SERVERLESS
-	READ_NODE_FIELD(autoPartBound);
-#endif /* SERVERLESS */
 	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
