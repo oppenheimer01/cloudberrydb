@@ -560,6 +560,7 @@ typedef struct Scan
 {
 	Plan		plan;
 	Index		scanrelid;		/* relid is index into the range table */
+	uint32		scanflags;			/* extra scan flags */
 } Scan;
 
 /* ----------------

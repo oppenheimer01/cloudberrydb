@@ -1901,6 +1901,7 @@ ReadCommonScan(Scan *local_node)
 	ReadCommonPlan(&local_node->plan);
 
 	READ_UINT_FIELD(scanrelid);
+	READ_UINT_FIELD(scanflags);
 }
 
 /*
