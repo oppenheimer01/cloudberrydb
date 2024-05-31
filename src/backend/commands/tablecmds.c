@@ -645,7 +645,7 @@ validateAndMergeAPExprs(CreateStmt *stmt)
 }
 #endif
 
-	/* ----------------------------------------------------------------
+/* ----------------------------------------------------------------
  *		DefineRelation
  *				Creates a new relation.
  *
@@ -668,10 +668,10 @@ validateAndMergeAPExprs(CreateStmt *stmt)
  * responsibility to dispatch.
  * ----------------------------------------------------------------
  */
-	ObjectAddress
-	DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
-				   ObjectAddress *typaddress, const char *queryString,
-				   bool dispatch, bool useChangedOpts, GpPolicy *intoPolicy)
+ObjectAddress
+DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+			   ObjectAddress *typaddress, const char *queryString,
+			   bool dispatch, bool useChangedOpts, GpPolicy *intoPolicy)
 {
 	char		relname[NAMEDATALEN];
 	Oid			namespaceId;
