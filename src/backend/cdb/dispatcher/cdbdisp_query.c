@@ -49,6 +49,7 @@
 #include "cdb/cdbdisp_dtx.h"	/* for qdSerializeDtxContextInfo() */
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbcopy.h"
+#include "cdb/cdbtranscat.h"
 #include "executor/execUtils.h"
 #include "cdb/cdbpq.h"
 
@@ -94,6 +95,8 @@ typedef struct DispatchCommandQueryParms
 	int			serializedPlantreelen;
 	char	   *serializedQueryDispatchDesc;
 	int			serializedQueryDispatchDesclen;
+	char	   *serializedCatalog;
+	int			serializedCatalogLen;
 
 	/*
 	 * Additional information.
@@ -331,6 +334,9 @@ CdbDispatchSetCommand(const char *strCommand, bool cancelOnError)
 	ErrorData *qeError = NULL;
 	int flags = DF_NONE;
 
+	SetTransferOn();
+	InitQuery(strCommand);
+
 	if (CdbNeedDispatchCommand_hook && !CdbNeedDispatchCommand_hook(strCommand, &flags, NULL, NULL))
 		return;
 
@@ -410,6 +416,9 @@ CdbDispatchCommand(const char *strCommand,
 				   int flags,
 				   CdbPgResults *cdb_pgresults)
 {
+	SetTransferOn();
+	InitQuery(strCommand);
+
 	return CdbDispatchCommandToSegments(strCommand,
 										flags,
 										cdbcomponent_getCdbComponentsList(),
@@ -579,7 +588,10 @@ cdbdisp_buildCommandQueryParms(const char *strCommand, int flags)
 	pQueryParms->strCommand = strCommand;
 	pQueryParms->serializedQueryDispatchDesc = NULL;
 	pQueryParms->serializedQueryDispatchDesclen = 0;
-
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -653,6 +665,11 @@ cdbdisp_buildUtilityQueryParms(struct Node *stmt,
 	pQueryParms->serializedQueryDispatchDesc = serializedQueryDispatchDesc;
 	pQueryParms->serializedQueryDispatchDesclen = serializedQueryDispatchDesc_len;
 
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
+
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -711,6 +728,11 @@ cdbdisp_buildPlanQueryParms(struct QueryDesc *queryDesc,
 	pQueryParms->serializedPlantreelen = splan_len;
 	pQueryParms->serializedQueryDispatchDesc = sddesc;
 	pQueryParms->serializedQueryDispatchDesclen = sddesc_len;
+
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
 
 	/*
 	 * Serialize a version of our snapshot, and generate our transction
@@ -905,6 +927,8 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			plantree_len = pQueryParms->serializedPlantreelen;
 	const char *sddesc = pQueryParms->serializedQueryDispatchDesc;
 	int			sddesc_len = pQueryParms->serializedQueryDispatchDesclen;
+	const char *sdcatalog = pQueryParms->serializedCatalog;
+	int			sdcatalog_len = pQueryParms->serializedCatalogLen;
 	const char *dtxContextInfo = pQueryParms->serializedDtxContextInfo;
 	int			dtxContextInfo_len = pQueryParms->serializedDtxContextInfolen;
 	int64		currentStatementStartTimestamp = GetCurrentStatementStartTimestamp();
@@ -961,11 +985,13 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sizeof(command_len) +
 		sizeof(plantree_len) +
 		sizeof(sddesc_len) +
+		sizeof(sdcatalog_len) +
 		sizeof(dtxContextInfo_len) +
 		dtxContextInfo_len +
 		command_len +
 		plantree_len +
 		sddesc_len +
+		sdcatalog_len +
 		sizeof(numsegments) +
 		sizeof(resgroupInfo.len) +
 		resgroupInfo.len +
@@ -1029,6 +1055,10 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
 
+	tmp = htonl(sdcatalog_len);
+	memcpy(pos, &tmp, sizeof(tmp));
+	pos += sizeof(tmp);
+
 	tmp = htonl(dtxContextInfo_len);
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
@@ -1054,6 +1084,12 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	{
 		memcpy(pos, sddesc, sddesc_len);
 		pos += sddesc_len;
+	}
+
+	if (sdcatalog_len > 0)
+	{
+		memcpy(pos, sdcatalog, sdcatalog_len);
+		pos += sdcatalog_len;
 	}
 
 	tmp = htonl(numsegments);

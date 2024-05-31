@@ -40,6 +40,7 @@
 #include "catalog/pg_class.h"
 #include "catalog/heap.h"
 #include "cdb/cdbgang.h"
+#include "cdb/cdbtranscat.h"
 
 /*
  * Macros to simplify reading of different kinds of fields.  Use these
@@ -1833,6 +1834,35 @@ _readEphemeralNamedRelationInfo(void)
 	READ_DONE();
 }
 
+
+static SystemTableTransferNode *
+_readSystemTableTransferNode(void)
+{
+	READ_LOCALS(SystemTableTransferNode);
+
+	READ_OID_FIELD(my_temp_namespace);
+	READ_OID_FIELD(my_temp_toast_namespace);
+	READ_NODE_FIELD(transfer_tuples);
+
+	READ_DONE();
+}
+
+static TransferTuple *
+_readTransferTuple(void)
+{
+	READ_LOCALS(TransferTuple);
+
+	READ_UINT_FIELD(t_len);
+	memcpy(&local_node->t_self, read_str_ptr, sizeof(ItemPointerData));
+	read_str_ptr += sizeof(ItemPointerData);
+	READ_OID_FIELD(t_tableOid);
+	local_node->t_data = palloc(local_node->t_len);
+	memcpy(local_node->t_data, read_str_ptr, local_node->t_len);
+	read_str_ptr += local_node->t_len;
+
+	READ_DONE();
+}
+
 static void *
 _readAlterDatabaseStmt(void)
 {
@@ -2939,6 +2969,12 @@ readNodeBinary(void)
 				break;
 			case T_DropTaskStmt:
 				return_value = _readDropTaskStmt();
+				break;
+			case T_SystemTableTransferNode:
+				return_value= _readSystemTableTransferNode();
+				break;
+			case T_TransferTuple:
+				return_value = _readTransferTuple();
 				break;
 			default:
 				return_value = NULL; /* keep the compiler silent */

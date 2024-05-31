@@ -151,7 +151,9 @@ ExecInitNode_hook_type ExecInitNode_hook = NULL;
 
 /* Hook for plugins to get control in ExecEndNode() */
 ExecEndNode_hook_type ExecEndNode_hook = NULL;
-
+ExprEvalPushStep_hook_type ExprEvalPushStep_hook = NULL;
+CollectResultInfo_hook_type CollectResultInfo_hook = NULL;
+CollectProc_hook_type CollectProc_hook = NULL;
  /**
   * Forward declarations of static functions
   */

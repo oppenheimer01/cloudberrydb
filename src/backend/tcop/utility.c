@@ -84,6 +84,7 @@
 #include "catalog/pg_profile.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbendpoint.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 
 
@@ -584,6 +585,8 @@ ProcessUtility(PlannedStmt *pstmt,
 	Assert(pstmt->commandType == CMD_UTILITY);
 	Assert(queryString != NULL);	/* required as of 8.4 */
 	Assert(qc == NULL || qc->commandTag == CMDTAG_UNKNOWN);
+
+	SetTransferOn();
 
 	/*
 	 * Greenplum specific code:

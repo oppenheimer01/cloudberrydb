@@ -79,6 +79,7 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+#include "cdb/cdbtranscat.h"
 #include "executor/execdebug.h"
 #include "executor/nodeIncrementalSort.h"
 #include "miscadmin.h"
@@ -1064,6 +1065,9 @@ ExecInitIncrementalSort(IncrementalSort *node, EState *estate, int eflags)
 								 &TTSOpsMinimalTuple);
 
 	SO_printf("ExecInitIncrementalSort: sort node initialized\n");
+
+	if (IsTransferOn())
+		preparePresortedCols(incrsortstate);
 
 	return incrsortstate;
 }

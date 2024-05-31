@@ -128,7 +128,7 @@ BuildEventTriggerCache(void)
 	 * Prepare to scan pg_event_trigger in name order.
 	 */
 	rel = relation_open(EventTriggerRelationId, AccessShareLock);
-	irel = index_open(EventTriggerNameIndexId, AccessShareLock);
+	irel = order_index_open(EventTriggerNameIndexId, AccessShareLock);
 	scan = systable_beginscan_ordered(rel, irel, NULL, 0, NULL);
 
 	/*

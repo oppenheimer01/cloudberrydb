@@ -31,6 +31,7 @@
 #include "nodes/makefuncs.h"
 
 #include "catalog/pg_operator.h"
+#include "cdb/cdbtranscat.h"
 #include "optimizer/clauses.h"
 #include "optimizer/paths.h"
 #include "optimizer/predtest_valueset.h"
@@ -2004,7 +2005,7 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 	cache_entry = (OprProofCacheEntry *) hash_search(OprProofCacheHash,
 													 (void *) &key,
 													 HASH_ENTER, &cfound);
-	if (!cfound)
+	if (!cfound || IsTransferOn())
 	{
 		/* new cache entry, set it invalid */
 		cache_entry->have_implic = false;

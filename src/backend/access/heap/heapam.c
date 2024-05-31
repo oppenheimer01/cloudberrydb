@@ -73,6 +73,7 @@
 #include "utils/spccache.h"
 
 #include "catalog/oid_dispatch.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
 #include "utils/faultinjector.h"
@@ -2755,6 +2756,8 @@ simple_heap_insert(Relation relation, HeapTuple tup)
 {
 	heap_insert(relation, tup, GetCurrentCommandId(true), 0, NULL,
 				GetCurrentTransactionId());
+
+	TransStoreTuple(tup);
 }
 
 /*
@@ -3278,6 +3281,8 @@ simple_heap_delete(Relation relation, ItemPointer tid)
 			elog(ERROR, "unrecognized heap_delete status: %u", result);
 			break;
 	}
+
+	TransRemoveTuple(RelationGetRelid(relation), *tid);
 }
 
 /*
@@ -4377,6 +4382,8 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 	TM_FailureData tmfd;
 	LockTupleMode lockmode;
 
+	TransRemoveTuple(tup->t_tableOid, *otid);
+
 	result = heap_update_internal(relation, otid, tup,
 						 GetCurrentCommandId(true), InvalidSnapshot,
 						 true /* wait for commit */ ,
@@ -4405,6 +4412,8 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 			elog(ERROR, "unrecognized heap_update status: %u", result);
 			break;
 	}
+
+	TransStoreTuple(tup);
 }
 
 

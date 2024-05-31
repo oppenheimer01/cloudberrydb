@@ -60,6 +60,7 @@
 #include "cdb/cdbappendonlyam.h"
 #include "cdb/cdbrelsize.h"
 #include "cdb/cdbutil.h"
+#include "cdb/cdbvars.h"
 #include "catalog/pg_appendonly.h"
 #include "catalog/pg_foreign_server.h"
 #include "catalog/pg_inherits.h"
@@ -187,7 +188,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 	else
 		hasindex = relation->rd_rel->relhasindex;
 
-	if (hasindex)
+	if (hasindex && Gp_role != GP_ROLE_EXECUTE)
 	{
 		List	   *indexoidlist;
 		LOCKMODE	lmode;

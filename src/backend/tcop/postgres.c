@@ -100,6 +100,7 @@
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbgang.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/ml_ipc.h"
 #include "access/twophase.h"
 #include "postmaster/backoff.h"
@@ -5677,6 +5678,8 @@ PostgresMain(int argc, char *argv[],
 
 		check_forbidden_in_gpdb_handlers(firstchar);
 
+		TransferReset();
+
 		switch (firstchar)
 		{
 			case 'Q':			/* simple query */
@@ -5730,12 +5733,14 @@ PostgresMain(int argc, char *argv[],
 					const char *serializedDtxContextInfo = NULL;
 					const char *serializedPlantree = NULL;
 					const char *serializedQueryDispatchDesc = NULL;
+					const char *serializedCatalog = NULL;
 					const char *resgroupInfoBuf = NULL;
 
 					int query_string_len = 0;
 					int serializedDtxContextInfolen = 0;
 					int serializedPlantreelen = 0;
 					int serializedQueryDispatchDesclen = 0;
+					int serializedCatalogLen = 0;
 					int resgroupInfoLen = 0;
 					TimestampTz statementStart;
 					Oid suid;
@@ -5771,6 +5776,7 @@ PostgresMain(int argc, char *argv[],
 					query_string_len = pq_getmsgint(&input_message, 4);
 					serializedPlantreelen = pq_getmsgint(&input_message, 4);
 					serializedQueryDispatchDesclen = pq_getmsgint(&input_message, 4);
+					serializedCatalogLen = pq_getmsgint(&input_message, 4);
 					serializedDtxContextInfolen = pq_getmsgint(&input_message, 4);
 
 					/* read in the DTX context info */
@@ -5810,6 +5816,9 @@ PostgresMain(int argc, char *argv[],
 
 					if (serializedQueryDispatchDesclen > 0)
 						serializedQueryDispatchDesc = pq_getmsgbytes(&input_message,serializedQueryDispatchDesclen);
+
+					if (serializedCatalogLen > 0)
+						serializedCatalog = pq_getmsgbytes(&input_message, serializedCatalogLen);
 
 					/*
 					 * Always use the same GpIdentity.numsegments with QD on QEs
@@ -5854,6 +5863,9 @@ PostgresMain(int argc, char *argv[],
 
 					if (cuid > 0)
 						SetUserIdAndContext(cuid, false); /* Set current userid */
+
+					SystemTupleStoreReset();
+					SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
 
 					if (serializedPlantreelen==0)
 					{

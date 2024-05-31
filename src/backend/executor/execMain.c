@@ -103,6 +103,7 @@
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbexplain.h"             /* cdbexplain_sendExecStats() */
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbplan.h"
 #include "cdb/cdbsubplan.h"
 #include "cdb/cdbvars.h"
@@ -115,6 +116,7 @@
 #include "cdb/cdbtargeteddispatch.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbendpoint.h"
+#include "cdb/cdbtranscat.h"
 
 #define IS_PARALLEL_RETRIEVE_CURSOR(queryDesc)	(queryDesc->ddesc &&	\
 										queryDesc->ddesc->parallelCursorName &&	\
@@ -168,7 +170,6 @@ static int executor_run_nesting_level = 0;
 SetDtxFlag_hook_type SetDtxFlag_hook = NULL;
 
 /* decls for local routines only used within this module */
-static void InitPlan(QueryDesc *queryDesc, int eflags);
 static void CheckValidRowMarkRel(Relation rel, RowMarkType markType);
 static void ExecPostprocessPlan(EState *estate);
 static void ExecEndPlan(PlanState *planstate, EState *estate);
@@ -237,6 +238,8 @@ ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * will be ignored if the top level query_id has already been reported.
 	 */
 	pgstat_report_query_id(queryDesc->plannedstmt->queryId, false);
+
+	SetTransferOn();
 
 	if (ExecutorStart_hook)
 		(*ExecutorStart_hook) (queryDesc, eflags);
@@ -587,7 +590,14 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 * Initialize the plan state tree
 		 */
 		Assert(CurrentMemoryContext == estate->es_query_cxt);
+
+		if (!shouldDispatch)
+			SetTransferOff();
+
 		InitPlan(queryDesc, eflags);
+
+		if (!shouldDispatch)
+			SetTransferOn();
 
 		Assert(queryDesc->planstate);
 
@@ -1762,7 +1772,7 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
  *		and start up the rule manager
  * ----------------------------------------------------------------
  */
-static void
+void
 InitPlan(QueryDesc *queryDesc, int eflags)
 {
 	CmdType		operation = queryDesc->operation;
@@ -2454,6 +2464,9 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_ChildToRootMap = NULL;
 	resultRelInfo->ri_ChildToRootMapValid = false;
 	resultRelInfo->ri_CopyMultiInsertBuffer = NULL;
+
+	if (CollectResultInfo_hook)
+		(*CollectResultInfo_hook) (resultRelInfo);
 }
 
 /*

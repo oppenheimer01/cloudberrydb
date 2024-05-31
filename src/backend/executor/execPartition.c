@@ -36,6 +36,8 @@
 
 #include "cdb/cdbaocsam.h"
 #include "cdb/cdbappendonlyam.h"
+#include "cdb/cdbtranscat.h"
+#include "cdb/cdbtranscat.h"
 
 /*
  * Helper macro that is used to determine if a Modifytable node came from a
@@ -1845,6 +1847,16 @@ ExecCreatePartitionPruneState(PlanState *planstate,
 			 * duration of this executor run.
 			 */
 			partrel = ExecGetRangeTableRelation(estate, pinfo->rtindex);
+
+			if (IsTransferOn())
+			{
+				if (partrel->rd_partkeycxt)
+				{
+					MemoryContextDelete(partrel->rd_partkeycxt);
+					partrel->rd_partkey = NULL;
+					partrel->rd_partkeycxt = NULL;
+				}
+			}
 			partkey = RelationGetPartitionKey(partrel);
 			partdesc = PartitionDirectoryLookup(estate->es_partition_directory,
 												partrel);
@@ -1973,7 +1985,6 @@ ExecCreatePartitionPruneState(PlanState *planstate,
 			 */
 			prunestate->execparamids = bms_add_members(prunestate->execparamids,
 													   pinfo->execparamids);
-
 			j++;
 		}
 		i++;

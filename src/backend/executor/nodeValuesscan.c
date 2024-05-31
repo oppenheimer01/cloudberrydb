@@ -25,6 +25,7 @@
  */
 #include "postgres.h"
 
+#include "cdb/cdbtranscat.h"
 #include "executor/executor.h"
 #include "executor/nodeValuesscan.h"
 #include "jit/jit.h"
@@ -295,8 +296,9 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 		 * We can avoid the cost of a contain_subplans() scan in the simple
 		 * case where there are no SubPlans anywhere.
 		 */
-		if (estate->es_subplanstates &&
-			contain_subplans((Node *) exprs))
+		if ((estate->es_subplanstates &&
+			contain_subplans((Node *) exprs)) ||
+			IsTransferOn())
 		{
 			int			saved_jit_flags;
 

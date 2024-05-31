@@ -92,6 +92,7 @@
 #include "access/heapam.h"
 #include "catalog/pg_resgroup.h"
 #include "catalog/pg_extprotocol.h"
+#include "cdb/cdbtranscat.h"
 #include "miscadmin.h"
 
 #include "catalog/gp_indexing.h"
@@ -1692,12 +1693,25 @@ struct catclist *
 SearchSysCacheList(int cacheId, int nkeys,
 				   Datum key1, Datum key2, Datum key3)
 {
+	CatCList *list;
+
 	if (cacheId < 0 || cacheId >= SysCacheSize ||
 		!PointerIsValid(SysCache[cacheId]))
 		elog(ERROR, "invalid cache ID: %d", cacheId);
 
-	return SearchCatCacheList(SysCache[cacheId], nkeys,
+	list = SearchCatCacheList(SysCache[cacheId], nkeys,
 							  key1, key2, key3);
+
+	for (int i = 0; i < list->n_members; ++i)
+	{
+		CatCTup *catCTup;
+
+		catCTup = list->members[i];
+
+		TransStoreTuple(&catCTup->tuple);
+	}
+
+	return list;
 }
 
 /*

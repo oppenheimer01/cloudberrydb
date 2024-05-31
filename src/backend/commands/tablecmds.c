@@ -134,9 +134,11 @@
 #include "nodes/altertablenodes.h"
 #include "cdb/cdbdisp.h"
 #include "cdb/cdbdisp_query.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbrelsize.h"
 #include "cdb/cdboidsync.h"
+#include "cdb/cdbtranscat.h"
 #include "postmaster/autostats.h"
 
 const char *synthetic_sql = "(internally generated SQL command)";
@@ -7385,8 +7387,6 @@ ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 	int			ti_options;
 	ExprState  *partqualstate = NULL;
 
-	if (ATRewriteTable_hook)
-		ATRewriteTable_hook(tab, OIDNewHeap, lockmode);
 
 	/*
 	 * Open the relation(s).  We have surely already locked the existing
@@ -7751,6 +7751,10 @@ ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 
 		table_close(newrel, NoLock);
 	}
+
+
+	if (ATRewriteTable_hook)
+		ATRewriteTable_hook(tab, OIDNewHeap, lockmode);
 }
 
 /*

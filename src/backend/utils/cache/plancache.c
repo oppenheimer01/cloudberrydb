@@ -74,6 +74,7 @@
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbutil.h"
 
 /*
@@ -1077,6 +1078,9 @@ choose_custom_plan(CachedPlanSource *plansource, ParamListInfo boundParams, Into
 	/* ... nor for transaction control statements */
 	if (IsTransactionStmtPlan(plansource))
 		return false;
+
+	if (IsTransferOn())
+		return true;
 
 	/* Let settings force the decision */
 	if (plan_cache_mode == PLAN_CACHE_MODE_FORCE_GENERIC_PLAN)

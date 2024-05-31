@@ -172,7 +172,8 @@ recheck:
 	{
 		/* We have a compiled function, but is it still valid? */
 		if (function->fn_xmin == HeapTupleHeaderGetRawXmin(procTup->t_data) &&
-			ItemPointerEquals(&function->fn_tid, &procTup->t_self))
+			ItemPointerEquals(&function->fn_tid, &procTup->t_self) &&
+			!function_is_prepare(fcinfo))
 			function_valid = true;
 		else
 		{

@@ -197,7 +197,7 @@ HandleSingleRowError(CdbSreh *cdbsreh)
 /*
  * Returns the fixed schema for error log tuple.
  */
-static TupleDesc
+TupleDesc
 GetErrorTupleDesc(void)
 {
 	static TupleDesc tupdesc = NULL;
@@ -227,6 +227,25 @@ GetErrorTupleDesc(void)
 	}
 
 	return tupdesc;
+}
+
+TupleDesc
+GetTempErrorTupleDesc(void)
+{
+
+	TupleDesc	tmp;
+
+	tmp = CreateTemplateTupleDesc(NUM_ERRORTABLE_ATTR);
+	TupleDescInitEntry(tmp, 1, "cmdtime", TIMESTAMPTZOID, -1, 0);
+	TupleDescInitEntry(tmp, 2, "relname", TEXTOID, -1, 0);
+	TupleDescInitEntry(tmp, 3, "filename", TEXTOID, -1, 0);
+	TupleDescInitEntry(tmp, 4, "linenum", INT4OID, -1, 0);
+	TupleDescInitEntry(tmp, 5, "bytenum", INT4OID, -1, 0);
+	TupleDescInitEntry(tmp, 6, "errmsg", TEXTOID, -1, 0);
+	TupleDescInitEntry(tmp, 7, "rawdata", TEXTOID, -1, 0);
+	TupleDescInitEntry(tmp, 8, "rawbytes", BYTEAOID, -1, 0);
+
+	return tmp;
 }
 
 static HeapTuple

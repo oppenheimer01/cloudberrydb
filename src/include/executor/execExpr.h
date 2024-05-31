@@ -765,6 +765,7 @@ typedef struct SubscriptExecSteps
 
 /* functions in execExpr.c */
 extern void ExprEvalPushStep(ExprState *es, const ExprEvalStep *s);
+extern void ExprEvalPushStep_internal(ExprState *es, const ExprEvalStep *s);
 
 /* functions in execExprInterp.c */
 extern void ExecReadyInterpretedExpr(ExprState *state);

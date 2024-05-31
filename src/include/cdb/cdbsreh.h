@@ -100,5 +100,7 @@ extern Datum gp_truncate_error_log(PG_FUNCTION_ARGS);
 extern Datum gp_read_persistent_error_log(PG_FUNCTION_ARGS);
 extern Datum gp_truncate_persistent_error_log(PG_FUNCTION_ARGS);
 
+extern TupleDesc GetErrorTupleDesc(void);
+extern TupleDesc GetTempErrorTupleDesc(void);
 
 #endif /* CDBSREH_H */

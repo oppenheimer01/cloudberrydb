@@ -54,8 +54,10 @@
 #include "access/detoast.h"
 #include "access/heaptoast.h"
 #include "catalog/pg_collation.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "utils/pg_locale.h"
+#include "utils/syscache.h"
 
 #include "port/pg_bitutils.h"
 
@@ -990,6 +992,15 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scratch.d.constval.isnull = con->constisnull;
 
 				ExprEvalPushStep(state, &scratch);
+				if (IsTransferOn())
+				{
+					HeapTuple typeTup;
+
+					typeTup = SearchSysCache1(TYPEOID, con->consttype);
+					if (typeTup)
+						ReleaseSysCache(typeTup);
+				}
+
 				break;
 			}
 
@@ -2519,7 +2530,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
  * into that array may be used while the expression is still being built.
  */
 void
-ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
+ExprEvalPushStep_internal(ExprState *es, const ExprEvalStep *s)
 {
 	if (es->steps_alloc == 0)
 	{
@@ -2534,6 +2545,18 @@ ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
 	}
 
 	memcpy(&es->steps[es->steps_len++], s, sizeof(ExprEvalStep));
+}
+
+void
+ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
+{
+	if (ExprEvalPushStep_hook)
+	{
+		(*ExprEvalPushStep_hook) (es, s);
+		return;
+	}
+
+	ExprEvalPushStep_internal(es, s);
 }
 
 /*
@@ -2618,6 +2641,15 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 
 			fcinfo->args[argno].value = con->constvalue;
 			fcinfo->args[argno].isnull = con->constisnull;
+
+			if (IsTransferOn())
+			{
+				HeapTuple typeTup;
+
+				typeTup = SearchSysCache1(TYPEOID, con->consttype);
+				if (typeTup)
+					ReleaseSysCache(typeTup);
+			}
 		}
 		else
 		{

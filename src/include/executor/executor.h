@@ -17,6 +17,7 @@
 #define EXECUTOR_H
 
 #include "executor/execdesc.h"
+#include "executor/execExpr.h"
 #include "fmgr.h"
 #include "nodes/lockoptions.h"
 #include "nodes/parsenodes.h"
@@ -104,6 +105,15 @@ extern PGDLLIMPORT SetDtxFlag_hook_type SetDtxFlag_hook;
 /* Hook for plugins to get control in ExecInitNode() */
 typedef PlanState *(*ExecInitNode_hook_type)(Plan *node, EState *estate, int eflags);
 extern PGDLLIMPORT ExecInitNode_hook_type ExecInitNode_hook;
+
+typedef void (*ExprEvalPushStep_hook_type) (ExprState *es, const ExprEvalStep *s);
+extern PGDLLIMPORT ExprEvalPushStep_hook_type ExprEvalPushStep_hook;
+
+typedef void (*CollectResultInfo_hook_type) (ResultRelInfo *resultRelInfo);
+extern PGDLLIMPORT CollectResultInfo_hook_type CollectResultInfo_hook;
+
+typedef void (*CollectProc_hook_type) (FunctionCallInfo fcinfo);
+extern PGDLLIMPORT CollectProc_hook_type CollectProc_hook;
 
 /* Hook for plugins to get control in ExecEndNode() */
 typedef void (*ExecEndNode_hook_type)(PlanState *node);
@@ -735,4 +745,7 @@ extern void
 change_varattnos_of_a_varno(Node *node, const AttrNumber *newattno, Index varno);
 
 extern bool already_under_executor_run(void);
+extern void InitPlan(QueryDesc *queryDesc, int eflags);
+
+
 #endif							/* EXECUTOR_H  */

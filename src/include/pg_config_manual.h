@@ -303,8 +303,10 @@
  */
 #ifdef USE_ASSERT_CHECKING
 #define CLOBBER_FREED_MEMORY
-#define RELCACHE_FORCE_RELEASE
 #endif
+
+#define RELCACHE_FORCE_RELEASE
+
 
 /*
  * Define this to check memory allocation errors (scribbling on more

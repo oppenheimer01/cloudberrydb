@@ -41,6 +41,7 @@
 #include "catalog/heap.h"
 #include "catalog/index.h"
 #include "cdb/cdbgang.h"
+#include "cdb/cdbtranscat.h"
 #include "utils/workfile_mgr.h"
 #include "parser/parsetree.h"
 
@@ -856,6 +857,28 @@ _outGpSplitPartitionCmd(StringInfo str, const GpSplitPartitionCmd *node)
 	WRITE_NODE_FIELD(at);
 	WRITE_NODE_FIELD(arg2);
 }
+
+
+static void
+_outSystemTableTransferNode(StringInfo str, const SystemTableTransferNode *node)
+{
+	WRITE_NODE_TYPE("SYSTEMTABLETRANSFERNODE");
+	WRITE_OID_FIELD(my_temp_namespace);
+	WRITE_OID_FIELD(my_temp_toast_namespace);
+	WRITE_NODE_FIELD(transfer_tuples);
+}
+
+static void
+_outTranderTuple(StringInfo str, const TransferTuple *node)
+{
+	WRITE_NODE_TYPE("TRANSFERTUPLE");
+
+	WRITE_UINT_FIELD(t_len);
+	appendBinaryStringInfo(str, (char *) &node->t_self, sizeof(ItemPointerData));
+	WRITE_OID_FIELD(t_tableOid);
+	appendBinaryStringInfo(str, node->t_data, node->t_len);
+}
+
 
 /*
  * _outNode -
@@ -1932,6 +1955,12 @@ _outNode(StringInfo str, void *obj)
 				break;
 			case T_AlterDatabaseStmt:
 				_outAlterDatabaseStmt(str, obj);
+				break;
+			case T_SystemTableTransferNode:
+				_outSystemTableTransferNode(str, obj);
+				break;
+			case T_TransferTuple:
+				_outTranderTuple(str, obj);
 				break;
 			default:
 				elog(ERROR, "could not serialize unrecognized node type: %d",

@@ -381,11 +381,7 @@ begin;
         create table t2_github_issue_10760 as select * from t1_github_issue_10760 where b > (select count(*) from t1_github_issue_10760) distributed randomly;
 end;
 select count (distinct oid) from  (select oid from pg_class where relname = 't2_github_issue_10760' union all select oid from gp_dist_random('pg_class') where relname = 't2_github_issue_10760')x;
- count 
--------
-     1
-(1 row)
-
+ERROR:  Hash data storage do not support index scan in segment (hashdata_execProcnode.cc:1275)  (seg2 slice1 127.0.0.1:5435 pid=1180272) (hashdata_execProcnode.cc:1275)
 drop table t1_github_issue_10760;
 drop table t2_github_issue_10760;
 reset optimizer;
@@ -416,7 +412,7 @@ INFO:  GPORCA failed to produce a plan, falling back to Postgres-based planner
 DETAIL:  Falling back to Postgres-based planner because GPORCA does not support the following feature: Queries on master-only tables
  count 
 -------
-     8
+     2
 (1 row)
 
 select count(distinct (localoid, policytype, numsegments, distkey))

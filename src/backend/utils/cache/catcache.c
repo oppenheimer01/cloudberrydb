@@ -24,6 +24,8 @@
 #include "catalog/pg_collation.h"
 #include "catalog/pg_operator.h"
 #include "catalog/pg_type.h"
+#include "cdb/cdbtranscat.h"
+#include "cdb/cdbvars.h"
 #include "common/hashfn.h"
 #include "miscadmin.h"
 #ifdef CATCACHE_STATS
@@ -64,6 +66,8 @@
 /* Cache management header --- pointer is NULL until created */
 static CatCacheHeader *CacheHdr = NULL;
 
+static HeapTuple SearchCatCacheInternalCollect(CatCache *cache, int nkeys,
+											   Datum v1, Datum v2, Datum v3, Datum v4);
 static inline HeapTuple SearchCatCacheInternal(CatCache *cache,
 											   int nkeys,
 											   Datum v1, Datum v2,
@@ -1205,7 +1209,7 @@ SearchCatCache(CatCache *cache,
 			   Datum v3,
 			   Datum v4)
 {
-	return SearchCatCacheInternal(cache, cache->cc_nkeys, v1, v2, v3, v4);
+	return SearchCatCacheInternalCollect(cache, cache->cc_nkeys, v1, v2, v3, v4);
 }
 
 
@@ -1219,7 +1223,7 @@ HeapTuple
 SearchCatCache1(CatCache *cache,
 				Datum v1)
 {
-	return SearchCatCacheInternal(cache, 1, v1, 0, 0, 0);
+	return SearchCatCacheInternalCollect(cache, 1, v1, 0, 0, 0);
 }
 
 
@@ -1227,7 +1231,7 @@ HeapTuple
 SearchCatCache2(CatCache *cache,
 				Datum v1, Datum v2)
 {
-	return SearchCatCacheInternal(cache, 2, v1, v2, 0, 0);
+	return SearchCatCacheInternalCollect(cache, 2, v1, v2, 0, 0);
 }
 
 
@@ -1235,7 +1239,7 @@ HeapTuple
 SearchCatCache3(CatCache *cache,
 				Datum v1, Datum v2, Datum v3)
 {
-	return SearchCatCacheInternal(cache, 3, v1, v2, v3, 0);
+	return SearchCatCacheInternalCollect(cache, 3, v1, v2, v3, 0);
 }
 
 
@@ -1243,7 +1247,24 @@ HeapTuple
 SearchCatCache4(CatCache *cache,
 				Datum v1, Datum v2, Datum v3, Datum v4)
 {
-	return SearchCatCacheInternal(cache, 4, v1, v2, v3, v4);
+	return SearchCatCacheInternalCollect(cache, 4, v1, v2, v3, v4);
+}
+
+static HeapTuple
+SearchCatCacheInternalCollect(CatCache *cache,
+							  int nkeys,
+							  Datum v1,
+							  Datum v2,
+							  Datum v3,
+							  Datum v4)
+{
+	HeapTuple htup;
+
+	htup = SearchCatCacheInternal(cache, nkeys, v1, v2, v3, v4);
+
+	TransStoreTuple(htup);
+
+	return htup;
 }
 
 /*
@@ -2143,7 +2164,7 @@ PrintCatCacheLeakWarning(HeapTuple tuple, const char *resOwnerName)
 	/* Safety check to ensure we were handed a cache entry */
 	Assert(ct->ct_magic == CT_MAGIC);
 
-	elog(WARNING, "cache reference leak: cache %s (%d), tuple %u/%u has count %d, resowner '%s'",
+	elog(LOG, "cache reference leak: cache %s (%d), tuple %u/%u has count %d, resowner '%s'",
 		 ct->my_cache->cc_relname, ct->my_cache->id,
 		 ItemPointerGetBlockNumber(&(tuple->t_self)),
 		 ItemPointerGetOffsetNumber(&(tuple->t_self)),

@@ -20,6 +20,7 @@
 
 #include "access/htup_details.h"
 #include "catalog/objectaccess.h"
+#include "cdb/cdbtranscat.h"
 #include "executor/execdebug.h"
 #include "funcapi.h"
 #include "miscadmin.h"
@@ -804,6 +805,9 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 	sexpr->funcResultStore = NULL;
 	sexpr->funcResultSlot = NULL;
 	sexpr->shutdown_reg = false;
+
+	if (CollectProc_hook)
+		(*CollectProc_hook) (sexpr->fcinfo);
 }
 
 /*

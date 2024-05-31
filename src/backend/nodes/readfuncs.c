@@ -52,6 +52,7 @@
 #include "utils/builtins.h"
 
 #include "cdb/cdbgang.h"
+#include "cdb/cdbtranscat.h"
 #include "nodes/altertablenodes.h"
 
 /*
@@ -617,6 +618,17 @@ _readConst(void)
 		token = pg_strtok(&length); /* skip "<>" */
 	else
 		local_node->constvalue = readDatum(local_node->constbyval);
+
+	if (local_node->consttype == REGCLASSOID && IsTransferOn())
+	{
+		if (!RelationStoredCheck(local_node->constvalue))
+		{
+			Relation rel;
+
+			rel = relation_open(local_node->constvalue, AccessShareLock);
+			relation_close(rel, AccessShareLock);
+		}
+	}
 
 	READ_DONE();
 }

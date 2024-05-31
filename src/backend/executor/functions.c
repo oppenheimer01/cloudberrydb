@@ -152,10 +152,10 @@ static Node *sql_fn_resolve_param_name(SQLFunctionParseInfoPtr pinfo,
 static List *init_execution_state(List *queryTree_list,
 								  SQLFunctionCachePtr fcache,
 								  bool lazyEvalOK);
-static void init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK);
-static void postquel_start(execution_state *es, SQLFunctionCachePtr fcache);
+static void postquel_start(execution_state *es, SQLFunctionCachePtr fcache,
+						   int execflags);
 static bool postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache);
-static void postquel_end(execution_state *es);
+static void postquel_end(execution_state *es, int execflags);
 static void postquel_sub_params(SQLFunctionCachePtr fcache,
 								FunctionCallInfo fcinfo);
 static Datum postquel_get_single_result(TupleTableSlot *slot,
@@ -676,7 +676,7 @@ init_execution_state(List *queryTree_list,
 /*
  * Initialize the SQLFunctionCache for a SQL function
  */
-static void
+void
 init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 {
 	FmgrInfo   *finfo = fcinfo->flinfo;
@@ -932,7 +932,7 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK)
 
 /* Start up execution of one execution_state node */
 static void
-postquel_start(execution_state *es, SQLFunctionCachePtr fcache)
+postquel_start(execution_state *es, SQLFunctionCachePtr fcache, int execflags)
 {
 	DestReceiver *dest;
 
@@ -995,6 +995,10 @@ postquel_start(execution_state *es, SQLFunctionCachePtr fcache)
 			eflags = EXEC_FLAG_SKIP_TRIGGERS;
 		else
 			eflags = 0;			/* default run-to-completion flags */
+
+		if (execflags)
+			eflags |= execflags;
+
 		ExecutorStart(es->qd, eflags);
 	}
 
@@ -1039,7 +1043,7 @@ postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache)
 
 /* Shut down execution of one execution_state node */
 static void
-postquel_end(execution_state *es)
+postquel_end(execution_state *es, int execflags)
 {
 	/* mark status done to ensure we don't do ExecutorEnd twice */
 	es->status = F_EXEC_DONE;
@@ -1053,7 +1057,8 @@ postquel_end(execution_state *es)
 		if (Gp_role == GP_ROLE_DISPATCH)
 			autostats_get_cmdtype(es->qd, &cmdType, &relationOid);
 
-		ExecutorFinish(es->qd);
+		if (!(execflags & EXEC_FLAG_EXPLAIN_ONLY))
+			ExecutorFinish(es->qd);
 		ExecutorEnd(es->qd);
 
 		/* MPP-14001: Running auto_stats */
@@ -1314,7 +1319,7 @@ PG_TRY();
 					UpdateActiveSnapshotCommandId();
 			}
 
-			postquel_start(es, fcache);
+			postquel_start(es, fcache, 0);
 		}
 		else if (!fcache->readonly_func && !pushed_snapshot)
 		{
@@ -1334,7 +1339,7 @@ PG_TRY();
 		 * don't care about fetching any more result rows.
 		 */
 		if (completed || !fcache->returnsSet)
-			postquel_end(es);
+			postquel_end(es, 0);
 
 		/*
 		 * Break from loop if we didn't shut down (implying we got a
@@ -1537,6 +1542,50 @@ PG_END_TRY();
 	return result;
 }
 
+void
+fmgr_sql_init(PG_FUNCTION_ARGS)
+{
+	SQLFunctionCachePtr	fcache;
+	execution_state	   *es;
+	List	   *eslist;
+	ListCell   *eslc;
+	PG_TRY();
+	{
+
+		init_sql_fcache(fcinfo, PG_GET_COLLATION(), true);
+
+		fcache = (SQLFunctionCachePtr) fcinfo->flinfo->fn_extra;
+
+		eslist = fcache->func_state;
+		es = NULL;
+
+		foreach(eslc, eslist)
+		{
+			es = (execution_state *) lfirst(eslc);
+
+			while (es && es->status == F_EXEC_DONE)
+			{
+				es = es->next;
+			}
+
+			if (es)
+				break;
+		}
+
+		while (es)
+		{
+			postquel_start(es, fcache, EXEC_FLAG_EXPLAIN_ONLY);
+			postquel_end(es, EXEC_FLAG_EXPLAIN_ONLY);
+
+			es = es->next;
+		}
+	}
+	PG_CATCH();
+	{
+		FlushErrorState();
+	}
+	PG_END_TRY();
+}
 
 /*
  * error context callback to let us supply a call-stack traceback
@@ -1642,7 +1691,7 @@ ShutdownSQLFunction(Datum arg)
 				if (!fcache->readonly_func)
 					PushActiveSnapshot(es->qd->snapshot);
 
-				postquel_end(es);
+				postquel_end(es, 0);
 
 				if (!fcache->readonly_func)
 					PopActiveSnapshot();
