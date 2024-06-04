@@ -381,7 +381,11 @@ begin;
         create table t2_github_issue_10760 as select * from t1_github_issue_10760 where b > (select count(*) from t1_github_issue_10760) distributed randomly;
 end;
 select count (distinct oid) from  (select oid from pg_class where relname = 't2_github_issue_10760' union all select oid from gp_dist_random('pg_class') where relname = 't2_github_issue_10760')x;
-ERROR:  Hash data storage do not support index scan in segment (hashdata_execProcnode.cc:1275)  (seg2 slice1 127.0.0.1:5435 pid=1180272) (hashdata_execProcnode.cc:1275)
+ count 
+-------
+     1
+(1 row)
+
 drop table t1_github_issue_10760;
 drop table t2_github_issue_10760;
 reset optimizer;
