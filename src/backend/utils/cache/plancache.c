@@ -879,6 +879,13 @@ CheckCachedPlan(CachedPlanSource *plansource)
 		 */
 		if (plan->is_valid)
 		{
+			ListCell   *lc1;
+
+			foreach(lc1, plan->stmt_list)
+			{
+				PlannedStmt *plannedstmt = lfirst_node(PlannedStmt, lc1);
+				plannedstmt->extensionContext = NULL;
+			}
 			/* Successfully revalidated and locked the query. */
 			return true;
 		}
