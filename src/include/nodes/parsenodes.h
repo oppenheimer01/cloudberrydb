@@ -2438,7 +2438,10 @@ typedef struct CopyStmt
 	List	   *options;		/* List of DefElem nodes */
 	Node	   *whereClause;	/* WHERE condition (or NULL) */
 
-	List	   *sreh;			/* Single row error handling info */
+	Node	   *sreh;			/* Single row error handling info */
+#ifdef SERVERLESS
+	List	   *custom_exprs;	/* expr list */
+#endif /* SERVERLESS */
 } CopyStmt;
 
 /* ----------------------

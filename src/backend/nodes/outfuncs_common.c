@@ -210,7 +210,11 @@ _outCopyStmt(StringInfo str, const CopyStmt *node)
 	WRITE_STRING_FIELD(filename);
 	WRITE_STRING_FIELD(dirfilename);
 	WRITE_NODE_FIELD(options);
+	WRITE_NODE_FIELD(whereClause);
 	WRITE_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	WRITE_NODE_FIELD(custom_exprs);
+#endif /* SERVERLESS */
 }
 
 static void

@@ -844,7 +844,11 @@ _readCopyStmt(void)
 	READ_STRING_FIELD(filename);
 	READ_STRING_FIELD(dirfilename);
 	READ_NODE_FIELD(options);
+	READ_NODE_FIELD(whereClause);
 	READ_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	READ_NODE_FIELD(custom_exprs);
+#endif /* SERVERLESS */
 
 	READ_DONE();
 }

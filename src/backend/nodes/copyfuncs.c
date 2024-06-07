@@ -4200,6 +4200,9 @@ _copyCopyStmt(const CopyStmt *from)
 	COPY_NODE_FIELD(options);
 	COPY_NODE_FIELD(whereClause);
 	COPY_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	COPY_NODE_FIELD(custom_exprs);
+#endif /* SERVERLERSS */
 
 	return newnode;
 }

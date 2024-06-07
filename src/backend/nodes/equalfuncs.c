@@ -1366,6 +1366,9 @@ _equalCopyStmt(const CopyStmt *a, const CopyStmt *b)
 	COMPARE_NODE_FIELD(options);
 	COMPARE_NODE_FIELD(whereClause);
 	COMPARE_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	COMPARE_NODE_FIELD(custom_exprs);
+#endif /* SERVERLESS */
 
 	return true;
 }

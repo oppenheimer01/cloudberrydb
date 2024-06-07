@@ -4365,3 +4365,25 @@ GetTargetSeg(GpDistributionData *distData, TupleTableSlot *slot)
 
 	return target_seg;
 }
+
+#ifdef SERVERLESS
+void
+CopyInitDataParserWrapper(CopyFromState cstate)
+{
+	CopyInitDataParser(cstate);
+}
+
+bool
+NextCopyFromExecuteWrapper(CopyFromState cstate, ExprContext *econtext,
+						   Datum *values, bool *nulls, bool is_directory_table)
+{
+	return NextCopyFromExecute(cstate, econtext, values, nulls,
+							   is_directory_table);
+}
+
+void
+HandleCopyErrorWrapper(CopyFromState cstate)
+{
+	HandleCopyError(cstate);
+}
+#endif /* SERVERLESS */
