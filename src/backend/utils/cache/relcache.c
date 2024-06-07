@@ -117,21 +117,28 @@
 #include "catalog/gp_indexing.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
+#include "catalog/gp_warehouse.h"
 #include "catalog/heap.h"
 #include "catalog/index.h"
 #include "catalog/main_manifest.h"
 #include "catalog/pg_depend.h"
+#include "catalog/pg_db_role_setting.h"
 #include "catalog/pg_directory_table.h"
 #include "catalog/pg_proc_callback.h"
 #include "catalog/pg_cast.h"
 #include "catalog/pg_collation.h"
+#include "catalog/pg_directory_table.h"
 #include "catalog/pg_inherits.h"
 #include "catalog/pg_policy.h"
+#include "catalog/pg_replication_origin.h"
 #include "catalog/pg_publication_rel.h"
 #include "catalog/pg_resgroup.h"
 #include "catalog/pg_resqueuecapability.h"
 #include "catalog/pg_statistic.h"
 #include "catalog/pg_statistic_ext.h"
+#include "catalog/pg_statistic_ext_data.h"
+#include "catalog/pg_subscription_rel.h"
+#include "catalog/pg_transform.h"
 #include "catalog/pg_ts_config.h"
 #include "catalog/pg_ts_config_map.h"
 #include "catalog/pg_ts_dict.h"
@@ -4447,7 +4454,7 @@ RelationCacheInitializePhase3(void)
 		/*
 		 * If it's a faked-up entry, read the real pg_class tuple.
 		 */
-		if (relation->rd_rel->relowner == InvalidOid)
+		if (relation->rd_rel->relowner == InvalidOid && !systup_store_active())
 		{
 			HeapTuple	htup;
 			Form_pg_class relp;
@@ -4593,6 +4600,9 @@ static void
 load_critical_index(Oid indexoid, Oid heapoid)
 {
 	Relation	ird;
+
+	if (systup_store_active())
+		return;
 
 	/*
 	 * We must lock the underlying catalog before locking the index to avoid
@@ -6658,20 +6668,23 @@ write_relcache_init_file(bool shared)
 	HASH_SEQ_STATUS status;
 	RelIdCacheEnt *idhentry;
 	int			i,j;
-	Oid			collectRelids[48] = {
+	Oid			collectRelids[60] = {
 			AggregateRelationId,
 			AccessMethodRelationId,
 			AccessMethodOperatorRelationId,
 			AccessMethodProcedureRelationId,
+			AppendOnlyRelationId,
 			AttrDefaultRelationId,
 			CastRelationId,
 			ConstraintRelationId,
+			DbRoleSettingRelationId,
 			DependRelationId,
 			DirectoryTableRelationId,
 			OperatorClassRelationId,
 			CollationRelationId,
 			ConversionRelationId,
 			DefaultAclRelationId,
+			DirectoryTableRelationId,
 			EnumRelationId,
 			EventTriggerRelationId,
 			ExtprotocolRelationId,
@@ -6679,6 +6692,7 @@ write_relcache_init_file(bool shared)
 			ForeignServerRelationId,
 			ForeignTableRelationId,
 			GpPolicyRelationId,
+			GpWarehouseRelationId,
 			InheritsRelationId,
 			IndexRelationId,
 			LanguageRelationId,
@@ -6689,17 +6703,25 @@ write_relcache_init_file(bool shared)
 			PartitionedRelationId,
 			PolicyRelationId,
 			ProcCallbackRelationId,
+			ProcedureRelationId,
+			ProfileRelationId,
 			PublicationRelationId,
 			PublicationRelRelationId,
 			RangeRelationId,
+			ReplicationOriginRelationId,
 			ResGroupRelationId,
 			ResQueueCapabilityRelationId,
+			RewriteRelationId,
 			SequenceRelationId,
+			StatisticExtDataRelationId,
 			StatisticExtRelationId,
 			StatisticRelationId,
 			StorageServerRelationId,
 			StorageUserMappingRelationId,
+			SubscriptionRelationId,
+			SubscriptionRelRelationId,
 			TableSpaceRelationId,
+			TransformRelationId,
 			TriggerRelationId,
 			TSConfigRelationId,
 			TSConfigMapRelationId,
@@ -7003,6 +7025,7 @@ RelationIdIsInInitFile(Oid relationId)
 	if (relationId == SharedSecLabelRelationId ||
 		relationId == TriggerRelidNameIndexId ||
 		relationId == DatabaseNameIndexId ||
+		relationId == DbRoleSettingRelationId ||
 		relationId == SharedSecLabelObjectIndexId ||
 		relationId == ManifestRelationId ||
 		relationId == PolicyRelationId ||

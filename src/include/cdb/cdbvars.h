@@ -759,6 +759,7 @@ extern GpId GpIdentity;
 #define IS_QUERY_DISPATCHER() (GpIdentity.segindex == MASTER_CONTENT_ID)
 
 #define IS_QUERY_EXECUTOR_BACKEND() (Gp_role == GP_ROLE_EXECUTE && gp_session_id > 0)
+#define IS_SEGMENT_EXECUTOR() (IS_QUERY_EXECUTOR_BACKEND() && GpIdentity.segindex >= 0)
 
 /* Stores the listener port that this process uses to listen for incoming
  * Interconnect connections from other Motion nodes.

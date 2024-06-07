@@ -869,7 +869,7 @@ _outSystemTableTransferNode(StringInfo str, const SystemTableTransferNode *node)
 }
 
 static void
-_outTranderTuple(StringInfo str, const TransferTuple *node)
+_outTransferTuple(StringInfo str, const TransferTuple *node)
 {
 	WRITE_NODE_TYPE("TRANSFERTUPLE");
 
@@ -1960,7 +1960,7 @@ _outNode(StringInfo str, void *obj)
 				_outSystemTableTransferNode(str, obj);
 				break;
 			case T_TransferTuple:
-				_outTranderTuple(str, obj);
+				_outTransferTuple(str, obj);
 				break;
 #ifdef SERVERLESS
 			case T_APHashExpr:

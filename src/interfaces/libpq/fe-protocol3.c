@@ -2472,5 +2472,16 @@ build_startup_packet(const PGconn *conn, char *packet,
 		packet[packet_len] = '\0';
 	packet_len++;
 
+	if (conn->catalog)
+	{
+		if (packet)
+		{
+			memcpy(packet + packet_len, &conn->catalog_size, sizeof(int));
+			memcpy(packet + packet_len + sizeof(int), conn->catalog, conn->catalog_size);
+		}
+		packet_len += sizeof(int);
+		packet_len += conn->catalog_size;
+	}
+
 	return packet_len;
 }

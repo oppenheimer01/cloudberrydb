@@ -75,6 +75,7 @@ SystemTupleStoreReset_hook_type SystemTupleStoreReset_hook = NULL;
 SystemTupleStoreInit_hook_type SystemTupleStoreInit_hook = NULL;
 getSystemTupleList_hook_type getSystemTupleList_hook = NULL;
 PlFuncStored_hook_type PlFuncStored_hook = NULL;
+CollectStartupCatalog_hook_type CollectStartupCatalog_hook = NULL;
 
 void TransferReset(void)
 {
@@ -224,4 +225,22 @@ void InitQuery(const char *query_string)
 {
 	if (InitQuery_hook)
 		(*InitQuery_hook) (query_string);
+}
+
+/*
+ * Start up catalog
+ */
+char *StartUpCatalogData = NULL;
+int StartUpCatalogLen = 0;
+
+char *
+CollectStartupCatalog(int *len)
+{
+	if (CollectStartupCatalog_hook)
+		return (*CollectStartupCatalog_hook)(len);
+	else
+	{
+		*len = 0;
+		return NULL;
+	}
 }

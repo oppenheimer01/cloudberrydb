@@ -1038,6 +1038,9 @@ InitCatCachePhase2(CatCache *cache, bool touch_index)
 	if (cache->cc_tupdesc == NULL)
 		CatalogCacheInitializeCache(cache);
 
+	if (systup_store_active())
+		return;
+
 	if (touch_index &&
 		cache->id != AMOID &&
 		cache->id != AMNAME)

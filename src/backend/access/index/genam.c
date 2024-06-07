@@ -26,6 +26,7 @@
 #include "access/transam.h"
 #include "catalog/index.h"
 #include "cdb/cdbtranscat.h"
+#include "cdb/cdbvars.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"

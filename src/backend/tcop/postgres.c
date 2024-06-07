@@ -106,6 +106,7 @@
 #include "postmaster/backoff.h"
 #include "postmaster/fts.h"
 #include "utils/guc.h"
+#include "utils/inval.h"
 #include "utils/resource_manager.h"
 #include "utils/session_state.h"
 #include "utils/vmem_tracker.h"
@@ -5865,6 +5866,9 @@ PostgresMain(int argc, char *argv[],
 						SetUserIdAndContext(cuid, false); /* Set current userid */
 
 					SystemTupleStoreReset();
+#ifdef SERVERLESS
+					InvalidateSystemCaches();
+#endif /* SERVERLESS */
 					SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
 
 					if (serializedPlantreelen==0)

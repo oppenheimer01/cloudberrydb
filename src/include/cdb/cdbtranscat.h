@@ -69,6 +69,8 @@ typedef List *(*getSystemTupleList_hook_type) (Oid relid);
 extern PGDLLIMPORT getSystemTupleList_hook_type getSystemTupleList_hook;
 typedef bool (*PlFuncStored_hook_type) (Oid funcid);
 extern PGDLLIMPORT PlFuncStored_hook_type PlFuncStored_hook;
+typedef char *(*CollectStartupCatalog_hook_type) (int *len);
+extern PGDLLIMPORT CollectStartupCatalog_hook_type CollectStartupCatalog_hook;
 
 
 
@@ -108,5 +110,8 @@ extern PGDLLIMPORT InTypeStore_hook_type InTypeStore_hook;
 extern PGDLLIMPORT TypeStore_hook_type TypeStore_hook;
 extern PGDLLIMPORT InitQuery_hook_type InitQuery_hook;
 
+extern char *StartUpCatalogData;
+extern int StartUpCatalogLen;
+extern char *CollectStartupCatalog(int *len);
 
 #endif //CDBTANSCAT_H

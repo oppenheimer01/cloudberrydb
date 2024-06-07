@@ -156,6 +156,7 @@
 #include "cdb/cdbtm.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbendpoint.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/ic_proxy_bgworker.h"
 #include "cdb/ml_ipc.h"
 #include "utils/metrics_utils.h"
@@ -2589,7 +2590,7 @@ retry1:
 					/* If no defined USE_INTERNAL_FTS
 					 * Allow deal fts meesage in master
 					 * Also support promote standby when standby_promote_ready is true
-					 */ 
+					 */
 					am_ftshandler = true;
 
 #ifdef FAULT_INJECTOR
@@ -2671,9 +2672,22 @@ retry1:
 		 * given packet length, complain.
 		 */
 		if (offset != len - 1)
-			ereport(FATAL,
-					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-					 errmsg("invalid startup packet layout: expected terminator as last byte")));
+		{
+			int catalog_len;
+
+			offset += 1;
+			memcpy(&catalog_len, buf + offset, sizeof(int));
+
+			offset += 4;
+			if (len - offset != catalog_len)
+				ereport(FATAL,
+						(errcode(ERRCODE_PROTOCOL_VIOLATION),
+						 errmsg("invalid startup packet layout: expected terminator as last byte")));
+
+			StartUpCatalogData = malloc(catalog_len);
+			StartUpCatalogLen = catalog_len;
+			memcpy(StartUpCatalogData, buf + offset, catalog_len);
+		}
 
 		/*
 		 * If the client requested a newer protocol version or if the client

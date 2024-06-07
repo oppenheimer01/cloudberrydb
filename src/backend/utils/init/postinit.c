@@ -46,6 +46,7 @@
 #include "libpq/libpq-be.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbtm.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbutil.h"
 #include "mb/pg_wchar.h"
@@ -675,6 +676,12 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	char		dbname[NAMEDATALEN];
 
 	elog(DEBUG3, "InitPostgres");
+
+	if (StartUpCatalogData && GpIdentity.segindex >= 0)
+	{
+		SystemTupleStoreReset();
+		SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);
+	}
 
 	/*
 	 * Add my PGPROC struct to the ProcArray.
