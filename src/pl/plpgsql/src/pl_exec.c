@@ -9003,7 +9003,7 @@ plpgsql_prepare_trigger(PLpgSQL_function *func,
 	estate.err_text = NULL;
 	estate.err_stmt = (PLpgSQL_stmt *) (func->action);
 
-	prepare_stmt_block(&estate, (PLpgSQL_stmt_block *) func->action);
+	init_toplevel_block(&estate, func->action);
 
 	/* Clean up any leftover temporary memory */
 	plpgsql_destroy_econtext(&estate);
