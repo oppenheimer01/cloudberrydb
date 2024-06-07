@@ -248,5 +248,8 @@ extern PGDLLIMPORT file_unlink_hook_type file_unlink_hook;
 typedef void (*smgr_get_impl_hook_type)(const Relation rel, SMgrImpl* smgr_impl);
 extern PGDLLIMPORT smgr_get_impl_hook_type smgr_get_impl_hook;
 
+typedef void (*pending_relation_deletes_hook_type) (void);
+extern PGDLLIMPORT pending_relation_deletes_hook_type pending_relation_deletes_hook;
+
 extern f_smgr smgrsw[];
 #endif							/* SMGR_H */

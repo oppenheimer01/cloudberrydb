@@ -51,6 +51,9 @@ file_unlink_hook_type file_unlink_hook = NULL;
 
 smgr_get_impl_hook_type smgr_get_impl_hook = NULL;
 
+/* Hook for plugins to get control in deletion of relation files */
+pending_relation_deletes_hook_type pending_relation_deletes_hook = NULL;
+
 /* Hook for plugins to get control in smgr */
 smgr_init_hook_type smgr_init_hook = NULL;
 smgr_hook_type smgr_hook = NULL;

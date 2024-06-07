@@ -2787,6 +2787,9 @@ CommitTransaction(void)
 	TransactionId latestXid;
 	bool		is_parallel_worker;
 
+	if (pending_relation_deletes_hook)
+		pending_relation_deletes_hook();
+
 	if (cache_invalidation_async_hook)
 		cache_invalidation_async_hook(cache_async_messages);
 
