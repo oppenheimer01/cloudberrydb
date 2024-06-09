@@ -117,7 +117,7 @@ UpdateManifestRecord(RelFileNodeId relfilenode, text *path)
 void
 DeleteManifestCatalog(RelFileNodeId relnode)
 {
-	Relation entrance_rel = heap_open(ManifestRelationId, AccessExclusiveLock);
+	Relation entrance_rel = heap_open(ManifestRelationId, RowExclusiveLock);
 	SysScanDesc	scan;
 	HeapTuple tuple;
 
@@ -131,5 +131,5 @@ DeleteManifestCatalog(RelFileNodeId relnode)
 		CatalogTupleDelete(entrance_rel, &tuple->t_self);
 
 	systable_endscan(scan);
-	table_close(entrance_rel, AccessExclusiveLock);
+	table_close(entrance_rel, RowExclusiveLock);
 }
