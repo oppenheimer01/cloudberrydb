@@ -2574,7 +2574,7 @@ RelationReloadNailed(Relation relation)
 		 * accessed.  To ensure the entry will later be revalidated, we leave
 		 * it in invalid state, but allow use (cf. RelationIdGetRelation()).
 		 */
-		// if (criticalRelcachesBuilt)
+		if (criticalRelcachesBuilt)
 		{
 			HeapTuple	pg_class_tuple;
 			Form_pg_class relp;
