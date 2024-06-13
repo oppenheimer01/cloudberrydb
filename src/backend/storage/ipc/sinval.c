@@ -15,7 +15,6 @@
 #include "postgres.h"
 
 #include "access/xact.h"
-#include "cdb/cdbvars.h"
 #include "commands/async.h"
 #include "miscadmin.h"
 #include "storage/ipc.h"
@@ -96,11 +95,6 @@ ReceiveSharedInvalidMessages(void (*invalFunction) (SharedInvalidationMessage *m
 
 		SharedInvalidMessageCounter++;
 		invalFunction(&msg);
-
-		if (CollectInvalMessages_hook)
-		{
-			CollectInvalMessages_hook(&msg);
-		}
 	}
 
 	do
@@ -118,10 +112,6 @@ ReceiveSharedInvalidMessages(void (*invalFunction) (SharedInvalidationMessage *m
 			elog(DEBUG4, "cache state reset");
 			SharedInvalidMessageCounter++;
 			resetFunction();
-			if (ProcessResetCache_hook)
-			{
-				ProcessResetCache_hook();
-			}
 			break;				/* nothing more to do */
 		}
 
@@ -135,11 +125,6 @@ ReceiveSharedInvalidMessages(void (*invalFunction) (SharedInvalidationMessage *m
 
 			SharedInvalidMessageCounter++;
 			invalFunction(&msg);
-
-			if (CollectInvalMessages_hook)
-			{
-				CollectInvalMessages_hook(&msg);
-			}
 		}
 
 		/*

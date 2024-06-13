@@ -103,7 +103,6 @@
  */
 
 
-#if 0
 /*
  * Configurable parameters.
  *
@@ -193,10 +192,6 @@ static SISeg *shmInvalBuffer;	/* pointer to the shared inval buffer */
 
 
 static LocalTransactionId nextLocalTransactionId;
-#endif
-
-SISeg *shmInvalBuffer = NULL;
-LocalTransactionId nextLocalTransactionId = InvalidLocalTransactionId;
 
 static void CleanupInvalidationState(int status, Datum arg);
 

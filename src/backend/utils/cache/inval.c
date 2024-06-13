@@ -136,7 +136,6 @@
 #include "cdb/cdbvars.h"
 
 
-#if 0
 /*
  * To minimize palloc traffic, we keep pending requests in successively-
  * larger chunks (a slightly more sophisticated version of an expansible
@@ -156,13 +155,6 @@ typedef struct InvalidationListHeader
 	InvalidationChunk *cclist;	/* list of chunks holding catcache msgs */
 	InvalidationChunk *rclist;	/* list of chunks holding relcache msgs */
 } InvalidationListHeader;
-#endif
-CollectInvalMessages_hook_type CollectInvalMessages_hook = NULL;
-ProcessResetCache_hook_type ProcessResetCache_hook = NULL;
-cache_invalidation_async_hook_type cache_invalidation_async_hook = NULL;
-cache_async_cleanup_hook_type cache_async_cleanup_hook = NULL;
-
-CacheAsyncMessages *cache_async_messages = NULL;
 
 /*----------------
  * Invalidation info is divided into two lists:
@@ -705,11 +697,6 @@ LocalExecuteInvalidationMessage(SharedInvalidationMessage *msg)
 #endif
 		elog(FATAL, "unrecognized SI message ID: %d", msg->id);
 	}
-
-	if (CollectInvalMessages_hook)
-	{
-		CollectInvalMessages_hook(msg);
-	}
 }
 
 /*
@@ -1049,12 +1036,7 @@ AtEOXact_Inval(bool isCommit)
 {
 	/* Quick exit if no messages */
 	if (transInvalInfo == NULL)
-	{
-		if (cache_async_cleanup_hook)
-			cache_async_cleanup_hook(cache_async_messages);
 		return;
-	}
-
 
 	/* Must be at top of stack */
 	Assert(transInvalInfo->my_level == 1 && transInvalInfo->parent == NULL);
@@ -1077,9 +1059,6 @@ AtEOXact_Inval(bool isCommit)
 
 		if (transInvalInfo->RelcacheInitFileInval)
 			RelationCacheInitFilePostInvalidate();
-
-		if (cache_async_cleanup_hook)
-			cache_async_cleanup_hook(cache_async_messages);
 	}
 	else
 	{
