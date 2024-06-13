@@ -5827,6 +5827,15 @@ PostgresMain(int argc, char *argv[],
 					if (serializedCatalogLen > 0)
 						serializedCatalog = pq_getmsgbytes(&input_message, serializedCatalogLen);
 
+					if (!IS_QUERY_DISPATCHER())
+					{
+						SystemTupleStoreReset();
+#ifdef SERVERLESS
+						InvalidateSystemCaches();
+#endif /* SERVERLESS */
+						SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
+					}
+
 					/*
 					 * Always use the same GpIdentity.numsegments with QD on QEs
 					 */
@@ -5870,15 +5879,6 @@ PostgresMain(int argc, char *argv[],
 
 					if (cuid > 0)
 						SetUserIdAndContext(cuid, false); /* Set current userid */
-
-					if (!IS_QUERY_DISPATCHER())
-					{
-						SystemTupleStoreReset();
-#ifdef SERVERLESS
-						InvalidateSystemCaches();
-#endif /* SERVERLESS */
-						SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
-					}
 
 					if (serializedPlantreelen==0)
 					{
