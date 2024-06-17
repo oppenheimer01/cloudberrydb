@@ -5865,11 +5865,14 @@ PostgresMain(int argc, char *argv[],
 					if (cuid > 0)
 						SetUserIdAndContext(cuid, false); /* Set current userid */
 
-					SystemTupleStoreReset();
+					if (!IS_QUERY_DISPATCHER())
+					{
+						SystemTupleStoreReset();
 #ifdef SERVERLESS
-					InvalidateSystemCaches();
+						InvalidateSystemCaches();
 #endif /* SERVERLESS */
-					SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
+						SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
+					}
 
 					if (serializedPlantreelen==0)
 					{

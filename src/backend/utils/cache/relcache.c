@@ -2536,7 +2536,7 @@ RelationReloadNailed(Relation relation)
 {
 	Assert(relation->rd_isnailed);
 
-	if (Gp_role == GP_ROLE_EXECUTE)
+	if (IsPostmasterEnvironment && !IS_QUERY_DISPATCHER())
 		return;
 
 	/*
