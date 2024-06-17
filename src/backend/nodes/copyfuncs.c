@@ -567,6 +567,9 @@ CopyScanFields(const Scan *from, Scan *newnode)
 
 	COPY_SCALAR_FIELD(scanrelid);
 	COPY_SCALAR_FIELD(scanflags);
+#ifdef SERVERLESS
+	COPY_SCALAR_FIELD(basemv);
+#endif
 }
 
 /*

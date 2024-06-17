@@ -428,6 +428,10 @@ _outScanInfo(StringInfo str, const Scan *node)
 
 	WRITE_UINT_FIELD(scanrelid);
 	WRITE_UINT_FIELD(scanflags);
+
+#ifdef SERVERLESS
+	WRITE_OID_FIELD(basemv);
+#endif
 }
 
 /*

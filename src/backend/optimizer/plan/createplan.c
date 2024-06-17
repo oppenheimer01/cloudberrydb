@@ -361,6 +361,24 @@ static bool contain_motion(PlannerInfo *root, Node *node);
 static bool contain_motion_walk(Node *node, contain_motion_walk_context *ctx);
 static void push_locus_down_after_elide_motion(Plan* pplan);
 
+#ifdef SERVERLESS
+/*
+ * Global variable to control if we clould create delta seqscan plan.
+ * This is hacky, we can not ensure that a seqscan path with
+ * basemv is actually a delta seqsan.
+ * The reason is when we identify a delta seqscan path of a append agg
+ * the underlying seqsan path could also be a leaf node of others.
+ * Ex: create a two-stage hash agg with append and delta scan, but the GUC
+ * enable_hashagg is off. We have to use one-stage agg, but the delta flag
+ * of seqscan path is wrong.
+ * So, we must handle the case when create plan, if we are a append agg, turn
+ * this variable to true to allow create delta seqscan.
+ * Else, even the best_path is a seqscan with delta flag, we create a normal
+ * seqscan plan for correct results.
+ */
+bool	allow_create_delta_seqscan = false;
+#endif
+
 /*
  * create_plan
  *	  Creates the access plan for a query by recursively processing the
@@ -1364,6 +1382,12 @@ create_append_plan(PlannerInfo *root, AppendPath *best_path, int flags)
 	plan->plan.righttree = NULL;
 	plan->apprelids = rel->relids;
 
+#ifdef SERVERLESS
+	/* Toggle delta scan plan, see comments of allow_create_delta_seqscan */
+	bool	saved_allow_create_delta_seqscan = allow_create_delta_seqscan;
+	allow_create_delta_seqscan = best_path->append_agg;
+#endif
+
 	if (pathkeys != NIL)
 	{
 		/*
@@ -1513,6 +1537,10 @@ create_append_plan(PlannerInfo *root, AppendPath *best_path, int flags)
 
 	copy_generic_path_info(&plan->plan, (Path *) best_path);
 
+#ifdef SERVERLESS
+	/* Recover after subplans are created.*/
+	allow_create_delta_seqscan = saved_allow_create_delta_seqscan;
+#endif
 	/*
 	 * If prepare_sort_from_pathkeys added sort columns, but we were told to
 	 * produce either the exact tlist or a narrow tlist, we should get rid of
@@ -3653,6 +3681,14 @@ create_seqscan_plan(PlannerInfo *root, Path *best_path,
 	scan_plan = make_seqscan(tlist,
 							 scan_clauses,
 							 scan_relid);
+#ifdef SERVERLESS
+	/*
+	 * We have to check even delta identify is set,
+	 * see reasons of allow_create_delta_seqscan.
+	 */
+	if (allow_create_delta_seqscan)
+		scan_plan->basemv = best_path->basemv;
+#endif
 
 	copy_generic_path_info(&scan_plan->plan, best_path);
 

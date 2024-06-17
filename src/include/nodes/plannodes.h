@@ -561,6 +561,20 @@ typedef struct Scan
 	Plan		plan;
 	Index		scanrelid;		/* relid is index into the range table */
 	uint32		scanflags;			/* extra scan flags */
+#ifdef SERVERLESS
+	/*
+	 * Base materialized view oid for delta scan.
+	 * If valid, it means a Delta SeqScan based on
+	 * materialized views of basemv.
+	 * Fetch tuples from table:
+	 * since
+	 *  the manifest version of basemv latest refresh
+	 * to
+	 * 	current manifest.
+	 * If they are same, return 0 tuples.
+	 */
+	Oid			basemv;
+#endif
 } Scan;
 
 /* ----------------

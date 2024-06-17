@@ -1521,6 +1521,8 @@ typedef struct Path
 	 * optimizations.
 	 */
 	Relids		sameslice_relids;
+
+	Oid			basemv; /* Oid of materialized view of Delta SeqScan based on. */
 } Path;
 
 /* 
@@ -1863,6 +1865,9 @@ typedef struct AppendPath
 	/* Index of first partial path in subpaths; list_length(subpaths) if none */
 	int			first_partial_path;
 	double		limit_tuples;	/* hard limit on output tuples, or -1 */
+#ifdef SERVERLESS
+	bool		append_agg; /* Is a append agg, used to toggle delta scan. */
+#endif
 } AppendPath;
 
 #define IS_DUMMY_APPEND(p) \

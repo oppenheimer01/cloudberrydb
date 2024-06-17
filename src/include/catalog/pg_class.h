@@ -128,6 +128,14 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* count of materialized views referred to the relation */
 	int32		relmvrefcount	BKI_DEFAULT(0);
 
+	/* materialized view has partial agg results instead of final results? */
+	/* TODO: IVM implement this. */
+	bool		relhaspartialagg BKI_DEFAULT(f);
+
+	/* materialized view's data is not up to date, but has only insert operation after latest REFRESH. */
+	/* TODO: IVM implement this. */
+	bool		relinsertonly BKI_DEFAULT(f);
+
 	/* link to original rel during table rewrite; otherwise 0 */
 	Oid			relrewrite BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
 

@@ -1902,6 +1902,9 @@ ReadCommonScan(Scan *local_node)
 
 	READ_UINT_FIELD(scanrelid);
 	READ_UINT_FIELD(scanflags);
+#ifdef SERVERLESS
+	READ_OID_FIELD(basemv);
+#endif
 }
 
 /*
