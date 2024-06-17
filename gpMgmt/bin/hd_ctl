@@ -98,14 +98,17 @@ class HdConnection:
 
 class HdCoordinator(HdConnection):
     def psql(self, sql: str, inline=False):
-        out, _ = self.exec(f'psql -c "{sql}" postgres', newline=not inline)
+        out, _ = self.exec(f'psql -Xc "{sql}" postgres', newline=not inline)
         if inline:
             print(' -> ', end='')
         print(out)
 
+    def psql_value(self, sql: str, inline=False):
+        return self.exec(f'psql -Xtc "{sql}" postgres', newline=not inline)[0].strip()
+
     def dump_str_guc_as_conf_lines(self, *guc_names: str):
         """Dump string GUC values as postgresql.conf lines. Warning: GUC values are treated as strings"""
-        values = [self.exec(f'psql -tc "show {guc_name}" postgres')[0].strip() for guc_name in guc_names]
+        values = [self.psql_value(f'show {guc_name}') for guc_name in guc_names]
         return '\n'.join([f"{k} = '{v}'" for k, v in zip(guc_names, values)])
 
     def __init__(self, conn_str: str):
@@ -127,6 +130,9 @@ class HdSegment(HdConnection):
                                                                         "unionstore.safekeepers",
                                                                         "unionstore.pageserver_connstring")
         self.write(global_conf_lines, "$HOME/data/global.conf")
+        self.start()
+
+    def start(self):
         pg_ctl_cmd = f'pg_ctl -D "{self.datadir}" -l "{self.startup_log}" -w -t 600 -o "-p {self.port} -c gp_role=execute" start'
         try:
             self.exec_gphome_bin(pg_ctl_cmd)
@@ -152,11 +158,14 @@ class HdSegment(HdConnection):
             raise SSHCommandException(f"pg_isready still returns {ret} after {attempts} attempts", ret, self.conn_str)
 
     def drop(self):
+        self.stop()
+        self.exec(f'rm -rf "{self.datadir}"')
+
+    def stop(self):
         try:
             self.exec_gphome_bin(f'pg_ctl -D "{self.datadir}" -l "{self.startup_log}" -w -t 120 -m i stop')
         except SSHCommandException as e:
             print(e)
-        self.exec(f'rm -rf "{self.datadir}"')
 
     def __init__(self, conn_str: str, dbid: int, contentid: int, port: int, datadir: str, coordinator: HdCoordinator):
         super().__init__(conn_str)
@@ -189,6 +198,12 @@ class HdWarehouse:
         print("\nCreating...")
         self.create()
 
+    def restart(self):
+        print("\nStopping...")
+        self.on_all_segments('stop')
+        print("\nStarting...")
+        self.on_all_segments('start')
+
     def list(self):
         self.coordinator.psql("select * from gp_warehouse")
         self.coordinator.psql("select * from gp_segment_configuration")
@@ -197,9 +212,10 @@ class HdWarehouse:
         self.name = name
         self.coordinator = coordinator
         self.segments = []
+        base_dbid = int(coordinator.psql_value("select max(dbid) from gp_segment_configuration")) + 1
         for i, conn_str in enumerate(conn_strs):
-            port = base_port + i
-            self.segments.append(HdSegment(conn_str, i + 2, i, port, f"$HOME/data/primary{port}", coordinator))
+            port, dbid = base_port + i, base_dbid + i
+            self.segments.append(HdSegment(conn_str, dbid, i, port, f"$HOME/data/primary{port}", coordinator))
 
 
 class ArgParseShim:
@@ -233,6 +249,7 @@ if __name__ == '__main__':
     create_warehouse = warehouse_subs.add_parser("create")
     drop_warehouse = warehouse_subs.add_parser("drop")
     recreate_warehouse = warehouse_subs.add_parser("recreate")
+    restart_warehouse = warehouse_subs.add_parser("restart")
     shim.epilogue()
     parsed = parser.parse_args()  # parse before initialization so that syntax errors can be reported early
     with open(parsed.config, 'r') as f:
@@ -246,6 +263,7 @@ if __name__ == '__main__':
     create_warehouse.set_defaults(func=warehouse.create)
     drop_warehouse.set_defaults(func=warehouse.drop)
     recreate_warehouse.set_defaults(func=warehouse.recreate)
+    restart_warehouse.set_defaults(func=warehouse.restart)
     parser.parse_args().func()  # parse a second time which is guaranteed to succeed
 
     warehouse.list()
