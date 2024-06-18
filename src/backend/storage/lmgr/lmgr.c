@@ -341,6 +341,11 @@ CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger)
 {
 	LOCKTAG		tag;
 
+#ifdef SERVERLESS
+	if (IsNormalProcessingMode() && !IS_QUERY_DISPATCHER())
+		return true;
+#endif /* SERVERLESS */
+
 	SET_LOCKTAG_RELATION(tag,
 						 relation->rd_lockInfo.lockRelId.dbId,
 						 relation->rd_lockInfo.lockRelId.relId);

@@ -2270,11 +2270,26 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	 * let the caller print its own error message, too. Do not ereport(ERROR).
 	 */
 	if (!locallock || locallock->nLocks <= 0)
+#ifdef SERVERLESS
+	{
+		if (IsNormalProcessingMode() && !IS_QUERY_DISPATCHER())
+		{
+			return true;
+		}
+		else
+		{
+			elog(WARNING, "you don't own a lock of type %s",
+				 lockMethodTable->lockModeNames[lockmode]);
+			return false;
+		}
+	}
+#else /* SERVERLESS */
 	{
 		elog(WARNING, "you don't own a lock of type %s",
 			 lockMethodTable->lockModeNames[lockmode]);
 		return false;
 	}
+#endif /* SERVERLESS */
 
 	/*
 	 * Decrease the count for the resource owner.

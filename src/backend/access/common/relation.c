@@ -23,6 +23,7 @@
 #include "access/relation.h"
 #include "access/xact.h"
 #include "catalog/namespace.h"
+#include "cdb/cdbvars.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/lmgr.h"
@@ -50,6 +51,10 @@ relation_open(Oid relationId, LOCKMODE lockmode)
 	Relation	r;
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
+#ifdef SERVERLESS
+	if (IsNormalProcessingMode() && !IS_QUERY_DISPATCHER())
+		lockmode = NoLock;
+#endif /* SERVERLESS */
 
 	/* Get the lock before trying to open the relcache entry */
 	if (lockmode != NoLock)
