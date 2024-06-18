@@ -6241,19 +6241,24 @@ load_relcache_init_file(bool shared)
 				magic;
 	int			i;
 
-	if (shared)
+
+	if (GpIdentity.segindex < 0)
 	{
-		snprintf(initfilename, sizeof(initfilename), "global/%s",
-				 RELCACHE_INIT_FILENAME);
+		if (shared)
+			snprintf(initfilename, sizeof(initfilename), "global/%s",
+					 RELCACHE_INIT_FILENAME);
+		else
+			snprintf(initfilename, sizeof(initfilename), "%s/%s",
+					 DatabasePath, RELCACHE_INIT_FILENAME);
 	}
 	else
 	{
-//		if (GpIdentity.segindex >= 0)
+		if (shared)
+			snprintf(initfilename, sizeof(initfilename), "%s.global",
+					 RELCACHE_INIT_FILENAME);
+		else
 			snprintf(initfilename, sizeof(initfilename), "%s",
 					 RELCACHE_INIT_FILENAME);
-//		else
-//			snprintf(initfilename, sizeof(initfilename), "%s/%s",
-//					 DatabasePath, RELCACHE_INIT_FILENAME);
 	}
 
 	fp = AllocateFile(initfilename, PG_BINARY_R);
@@ -6675,6 +6680,7 @@ write_relcache_init_file(bool shared)
 	FILE	   *fp;
 	char		tempfilename[MAXPGPATH];
 	char		finalfilename[MAXPGPATH];
+	char		copyfilename[MAXPGPATH];
 	int			magic;
 	HASH_SEQ_STATUS status;
 	RelIdCacheEnt *idhentry;
@@ -6766,12 +6772,16 @@ write_relcache_init_file(bool shared)
 				 RELCACHE_INIT_FILENAME, MyProcPid);
 		snprintf(finalfilename, sizeof(finalfilename), "global/%s",
 				 RELCACHE_INIT_FILENAME);
+		snprintf(copyfilename, sizeof(copyfilename), "%s.global",
+				 RELCACHE_INIT_FILENAME);
 	}
 	else
 	{
 		snprintf(tempfilename, sizeof(tempfilename), "%s/%s.%d",
 				 DatabasePath, RELCACHE_INIT_FILENAME, MyProcPid);
-		snprintf(finalfilename, sizeof(finalfilename), "%s",
+		snprintf(finalfilename, sizeof(finalfilename), "%s/%s",
+				 DatabasePath, RELCACHE_INIT_FILENAME);
+		snprintf(copyfilename, sizeof(copyfilename), "%s",
 				 RELCACHE_INIT_FILENAME);
 	}
 
@@ -7005,6 +7015,19 @@ write_relcache_init_file(bool shared)
 	{
 		/* Delete the already-obsolete temp file */
 		unlink(tempfilename);
+	}
+
+	/*
+	 * Copy the file to root dir
+	 */
+	if (access(copyfilename, F_OK) != 0)
+	{
+		char cp_cmd[MAXPGPATH];
+		sprintf(cp_cmd, "cp %s %s", finalfilename, copyfilename);
+		if (system(cp_cmd) != 0)
+		{
+			elog(ERROR, "copy process fail, cp_cmd %s", cp_cmd);
+		}
 	}
 
 	LWLockRelease(RelCacheInitLock);
