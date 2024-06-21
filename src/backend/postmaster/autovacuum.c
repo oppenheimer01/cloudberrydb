@@ -214,6 +214,15 @@ static MemoryContext AutovacMemCxt;
  */
 AutoVacLauncherMain_hook_type AutoVacLauncherMain_hook = NULL;
 
+/*
+ * Hook for plugins to get control in vacuum relation list
+ * If you add this hook, you`d better add TableRecheckAutoVac_hook too.
+ */
+AutoVacRelationList_hook_type AutoVacRelationList_hook = NULL;
+
+/* Hook for plugins to get control in recheck auto-vacuum/analyze table */
+TableRecheckAutoVac_hook_type TableRecheckAutoVac_hook = NULL;
+
 /* struct to keep track of databases in launcher */
 typedef struct avl_dbase
 {
@@ -233,30 +242,6 @@ typedef struct avw_dbase
 	MultiXactId adw_minmulti;
 	PgStat_StatDBEntry *adw_entry;
 } avw_dbase;
-
-/* struct to keep track of tables to vacuum and/or analyze, in 1st pass */
-typedef struct av_relation
-{
-	Oid			ar_toastrelid;	/* hash key - must be first */
-	Oid			ar_relid;
-	bool		ar_hasrelopts;
-	AutoVacOpts ar_reloptions;	/* copy of AutoVacOpts from the main table's
-								 * reloptions, or NULL if none */
-} av_relation;
-
-/* struct to keep track of tables to vacuum and/or analyze, after rechecking */
-typedef struct autovac_table
-{
-	Oid			at_relid;
-	VacuumParams at_params;
-	double		at_vacuum_cost_delay;
-	int			at_vacuum_cost_limit;
-	bool		at_dobalance;
-	bool		at_sharedrel;
-	char	   *at_relname;
-	char	   *at_nspname;
-	char	   *at_datname;
-} autovac_table;
 
 /*-------------
  * This struct holds information about a single worker's whereabouts.  We keep
@@ -410,6 +395,13 @@ static void autovac_report_workitem(AutoVacuumWorkItem *workitem,
 									const char *nspname, const char *relname);
 static void avl_sigusr2_handler(SIGNAL_ARGS);
 static void autovac_refresh_stats(void);
+static List* autovacuum_relation_list(Relation classRel,
+				      Form_pg_database dbForm,
+				      HTAB *table_toast_map,
+				      PgStat_StatDBEntry *shared,
+				      PgStat_StatDBEntry *dbentry,
+				      TupleDesc	pg_class_desc,
+				      int effective_multixact_freeze_max_age);
 
 
 
@@ -2054,17 +2046,14 @@ do_autovacuum(void)
 {
 	Relation	classRel;
 	HeapTuple	tuple;
-	TableScanDesc relScan;
 	Form_pg_database dbForm;
 	List	   *table_oids = NIL;
-	List	   *orphan_oids = NIL;
 	HASHCTL		ctl;
 	HTAB	   *table_toast_map;
 	ListCell   *volatile cell;
 	PgStat_StatDBEntry *shared;
 	PgStat_StatDBEntry *dbentry;
 	BufferAccessStrategy bstrategy;
-	ScanKeyData key;
 	TupleDesc	pg_class_desc;
 	int			effective_multixact_freeze_max_age;
 	bool		did_vacuum = false;
@@ -2151,265 +2140,20 @@ do_autovacuum(void)
 								  &ctl,
 								  HASH_ELEM | HASH_BLOBS);
 
-	/*
-	 * Scan pg_class to determine which tables to vacuum.
-	 *
-	 * We do this in two passes: on the first one we collect the list of plain
-	 * relations and materialized views, and on the second one we collect
-	 * TOAST tables. The reason for doing the second pass is that during it we
-	 * want to use the main relation's pg_class.reloptions entry if the TOAST
-	 * table does not have any, and we cannot obtain it unless we know
-	 * beforehand what's the main table OID.
-	 *
-	 * We need to check TOAST tables separately because in cases with short,
-	 * wide tables there might be proportionally much more activity in the
-	 * TOAST table than in its parent.
-	 */
-	relScan = table_beginscan_catalog(classRel, 0, NULL);
-
-	/*
-	 * On the first pass, we collect main tables to vacuum, and also the main
-	 * table relid to TOAST relid mapping.
-	 */
-	while ((tuple = heap_getnext(relScan, ForwardScanDirection)) != NULL)
+	if (AutoVacRelationList_hook)
 	{
-		Form_pg_class classForm = (Form_pg_class) GETSTRUCT(tuple);
-		PgStat_StatTabEntry *tabentry;
-		AutoVacOpts *relopts;
-		Oid			relid;
-		bool		dovacuum;
-		bool		doanalyze;
-		bool		wraparound;
-
-		if (classForm->relkind != RELKIND_RELATION &&
-			classForm->relkind != RELKIND_DIRECTORY_TABLE &&
-			classForm->relkind != RELKIND_MATVIEW &&
-			classForm->relkind != RELKIND_AOSEGMENTS &&
-			classForm->relkind != RELKIND_AOBLOCKDIR &&
-			classForm->relkind != RELKIND_AOVISIMAP)
-			continue;
-
-		relid = classForm->oid;
-
-		/*
-		 * Check if it is a temp table (presumably, of some other backend's).
-		 * We cannot safely process other backends' temp tables.
-		 */
-		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
-		{
-			/*
-			 * GPDB: Skip process temp tables since the temp namespace for QD and QE
-			 * is using gp_session_id as suffix instead of backendID.
-			 * And performDeletion() only execute delete on current node.
-			 */
-			continue;
-
-			/*
-			 * We just ignore it if the owning backend is still active and
-			 * using the temporary schema.  Also, for safety, ignore it if the
-			 * namespace doesn't exist or isn't a temp namespace after all.
-			 */
-			if (checkTempNamespaceStatus(classForm->relnamespace) == TEMP_NAMESPACE_IDLE)
-			{
-				/*
-				 * The table seems to be orphaned -- although it might be that
-				 * the owning backend has already deleted it and exited; our
-				 * pg_class scan snapshot is not necessarily up-to-date
-				 * anymore, so we could be looking at a committed-dead entry.
-				 * Remember it so we can try to delete it later.
-				 */
-				orphan_oids = lappend_oid(orphan_oids, relid);
-			}
-			continue;
-		}
-
-		/* Fetch reloptions and the pgstat entry for this table */
-		relopts = extract_autovac_opts(tuple, pg_class_desc);
-		tabentry = get_pgstat_tabentry_relid(relid, classForm->relisshared,
-											 shared, dbentry);
-
-		/* Check if it needs vacuum or analyze */
-		relation_needs_vacanalyze(relid, relopts, classForm, tabentry,
-								  effective_multixact_freeze_max_age,
-								  &dovacuum, &doanalyze, &wraparound);
-
-		/* Relations that need work are added to table_oids */
-		if (dovacuum || doanalyze)
-			table_oids = lappend_oid(table_oids, relid);
-
-		/*
-		 * Remember TOAST associations for the second pass.  Note: we must do
-		 * this whether or not the table is going to be vacuumed, because we
-		 * don't automatically vacuum toast tables along the parent table.
-		 */
-		if (OidIsValid(classForm->reltoastrelid))
-		{
-			av_relation *hentry;
-			bool		found;
-
-			hentry = hash_search(table_toast_map,
-								 &classForm->reltoastrelid,
-								 HASH_ENTER, &found);
-
-			if (!found)
-			{
-				/* hash_search already filled in the key */
-				hentry->ar_relid = relid;
-				hentry->ar_hasrelopts = false;
-				if (relopts != NULL)
-				{
-					hentry->ar_hasrelopts = true;
-					memcpy(&hentry->ar_reloptions, relopts,
-						   sizeof(AutoVacOpts));
-				}
-			}
-		}
+		table_oids = (*AutoVacRelationList_hook)(classRel, dbForm, table_toast_map,
+							 shared, dbentry,
+							 pg_class_desc,
+							 effective_multixact_freeze_max_age,
+							 AutovacMemCxt);
 	}
-
-	table_endscan(relScan);
-
-	/* second pass: check TOAST tables */
-	ScanKeyInit(&key,
-				Anum_pg_class_relkind,
-				BTEqualStrategyNumber, F_CHAREQ,
-				CharGetDatum(RELKIND_TOASTVALUE));
-
-	relScan = table_beginscan_catalog(classRel, 1, &key);
-	while ((tuple = heap_getnext(relScan, ForwardScanDirection)) != NULL)
+	else
 	{
-		Form_pg_class classForm = (Form_pg_class) GETSTRUCT(tuple);
-		PgStat_StatTabEntry *tabentry;
-		Oid			relid;
-		AutoVacOpts *relopts = NULL;
-		bool		dovacuum;
-		bool		doanalyze;
-		bool		wraparound;
-
-		/*
-		 * We cannot safely process other backends' temp tables, so skip 'em.
-		 */
-		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
-			continue;
-
-		relid = classForm->oid;
-
-		/*
-		 * fetch reloptions -- if this toast table does not have them, try the
-		 * main rel
-		 */
-		relopts = extract_autovac_opts(tuple, pg_class_desc);
-		if (relopts == NULL)
-		{
-			av_relation *hentry;
-			bool		found;
-
-			hentry = hash_search(table_toast_map, &relid, HASH_FIND, &found);
-			if (found && hentry->ar_hasrelopts)
-				relopts = &hentry->ar_reloptions;
-		}
-
-		/* Fetch the pgstat entry for this table */
-		tabentry = get_pgstat_tabentry_relid(relid, classForm->relisshared,
-											 shared, dbentry);
-
-		relation_needs_vacanalyze(relid, relopts, classForm, tabentry,
-								  effective_multixact_freeze_max_age,
-								  &dovacuum, &doanalyze, &wraparound);
-
-		/* ignore analyze for toast tables */
-		if (dovacuum)
-			table_oids = lappend_oid(table_oids, relid);
-	}
-
-	table_endscan(relScan);
-	table_close(classRel, AccessShareLock);
-
-	/*
-	 * Recheck orphan temporary tables, and if they still seem orphaned, drop
-	 * them.  We'll eat a transaction per dropped table, which might seem
-	 * excessive, but we should only need to do anything as a result of a
-	 * previous backend crash, so this should not happen often enough to
-	 * justify "optimizing".  Using separate transactions ensures that we
-	 * don't bloat the lock table if there are many temp tables to be dropped,
-	 * and it ensures that we don't lose work if a deletion attempt fails.
-	 */
-	foreach(cell, orphan_oids)
-	{
-		Oid			relid = lfirst_oid(cell);
-		Form_pg_class classForm;
-		ObjectAddress object;
-
-		/*
-		 * Check for user-requested abort.
-		 */
-		CHECK_FOR_INTERRUPTS();
-
-		/*
-		 * Try to lock the table.  If we can't get the lock immediately,
-		 * somebody else is using (or dropping) the table, so it's not our
-		 * concern anymore.  Having the lock prevents race conditions below.
-		 */
-		if (!ConditionalLockRelationOid(relid, AccessExclusiveLock))
-			continue;
-
-		/*
-		 * Re-fetch the pg_class tuple and re-check whether it still seems to
-		 * be an orphaned temp table.  If it's not there or no longer the same
-		 * relation, ignore it.
-		 */
-		tuple = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(relid));
-		if (!HeapTupleIsValid(tuple))
-		{
-			/* be sure to drop useless lock so we don't bloat lock table */
-			UnlockRelationOid(relid, AccessExclusiveLock);
-			continue;
-		}
-		classForm = (Form_pg_class) GETSTRUCT(tuple);
-
-		/*
-		 * Make all the same tests made in the loop above.  In event of OID
-		 * counter wraparound, the pg_class entry we have now might be
-		 * completely unrelated to the one we saw before.
-		 */
-		if (!((classForm->relkind == RELKIND_RELATION ||
-			   classForm->relkind == RELKIND_MATVIEW ||
-			   classForm->relkind == RELKIND_DIRECTORY_TABLE) &&
-			  classForm->relpersistence == RELPERSISTENCE_TEMP))
-		{
-			UnlockRelationOid(relid, AccessExclusiveLock);
-			continue;
-		}
-
-		if (checkTempNamespaceStatus(classForm->relnamespace) != TEMP_NAMESPACE_IDLE)
-		{
-			UnlockRelationOid(relid, AccessExclusiveLock);
-			continue;
-		}
-
-		/* OK, let's delete it */
-		ereport(LOG,
-				(errmsg("autovacuum: dropping orphan temp table \"%s.%s.%s\"",
-						get_database_name(MyDatabaseId),
-						get_namespace_name(classForm->relnamespace),
-						NameStr(classForm->relname))));
-
-		object.classId = RelationRelationId;
-		object.objectId = relid;
-		object.objectSubId = 0;
-		performDeletion(&object, DROP_CASCADE,
-						PERFORM_DELETION_INTERNAL |
-						PERFORM_DELETION_QUIETLY |
-						PERFORM_DELETION_SKIP_EXTENSIONS);
-
-		/*
-		 * To commit the deletion, end current transaction and start a new
-		 * one.  Note this also releases the lock we took.
-		 */
-		CommitTransactionCommand();
-		StartTransactionCommand();
-
-		/* StartTransactionCommand changed current memory context */
-		MemoryContextSwitchTo(AutovacMemCxt);
+		table_oids = autovacuum_relation_list(classRel, dbForm, table_toast_map,
+						      shared, dbentry, 
+						      pg_class_desc,
+						      effective_multixact_freeze_max_age);
 	}
 
 	/*
@@ -2533,8 +2277,21 @@ do_autovacuum(void)
 		 * the race condition is not closed but it is very small.
 		 */
 		MemoryContextSwitchTo(AutovacMemCxt);
-		tab = table_recheck_autovac(relid, table_toast_map, pg_class_desc,
-									effective_multixact_freeze_max_age);
+		if (TableRecheckAutoVac_hook != NULL)
+		{
+			tab = (*TableRecheckAutoVac_hook) (relid, table_toast_map,
+							   pg_class_desc,
+							   effective_multixact_freeze_max_age,
+							   default_freeze_min_age,
+							   default_freeze_table_age,
+							   default_multixact_freeze_min_age,
+							   default_multixact_freeze_table_age);
+		}
+		else
+		{
+			tab = table_recheck_autovac(relid, table_toast_map, pg_class_desc,
+						    effective_multixact_freeze_max_age);
+		}
 		if (tab == NULL)
 		{
 			/* someone else vacuumed the table, or it went away */
@@ -3677,4 +3434,284 @@ autovac_refresh_stats(void)
 	}
 
 	pgstat_clear_snapshot();
+}
+
+static List*
+autovacuum_relation_list(Relation classRel,
+			 Form_pg_database dbForm,
+			 HTAB *table_toast_map,
+			 PgStat_StatDBEntry *shared,
+			 PgStat_StatDBEntry *dbentry,
+			 TupleDesc pg_class_desc,
+			 int effective_multixact_freeze_max_age)
+{
+	HeapTuple	tuple;
+	TableScanDesc relScan;
+	List	   *table_oids = NIL;
+	List	   *orphan_oids = NIL;
+	ListCell   *volatile cell;
+	ScanKeyData key;
+
+	/*
+	 * Scan pg_class to determine which tables to vacuum.
+	 *
+	 * We do this in two passes: on the first one we collect the list of plain
+	 * relations and materialized views, and on the second one we collect
+	 * TOAST tables. The reason for doing the second pass is that during it we
+	 * want to use the main relation's pg_class.reloptions entry if the TOAST
+	 * table does not have any, and we cannot obtain it unless we know
+	 * beforehand what's the main table OID.
+	 *
+	 * We need to check TOAST tables separately because in cases with short,
+	 * wide tables there might be proportionally much more activity in the
+	 * TOAST table than in its parent.
+	 */
+	relScan = table_beginscan_catalog(classRel, 0, NULL);
+
+	/*
+	 * On the first pass, we collect main tables to vacuum, and also the main
+	 * table relid to TOAST relid mapping.
+	 */
+	while ((tuple = heap_getnext(relScan, ForwardScanDirection)) != NULL)
+	{
+		Form_pg_class classForm = (Form_pg_class) GETSTRUCT(tuple);
+		PgStat_StatTabEntry *tabentry;
+		AutoVacOpts *relopts;
+		Oid			relid;
+		bool		dovacuum;
+		bool		doanalyze;
+		bool		wraparound;
+
+		if (classForm->relkind != RELKIND_RELATION &&
+			classForm->relkind != RELKIND_DIRECTORY_TABLE &&
+			classForm->relkind != RELKIND_MATVIEW &&
+			classForm->relkind != RELKIND_AOSEGMENTS &&
+			classForm->relkind != RELKIND_AOBLOCKDIR &&
+			classForm->relkind != RELKIND_AOVISIMAP)
+			continue;
+
+		relid = classForm->oid;
+
+		/*
+		 * Check if it is a temp table (presumably, of some other backend's).
+		 * We cannot safely process other backends' temp tables.
+		 */
+		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
+		{
+			/*
+			 * GPDB: Skip process temp tables since the temp namespace for QD and QE
+			 * is using gp_session_id as suffix instead of backendID.
+			 * And performDeletion() only execute delete on current node.
+			 */
+			continue;
+
+			/*
+			 * We just ignore it if the owning backend is still active and
+			 * using the temporary schema.  Also, for safety, ignore it if the
+			 * namespace doesn't exist or isn't a temp namespace after all.
+			 */
+			if (checkTempNamespaceStatus(classForm->relnamespace) == TEMP_NAMESPACE_IDLE)
+			{
+				/*
+				 * The table seems to be orphaned -- although it might be that
+				 * the owning backend has already deleted it and exited; our
+				 * pg_class scan snapshot is not necessarily up-to-date
+				 * anymore, so we could be looking at a committed-dead entry.
+				 * Remember it so we can try to delete it later.
+				 */
+				orphan_oids = lappend_oid(orphan_oids, relid);
+			}
+			continue;
+		}
+
+		/* Fetch reloptions and the pgstat entry for this table */
+		relopts = extract_autovac_opts(tuple, pg_class_desc);
+		tabentry = get_pgstat_tabentry_relid(relid, classForm->relisshared,
+											 shared, dbentry);
+
+		/* Check if it needs vacuum or analyze */
+		relation_needs_vacanalyze(relid, relopts, classForm, tabentry,
+								  effective_multixact_freeze_max_age,
+								  &dovacuum, &doanalyze, &wraparound);
+
+		/* Relations that need work are added to table_oids */
+		if (dovacuum || doanalyze)
+			table_oids = lappend_oid(table_oids, relid);
+
+		/*
+		 * Remember TOAST associations for the second pass.  Note: we must do
+		 * this whether or not the table is going to be vacuumed, because we
+		 * don't automatically vacuum toast tables along the parent table.
+		 */
+		if (OidIsValid(classForm->reltoastrelid))
+		{
+			av_relation *hentry;
+			bool		found;
+
+			hentry = hash_search(table_toast_map,
+								 &classForm->reltoastrelid,
+								 HASH_ENTER, &found);
+
+			if (!found)
+			{
+				/* hash_search already filled in the key */
+				hentry->ar_relid = relid;
+				hentry->ar_hasrelopts = false;
+				if (relopts != NULL)
+				{
+					hentry->ar_hasrelopts = true;
+					memcpy(&hentry->ar_reloptions, relopts,
+						   sizeof(AutoVacOpts));
+				}
+			}
+		}
+	}
+
+	table_endscan(relScan);
+
+	/* second pass: check TOAST tables */
+	ScanKeyInit(&key,
+				Anum_pg_class_relkind,
+				BTEqualStrategyNumber, F_CHAREQ,
+				CharGetDatum(RELKIND_TOASTVALUE));
+
+	relScan = table_beginscan_catalog(classRel, 1, &key);
+	while ((tuple = heap_getnext(relScan, ForwardScanDirection)) != NULL)
+	{
+		Form_pg_class classForm = (Form_pg_class) GETSTRUCT(tuple);
+		PgStat_StatTabEntry *tabentry;
+		Oid			relid;
+		AutoVacOpts *relopts = NULL;
+		bool		dovacuum;
+		bool		doanalyze;
+		bool		wraparound;
+
+		/*
+		 * We cannot safely process other backends' temp tables, so skip 'em.
+		 */
+		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
+			continue;
+
+		relid = classForm->oid;
+
+		/*
+		 * fetch reloptions -- if this toast table does not have them, try the
+		 * main rel
+		 */
+		relopts = extract_autovac_opts(tuple, pg_class_desc);
+		if (relopts == NULL)
+		{
+			av_relation *hentry;
+			bool		found;
+
+			hentry = hash_search(table_toast_map, &relid, HASH_FIND, &found);
+			if (found && hentry->ar_hasrelopts)
+				relopts = &hentry->ar_reloptions;
+		}
+
+		/* Fetch the pgstat entry for this table */
+		tabentry = get_pgstat_tabentry_relid(relid, classForm->relisshared,
+											 shared, dbentry);
+
+		relation_needs_vacanalyze(relid, relopts, classForm, tabentry,
+								  effective_multixact_freeze_max_age,
+								  &dovacuum, &doanalyze, &wraparound);
+
+		/* ignore analyze for toast tables */
+		if (dovacuum)
+			table_oids = lappend_oid(table_oids, relid);
+	}
+
+	table_endscan(relScan);
+	table_close(classRel, AccessShareLock);
+
+	/*
+	 * Recheck orphan temporary tables, and if they still seem orphaned, drop
+	 * them.  We'll eat a transaction per dropped table, which might seem
+	 * excessive, but we should only need to do anything as a result of a
+	 * previous backend crash, so this should not happen often enough to
+	 * justify "optimizing".  Using separate transactions ensures that we
+	 * don't bloat the lock table if there are many temp tables to be dropped,
+	 * and it ensures that we don't lose work if a deletion attempt fails.
+	 */
+	foreach(cell, orphan_oids)
+	{
+		Oid			relid = lfirst_oid(cell);
+		Form_pg_class classForm;
+		ObjectAddress object;
+
+		/*
+		 * Check for user-requested abort.
+		 */
+		CHECK_FOR_INTERRUPTS();
+
+		/*
+		 * Try to lock the table.  If we can't get the lock immediately,
+		 * somebody else is using (or dropping) the table, so it's not our
+		 * concern anymore.  Having the lock prevents race conditions below.
+		 */
+		if (!ConditionalLockRelationOid(relid, AccessExclusiveLock))
+			continue;
+
+		/*
+		 * Re-fetch the pg_class tuple and re-check whether it still seems to
+		 * be an orphaned temp table.  If it's not there or no longer the same
+		 * relation, ignore it.
+		 */
+		tuple = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(relid));
+		if (!HeapTupleIsValid(tuple))
+		{
+			/* be sure to drop useless lock so we don't bloat lock table */
+			UnlockRelationOid(relid, AccessExclusiveLock);
+			continue;
+		}
+		classForm = (Form_pg_class) GETSTRUCT(tuple);
+
+		/*
+		 * Make all the same tests made in the loop above.  In event of OID
+		 * counter wraparound, the pg_class entry we have now might be
+		 * completely unrelated to the one we saw before.
+		 */
+		if (!((classForm->relkind == RELKIND_RELATION ||
+			   classForm->relkind == RELKIND_MATVIEW ||
+			   classForm->relkind == RELKIND_DIRECTORY_TABLE) &&
+			  classForm->relpersistence == RELPERSISTENCE_TEMP))
+		{
+			UnlockRelationOid(relid, AccessExclusiveLock);
+			continue;
+		}
+
+		if (checkTempNamespaceStatus(classForm->relnamespace) != TEMP_NAMESPACE_IDLE)
+		{
+			UnlockRelationOid(relid, AccessExclusiveLock);
+			continue;
+		}
+
+		/* OK, let's delete it */
+		ereport(LOG,
+				(errmsg("autovacuum: dropping orphan temp table \"%s.%s.%s\"",
+						get_database_name(MyDatabaseId),
+						get_namespace_name(classForm->relnamespace),
+						NameStr(classForm->relname))));
+
+		object.classId = RelationRelationId;
+		object.objectId = relid;
+		object.objectSubId = 0;
+		performDeletion(&object, DROP_CASCADE,
+						PERFORM_DELETION_INTERNAL |
+						PERFORM_DELETION_QUIETLY |
+						PERFORM_DELETION_SKIP_EXTENSIONS);
+
+		/*
+		 * To commit the deletion, end current transaction and start a new
+		 * one.  Note this also releases the lock we took.
+		 */
+		CommitTransactionCommand();
+		StartTransactionCommand();
+
+		/* StartTransactionCommand changed current memory context */
+		MemoryContextSwitchTo(AutovacMemCxt);
+	}
+
+	return table_oids;
 }
