@@ -81,40 +81,6 @@ InsertManifestRecord(Oid relid, RelFileNodeId relfilenode, text *path)
 }
 
 void
-UpdateManifestRecord(RelFileNodeId relfilenode, text *path)
-{
-	Datum		values[2];
-	HeapTuple	newtuple;
-	HeapTuple	oldtuple;
-	ScanKeyData	key;
-	SysScanDesc	scan;
-	bool		nulls[2];
-	Relation	rel = heap_open(ManifestRelationId, RowExclusiveLock);
-
-	ScanKeyInit(&key, Anum_main_manifest_relnode, BTEqualStrategyNumber,
-				F_INT8EQ, UInt64GetDatum(relfilenode));
-
-	scan = systable_beginscan(rel, InvalidOid, false, NULL, 1, &key);
-
-	oldtuple = systable_getnext(scan);
-	if (!HeapTupleIsValid(oldtuple))
-		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
-						errmsg("write manifest catalog error")));
-
-	values[0] = UInt64GetDatum(relfilenode);
-	values[1] = PointerGetDatum(path);
-	nulls[0] = false;
-	nulls[1] = false;
-
-	newtuple = heap_form_tuple(RelationGetDescr(rel), values, nulls);
-
-    CatalogTupleUpdate(rel, &oldtuple->t_self, newtuple);
-
-	systable_endscan(scan);
-	heap_close(rel, NoLock);
-}
-
-void
 DeleteManifestCatalog(RelFileNodeId relnode)
 {
 	Relation entrance_rel = heap_open(ManifestRelationId, RowExclusiveLock);

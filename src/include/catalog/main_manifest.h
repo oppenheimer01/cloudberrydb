@@ -32,7 +32,6 @@ typedef FormData_main_manifest *Form_main_manifest;
 
 extern void InsertManifestRecord(Oid relid, RelFileNodeId relnode, text* path);
 extern void RemoveManifestRecord(RelFileNodeId relnode);
-extern void UpdateManifestRecord(RelFileNodeId relnode, text* path);
 extern void DeleteManifestCatalog(RelFileNodeId relnode);
 
 #endif /* MAIN_MANIFEST.h */
