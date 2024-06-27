@@ -373,6 +373,9 @@ typedef struct TableAmRoutine
 								 ParallelTableScanDesc pscan,
 								 uint32 flags, void * ctx);
 
+	void (*scan_prepare_catalog) (Relation rel,
+								  struct PlanState *ps);
+
 	/*
 	 * GPDB: Extract columns for scan from targetlist and quals. This is mainly
 	 * for AOCS tables.

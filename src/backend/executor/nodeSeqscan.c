@@ -228,6 +228,10 @@ ExecInitSeqScanForPartition(SeqScan *node, EState *estate,
 		scanstate->filter_in_seqscan = true;
 	}
 
+	if (scanstate->ss.ss_currentRelation->rd_tableam->scan_prepare_catalog)
+		scanstate->ss.ss_currentRelation->rd_tableam->scan_prepare_catalog(
+				scanstate->ss.ss_currentRelation, &scanstate->ss.ps);
+
 	return scanstate;
 }
 
