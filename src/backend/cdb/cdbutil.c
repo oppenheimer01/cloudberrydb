@@ -287,9 +287,10 @@ readGpSegConfigFromCatalog(int *total_dbs)
 		 * In serverless mode, and if we are not in fts probe process,
 		 * we only need the segment that is up and has the same warehouseid.
 		 */
-		if (enable_serverless && !am_ftsprobe)
-			need_current_segment = (warehouseid == GetCurrentWarehouseId() || DatumGetInt16(attr) == MASTER_CONTENT_ID)
-									&& (status == GP_SEGMENT_CONFIGURATION_STATUS_UP);
+#ifdef SERVERLESS
+		if (!am_ftsprobe)
+			need_current_segment = (warehouseid == GetCurrentWarehouseId() || DatumGetInt16(attr) == MASTER_CONTENT_ID) && (status == GP_SEGMENT_CONFIGURATION_STATUS_UP);
+#endif
 
 		if (need_current_segment)
 		{

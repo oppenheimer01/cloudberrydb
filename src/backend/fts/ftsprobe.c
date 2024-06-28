@@ -858,8 +858,9 @@ processRetry(fts_context *context)
 				 * mirror as down prematurely.  If mirror is already marked
 				 * down in configuration, there is no need to retry.
 				 */
-				if (enable_serverless)
-					break;
+#ifdef SERVERLESS
+				break;
+#endif
 
 				if (!(ftsInfo->result.retryRequested &&
 					  SEGMENT_IS_ALIVE(ftsInfo->mirror_cdbinfo)))

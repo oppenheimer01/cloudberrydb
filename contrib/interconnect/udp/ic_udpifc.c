@@ -1604,8 +1604,10 @@ initConnHashTable(ConnHashTable *ht, MemoryContext cxt)
 	 * In serverless architecture, the cluster may have only one QD, skip Initialization.
 	 * Initialization will be done later.
 	 */
-	if (enable_serverless && Gp_role == GP_ROLE_DISPATCH && ht->size == 0)
+#ifdef SERVERLESS
+	if (Gp_role == GP_ROLE_DISPATCH && ht->size == 0)
 		return true;
+#endif
 
 	Assert(ht->size > 0);
 
@@ -1646,7 +1648,8 @@ connAddHash(ConnHashTable *ht, MotionConn *mConn)
 	/*
 	 * Initialize connection hash table if needed.
 	 */
-	if (enable_serverless && Gp_role == GP_ROLE_DISPATCH && ht->size == 0)
+#ifdef SERVERLESS
+	if (Gp_role == GP_ROLE_DISPATCH && ht->size == 0)
 	{
 		old = MemoryContextSwitchTo(ht->cxt);
 		initConnHashTable(ht, ht->cxt);
@@ -1654,6 +1657,7 @@ connAddHash(ConnHashTable *ht, MotionConn *mConn)
 
 		Assert(ht->size > 0);
 	}
+#endif
 
 	conn = CONTAINER_OF(mConn, MotionConnUDP, mConn);
 

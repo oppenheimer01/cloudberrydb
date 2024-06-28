@@ -1042,7 +1042,8 @@ transientrel_shutdown(DestReceiver *self)
 
 		table_close(matviewRel, NoLock);
 	}
-	else if(enable_serverless && Gp_role == GP_ROLE_DISPATCH && !myState->concurrent)
+#ifdef SERVERLESS
+	else if(Gp_role == GP_ROLE_DISPATCH && !myState->concurrent)
 	{
 		Relation	matviewRel;
 
@@ -1056,6 +1057,7 @@ transientrel_shutdown(DestReceiver *self)
 		pgstat_count_truncate(matviewRel);	
 		table_close(matviewRel, NoLock);
 	}
+#endif
 }
 
 /*

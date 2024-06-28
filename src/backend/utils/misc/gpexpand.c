@@ -114,9 +114,13 @@ gp_expand_protect_catalog_changes(Relation relation)
 	int					oldVersion;
 	int					newVersion;
 
-	if (Gp_role != GP_ROLE_DISPATCH || enable_serverless)
+#ifdef SERVERLESS
+	return;
+#else
+	if (Gp_role != GP_ROLE_DISPATCH)
 		/* only lock catalog updates on qd */
 		return;
+#endif
 
 	if (RelationGetNamespace(relation) != PG_CATALOG_NAMESPACE)
 		/* not catalog relations */

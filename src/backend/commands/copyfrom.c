@@ -1710,10 +1710,14 @@ CopyFrom(CopyFromState cstate)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 					 errmsg("cannot perform COPY FREEZE because of prior transaction activity")));
-
+#ifdef SERVERLESS
 		if (cstate->rel->rd_createSubid != GetCurrentSubTransactionId() &&
 			cstate->rel->rd_newRelfilenodeSubid != GetCurrentSubTransactionId() &&
-			((enable_serverless && Gp_role == GP_ROLE_DISPATCH) || !enable_serverless))
+			Gp_role == GP_ROLE_DISPATCH)
+#else
+		if (cstate->rel->rd_createSubid != GetCurrentSubTransactionId() &&
+			cstate->rel->rd_newRelfilenodeSubid != GetCurrentSubTransactionId())
+#endif
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("cannot perform COPY FREEZE because the table was not created or truncated in the current subtransaction")));

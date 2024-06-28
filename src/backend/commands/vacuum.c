@@ -2326,9 +2326,12 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	bool		is_toast;
 	bool		shouldDispatch;
 
+#ifdef SERVERLESS
+	shouldDispatch = false;
+#else
 	shouldDispatch = (Gp_role == GP_ROLE_DISPATCH &&
-					ENABLE_DISPATCH() &&
-					!enable_serverless);
+					ENABLE_DISPATCH());
+#endif
 
 	Assert(params != NULL);
 

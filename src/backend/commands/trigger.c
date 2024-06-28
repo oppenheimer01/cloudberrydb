@@ -241,13 +241,14 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 		 * FIXME: table which is not a heap table and AO table
 		 * does not support constraint(deferred) trigger now.
 		 */
-		if (stmt->isconstraint && enable_serverless &&
-			(RelationIsNonblockRelation(rel)))
+#ifdef SERVERLESS
+		if (stmt->isconstraint && RelationIsNonblockRelation(rel))
 			ereport(ERROR,
 					(errcode(ERRCODE_GP_FEATURE_NOT_YET),
 					 errmsg("\"%s\" is not a heap table and AO table",
 							RelationGetRelationName(rel)),
 					 errdetail("constraint trigger is not supported now")));
+#endif
 	}
 	else if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 	{
@@ -2598,10 +2599,11 @@ ExecBRDeleteTriggers(EState *estate, EPQState *epqstate,
 	bool		should_free = false;
 	int			i;
 
-	if(enable_serverless)
+#ifdef SERVERLESS
 		Assert(HeapTupleIsValid(fdw_trigtuple) || ItemPointerIsValid(tupleid));
-	else
+#else
 		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
+#endif
 	if (fdw_trigtuple == NULL)
 	{
 		TupleTableSlot *epqslot_candidate = NULL;
@@ -2849,10 +2851,11 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 	 * and tupleid are all valid. We also change the assert of ExecBRDeleteTriggers
 	 * because update partition table will trigger ExecBRDeleteTriggers.
 	 */
-	if(enable_serverless)
+#ifdef SERVERLESS
 		Assert(HeapTupleIsValid(fdw_trigtuple) || ItemPointerIsValid(tupleid));
-	else
+#else
 		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
+#endif
 	if (fdw_trigtuple == NULL)
 	{
 		TupleTableSlot *epqslot_candidate = NULL;
@@ -5397,10 +5400,12 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 	/*
 	 * FIXME: deferred trigger is not supported in the serverless architecture now.
 	 */
-	if (enable_serverless && stmt->deferred)
+#ifdef SERVERLESS
+	if (stmt->deferred)
 		ereport(ERROR,
 			(errcode(ERRCODE_GP_FEATURE_NOT_YET),
 			 errmsg("deferred trigger is not supported in Cloudberry now")));
+#endif
 
 	/* If we haven't already done so, initialize our state. */
 	if (afterTriggers.state == NULL)
@@ -6029,8 +6034,12 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 		 * is more efficient. Because it is inefficient to fetch tuple
 		 * throught its ctid.
 		 */
+#ifdef SERVERLESS
 		if (row_trigger && (relkind == RELKIND_FOREIGN_TABLE ||
-			(enable_serverless && (RelationIsNonblockRelation(rel)))))
+			RelationIsNonblockRelation(rel)))
+#else
+		if (row_trigger && relkind == RELKIND_FOREIGN_TABLE)
+#endif
 		{
 			if (fdw_tuplestore == NULL)
 			{

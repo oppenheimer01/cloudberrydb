@@ -1154,7 +1154,8 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	 */
 	fullpath = GetDatabasePath(MyDatabaseId, MyDatabaseTableSpace);
 
-	if (!bootstrap && !enable_serverless)
+#ifndef SERVERLESS
+	if (!bootstrap)
 	{
 		if (access(fullpath, F_OK) == -1)
 		{
@@ -1174,6 +1175,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 
 		ValidatePgVersion(fullpath);
 	}
+#endif
 
 	SetDatabasePath(fullpath);
 	pfree(fullpath);
