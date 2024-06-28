@@ -2049,7 +2049,7 @@ formrdesc(const char *relationName, Oid relationReltype,
 	/* ... and they're always populated, too */
 	relation->rd_rel->relispopulated = true;
 	/* ... and they're always no ivm, too */
-	relation->rd_rel->relisivm = false;
+	relation->rd_rel->relisivm = MATVIEW_IVM_NOTHING;
 	/* ... and they're always not dynamic, too */
 	relation->rd_rel->relisdynamic = false;
 	relation->rd_rel->relmvrefcount = 0;
@@ -3863,6 +3863,7 @@ RelationBuildLocalRelation(const char *relname,
 	else
 		rel->rd_rel->relreplident = REPLICA_IDENTITY_NOTHING;
 
+	rel->rd_rel->relisivm = MATVIEW_IVM_NOTHING;
 	/*
 	 * Insert relation physical and logical identifiers (OIDs) into the right
 	 * places.  For a mapped relation, we set relfilenode to zero and rely on

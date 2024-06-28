@@ -1253,6 +1253,7 @@ typedef struct RangeTblEntry
 	Bitmapset  *updatedCols;	/* columns needing UPDATE permission */
 	Bitmapset  *extraUpdatedCols;	/* generated columns being updated */
 	List	   *securityQuals;	/* security barrier quals to apply, if any */
+	List	   *version;		/* delta scan version */
 } RangeTblEntry;
 
 /*
@@ -4163,6 +4164,8 @@ typedef struct RefreshMatViewStmt
 	bool		skipData;		/* true for WITH NO DATA */
 	RangeVar   *relation;		/* relation to insert into */
 	bool		isdynamic;		/* relation is dynamic table? */
+	bool 		incremental;	/* true for incremental refresh */
+	bool 		combine;		/* combine current results for defer ivm */
 } RefreshMatViewStmt;
 
 /* ----------------------

@@ -18045,6 +18045,7 @@ build_ctas_with_dist(Relation rel, DistributedBy *dist_clause,
 		into->options = storage_opts;
 		into->tableSpaceName = get_tablespace_name(tblspc);
 		into->distributedBy = (Node *)dist_clause;
+
 		if (RelationIsAppendOptimized(rel))
 		{
 			/*
@@ -18058,6 +18059,9 @@ build_ctas_with_dist(Relation rel, DistributedBy *dist_clause,
 			 */
 			into->options = build_ao_rel_storage_opts(into->options, rel);
 		}
+
+		into->ivm = false;
+		into->defer = false;
 		s->intoClause = into;
 
 		RawStmt *rawstmt = makeNode(RawStmt);
@@ -23360,7 +23364,8 @@ ATExecSetRelOptionsCheck(Relation rel, DefElem *def)
 		pg_strncasecmp(SOPT_BLOCKSIZE, def->defname, kw_len) == 0 ||
 		pg_strncasecmp(SOPT_COMPTYPE, def->defname, kw_len) == 0 ||
 		pg_strncasecmp(SOPT_COMPLEVEL, def->defname, kw_len) == 0 ||
-		pg_strncasecmp(SOPT_CHECKSUM, def->defname, kw_len) == 0)
+		pg_strncasecmp(SOPT_CHECKSUM, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_PARTIAL_AGG, def->defname, kw_len) == 0)
 		ereport(ERROR,
                   (errcode(ERRCODE_WRONG_OBJECT_TYPE),
                    errmsg("cannot SET reloption \"%s\"",

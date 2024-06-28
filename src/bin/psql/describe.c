@@ -2157,6 +2157,7 @@ describeOneTableDetails(const char *schemaname,
 			(char *) NULL : pg_strdup(PQgetvalue(res, 0, 14));
 	else
 		tableinfo.relam = NULL;
+
 	tableinfo.isivm = strcmp(PQgetvalue(res, 0, 15), "t") == 0;
 	tableinfo.isdynamic = strcmp(PQgetvalue(res, 0, 16), "t") == 0;
 
@@ -4154,9 +4155,10 @@ describeOneTableDetails(const char *schemaname,
 		}
 
 		/* Incremental view maintance info */
-		if (verbose && tableinfo.relkind == RELKIND_MATVIEW && tableinfo.isivm)
+		if (verbose && tableinfo.relkind == RELKIND_MATVIEW && tableinfo.isivm != MATVIEW_IVM_NOTHING)
 		{
-			printTableAddFooter(&cont, _("Incremental view maintenance: yes"));
+			printfPQExpBuffer(&buf, _("Incremental view maintenance: %c"), tableinfo.isivm);
+			printTableAddFooter(&cont, buf.data);
 		}
 	}
 

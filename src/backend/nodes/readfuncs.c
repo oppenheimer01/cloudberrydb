@@ -565,6 +565,7 @@ _readIntoClause(void)
 	READ_STRING_FIELD(tableSpaceName);
 	READ_NODE_FIELD(viewQuery);
 	READ_BOOL_FIELD(skipData);
+	READ_BOOL_FIELD(defer);
 	READ_NODE_FIELD(distributedBy);
 	READ_BOOL_FIELD(ivm);
 	READ_OID_FIELD(matviewOid);
@@ -680,6 +681,7 @@ _readAggref(void)
 	READ_INT_FIELD(aggtransno);
 	READ_LOCATION_FIELD(location);
 	READ_INT_FIELD(agg_expr_id);
+	READ_INT_FIELD(extrasplit);
 
 	READ_DONE();
 }
@@ -1544,6 +1546,7 @@ _readRangeTblEntry(void)
 	READ_NODE_FIELD(securityQuals);
 
 	READ_BOOL_FIELD(forceDistRandom);
+	READ_NODE_FIELD(version);
 
 	READ_DONE();
 }
@@ -1903,6 +1906,7 @@ ReadCommonScan(Scan *local_node)
 	READ_UINT_FIELD(scanrelid);
 	READ_UINT_FIELD(scanflags);
 #ifdef SERVERLESS
+	READ_NODE_FIELD(version);
 	READ_OID_FIELD(basemv);
 #endif
 }

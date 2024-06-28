@@ -146,7 +146,8 @@ GetCronJob(int64 jobId)
  */
 int64
 ScheduleCronJob(text *scheduleText, text *commandText, text *databaseText,
-				text *usernameText, bool active, text *jobnameText)
+				text *usernameText, bool active, text *jobnameText,
+				const char* warehouse)
 {
 	entry *parsedSchedule = NULL;
 	char *schedule;
@@ -215,7 +216,7 @@ ScheduleCronJob(text *scheduleText, text *commandText, text *databaseText,
 
 	/* insert task into pg_catalog.pg_task table */
 	jobId = TaskCreate(schedule, command, task_host_addr, PostPortNumber,
-					   database_name, username, active, jobName);
+					   database_name, username, active, jobName, warehouse);
 
 	SetUserIdAndSecContext(savedUserId, savedSecurityContext);
 
@@ -564,6 +565,20 @@ TupleToCronJob(TupleDesc tupleDescriptor, HeapTuple heapTuple)
 		else
 		{
 			job->jobName = NULL;
+		}
+	}
+	if (tupleDescriptor->natts >= Anum_pg_task_warehouse)
+	{
+		bool isWarehouseNull = false;
+		Datum warehouse = heap_getattr(heapTuple, Anum_pg_task_warehouse,
+									 tupleDescriptor, &isWarehouseNull);
+		if (!isWarehouseNull)
+		{
+			job->warehouse = TextDatumGetCString(warehouse);
+		}
+		else
+		{
+			job->warehouse = NULL;
 		}
 	}
 

@@ -1993,6 +1993,22 @@ get_agg_transtype(Oid aggid)
 	return result;
 }
 
+
+Oid
+get_agg_transfn(Oid aggid)
+{
+	HeapTuple	tp;
+	Oid			result;
+
+	tp = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(aggid));
+	if (!HeapTupleIsValid(tp))
+		elog(ERROR, "cache lookup failed for aggregate %u", aggid);
+
+	result = ((Form_pg_aggregate) GETSTRUCT(tp))->aggtransfn;
+	ReleaseSysCache(tp);
+	return result;
+}
+
 /*
  * is_ordered_agg
  *		Given aggregate id, check if it is an ordered aggregate
@@ -2084,7 +2100,7 @@ is_agg_partial_capable(Oid aggid)
  *
  *		Returns the relisivm flag associated with a given relation.
  */
-bool
+char
 get_rel_relisivm(Oid relid)
 {
 	HeapTuple	tp;
@@ -2093,14 +2109,30 @@ get_rel_relisivm(Oid relid)
 	if (HeapTupleIsValid(tp))
 	{
 		Form_pg_class reltup = (Form_pg_class) GETSTRUCT(tp);
-		bool		result;
+		char		result;
 
 		result = reltup->relisivm;
 		ReleaseSysCache(tp);
 		return result;
 	}
 	else
-		return false;
+		return '\0';
+}
+
+
+bool
+get_rel_haspartialagg(Oid relid)
+{
+	HeapTuple	tp;
+	bool		result;
+
+	tp = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+	if (!HeapTupleIsValid(tp))
+		elog(ERROR, "cache lookup failed for relation %u", relid);
+
+	result = ((Form_pg_class) GETSTRUCT(tp))->relhaspartialagg;
+	ReleaseSysCache(tp);
+	return result;
 }
 
 /*

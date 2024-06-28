@@ -1620,5 +1620,5 @@ BufFileSetIsTempFile(BufFile *file, bool isTempFile)
 
 	/* close and delete the underlying file(s) */
 	for (i = 0; i < file->numFiles; i++)
-		FileSetTempfile(file->files[i], true);
+		FileSetTempfile(file->files[i], isTempFile);
 }

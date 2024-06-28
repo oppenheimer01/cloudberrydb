@@ -560,8 +560,9 @@ typedef struct Scan
 {
 	Plan		plan;
 	Index		scanrelid;		/* relid is index into the range table */
-	uint32		scanflags;			/* extra scan flags */
+	uint32		scanflags;		/* extra scan flags */
 #ifdef SERVERLESS
+	List*		version;		/* delta scan version */
 	/*
 	 * Base materialized view oid for delta scan.
 	 * If valid, it means a Delta SeqScan based on

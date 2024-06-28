@@ -428,8 +428,8 @@ _outScanInfo(StringInfo str, const Scan *node)
 
 	WRITE_UINT_FIELD(scanrelid);
 	WRITE_UINT_FIELD(scanflags);
-
 #ifdef SERVERLESS
+	WRITE_NODE_FIELD(version);
 	WRITE_OID_FIELD(basemv);
 #endif
 }
@@ -1303,6 +1303,7 @@ _outIntoClause(StringInfo str, const IntoClause *node)
 	WRITE_STRING_FIELD(tableSpaceName);
 	WRITE_NODE_FIELD(viewQuery);
 	WRITE_BOOL_FIELD(skipData);
+	WRITE_BOOL_FIELD(defer);
 	WRITE_NODE_FIELD(distributedBy);
 	WRITE_BOOL_FIELD(ivm);
 	WRITE_OID_FIELD(matviewOid);
@@ -1387,6 +1388,7 @@ _outAggref(StringInfo str, const Aggref *node)
 	WRITE_INT_FIELD(aggtransno);
 	WRITE_LOCATION_FIELD(location);
     WRITE_INT_FIELD(agg_expr_id);
+	WRITE_INT_FIELD(extrasplit);
 }
 
 static void
@@ -3681,6 +3683,7 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 	WRITE_NODE_FIELD(securityQuals);
 
 	WRITE_BOOL_FIELD(forceDistRandom);
+	WRITE_NODE_FIELD(version);
 }
 
 static void

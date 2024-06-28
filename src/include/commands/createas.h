@@ -43,10 +43,10 @@ extern ObjectAddress ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *st
 									   ParamListInfo params, QueryEnvironment *queryEnv,
 									   QueryCompletion *qc);
 
-extern void CreateIvmTriggersOnBaseTables(Query *qry, Oid matviewOid);
+extern void CreateIvmTriggersOnBaseTables(Query *qry, Oid matviewOid, bool partial, bool create);
 extern void CreateIndexOnIMMV(Query *query, Relation matviewRel);
 
-extern Query *rewriteQueryForIMMV(Query *query, List *colNames);
+extern Query *rewriteQueryForIMMV(Query *query, List *colNames, bool partial);
 extern void makeIvmAggColumn(ParseState *pstate, Aggref *aggref, char *resname, AttrNumber *next_resno, List **aggs);
 
 extern int	GetIntoRelEFlags(IntoClause *intoClause);
@@ -60,5 +60,6 @@ extern void intorel_initplan(struct QueryDesc *queryDesc, int eflags);
 
 extern bool CreateTableAsRelExists(CreateTableAsStmt *ctas);
 
+extern ObjectAddress CreateTaskIVM(ParseState *pstate, Relation rel, char* interval);
 
 #endif							/* CREATEAS_H */

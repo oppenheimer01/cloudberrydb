@@ -21,6 +21,7 @@
 #include "nodes/parsenodes.h"
 #include "tcop/dest.h"
 #include "utils/relcache.h"
+#include "parser/parse_node.h"
 
 typedef struct
 {
@@ -44,10 +45,11 @@ extern PGDLLIMPORT transientrel_init_hook_type transientrel_init_hook;
 
 extern void SetMatViewPopulatedState(Relation relation, bool newstate);
 
-extern void SetMatViewIVMState(Relation relation, bool newstate);
+extern void SetMatViewIVMState(Relation relation, char newstate);
 
 extern void SetDynamicTableState(Relation relation);
 
+extern void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
 extern ObjectAddress ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 										ParamListInfo params, QueryCompletion *qc);
 
@@ -55,6 +57,12 @@ extern DestReceiver *CreateTransientRelDestReceiver(Oid oid, Oid oldreloid, bool
 													char relpersistence, bool skipdata);
 
 extern bool MatViewIncrementalMaintenanceIsEnabled(void);
+extern void OpenMatViewIncrementalMaintenance(void);
+extern void CloseMatViewIncrementalMaintenance(void);
+extern void SaveMatViewMaintenanceDepth(void);
+extern void RestoreMatViewMaintenanceDepth(void);
+
+extern Query *get_matview_query(Relation matviewRel);
 
 extern void transientrel_init_internal(QueryDesc *queryDesc);
 

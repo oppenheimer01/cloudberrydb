@@ -3198,13 +3198,14 @@ psql_completion(const char *text, int start, int end)
 	else if (Matches("CREATE", "MATERIALIZED") ||
 			 Matches("CREATE", "INCREMENTAL", "MATERIALIZED"))
 		COMPLETE_WITH("VIEW");
-	/* Complete CREATE MATERIALIZED VIEW <name> with AS  */
-	else if (Matches("CREATE", "MATERIALIZED", "VIEW", MatchAny) ||
-			 Matches("CREATE", "INCREMENTAL", "MATERIALIZED", "VIEW", MatchAny))
-		COMPLETE_WITH("AS");
-	/* Complete "CREATE MATERIALIZED VIEW <sth> AS with "SELECT" */
-	else if (Matches("CREATE", "MATERIALIZED", "VIEW", MatchAny, "AS") ||
-			 Matches("CREATE", "INCREMENTAL", "MATERIALIZED", "VIEW", MatchAny, "AS"))
+	/* Complete CREATE [INCREMENTAL] MATERIALIZED VIEW [IF NOT EXISTS] <name> with AS or REFRESH */
+	else if (Matches("CREATE", "INCREMENTAL", "MATERIALIZED", "VIEW", MatchAny))
+		COMPLETE_WITH("AS", "REFRESH");
+	/* Complete CREATE [INCREMENTAL] MATERIALIZED VIEW [IF NOT EXISTS] <name> REFRESH with IMMEDIATE or DEFERRED */
+	else if (Matches("CREATE", "INCREMENTAL", "MATERIALIZED", "VIEW", MatchAny, "REFRESH"))
+		COMPLETE_WITH("IMMEDIATE", "DEFERRED SCHEDULE");
+	/* Complete "CREATE [INCREMENTAL] MATERIALIZED VIEW [IF NOT EXISTS] <name> AS with "SELECT" */
+	else if (Matches("CREATE", "INCREMENTAL", "MATERIALIZED", "VIEW", MatchAny, "AS"))
 		COMPLETE_WITH("SELECT");
 
 /* CREATE DYNAMIC TABLE */
@@ -3856,6 +3857,8 @@ psql_completion(const char *text, int start, int end)
 /* REFRESH MATERIALIZED VIEW */
 	else if (Matches("REFRESH"))
 		COMPLETE_WITH("MATERIALIZED VIEW", "DYNAMIC TABLE");
+	else if (Matches("REFRESH", "INCREMENTAL"))
+		COMPLETE_WITH("MATERIALIZED VIEW");
 	else if (Matches("REFRESH", "MATERIALIZED"))
 		COMPLETE_WITH("VIEW");
 	else if (Matches("REFRESH", "MATERIALIZED", "VIEW"))

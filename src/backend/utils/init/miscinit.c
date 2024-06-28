@@ -30,6 +30,7 @@
 
 #include "access/htup_details.h"
 #include "catalog/pg_authid.h"
+#include "catalog/gp_warehouse.h"
 #include "common/file_perm.h"
 #include "libpq/libpq.h"
 #include "libpq/pqsignal.h"
@@ -984,6 +985,30 @@ SetCurrentWarehouseId(Oid warehouseid)
 {
 	AssertArg(OidIsValid(warehouseid));
 	CurrentWarehouseId = warehouseid;
+}
+
+char *
+GpGetWarehouseName(Oid warehouse_oid, bool missing_ok)
+{
+	HeapTuple	tuple;
+	char	   *result;
+
+	tuple = SearchSysCache1(GPWAREHOUSEOID, ObjectIdGetDatum(warehouse_oid));
+	if (HeapTupleIsValid(tuple))
+	{
+		result = text_to_cstring(&((Form_gp_warehouse) GETSTRUCT(tuple))->warehouse_name);
+		ReleaseSysCache(tuple);
+	}
+	else
+	{
+		if (!missing_ok)
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					errmsg("warehouse with oid %u does not exist", warehouse_oid)));
+		result = NULL;
+	}
+
+	return result;
 }
 
 /*-------------------------------------------------------------------------

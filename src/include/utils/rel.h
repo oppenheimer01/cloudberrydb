@@ -349,6 +349,7 @@ typedef struct StdRdOptions
 	int			compresslevel;  /* compression level (AO rels only) */
 	char		compresstype[NAMEDATALEN]; /* compression type (AO rels only) */
 	bool		checksum;		/* checksum (AO rels only) */
+	bool		partial_agg;   /* partial aggregation result for ivm */
 } StdRdOptions;
 
 #define HEAP_MIN_FILLFACTOR			10
@@ -403,6 +404,10 @@ typedef struct StdRdOptions
 #define RelationGetParallelWorkers(relation, defaultpw) \
 	((relation)->rd_options ? \
 	 ((StdRdOptions *) (relation)->rd_options)->parallel_workers : (defaultpw))
+
+#define RelationGetPartialAgg(relation) \
+	((relation)->rd_options ? \
+	 ((StdRdOptions *) (relation)->rd_options)->partial_agg : false)
 
 /* ViewOptions->check_option values */
 typedef enum ViewOptCheckOption
@@ -787,7 +792,7 @@ typedef struct ViewOptions
  */
 #define RelationIsPopulated(relation) ((relation)->rd_rel->relispopulated)
 
-#define RelationIsIVM(relation) ((relation)->rd_rel->relisivm)
+#define RelationIsIVM(relation) ((relation)->rd_rel->relisivm != MATVIEW_IVM_NOTHING)
 
 #define RelationHasRelativeMV(relation) (((relation)->rd_rel->relmvrefcount) > 0)
 
