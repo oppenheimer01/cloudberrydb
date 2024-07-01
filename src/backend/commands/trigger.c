@@ -206,6 +206,22 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 	else
 		rel = table_openrv(stmt->relation, ShareRowExclusiveLock);
 
+#ifdef SERVERLESS
+	if (rel->rd_rel->relam != HEAP_TABLE_AM_OID && !stmt->row)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("Triggers for statements are not yet supported")));
+	}
+#else
+	if (!stmt->row)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("Triggers for statements are not yet supported")));
+	}
+#endif /* SERVERLESS */
+
 	/*
 	 * Triggers must be on tables or views, and there are additional
 	 * relation-type-specific restrictions.
@@ -5685,11 +5701,22 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 	}
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
+		bool		snapshot_set = false;
+		if (!ActiveSnapshotSet())
+		{
+			snapshot_set = true;
+			PushActiveSnapshot(GetTransactionSnapshot());
+		}
 		CdbDispatchUtilityStatement((Node *) stmt,
 									DF_CANCEL_ON_ERROR|
-									DF_NEED_TWO_PHASE,
+									DF_NEED_TWO_PHASE|
+									DF_WITH_SNAPSHOT,
 									NIL,
 									NULL);
+		if (snapshot_set)
+		{
+			PopActiveSnapshot();
+		}
 	}
 }
 

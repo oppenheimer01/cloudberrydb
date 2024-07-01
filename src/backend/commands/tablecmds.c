@@ -49,7 +49,6 @@
 #include "catalog/pg_tablespace.h"
 #include "catalog/pg_statistic_ext.h"
 #include "catalog/pg_trigger.h"
-#include "catalog/pg_tablespace.h"
 #include "catalog/pg_type.h"
 #include "catalog/storage.h"
 #include "catalog/storage_xlog.h"
@@ -590,6 +589,7 @@ static void ATExecSetRelOptionsCheck(Relation rel, DefElem *def);
 
 ATExecSetRelOptionsCheck_hook_type ATExecSetRelOptionsCheck_hook = NULL;
 ATRewriteTable_hook_type ATRewriteTable_hook = NULL;
+check_types_am_hook_type check_types_am_hook = NULL;
 
 static void checkATSetDistributedByStandalone(AlteredTableInfo *tab, Relation rel);
 static void populate_rel_col_encodings(Relation rel, List *stenc, List *withOptions, Oid newAm);
@@ -838,10 +838,12 @@ validateAndMergeAPExprs(CreateStmt *stmt)
 		 */
 		tablespaceId = get_tablespace_oid(stmt->tablespacename, false);
 
+#ifndef SERVERLESS
 		if (partitioned && tablespaceId == MyDatabaseTableSpace)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot specify default tablespace for partitioned relations")));
+#endif				 
 	}
 	else if (stmt->partbound)
 	{
@@ -861,9 +863,15 @@ validateAndMergeAPExprs(CreateStmt *stmt)
 		tablespaceId = InvalidOid;
 
 	/* still nothing? use the default */
+#ifdef SERVERLESS
+	if (!OidIsValid(tablespaceId) && !stmt->partbound)
+		tablespaceId = GetDefaultTablespace(stmt->relation->relpersistence,
+											partitioned);
+#else
 	if (!OidIsValid(tablespaceId))
 		tablespaceId = GetDefaultTablespace(stmt->relation->relpersistence,
 											partitioned);
+#endif
 
 	/* Check permissions except when using database's default */
 	if (OidIsValid(tablespaceId) && tablespaceId != MyDatabaseTableSpace)
@@ -1080,6 +1088,10 @@ validateAndMergeAPExprs(CreateStmt *stmt)
 	 * default values or CHECK constraints; we handle those below.
 	 */
 	descriptor = BuildDescForRelation(schema);
+	if (check_types_am_hook)
+	{
+		(*check_types_am_hook)(schema, accessMethodId, stmt->relation->relname, relkind);
+	}
 
 	/*
 	 * now that we have the final list of attributes, interpret DISTRIBUTED BY

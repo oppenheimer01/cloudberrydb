@@ -46,6 +46,7 @@ typedef struct TableSpaceOpts
 	bool 		stage;
 	int			serverOffset;
 	int			pathOffset;
+	int			storageOffset;
 } TableSpaceOpts;
 
 extern Oid	CreateTableSpace(CreateTableSpaceStmt *stmt);

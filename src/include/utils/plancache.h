@@ -19,6 +19,7 @@
 #include "lib/ilist.h"
 #include "nodes/params.h"
 #include "nodes/primnodes.h"
+#include "nodes/parsenodes.h"
 #include "tcop/cmdtag.h"
 #include "utils/queryenvironment.h"
 #include "utils/resowner.h"
@@ -239,5 +240,8 @@ extern bool CachedPlanIsSimplyValid(CachedPlanSource *plansource,
 
 extern CachedExpression *GetCachedExpression(Node *expr);
 extern void FreeCachedExpression(CachedExpression *cexpr);
+
+typedef void (*post_parse_ctas_query_hook_type) (Query *query, IntoClause *intoClause);
+extern PGDLLIMPORT post_parse_ctas_query_hook_type post_parse_ctas_query_hook;
 
 #endif							/* PLANCACHE_H */

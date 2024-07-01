@@ -4635,15 +4635,17 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 static void
 add_partition_by_footer(printTableContent *const cont, const char *oid)
 {
-	PGresult   *result;
+	PGresult *result;
 	PQExpBufferData buf;
-	int			nRows;
-	int			nPartKey;
+	int nRows;
+	int nPartKey;
 
 	initPQExpBuffer(&buf);
 
 	/* check if current relation is root partition, if it is root partition, at least 1 row returns */
-	printfPQExpBuffer(&buf, "SELECT parrelid FROM pg_catalog.pg_partition WHERE parrelid = '%s'", oid);
+	printfPQExpBuffer(&buf,
+					  "SELECT parrelid FROM pg_catalog.pg_partition WHERE parrelid = '%s'",
+					  oid);
 	result = PSQLexec(buf.data);
 
 	if (!result)
@@ -4656,27 +4658,27 @@ add_partition_by_footer(printTableContent *const cont, const char *oid)
 	{
 		/* query partition key on the root partition */
 		printfPQExpBuffer(&buf,
-			"WITH att_arr AS (SELECT unnest(paratts) \n"
-			"	FROM pg_catalog.pg_partition p \n"
-			"	WHERE p.parrelid = '%s' AND p.parlevel = 0 AND p.paristemplate = false), \n"
-			"idx_att AS (SELECT row_number() OVER() AS idx, unnest AS att_num FROM att_arr) \n"
-			"SELECT attname FROM pg_catalog.pg_attribute, idx_att \n"
-			"	WHERE attrelid='%s' AND attnum = att_num ORDER BY idx ",
-			oid, oid);
+						  "WITH att_arr AS (SELECT unnest(paratts) \n"
+						  "	FROM pg_catalog.pg_partition p \n"
+						  "	WHERE p.parrelid = '%s' AND p.parlevel = 0 AND p.paristemplate = false), \n"
+						  "idx_att AS (SELECT row_number() OVER() AS idx, unnest AS att_num FROM att_arr) \n"
+						  "SELECT attname FROM pg_catalog.pg_attribute, idx_att \n"
+						  "	WHERE attrelid='%s' AND attnum = att_num ORDER BY idx ",
+						  oid, oid);
 	}
 	else
 	{
 		/* query partition key on the intermediate partition */
 		printfPQExpBuffer(&buf,
-			"WITH att_arr AS (SELECT unnest(paratts) FROM pg_catalog.pg_partition p, \n"
-			"	(SELECT parrelid, parlevel \n"
-			"		FROM pg_catalog.pg_partition p, pg_catalog.pg_partition_rule pr \n"
-			"		WHERE pr.parchildrelid='%s' AND p.oid = pr.paroid) AS v \n"
-			"	WHERE p.parrelid = v.parrelid AND p.parlevel = v.parlevel+1 AND p.paristemplate = false), \n"
-			"idx_att AS (SELECT row_number() OVER() AS idx, unnest AS att_num FROM att_arr) \n"
-			"SELECT attname FROM pg_catalog.pg_attribute, idx_att \n"
-			"	WHERE attrelid='%s' AND attnum = att_num ORDER BY idx ",
-			oid, oid);
+						  "WITH att_arr AS (SELECT unnest(paratts) FROM pg_catalog.pg_partition p, \n"
+						  "	(SELECT parrelid, parlevel \n"
+						  "		FROM pg_catalog.pg_partition p, pg_catalog.pg_partition_rule pr \n"
+						  "		WHERE pr.parchildrelid='%s' AND p.oid = pr.paroid) AS v \n"
+						  "	WHERE p.parrelid = v.parrelid AND p.parlevel = v.parlevel+1 AND p.paristemplate = false), \n"
+						  "idx_att AS (SELECT row_number() OVER() AS idx, unnest AS att_num FROM att_arr) \n"
+						  "SELECT attname FROM pg_catalog.pg_attribute, idx_att \n"
+						  "	WHERE attrelid='%s' AND attnum = att_num ORDER BY idx ",
+						  oid, oid);
 	}
 
 	result = PSQLexec(buf.data);
@@ -4686,8 +4688,8 @@ add_partition_by_footer(printTableContent *const cont, const char *oid)
 	nPartKey = PQntuples(result);
 	if (nPartKey)
 	{
-		char	   *partColName;
-		int			i;
+		char *partColName;
+		int i;
 
 		resetPQExpBuffer(&buf);
 		appendPQExpBuffer(&buf, "Partition by: (");
@@ -4708,7 +4710,32 @@ add_partition_by_footer(printTableContent *const cont, const char *oid)
 	PQclear(result);
 
 	termPQExpBuffer(&buf);
-	return;		/* success */
+	return;        /* success */
+}
+
+static char *
+GetDefaultTablespace()
+{
+	PGresult   *result = NULL;
+	PQExpBufferData buf;
+
+	initPQExpBuffer(&buf);
+	printfPQExpBuffer(&buf,
+					"show default_tablespace;");
+	result = PSQLexec(buf.data);
+	termPQExpBuffer(&buf);
+	if (!result)
+	{
+		return NULL;
+	}
+	if (PQntuples(result) > 0)
+	{
+		char *default_tablespace = pg_strdup(PQgetvalue(result, 0, 0));
+		PQclear(result);
+		return default_tablespace;
+	}
+	PQclear(result);
+	return NULL;
 }
 
 /*
@@ -4751,6 +4778,15 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 			/* Should always be the case, but.... */
 			if (PQntuples(result) > 0)
 			{
+				char *default_tablespace = GetDefaultTablespace();
+				if (default_tablespace != NULL && strcmp(PQgetvalue(result, 0, 0), default_tablespace) == 0)
+				{
+					PQclear(result);
+					pg_free(default_tablespace);
+					termPQExpBuffer(&buf);
+					return;
+				}
+				pg_free(default_tablespace);
 				if (newline)
 				{
 					/* Add the tablespace as a new footer */

@@ -146,4 +146,7 @@ extern PGDLLIMPORT ATRewriteTable_hook_type ATRewriteTable_hook;
 
 typedef void (*ATExecSetRelOptionsCheck_hook_type) (Relation rel, DefElem *def);
 extern PGDLLIMPORT ATExecSetRelOptionsCheck_hook_type ATExecSetRelOptionsCheck_hook;
+
+typedef void (*check_types_am_hook_type) (List *schema, Oid oid, const char * relname, char relkind);
+extern PGDLLIMPORT check_types_am_hook_type check_types_am_hook;
 #endif							/* TABLECMDS_H */

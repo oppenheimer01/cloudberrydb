@@ -73,6 +73,7 @@
 #include "utils/rls.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
+#include "utils/plancache.h"
 
 #include "cdb/cdbtranscat.h"
 #include "cdb/cdbutil.h"
@@ -84,6 +85,8 @@
 #define IsTransactionStmtPlan(plansource)  \
 	((plansource)->raw_parse_tree && \
 	 IsA((plansource)->raw_parse_tree->stmt, TransactionStmt))
+
+post_parse_ctas_query_hook_type post_parse_ctas_query_hook = NULL;
 
 /*
  * This is the head of the backend's list of "saved" CachedPlanSources (i.e.,
@@ -712,6 +715,11 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		Assert(list_length(tlist) == 1);
 		Query *query = (Query *) linitial(tlist);
 		query->parentStmtType = PARENTSTMTTYPE_CTAS;
+
+		if (post_parse_ctas_query_hook)
+		{
+			(*post_parse_ctas_query_hook)(query, intoClause);
+		}
 	}
 
 	/* Release snapshot if we got one */

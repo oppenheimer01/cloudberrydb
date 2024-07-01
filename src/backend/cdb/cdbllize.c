@@ -328,7 +328,8 @@ cdbllize_get_final_locus(PlannerInfo *root, PathTarget *target)
 
 		if (intoPolicy != NULL)
 		{
-			Assert(intoPolicy->ptype != POLICYTYPE_ENTRY);
+			Assert(GpPolicyIsEntry(query->intoPolicy) || GpPolicyIsPartitioned(query->intoPolicy) ||
+				   GpPolicyIsReplicated(query->intoPolicy));
 			Assert(intoPolicy->nattrs >= 0);
 			Assert(intoPolicy->nattrs <= MaxPolicyAttributeNumber);
 
@@ -343,6 +344,17 @@ cdbllize_get_final_locus(PlannerInfo *root, PathTarget *target)
 
 				CdbPathLocus_MakeReplicated(&locus, intoPolicy->numsegments, 0);
 				return locus;
+			}
+			else if (intoPolicy->ptype == POLICYTYPE_ENTRY)
+			{
+				/*
+				 * Query result needs to be brought back to the QD.
+				 */
+				CdbPathLocus entryLocus;
+
+				CdbPathLocus_MakeEntry(&entryLocus);
+
+				return entryLocus;
 			}
 		}
 	}
@@ -413,7 +425,8 @@ cdbllize_adjust_top_path(PlannerInfo *root, Path *best_path,
 		{
 			targetPolicy = query->intoPolicy;
 
-			Assert(query->intoPolicy->ptype != POLICYTYPE_ENTRY);
+			Assert(GpPolicyIsEntry(query->intoPolicy) || GpPolicyIsPartitioned(query->intoPolicy) ||
+				   GpPolicyIsReplicated(query->intoPolicy));
 			Assert(query->intoPolicy->nattrs >= 0);
 			Assert(query->intoPolicy->nattrs <= MaxPolicyAttributeNumber);
 		}
@@ -501,7 +514,8 @@ cdbllize_adjust_top_path(PlannerInfo *root, Path *best_path,
 								 " Make sure column(s) chosen are the optimal data distribution key to minimize skew.")));
 			}
 		}
-		Assert(targetPolicy->ptype != POLICYTYPE_ENTRY);
+		Assert(GpPolicyIsEntry(targetPolicy) || GpPolicyIsPartitioned(targetPolicy) ||
+			   GpPolicyIsReplicated(targetPolicy));
 
 		query->intoPolicy = targetPolicy;
 

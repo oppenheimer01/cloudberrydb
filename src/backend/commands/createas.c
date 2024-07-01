@@ -193,7 +193,7 @@ create_ctas_internal(List *attrList, IntoClause *into, QueryDesc *queryDesc, boo
                                       queryDesc->ddesc ? queryDesc->ddesc->useChangedAOOpts : true,
                                       queryDesc->plannedstmt->intoPolicy);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && queryDesc->ddesc)
 	{
 		queryDesc->ddesc->intoCreateStmt = create;
 	}
@@ -224,6 +224,11 @@ create_ctas_internal(List *attrList, IntoClause *into, QueryDesc *queryDesc, boo
 		CommandCounterIncrement();
 	}
 
+	if (!queryDesc->ddesc)
+	{
+		GetAssignedOidsForDispatch();
+	}
+	
 	if (Gp_role == GP_ROLE_DISPATCH && dispatch)
 		CdbDispatchUtilityStatement((Node *) create,
 									DF_CANCEL_ON_ERROR |
