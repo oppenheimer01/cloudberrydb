@@ -156,6 +156,7 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "utils/faultinjector.h"
 
@@ -3415,6 +3416,8 @@ autovacuum_do_vac_analyze(autovac_table *tab, BufferAccessStrategy bstrategy)
 		"", tab->at_relname);
 #endif
 
+	TransferReset();
+	SetTransferOn();
 	vacuum(rel_list, &tab->at_params, bstrategy, true);
 }
 

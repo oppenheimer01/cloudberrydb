@@ -676,7 +676,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 
 	elog(DEBUG3, "InitPostgres");
 
-	if (StartUpCatalogData && GpIdentity.segindex >= 0)
+	if (StartUpCatalogData && !IS_QUERY_DISPATCHER())
 	{
 		SystemTupleStoreReset();
 		SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);

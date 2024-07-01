@@ -61,6 +61,7 @@
 #else
 #include "commands/variable.h"
 #endif
+#include "cdb/cdbtranscat.h"
 #include "lib/stringinfo.h"
 #include "libpq-fe.h"
 #include "libpq/pqformat.h"
@@ -1876,6 +1877,9 @@ ExecuteSqlString(const char *sql)
 	commands_remaining = list_length(raw_parsetree_list);
 	isTopLevel = commands_remaining == 1;
 	MemoryContextSwitchTo(oldcontext);
+
+	TransferReset();
+	SetTransferOn();
 
 	/*
 	 * Do parse analysis, rule rewrite, planning, and execution for each raw
