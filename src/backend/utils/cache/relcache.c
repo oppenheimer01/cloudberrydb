@@ -6234,14 +6234,17 @@ load_relcache_init_file(bool shared)
 	int			i;
 
 
+#ifdef SERVERLESS
 	if (GpIdentity.segindex < 0)
 	{
+#endif /* SERVERLESS */
 		if (shared)
 			snprintf(initfilename, sizeof(initfilename), "global/%s",
 					 RELCACHE_INIT_FILENAME);
 		else
 			snprintf(initfilename, sizeof(initfilename), "%s/%s",
 					 DatabasePath, RELCACHE_INIT_FILENAME);
+#ifdef SERVERLESS
 	}
 	else
 	{
@@ -6252,12 +6255,11 @@ load_relcache_init_file(bool shared)
 			snprintf(initfilename, sizeof(initfilename), "%s",
 					 RELCACHE_INIT_FILENAME);
 	}
+#endif /* SERVERLESS */
 
 	fp = AllocateFile(initfilename, PG_BINARY_R);
 	if (fp == NULL)
-	{
 		return false;
-	}
 
 	/*
 	 * Read the index relcache entries from the file.  Note we will not enter
@@ -6272,7 +6274,6 @@ load_relcache_init_file(bool shared)
 	/* check for correct magic number (compatible version) */
 	if (fread(&magic, 1, sizeof(magic), fp) != sizeof(magic))
 		goto read_failed;
-
 	if (magic != RELCACHE_INIT_FILEMAGIC)
 		goto read_failed;
 
@@ -6290,7 +6291,6 @@ load_relcache_init_file(bool shared)
 		{
 			if (nread == 0)
 				break;			/* end of file */
-
 			goto read_failed;
 		}
 
@@ -6318,6 +6318,7 @@ load_relcache_init_file(bool shared)
 		relform = (Form_pg_class) palloc(len);
 		if (fread(relform, 1, len, fp) != len)
 			goto read_failed;
+
 		rel->rd_rel = relform;
 
 		/* initialize attribute tuple forms */
@@ -6346,15 +6347,13 @@ load_relcache_init_file(bool shared)
 		/* next read the access method specific field */
 		if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 			goto read_failed;
-
 		if (len > 0)
 		{
 			rel->rd_options = palloc(len);
 			if (fread(rel->rd_options, 1, len, fp) != len)
 				goto read_failed;
-
 			if (len != VARSIZE(rel->rd_options))
-				goto read_failed;
+				goto read_failed;	/* sanity check */
 		}
 		else
 		{
@@ -6442,7 +6441,6 @@ load_relcache_init_file(bool shared)
 			/* next, read the vector of support procedure OIDs */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
-
 			support = (RegProcedure *) MemoryContextAlloc(indexcxt, len);
 			if (fread(support, 1, len, fp) != len)
 				goto read_failed;
@@ -6556,8 +6554,10 @@ load_relcache_init_file(bool shared)
 		 * Reset transient-state fields in the relcache entry
 		 */
 		rel->rd_smgr = NULL;
+#ifdef SERVERLESS
 		rel->rd_isnailed = true;
 		rel->rd_isvalid = true;
+#endif /* SERVERLESS */
 		if (rel->rd_isnailed)
 			rel->rd_refcnt = 1;
 		else
@@ -6604,33 +6604,34 @@ load_relcache_init_file(bool shared)
 	 * values of NUM_CRITICAL_SHARED_RELS/NUM_CRITICAL_SHARED_INDEXES, we put
 	 * an Assert(false) there.
 	 */
-//	if (shared)
-//	{
-//		if (nailed_rels != NUM_CRITICAL_SHARED_RELS ||
-//			nailed_indexes != NUM_CRITICAL_SHARED_INDEXES)
-//		{
-//			elog(WARNING, "found %d nailed shared rels and %d nailed shared indexes in init file, but expected %d and %d respectively",
-//				 nailed_rels, nailed_indexes,
-//				 NUM_CRITICAL_SHARED_RELS, NUM_CRITICAL_SHARED_INDEXES);
-//			/* Make sure we get developers' attention about this */
-//			Assert(false);
-//			/* In production builds, recover by bootstrapping the relcache */
-//			goto read_failed;
-//		}
-//	}
-//	else
-//	{
-//		if (nailed_rels != NUM_CRITICAL_LOCAL_RELS ||
-//			nailed_indexes != NUM_CRITICAL_LOCAL_INDEXES)
-//		{
-//			elog(WARNING, "found %d nailed rels and %d nailed indexes in init file, but expected %d and %d respectively",
-//				 nailed_rels, nailed_indexes,
-//				 NUM_CRITICAL_LOCAL_RELS, NUM_CRITICAL_LOCAL_INDEXES);
-//			/* We don't need an Assert() in this case */
-//			goto read_failed;
-//		}
-//	}
-
+#ifndef SERVERLESS
+	if (shared)
+	{
+		if (nailed_rels != NUM_CRITICAL_SHARED_RELS ||
+			nailed_indexes != NUM_CRITICAL_SHARED_INDEXES)
+		{
+			elog(WARNING, "found %d nailed shared rels and %d nailed shared indexes in init file, but expected %d and %d respectively",
+				 nailed_rels, nailed_indexes,
+				 NUM_CRITICAL_SHARED_RELS, NUM_CRITICAL_SHARED_INDEXES);
+			/* Make sure we get developers' attention about this */
+			Assert(false);
+			/* In production builds, recover by bootstrapping the relcache */
+			goto read_failed;
+		}
+	}
+	else
+	{
+		if (nailed_rels != NUM_CRITICAL_LOCAL_RELS ||
+			nailed_indexes != NUM_CRITICAL_LOCAL_INDEXES)
+		{
+			elog(WARNING, "found %d nailed rels and %d nailed indexes in init file, but expected %d and %d respectively",
+				 nailed_rels, nailed_indexes,
+				 NUM_CRITICAL_LOCAL_RELS, NUM_CRITICAL_LOCAL_INDEXES);
+			/* We don't need an Assert() in this case */
+			goto read_failed;
+		}
+	}
+#endif /* SERVERLESS */
 	/*
 	 * OK, all appears well.
 	 *
@@ -6672,10 +6673,13 @@ write_relcache_init_file(bool shared)
 	FILE	   *fp;
 	char		tempfilename[MAXPGPATH];
 	char		finalfilename[MAXPGPATH];
+#ifdef SERVERLESS
 	char		copyfilename[MAXPGPATH];
+#endif /* SERVERLESS */
 	int			magic;
 	HASH_SEQ_STATUS status;
 	RelIdCacheEnt *idhentry;
+#ifdef SERVERLESS
 	int			i,j;
 	Oid			collectRelids[60] = {
 			AggregateRelationId,
@@ -6743,6 +6747,7 @@ write_relcache_init_file(bool shared)
 			ResQueueCapabilityRelationId
 
 	};
+#endif /* SERVERLESS */
 
 	if (write_relcache_init_file_hook && write_relcache_init_file_hook())
 		return;
@@ -6764,8 +6769,10 @@ write_relcache_init_file(bool shared)
 				 RELCACHE_INIT_FILENAME, MyProcPid);
 		snprintf(finalfilename, sizeof(finalfilename), "global/%s",
 				 RELCACHE_INIT_FILENAME);
+#ifdef SERVERLESS
 		snprintf(copyfilename, sizeof(copyfilename), "%s.global",
 				 RELCACHE_INIT_FILENAME);
+#endif /* SERVERLESS */
 	}
 	else
 	{
@@ -6773,8 +6780,10 @@ write_relcache_init_file(bool shared)
 				 DatabasePath, RELCACHE_INIT_FILENAME, MyProcPid);
 		snprintf(finalfilename, sizeof(finalfilename), "%s/%s",
 				 DatabasePath, RELCACHE_INIT_FILENAME);
+#ifdef SERVERLESS
 		snprintf(copyfilename, sizeof(copyfilename), "%s",
 				 RELCACHE_INIT_FILENAME);
+#endif /* SERVERLESS */
 	}
 
 	unlink(tempfilename);		/* in case it exists w/wrong permissions */
@@ -6900,6 +6909,7 @@ write_relcache_init_file(bool shared)
 		}
 	}
 
+#ifdef SERVERLESS
 	for (i = 0; i < sizeof(collectRelids) / sizeof(Oid); ++i)
 	{
 		Relation	rel;
@@ -6965,6 +6975,7 @@ write_relcache_init_file(bool shared)
 		table_close(rel, AccessShareLock);
 
 	}
+#endif /* SERVERLESS */
 
 	if (FreeFile(fp))
 		elog(FATAL, "could not write init file");
@@ -7012,6 +7023,7 @@ write_relcache_init_file(bool shared)
 	/*
 	 * Copy the file to root dir
 	 */
+#ifdef SERVERLESS
 	if (access(copyfilename, F_OK) != 0)
 	{
 		char cp_cmd[MAXPGPATH];
@@ -7021,6 +7033,7 @@ write_relcache_init_file(bool shared)
 			elog(ERROR, "copy process fail, cp_cmd %s", cp_cmd);
 		}
 	}
+#endif /* SERVERLESS */
 
 	LWLockRelease(RelCacheInitLock);
 }
