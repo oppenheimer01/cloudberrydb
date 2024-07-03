@@ -21,7 +21,9 @@
 #include "catalog/pg_foreign_table_seg.h"
 #include "catalog/pg_user_mapping.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "commands/defrem.h"
@@ -713,10 +715,12 @@ GetFdwRoutineForRelation(Relation relation, bool makecopy)
 		/* Give back the locally palloc'd copy regardless of makecopy */
 		return fdwroutine;
 	}
+#ifdef SERVERLESS
 	else if (IsTransferOn())
 	{
 		GetFdwRoutineByRelId(RelationGetRelid(relation));
 	}
+#endif
 
 	/* We have valid cached data --- does the caller want a copy? */
 	if (makecopy)

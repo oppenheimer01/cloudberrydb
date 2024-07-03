@@ -33,9 +33,10 @@
 #include "cdb/cdbfts.h"
 #include "cdb/cdbgang.h"
 #include "cdb/cdbgang_async.h"
-#include "cdb/cdbsrlz.h"
 #include "cdb/cdbtm.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "miscadmin.h"
 
@@ -343,9 +344,10 @@ create_gang_retry:
 					if (fds[currentFdNumber].revents & fds[currentFdNumber].events ||
 						fds[currentFdNumber].revents & (POLLERR | POLLHUP | POLLNVAL))
 					{
+#ifdef SERVERLESS
 						segdbDesc->conn->catalog =
 								CollectStartupCatalog(&segdbDesc->conn->catalog_size);
-
+#endif
 						pollingStatus[i] = PQconnectPoll(segdbDesc->conn);
 					}
 

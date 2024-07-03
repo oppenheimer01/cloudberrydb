@@ -25,8 +25,9 @@
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "catalog/index.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
-#include "cdb/cdbvars.h"
+#endif
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
@@ -363,6 +364,7 @@ index_compute_xid_horizon_for_tuples(Relation irel,
  * ----------------------------------------------------------------
  */
 
+#ifdef SERVERLESS
 static SysScanDesc
 systable_beginscan_qe(Relation heapRelation, int nkeys, ScanKey key)
 {
@@ -377,6 +379,7 @@ systable_beginscan_qe(Relation heapRelation, int nkeys, ScanKey key)
 
 	return sysscan;
 }
+#endif
 
 /*
  * systable_beginscan --- set up for heap-or-index scan
@@ -407,8 +410,10 @@ systable_beginscan(Relation heapRelation,
 	SysScanDesc sysscan;
 	Relation	irel;
 
+#ifdef SERVERLESS
 	if (systup_store_active())
 		return systable_beginscan_qe(heapRelation, nkeys, key);
+#endif
 
 	if (indexOK &&
 		!IgnoreSystemIndexes &&
@@ -507,6 +512,7 @@ HandleConcurrentAbort()
 				 errmsg("transaction aborted during system catalog scan")));
 }
 
+#ifdef SERVERLESS
 static HeapTuple
 systable_getnext_qe(SysScanDesc sysscan)
 {
@@ -522,6 +528,7 @@ systable_getnext_qe(SysScanDesc sysscan)
 
 	return htup;
 }
+#endif
 
 /*
  * systable_getnext --- get next tuple in a heap-or-index scan
@@ -540,8 +547,10 @@ systable_getnext(SysScanDesc sysscan)
 {
 	HeapTuple	htup = NULL;
 
+#ifdef SERVERLESS
 	if (systup_store_active())
 		return systable_getnext_qe(sysscan);
+#endif
 
 	if (sysscan->irel)
 	{
@@ -581,7 +590,9 @@ systable_getnext(SysScanDesc sysscan)
 	 */
 	HandleConcurrentAbort();
 
+#ifdef SERVERLESS
 	TransStoreTuple(htup);
+#endif
 
 	return htup;
 }
@@ -628,7 +639,7 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 	return result;
 }
 
-
+#ifdef SERVERLESS
 static void
 systable_endscan_qe(SysScanDesc sysscan)
 {
@@ -643,6 +654,7 @@ systable_endscan_qe(SysScanDesc sysscan)
 		UnregisterSnapshot(sysscan->snapshot);
 	pfree(sysscan);
 }
+#endif
 
 /*
  * systable_endscan --- close scan, release resources
@@ -652,11 +664,13 @@ systable_endscan_qe(SysScanDesc sysscan)
 void
 systable_endscan(SysScanDesc sysscan)
 {
+#ifdef SERVERLESS
 	if (systup_store_active())
 	{
 		systable_endscan_qe(sysscan);
 		return;
 	}
+#endif
 
 	if (sysscan->slot)
 	{
@@ -711,8 +725,10 @@ systable_beginscan_ordered(Relation heapRelation,
 	SysScanDesc sysscan;
 	int			i;
 
+#ifdef SERVERLESS
 	if (systup_store_sorted_active())
 		return systable_beginscan_qe(heapRelation, nkeys, key);
+#endif
 
 	/* REINDEX can probably be a hard error here ... */
 	if (ReindexIsProcessingIndex(RelationGetRelid(indexRelation)))
@@ -775,8 +791,10 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 {
 	HeapTuple	htup = NULL;
 
+#ifdef SERVERLESS
 	if (systup_store_sorted_active())
 		return systable_getnext_qe(sysscan);
+#endif
 
 	Assert(sysscan->irel);
 	if (index_getnext_slot(sysscan->iscan, direction, sysscan->slot))
@@ -792,7 +810,9 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 	 */
 	HandleConcurrentAbort();
 
+#ifdef SERVERLESS
 	TransStoreTuple(htup);
+#endif
 
 	return htup;
 }
@@ -803,12 +823,13 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 void
 systable_endscan_ordered(SysScanDesc sysscan)
 {
+#ifdef SERVERLESS
 	if (systup_store_sorted_active())
 	{
 		systable_endscan_qe(sysscan);
 		return;
 	}
-
+#endif
 	if (sysscan->slot)
 	{
 		ExecDropSingleTupleTableSlot(sysscan->slot);

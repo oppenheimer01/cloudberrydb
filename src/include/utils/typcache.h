@@ -154,7 +154,9 @@ typedef struct TypeCacheEntry
 /* This value will not equal any valid tupledesc identifier, nor 0 */
 #define INVALID_TUPLEDESC_IDENTIFIER ((uint64) 1)
 
+#ifdef SERVERLESS
 extern MemoryContext TypeMemoryContext;
+#endif
 
 /*
  * Callers wishing to maintain a long-lived reference to a domain's constraint

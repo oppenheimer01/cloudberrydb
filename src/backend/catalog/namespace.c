@@ -3465,6 +3465,12 @@ GetTempNamespaceState(Oid *tempNamespaceId, Oid *tempToastNamespaceId)
 void
 SetTempNamespaceState(Oid tempNamespaceId, Oid tempToastNamespaceId)
 {
+#ifndef SERVERLESS
+	/* Worker should not have created its own namespaces ... */
+	Assert(myTempNamespace == InvalidOid);
+	Assert(myTempToastNamespace == InvalidOid);
+	Assert(myTempNamespaceSubID == InvalidSubTransactionId);
+#endif
 	/* Assign same namespace OIDs that leader has */
 	myTempNamespace = tempNamespaceId;
 	myTempToastNamespace = tempToastNamespaceId;

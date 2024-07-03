@@ -75,7 +75,9 @@
 #include "utils/syscache.h"
 #include "utils/plancache.h"
 
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbutil.h"
 
 /*
@@ -1094,8 +1096,10 @@ choose_custom_plan(CachedPlanSource *plansource, ParamListInfo boundParams, Into
 	if (IsTransactionStmtPlan(plansource))
 		return false;
 
+#ifdef SERVERLESS
 	if (IsTransferOn())
 		return true;
+#endif
 
 	/* Let settings force the decision */
 	if (plan_cache_mode == PLAN_CACHE_MODE_FORCE_GENERIC_PLAN)

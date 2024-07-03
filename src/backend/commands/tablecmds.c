@@ -133,11 +133,12 @@
 #include "nodes/altertablenodes.h"
 #include "cdb/cdbdisp.h"
 #include "cdb/cdbdisp_query.h"
-#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbrelsize.h"
 #include "cdb/cdboidsync.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "postmaster/autostats.h"
 
 const char *synthetic_sql = "(internally generated SQL command)";

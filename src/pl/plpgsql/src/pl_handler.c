@@ -273,6 +273,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 		 * subhandler
 		 */
 		if (CALLED_AS_TRIGGER(fcinfo))
+#ifdef SERVERLESS
 		{
 			TriggerData *triggerData = (TriggerData *) fcinfo->context;
 
@@ -282,6 +283,10 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 				retval = PointerGetDatum(
 						plpgsql_exec_trigger(func, (TriggerData *) fcinfo->context));
 		}
+#else
+		retval = PointerGetDatum(plpgsql_exec_trigger(func,
+									(TriggerData *) fcinfo->context));
+#endif
 		else if (CALLED_AS_EVENT_TRIGGER(fcinfo))
 		{
 			plpgsql_exec_event_trigger(func,
@@ -289,6 +294,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 			/* there's no return value in this case */
 		}
 		else
+#ifdef SERVERLESS
 		{
 			CallContext *callContext = (CallContext *) fcinfo->context;
 
@@ -301,6 +307,12 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 											   procedure_resowner,
 											   !nonatomic);
 		}
+#else
+		retval = plpgsql_exec_function(func, fcinfo,
+										NULL, NULL,
+										procedure_resowner,
+										!nonatomic);
+#endif
 	}
 	PG_FINALLY();
 	{

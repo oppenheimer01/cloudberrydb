@@ -46,7 +46,9 @@
 #include "libpq/libpq-be.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbtm.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "cdb/cdbutil.h"
 #include "mb/pg_wchar.h"
@@ -676,11 +678,13 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 
 	elog(DEBUG3, "InitPostgres");
 
+#ifdef SERVERLESS
 	if (StartUpCatalogData && !IS_QUERY_DISPATCHER())
 	{
 		SystemTupleStoreReset();
 		SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);
 	}
+#endif
 
 	/*
 	 * Add my PGPROC struct to the ProcArray.

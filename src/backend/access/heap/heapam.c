@@ -73,7 +73,9 @@
 #include "utils/spccache.h"
 
 #include "catalog/oid_dispatch.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
 #include "utils/faultinjector.h"
@@ -2757,7 +2759,9 @@ simple_heap_insert(Relation relation, HeapTuple tup)
 	heap_insert(relation, tup, GetCurrentCommandId(true), 0, NULL,
 				GetCurrentTransactionId());
 
+#ifdef SERVERLESS
 	TransStoreTuple(tup);
+#endif
 }
 
 /*
@@ -3282,7 +3286,9 @@ simple_heap_delete(Relation relation, ItemPointer tid)
 			break;
 	}
 
+#ifdef SERVERLESS
 	TransRemoveTuple(RelationGetRelid(relation), *tid);
+#endif
 }
 
 /*
@@ -4382,7 +4388,9 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 	TM_FailureData tmfd;
 	LockTupleMode lockmode;
 
+#ifdef SERVERLESS
 	TransRemoveTuple(tup->t_tableOid, *otid);
+#endif
 
 	result = heap_update_internal(relation, otid, tup,
 						 GetCurrentCommandId(true), InvalidSnapshot,
@@ -4413,7 +4421,9 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 			break;
 	}
 
+#ifdef SERVERLESS
 	TransStoreTuple(tup);
+#endif
 }
 
 

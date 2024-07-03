@@ -106,6 +106,7 @@ extern PGDLLIMPORT SetDtxFlag_hook_type SetDtxFlag_hook;
 typedef PlanState *(*ExecInitNode_hook_type)(Plan *node, EState *estate, int eflags);
 extern PGDLLIMPORT ExecInitNode_hook_type ExecInitNode_hook;
 
+#ifdef SERVERLESS
 typedef void (*ExprEvalPushStep_hook_type) (ExprState *es, const ExprEvalStep *s);
 extern PGDLLIMPORT ExprEvalPushStep_hook_type ExprEvalPushStep_hook;
 
@@ -114,6 +115,7 @@ extern PGDLLIMPORT CollectResultInfo_hook_type CollectResultInfo_hook;
 
 typedef void (*CollectProc_hook_type) (FunctionCallInfo fcinfo);
 extern PGDLLIMPORT CollectProc_hook_type CollectProc_hook;
+#endif
 
 /* Hook for plugins to get control in ExecEndNode() */
 typedef void (*ExecEndNode_hook_type)(PlanState *node);

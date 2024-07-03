@@ -49,7 +49,9 @@
 #include "cdb/cdbdisp_dtx.h"	/* for qdSerializeDtxContextInfo() */
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbcopy.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "executor/execUtils.h"
 #include "cdb/cdbpq.h"
 
@@ -95,8 +97,10 @@ typedef struct DispatchCommandQueryParms
 	int			serializedPlantreelen;
 	char	   *serializedQueryDispatchDesc;
 	int			serializedQueryDispatchDesclen;
+#ifdef SERVERLESS
 	char	   *serializedCatalog;
 	int			serializedCatalogLen;
+#endif
 
 	/*
 	 * Additional information.
@@ -334,8 +338,10 @@ CdbDispatchSetCommand(const char *strCommand, bool cancelOnError)
 	ErrorData *qeError = NULL;
 	int flags = DF_NONE;
 
+#ifdef SERVERLESS
 	SetTransferOn();
 	InitQuery(strCommand);
+#endif
 
 	if (CdbNeedDispatchCommand_hook && !CdbNeedDispatchCommand_hook(strCommand, &flags, NULL, NULL))
 		return;
@@ -416,8 +422,10 @@ CdbDispatchCommand(const char *strCommand,
 				   int flags,
 				   CdbPgResults *cdb_pgresults)
 {
+#ifdef SERVERLESS
 	SetTransferOn();
 	InitQuery(strCommand);
+#endif
 
 	return CdbDispatchCommandToSegments(strCommand,
 										flags,
@@ -588,10 +596,12 @@ cdbdisp_buildCommandQueryParms(const char *strCommand, int flags)
 	pQueryParms->strCommand = strCommand;
 	pQueryParms->serializedQueryDispatchDesc = NULL;
 	pQueryParms->serializedQueryDispatchDesclen = 0;
+#ifdef SERVERLESS
 	if (IsTransferOn())
 		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
 												   &pQueryParms->serializedCatalogLen,
 												   NULL);
+#endif
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -665,11 +675,12 @@ cdbdisp_buildUtilityQueryParms(struct Node *stmt,
 	pQueryParms->serializedQueryDispatchDesc = serializedQueryDispatchDesc;
 	pQueryParms->serializedQueryDispatchDesclen = serializedQueryDispatchDesc_len;
 
+#ifdef SERVERLESS
 	if (IsTransferOn())
 		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
 												   &pQueryParms->serializedCatalogLen,
 												   NULL);
-
+#endif
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -729,11 +740,12 @@ cdbdisp_buildPlanQueryParms(struct QueryDesc *queryDesc,
 	pQueryParms->serializedQueryDispatchDesc = sddesc;
 	pQueryParms->serializedQueryDispatchDesclen = sddesc_len;
 
+#ifdef SERVERLESS
 	if (IsTransferOn())
 		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
 												   &pQueryParms->serializedCatalogLen,
 												   NULL);
-
+#endif
 	/*
 	 * Serialize a version of our snapshot, and generate our transction
 	 * isolations. We generally want Plan based dispatch to be in a global
@@ -927,8 +939,10 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			plantree_len = pQueryParms->serializedPlantreelen;
 	const char *sddesc = pQueryParms->serializedQueryDispatchDesc;
 	int			sddesc_len = pQueryParms->serializedQueryDispatchDesclen;
+#ifdef SERVERLESS
 	const char *sdcatalog = pQueryParms->serializedCatalog;
 	int			sdcatalog_len = pQueryParms->serializedCatalogLen;
+#endif
 	const char *dtxContextInfo = pQueryParms->serializedDtxContextInfo;
 	int			dtxContextInfo_len = pQueryParms->serializedDtxContextInfolen;
 	int64		currentStatementStartTimestamp = GetCurrentStatementStartTimestamp();
@@ -984,13 +998,17 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sizeof(command_len) +
 		sizeof(plantree_len) +
 		sizeof(sddesc_len) +
+#ifdef SERVERLESS
 		sizeof(sdcatalog_len) +
+#endif
 		sizeof(dtxContextInfo_len) +
 		dtxContextInfo_len +
 		command_len +
 		plantree_len +
 		sddesc_len +
+#ifdef SERVERLESS
 		sdcatalog_len +
+#endif
 		sizeof(numsegments) +
 		sizeof(resgroupInfo.len) +
 		resgroupInfo.len +
@@ -1053,9 +1071,11 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
 
+#ifdef SERVERLESS
 	tmp = htonl(sdcatalog_len);
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
+#endif
 
 	tmp = htonl(dtxContextInfo_len);
 	memcpy(pos, &tmp, sizeof(tmp));
@@ -1084,11 +1104,13 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		pos += sddesc_len;
 	}
 
+#ifdef SERVERLESS
 	if (sdcatalog_len > 0)
 	{
 		memcpy(pos, sdcatalog, sdcatalog_len);
 		pos += sdcatalog_len;
 	}
+#endif
 
 	tmp = htonl(numsegments);
 	memcpy(pos, &tmp, sizeof(numsegments));

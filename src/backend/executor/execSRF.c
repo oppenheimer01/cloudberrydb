@@ -20,7 +20,9 @@
 
 #include "access/htup_details.h"
 #include "catalog/objectaccess.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "executor/execdebug.h"
 #include "funcapi.h"
 #include "miscadmin.h"
@@ -806,8 +808,10 @@ init_sexpr(Oid foid, Oid input_collation, Expr *node,
 	sexpr->funcResultSlot = NULL;
 	sexpr->shutdown_reg = false;
 
+#ifdef SERVERLESS
 	if (CollectProc_hook)
 		(*CollectProc_hook) (sexpr->fcinfo);
+#endif
 }
 
 /*

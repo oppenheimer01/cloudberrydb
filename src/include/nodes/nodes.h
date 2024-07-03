@@ -686,8 +686,6 @@ typedef enum NodeTag
 	T_RetrieveStmt,
 	T_ReindexIndexInfo,			/* in nodes/parsenodes.h */
 	T_EphemeralNamedRelationInfo, /* utils/queryenvironment.h */
-	T_SystemTableTransferNode,
-	T_TransferTuple,
 	T_FileFragment,
 	T_FileScanTask,
 	T_ExternalTableMetadata,
@@ -695,6 +693,8 @@ typedef enum NodeTag
 	T_APListExpr,
 	T_APRangeExpr,
 	T_APHashExpr,
+	T_SystemTableTransferNode,
+	T_TransferTuple,
 #endif /* SERVERLESS */
 } NodeTag;
 

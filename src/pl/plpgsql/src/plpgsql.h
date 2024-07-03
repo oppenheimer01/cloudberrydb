@@ -1323,7 +1323,7 @@ extern void plpgsql_scanner_finish(void);
  */
 extern int	plpgsql_yyparse(void);
 
-
+#ifdef SERVERLESS
 extern Datum plpgsql_prepare_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 									  EState *simple_eval_estate,
 									  ResourceOwner simple_eval_resowner,
@@ -1332,4 +1332,5 @@ extern Datum plpgsql_prepare_function(PLpgSQL_function *func, FunctionCallInfo f
 extern void plpgsql_prepare_trigger(PLpgSQL_function *func, TriggerData *trigdata);
 extern void init_stmt(PLpgSQL_execstate *estate, PLpgSQL_stmt *stmt);
 extern bool function_is_prepare(FunctionCallInfo fcinfo);
+#endif
 #endif							/* PLPGSQL_H */

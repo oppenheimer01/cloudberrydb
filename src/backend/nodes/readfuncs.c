@@ -52,7 +52,9 @@
 #include "utils/builtins.h"
 
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "nodes/altertablenodes.h"
 
 /*
@@ -620,6 +622,7 @@ _readConst(void)
 	else
 		local_node->constvalue = readDatum(local_node->constbyval);
 
+#ifdef SERVERLESS
 	if (local_node->consttype == REGCLASSOID && IsTransferOn())
 	{
 		if (!RelationStoredCheck(local_node->constvalue))
@@ -630,6 +633,7 @@ _readConst(void)
 			relation_close(rel, AccessShareLock);
 		}
 	}
+#endif
 
 	READ_DONE();
 }

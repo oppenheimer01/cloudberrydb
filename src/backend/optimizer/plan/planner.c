@@ -80,7 +80,9 @@
 #include "cdb/cdbgroupingpaths.h"		/* create_grouping_paths() extensions */
 #include "cdb/cdbsetop.h"		/* motion utilities */
 #include "cdb/cdbtargeteddispatch.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "optimizer/aqumv.h" /* answer_query_using_materialized_views */
@@ -377,8 +379,12 @@ standard_planner(Query *parse, const char *query_string, int cursorOptions,
 		GP_ROLE_DISPATCH == Gp_role &&
 		IS_QUERY_DISPATCHER() &&
 		(cursorOptions & CURSOR_OPT_SKIP_FOREIGN_PARTITIONS) == 0 &&
+#ifdef SERVERLESS
 		(cursorOptions & CURSOR_OPT_PARALLEL_RETRIEVE) == 0 &&
 		!inPlPgsql)
+#else
+		(cursorOptions & CURSOR_OPT_PARALLEL_RETRIEVE) == 0)
+#endif
 	{
 
 #ifdef USE_ORCA

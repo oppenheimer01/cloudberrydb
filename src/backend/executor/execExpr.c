@@ -54,7 +54,9 @@
 #include "access/detoast.h"
 #include "access/heaptoast.h"
 #include "catalog/pg_collation.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "utils/pg_locale.h"
 #include "utils/syscache.h"
@@ -992,6 +994,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 				scratch.d.constval.isnull = con->constisnull;
 
 				ExprEvalPushStep(state, &scratch);
+#ifdef SERVERLESS
 				if (IsTransferOn())
 				{
 					HeapTuple typeTup;
@@ -1000,7 +1003,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 					if (typeTup)
 						ReleaseSysCache(typeTup);
 				}
-
+#endif
 				break;
 			}
 
@@ -2550,11 +2553,13 @@ ExprEvalPushStep_internal(ExprState *es, const ExprEvalStep *s)
 void
 ExprEvalPushStep(ExprState *es, const ExprEvalStep *s)
 {
+#ifdef SERVERLESS
 	if (ExprEvalPushStep_hook)
 	{
 		(*ExprEvalPushStep_hook) (es, s);
 		return;
 	}
+#endif
 
 	ExprEvalPushStep_internal(es, s);
 }
@@ -2642,6 +2647,7 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 			fcinfo->args[argno].value = con->constvalue;
 			fcinfo->args[argno].isnull = con->constisnull;
 
+#ifdef SERVERLESS
 			if (IsTransferOn())
 			{
 				HeapTuple typeTup;
@@ -2650,6 +2656,7 @@ ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args, Oid funcid,
 				if (typeTup)
 					ReleaseSysCache(typeTup);
 			}
+#endif
 		}
 		else
 		{

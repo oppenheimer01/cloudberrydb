@@ -2472,6 +2472,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 		packet[packet_len] = '\0';
 	packet_len++;
 
+#ifdef SERVERLESS
 	if (conn->catalog)
 	{
 		if (packet)
@@ -2482,6 +2483,7 @@ build_startup_packet(const PGconn *conn, char *packet,
 		packet_len += sizeof(int);
 		packet_len += conn->catalog_size;
 	}
+#endif
 
 	return packet_len;
 }

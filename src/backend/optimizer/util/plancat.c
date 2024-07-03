@@ -188,7 +188,11 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 	else
 		hasindex = relation->rd_rel->relhasindex;
 
+#ifdef SERVERLESS
 	if (hasindex && Gp_role != GP_ROLE_EXECUTE)
+#else
+	if (hasindex)
+#endif
 	{
 		List	   *indexoidlist;
 		LOCKMODE	lmode;

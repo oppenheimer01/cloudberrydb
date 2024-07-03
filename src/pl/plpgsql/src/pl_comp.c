@@ -172,8 +172,12 @@ recheck:
 	{
 		/* We have a compiled function, but is it still valid? */
 		if (function->fn_xmin == HeapTupleHeaderGetRawXmin(procTup->t_data) &&
+#ifdef SERVERLESS
 			ItemPointerEquals(&function->fn_tid, &procTup->t_self) &&
 			!function_is_prepare(fcinfo))
+#else
+			ItemPointerEquals(&function->fn_tid, &procTup->t_self))
+#endif
 			function_valid = true;
 		else
 		{

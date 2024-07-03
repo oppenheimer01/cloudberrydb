@@ -195,7 +195,9 @@ MEMORY_ACCOUNT_INC_ALLOCATED(AllocSet set, Size newbytes)
 
 	/* Make sure these values are not overflow */
 	Assert(set->localAllocated >= newbytes);
-//	Assert(parent->currentAllocated >= set->localAllocated);
+#ifndef SERVERLESS
+	Assert(parent->currentAllocated >= set->localAllocated);
+#endif
 }
 
 static inline void
@@ -204,7 +206,9 @@ MEMORY_ACCOUNT_DEC_ALLOCATED(AllocSet set, Size newbytes)
 	AllocSet	parent = set->accountingParent;
 
 	Assert(set->localAllocated >= newbytes);
-	// Assert(parent->currentAllocated >= set->localAllocated);
+#ifndef SERVERLESS
+	Assert(parent->currentAllocated >= set->localAllocated);
+#endif
 
 	set->localAllocated -= newbytes;
 	parent->currentAllocated -= newbytes;
@@ -761,7 +765,11 @@ AllocSetDelete(MemoryContext context, MemoryContext parent)
 	/* Make sure all children have been deleted */
 	Assert(context->firstchild == NULL);
 	MEMORY_ACCOUNT_DEC_ALLOCATED(set, set->localAllocated);
+#ifdef SERVERLESS
 	if (IS_MEMORY_ACCOUNT(set) && parent)
+#else
+	if (IS_MEMORY_ACCOUNT(set))
+#endif
 	{
 		/* Roll up our peak value to the parent, before this context goes away. */
 		AllocSet	parentset = (AllocSet) parent;

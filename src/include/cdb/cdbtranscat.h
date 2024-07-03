@@ -1,6 +1,7 @@
 #ifndef CDBTANSCAT_H
 #define CDBTANSCAT_H
 
+#ifdef SERVERLESS
 #include "access/heapam.h"
 #include "access/htup.h"
 #include "nodes/execnodes.h"
@@ -114,4 +115,5 @@ extern char *StartUpCatalogData;
 extern int StartUpCatalogLen;
 extern char *CollectStartupCatalog(int *len);
 
+#endif
 #endif //CDBTANSCAT_H

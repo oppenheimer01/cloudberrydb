@@ -23,11 +23,15 @@
 #include "access/tupconvert.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "commands/defrem.h"
 #include "executor/execExpr.h"
 #include "executor/spi.h"
+#ifdef SERVERLESS
 #include "executor/spi_priv.h"
+#endif
 #include "executor/tstoreReceiver.h"
 #include "funcapi.h"
 #include "mb/stringinfo_mb.h"
@@ -425,8 +429,12 @@ static Datum do_cast_value(PLpgSQL_execstate *estate,
 						   Oid reqtype, int32 reqtypmod);
 static plpgsql_CastHashEntry *get_cast_hashentry(PLpgSQL_execstate *estate,
 												 Oid srctype, int32 srctypmod,
+#ifdef SERVERLESS
 												 Oid dsttype, int32 dsttypmod,
 												 bool renew);
+#else
+												 Oid dsttype, int32 dsttypmod);
+#endif
 static void exec_init_tuple_store(PLpgSQL_execstate *estate);
 static void exec_set_found(PLpgSQL_execstate *estate, bool state);
 static void plpgsql_create_econtext(PLpgSQL_execstate *estate);
@@ -7681,8 +7689,12 @@ do_cast_value(PLpgSQL_execstate *estate,
 
 	cast_entry = get_cast_hashentry(estate,
 									valtype, valtypmod,
+#ifdef SERVERLESS
 									reqtype, reqtypmod,
 									true);
+#else
+									reqtype, reqtypmod);
+#endif
 	if (cast_entry)
 	{
 		ExprContext *econtext = estate->eval_econtext;
@@ -7719,8 +7731,12 @@ do_cast_value(PLpgSQL_execstate *estate,
 static plpgsql_CastHashEntry *
 get_cast_hashentry(PLpgSQL_execstate *estate,
 				   Oid srctype, int32 srctypmod,
+#ifdef SERVERLESS
 				   Oid dsttype, int32 dsttypmod,
 				   bool renew)
+#else
+				   Oid dsttype, int32 dsttypmod)	
+#endif
 {
 	plpgsql_CastHashKey cast_key;
 	plpgsql_CastHashEntry *cast_entry;
@@ -7740,8 +7756,12 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 		cast_entry->cast_cexpr = NULL;
 
 	if (cast_entry->cast_cexpr == NULL ||
+#ifdef SERVERLESS
 		!cast_entry->cast_cexpr->is_valid ||
 		renew)
+#else
+		!cast_entry->cast_cexpr->is_valid)
+#endif
 	{
 		/*
 		 * We've not looked up this coercion before, or we have but the cached
@@ -8001,7 +8021,11 @@ exec_simple_check_plan(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 	 * Release the plan refcount obtained by SPI_plan_get_cached_plan.  (This
 	 * refcount is held by the wrong resowner, so we can't just repurpose it.)
 	 */
+#ifdef SERVERLESS
 	ReleaseCachedPlan(cplan, expr->plan->saved ? CurrentResourceOwner : NULL);
+#else
+	ReleaseCachedPlan(cplan, CurrentResourceOwner);
+#endif
 }
 
 /*
@@ -8741,6 +8765,7 @@ format_preparedparamsdata(PLpgSQL_execstate *estate,
 	return paramstr.data;
 }
 
+#ifdef SERVERLESS
 static void prepare_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block);
 static void init_toplevel_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block);
 
@@ -10445,3 +10470,4 @@ function_is_prepare(FunctionCallInfo fcinfo)
 			return false;
 	}
 }
+#endif

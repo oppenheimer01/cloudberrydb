@@ -79,7 +79,9 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "executor/execdebug.h"
 #include "executor/nodeIncrementalSort.h"
 #include "miscadmin.h"
@@ -1066,8 +1068,10 @@ ExecInitIncrementalSort(IncrementalSort *node, EState *estate, int eflags)
 
 	SO_printf("ExecInitIncrementalSort: sort node initialized\n");
 
+#ifdef SERVERLESS
 	if (IsTransferOn())
 		preparePresortedCols(incrsortstate);
+#endif
 
 	return incrsortstate;
 }

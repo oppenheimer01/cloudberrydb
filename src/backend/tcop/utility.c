@@ -84,7 +84,9 @@
 #include "catalog/pg_profile.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 
 
@@ -586,7 +588,9 @@ ProcessUtility(PlannedStmt *pstmt,
 	Assert(queryString != NULL);	/* required as of 8.4 */
 	Assert(qc == NULL || qc->commandTag == CMDTAG_UNKNOWN);
 
+#ifdef SERVERLESS
 	SetTransferOn();
+#endif
 
 	/*
 	 * Greenplum specific code:

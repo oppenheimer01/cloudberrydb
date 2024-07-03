@@ -1542,6 +1542,7 @@ PG_END_TRY();
 	return result;
 }
 
+#ifdef SERVERLESS
 void
 fmgr_sql_init(PG_FUNCTION_ARGS)
 {
@@ -1586,6 +1587,7 @@ fmgr_sql_init(PG_FUNCTION_ARGS)
 	}
 	PG_END_TRY();
 }
+#endif
 
 /*
  * error context callback to let us supply a call-stack traceback

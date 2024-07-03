@@ -56,7 +56,9 @@
 #include "catalog/pg_operator.h"
 #include "catalog/pg_range.h"
 #include "catalog/pg_type.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "commands/defrem.h"
 #include "executor/executor.h"
 #include "lib/dshash.h"
@@ -323,7 +325,7 @@ static void shared_record_typmod_registry_detach(dsm_segment *segment,
 static TupleDesc find_or_make_matching_shared_tupledesc(TupleDesc tupdesc);
 static dsa_pointer share_tupledesc(dsa_area *area, TupleDesc tupdesc,
 								   uint32 typmod);
-
+#ifdef SERVERLESS
 static void
 CreateTypeMemoryContext(void)
 {
@@ -336,6 +338,7 @@ CreateTypeMemoryContext(void)
 												  "TypeMemoryContext",
 												  ALLOCSET_DEFAULT_SIZES);
 }
+#endif
 
 /*
  * lookup_type_cache
@@ -371,8 +374,13 @@ lookup_type_cache(Oid type_id, int flags)
 		CacheRegisterSyscacheCallback(CONSTROID, TypeCacheConstrCallback, (Datum) 0);
 
 		/* Also make sure CacheMemoryContext exists */
+#ifdef SERVERLESS
 		CreateCacheMemoryContext();
 		CreateTypeMemoryContext();
+#else
+		if (!CacheMemoryContext)
+			CreateCacheMemoryContext();
+#endif
 	}
 
 	/* Try to look up an existing entry */
@@ -476,8 +484,10 @@ lookup_type_cache(Oid type_id, int flags)
 		ReleaseSysCache(tp);
 	}
 
+#ifdef SERVERLESS
 	if (!InTypeStore())
 		TypeStore(type_id, flags);
+#endif
 
 	/*
 	 * Look up opclasses if we haven't already and any dependent info is
@@ -2010,8 +2020,13 @@ assign_record_type_typmod(TupleDesc tupDesc)
 									  HASH_ELEM | HASH_FUNCTION | HASH_COMPARE);
 
 		/* Also make sure CacheMemoryContext exists */
+#ifdef SERVERLESS
 		CreateCacheMemoryContext();
 		CreateTypeMemoryContext();
+#else
+		if (!CacheMemoryContext)
+			CreateCacheMemoryContext();
+#endif
 	}
 
 	/*

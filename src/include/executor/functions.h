@@ -35,7 +35,9 @@ typedef struct SQLFunctionParseInfo
 typedef SQLFunctionParseInfo *SQLFunctionParseInfoPtr;
 
 extern Datum fmgr_sql(PG_FUNCTION_ARGS);
+#ifdef SERVERLESS
 extern void fmgr_sql_init(PG_FUNCTION_ARGS);
+#endif
 extern SQLFunctionParseInfoPtr prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 														 Node *call_expr,
 														 Oid inputCollation);

@@ -47,38 +47,21 @@
 #include "catalog/indexing.h"
 #include "catalog/namespace.h"
 #include "catalog/partition.h"
-#include "catalog/pg_aggregate.h"
 #include "catalog/pg_am.h"
-#include "catalog/pg_amop.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_attrdef.h"
-#include "catalog/pg_authid.h"
 #include "catalog/pg_auth_members.h"
 #include "catalog/pg_auth_time_constraint.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_constraint.h"
-#include "catalog/pg_conversion.h"
 #include "catalog/pg_database.h"
-#include "catalog/pg_default_acl.h"
-#include "catalog/pg_enum.h"
-#include "catalog/pg_event_trigger.h"
-#include "catalog/pg_extprotocol.h"
-#include "catalog/pg_foreign_data_wrapper.h"
-#include "catalog/pg_foreign_server.h"
-#include "catalog/pg_foreign_table.h"
-#include "catalog/pg_language.h"
 #include "catalog/pg_namespace.h"
 #include "catalog/pg_opclass.h"
-#include "catalog/pg_operator.h"
-#include "catalog/pg_opfamily.h"
-#include "catalog/pg_partitioned_table.h"
 #include "catalog/pg_password_history.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_profile.h"
 #include "catalog/pg_publication.h"
-#include "catalog/pg_range.h"
 #include "catalog/pg_rewrite.h"
-#include "catalog/pg_sequence.h"
 #include "catalog/pg_shseclabel.h"
 #include "catalog/pg_statistic_ext.h"
 #include "catalog/pg_subscription.h"
@@ -93,8 +76,6 @@
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/optimizer.h"
-#include "partitioning/partbounds.h"
-#include "partitioning/partdesc.h"
 #include "rewrite/rewriteDefine.h"
 #include "rewrite/rowsecurity.h"
 #include "storage/lmgr.h"
@@ -106,7 +87,6 @@
 #include "utils/inval.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
-#include "utils/partcache.h"
 #include "utils/relmapper.h"
 #include "utils/resowner_private.h"
 #include "utils/snapmgr.h"
@@ -115,15 +95,35 @@
 #include "access/transam.h"
 #include "catalog/gp_distribution_policy.h"         /* GpPolicy */
 #include "catalog/gp_indexing.h"
+#include "catalog/heap.h"
+#include "catalog/index.h"
+#ifdef SERVERLESS
+#include "catalog/pg_aggregate.h"
+#include "catalog/pg_amop.h"
+#include "catalog/pg_authid.h"
+#include "catalog/pg_conversion.h"
+#include "catalog/pg_default_acl.h"
+#include "catalog/pg_enum.h"
+#include "catalog/pg_event_trigger.h"
+#include "catalog/pg_extprotocol.h"
+#include "catalog/pg_foreign_data_wrapper.h"
+#include "catalog/pg_foreign_server.h"
+#include "catalog/pg_foreign_table.h"
+#include "catalog/pg_language.h"
+#include "catalog/pg_operator.h"
+#include "catalog/pg_opfamily.h"
+#include "catalog/pg_partitioned_table.h"
+#include "catalog/pg_range.h"
+#include "catalog/pg_sequence.h"
+#include "partitioning/partbounds.h"
+#include "partitioning/partdesc.h"
+#include "utils/partcache.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/gp_warehouse.h"
-#include "catalog/heap.h"
-#include "catalog/index.h"
 #include "catalog/main_manifest.h"
 #include "catalog/pg_depend.h"
 #include "catalog/pg_db_role_setting.h"
-#include "catalog/pg_directory_table.h"
 #include "catalog/pg_proc_callback.h"
 #include "catalog/pg_cast.h"
 #include "catalog/pg_collation.h"
@@ -146,8 +146,8 @@
 #include "catalog/pg_ts_template.h"
 #include "catalog/pg_user_mapping.h"
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbtm.h"
-#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"        /* Gp_role */
 #include "cdb/cdbsreh.h"
 
@@ -271,6 +271,7 @@ static int	EOXactTupleDescArrayLen = 0;
 /*
  *		macros to manipulate the lookup hashtable
  */
+#ifdef SERVERLESS
 #define RelationCacheInsert(RELATION, replace_allowed)	\
 do { \
 	RelIdCacheEnt *hentry; bool found; \
@@ -295,6 +296,29 @@ do { \
 	else \
 		hentry->reldesc = (RELATION); \
 } while(0)
+#else
+#define RelationCacheInsert(RELATION, replace_allowed)	\
+do { \
+	RelIdCacheEnt *hentry; bool found; \
+	hentry = (RelIdCacheEnt *) hash_search(RelationIdCache, \
+										   (void *) &((RELATION)->rd_id), \
+										   HASH_ENTER, &found); \
+	if (found) \
+	{ \
+		/* see comments in RelationBuildDesc and RelationBuildLocalRelation */ \
+		Relation _old_rel = hentry->reldesc; \
+		Assert(replace_allowed); \
+		hentry->reldesc = (RELATION); \
+		if (RelationHasReferenceCountZero(_old_rel)) \
+			RelationDestroyRelation(_old_rel, false); \
+		else if (!IsBootstrapProcessingMode()) \
+			elog(WARNING, "leaking still-referenced relcache entry for \"%s\"", \
+					RelationGetRelationName(_old_rel)); \
+	} \
+	else \
+		hentry->reldesc = (RELATION); \
+} while(0)
+#endif
 
 #define RelationIdCacheLookup(ID, RELATION) \
 do { \
@@ -742,12 +766,14 @@ RelationBuildTupleDesc(Relation relation)
 	 * computed when and if needed during tuple access.
 	 */
 #ifdef USE_ASSERT_CHECKING
-//	{
-//		int			i;
-//
-//		for (i = 0; i < RelationGetNumberOfAttributes(relation); i++)
-//			Assert(TupleDescAttr(relation->rd_att, i)->attcacheoff == -1);
-//	}
+#ifndef SERVERLESS
+	{
+		int			i;
+
+		for (i = 0; i < RelationGetNumberOfAttributes(relation); i++)
+			Assert(TupleDescAttr(relation->rd_att, i)->attcacheoff == -1);
+	}
+#endif
 #endif
 
 	/*
@@ -1786,6 +1812,7 @@ LookupOpclassInfo(Oid operatorClassOid,
 	{
 		Assert(numSupport == opcentry->numSupport);
 
+#ifdef SERVERLESS
 		if (IsTransferOn())
 		{
 			pfree(opcentry->supportProcs);
@@ -1795,6 +1822,7 @@ LookupOpclassInfo(Oid operatorClassOid,
 			opcentry->numSupport = numSupport;
 			opcentry->supportProcs = NULL;	/* filled below */
 		}
+#endif
 	}
 
 	/*
@@ -2222,12 +2250,16 @@ Relation
 RelationIdGetRelation(Oid relationId)
 {
 	Relation	rd;
+#ifdef SERVERLESS
 	bool		collected;
+#endif
 
 	/* Make sure we're in an xact, even if this ends up being a cache hit */
 	Assert(IsTransactionState());
 
+#ifdef SERVERLESS
 	collected = RelationStored(relationId);
+#endif
 
 	/*
 	 * first try to find reldesc in the cache
@@ -2265,9 +2297,15 @@ RelationIdGetRelation(Oid relationId)
 			 * change, but we still want to update the rd_rel entry. So
 			 * rd_isvalid = false is left in place for a later lookup.
 			 */
+#ifdef SERVERLESS
 			Assert(rd->rd_isvalid || rd->rd_isnailed);
+#else
+			Assert(rd->rd_isvalid ||
+				   (rd->rd_isnailed && !criticalRelcachesBuilt));
+#endif
 		}
 
+#ifdef SERVERLESS
 		if (!collected && !rd->rd_isnailed)
 		{
 			volatile Relation tmpRd;
@@ -2285,7 +2323,7 @@ RelationIdGetRelation(Oid relationId)
 				rd->rd_partcheckcxt = NULL;
 			}
 		}
-
+#endif
 		return rd;
 	}
 
@@ -2536,8 +2574,10 @@ RelationReloadNailed(Relation relation)
 {
 	Assert(relation->rd_isnailed);
 
+#ifdef SERVERLESS
 	if (IsPostmasterEnvironment && !IS_QUERY_DISPATCHER())
 		return;
+#endif
 
 	/*
 	 * Redo RelationInitPhysicalAddr in case it is a mapped relation whose
@@ -4457,7 +4497,11 @@ RelationCacheInitializePhase3(void)
 		/*
 		 * If it's a faked-up entry, read the real pg_class tuple.
 		 */
+#ifdef SERVERLESS
 		if (relation->rd_rel->relowner == InvalidOid && !systup_store_active())
+#else
+		if (relation->rd_rel->relowner == InvalidOid)
+#endif
 		{
 			HeapTuple	htup;
 			Form_pg_class relp;
@@ -4604,8 +4648,10 @@ load_critical_index(Oid indexoid, Oid heapoid)
 {
 	Relation	ird;
 
+#ifdef SERVERLESS
 	if (systup_store_active())
 		return;
+#endif
 
 	/*
 	 * We must lock the underlying catalog before locking the index to avoid
@@ -4756,9 +4802,9 @@ AttrDefaultFetch(Relation relation, int ndef)
 			attrdef[found].adnum = adform->adnum;
 			attrdef[found].adbin = MemoryContextStrdup(CacheMemoryContext, s);
 			pfree(s);
-
+#ifdef SERVERLESS
 			DefaultValueStore(attrdef[found].adbin);
-
+#endif
 			found++;
 
 		}
@@ -7064,6 +7110,7 @@ RelationIdIsInInitFile(Oid relationId)
 	if (relationId == SharedSecLabelRelationId ||
 		relationId == TriggerRelidNameIndexId ||
 		relationId == DatabaseNameIndexId ||
+#ifdef SERVERLESS
 		relationId == DbRoleSettingRelationId ||
 		relationId == SharedSecLabelObjectIndexId ||
 		relationId == ManifestRelationId ||
@@ -7073,6 +7120,9 @@ RelationIdIsInInitFile(Oid relationId)
 		relationId == AttrDefaultRelationId ||
 		relationId == TriggerRelationId ||
 		relationId == InheritsRelationId)
+#else
+		relationId == SharedSecLabelObjectIndexId)
+#endif
 	{
 		/*
 		 * If this Assert fails, we don't need the applicable special case

@@ -26,7 +26,6 @@
 #include "utils/inval.h"
 #include "utils/syscache.h"
 
-#include "cdb/cdbvars.h"
 #include "storage/proc.h"
 /*
  * In common cases the same roleid (ie, the session or current ID) will
@@ -69,8 +68,10 @@ superuser_arg(Oid roleid)
 	HeapTuple	rtup;
 
 	/* Quick out for cache hit */
-//	if (OidIsValid(last_roleid) && last_roleid == roleid)
-//		return last_roleid_is_super;
+#ifndef SERVERLESS
+	if (OidIsValid(last_roleid) && last_roleid == roleid)
+		return last_roleid_is_super;
+#endif
 
 	/* Special escape path in case you deleted all your users. */
 	if (!IsUnderPostmaster && roleid == BOOTSTRAP_SUPERUSERID)

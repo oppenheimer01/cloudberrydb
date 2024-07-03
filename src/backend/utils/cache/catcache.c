@@ -24,7 +24,9 @@
 #include "catalog/pg_collation.h"
 #include "catalog/pg_operator.h"
 #include "catalog/pg_type.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "common/hashfn.h"
 #include "miscadmin.h"
@@ -66,8 +68,10 @@
 /* Cache management header --- pointer is NULL until created */
 static CatCacheHeader *CacheHdr = NULL;
 
+#ifdef SERVERLESS
 static HeapTuple SearchCatCacheInternalCollect(CatCache *cache, int nkeys,
 											   Datum v1, Datum v2, Datum v3, Datum v4);
+#endif
 static inline HeapTuple SearchCatCacheInternal(CatCache *cache,
 											   int nkeys,
 											   Datum v1, Datum v2,
@@ -1038,8 +1042,10 @@ InitCatCachePhase2(CatCache *cache, bool touch_index)
 	if (cache->cc_tupdesc == NULL)
 		CatalogCacheInitializeCache(cache);
 
+#ifdef SERVERLESS
 	if (systup_store_active())
 		return;
+#endif
 
 	if (touch_index &&
 		cache->id != AMOID &&
@@ -1212,7 +1218,11 @@ SearchCatCache(CatCache *cache,
 			   Datum v3,
 			   Datum v4)
 {
+#ifdef SERVERLESS
 	return SearchCatCacheInternalCollect(cache, cache->cc_nkeys, v1, v2, v3, v4);
+#else
+	return SearchCatCacheInternal(cache, cache->cc_nkeys, v1, v2, v3, v4);
+#endif
 }
 
 
@@ -1226,7 +1236,11 @@ HeapTuple
 SearchCatCache1(CatCache *cache,
 				Datum v1)
 {
+#ifdef SERVERLESS
 	return SearchCatCacheInternalCollect(cache, 1, v1, 0, 0, 0);
+#else
+	return SearchCatCacheInternal(cache, 1, v1, 0, 0, 0);
+#endif
 }
 
 
@@ -1234,7 +1248,11 @@ HeapTuple
 SearchCatCache2(CatCache *cache,
 				Datum v1, Datum v2)
 {
+#ifdef SERVERLESS
 	return SearchCatCacheInternalCollect(cache, 2, v1, v2, 0, 0);
+#else
+	return SearchCatCacheInternal(cache, 2, v1, v2, 0, 0);
+#endif
 }
 
 
@@ -1242,7 +1260,11 @@ HeapTuple
 SearchCatCache3(CatCache *cache,
 				Datum v1, Datum v2, Datum v3)
 {
+#ifdef SERVERLESS
 	return SearchCatCacheInternalCollect(cache, 3, v1, v2, v3, 0);
+#else
+	return SearchCatCacheInternal(cache, 3, v1, v2, v3, 0);
+#endif
 }
 
 
@@ -1250,9 +1272,14 @@ HeapTuple
 SearchCatCache4(CatCache *cache,
 				Datum v1, Datum v2, Datum v3, Datum v4)
 {
+#ifdef SERVERLESS
 	return SearchCatCacheInternalCollect(cache, 4, v1, v2, v3, v4);
+#else
+	return SearchCatCacheInternal(cache, 4, v1, v2, v3, v4);
+#endif
 }
 
+#ifdef SERVERLESS
 static HeapTuple
 SearchCatCacheInternalCollect(CatCache *cache,
 							  int nkeys,
@@ -1269,6 +1296,7 @@ SearchCatCacheInternalCollect(CatCache *cache,
 
 	return htup;
 }
+#endif
 
 /*
  * Work-horse for SearchCatCache/SearchCatCacheN.
@@ -2167,7 +2195,11 @@ PrintCatCacheLeakWarning(HeapTuple tuple, const char *resOwnerName)
 	/* Safety check to ensure we were handed a cache entry */
 	Assert(ct->ct_magic == CT_MAGIC);
 
+#ifdef SERVERLESS
 	elog(LOG, "cache reference leak: cache %s (%d), tuple %u/%u has count %d, resowner '%s'",
+#else
+	elog(WARNING, "cache reference leak: cache %s (%d), tuple %u/%u has count %d, resowner '%s'",
+#endif
 		 ct->my_cache->cc_relname, ct->my_cache->id,
 		 ItemPointerGetBlockNumber(&(tuple->t_self)),
 		 ItemPointerGetOffsetNumber(&(tuple->t_self)),

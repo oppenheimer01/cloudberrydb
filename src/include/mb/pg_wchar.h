@@ -636,7 +636,9 @@ extern int	pg_bind_textdomain_codeset(const char *domainname);
 extern unsigned char *pg_do_encoding_conversion(unsigned char *src, int len,
 												int src_encoding,
 												int dest_encoding);
+#ifdef SERVERLESS
 extern void StoreEncodingConversion(int dest_encoding);
+#endif
 extern int	pg_do_encoding_conversion_buf(Oid proc,
 										  int src_encoding,
 										  int dest_encoding,

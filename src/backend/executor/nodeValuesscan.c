@@ -25,7 +25,9 @@
  */
 #include "postgres.h"
 
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "executor/executor.h"
 #include "executor/nodeValuesscan.h"
 #include "jit/jit.h"
@@ -297,8 +299,12 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 		 * case where there are no SubPlans anywhere.
 		 */
 		if ((estate->es_subplanstates &&
+#ifdef SERVERLESS
 			contain_subplans((Node *) exprs)) ||
 			IsTransferOn())
+#else
+			contain_subplans((Node *) exprs))
+#endif
 		{
 			int			saved_jit_flags;
 

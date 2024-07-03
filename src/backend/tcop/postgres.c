@@ -100,7 +100,9 @@
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/ml_ipc.h"
 #include "access/twophase.h"
 #include "postmaster/backoff.h"
@@ -5689,7 +5691,9 @@ PostgresMain(int argc, char *argv[],
 
 		check_forbidden_in_gpdb_handlers(firstchar);
 
+#ifdef SERVERLESS
 		TransferReset();
+#endif
 
 		switch (firstchar)
 		{
@@ -5744,14 +5748,18 @@ PostgresMain(int argc, char *argv[],
 					const char *serializedDtxContextInfo = NULL;
 					const char *serializedPlantree = NULL;
 					const char *serializedQueryDispatchDesc = NULL;
+#ifdef SERVERLESS
 					const char *serializedCatalog = NULL;
+#endif
 					const char *resgroupInfoBuf = NULL;
 
 					int query_string_len = 0;
 					int serializedDtxContextInfolen = 0;
 					int serializedPlantreelen = 0;
 					int serializedQueryDispatchDesclen = 0;
+#ifdef SERVERLESS
 					int serializedCatalogLen = 0;
+#endif
 					int resgroupInfoLen = 0;
 					TimestampTz statementStart;
 					Oid suid;
@@ -5787,7 +5795,9 @@ PostgresMain(int argc, char *argv[],
 					query_string_len = pq_getmsgint(&input_message, 4);
 					serializedPlantreelen = pq_getmsgint(&input_message, 4);
 					serializedQueryDispatchDesclen = pq_getmsgint(&input_message, 4);
+#ifdef SERVERLESS
 					serializedCatalogLen = pq_getmsgint(&input_message, 4);
+#endif
 					serializedDtxContextInfolen = pq_getmsgint(&input_message, 4);
 
 					/* read in the DTX context info */
@@ -5827,19 +5837,19 @@ PostgresMain(int argc, char *argv[],
 
 					if (serializedQueryDispatchDesclen > 0)
 						serializedQueryDispatchDesc = pq_getmsgbytes(&input_message,serializedQueryDispatchDesclen);
-
+#ifdef SERVERLESS
 					if (serializedCatalogLen > 0)
 						serializedCatalog = pq_getmsgbytes(&input_message, serializedCatalogLen);
 
 					if (!IS_QUERY_DISPATCHER())
 					{
 						SystemTupleStoreReset();
-#ifdef SERVERLESS
+
 						InvalidateSystemCaches();
-#endif /* SERVERLESS */
+
 						SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
 					}
-
+#endif
 					/*
 					 * Always use the same GpIdentity.numsegments with QD on QEs
 					 */

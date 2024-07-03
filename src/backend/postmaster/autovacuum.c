@@ -156,7 +156,9 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "utils/faultinjector.h"
 
@@ -3173,8 +3175,10 @@ autovacuum_do_vac_analyze(autovac_table *tab, BufferAccessStrategy bstrategy)
 		"", tab->at_relname);
 #endif
 
+#ifdef SERVERLESS
 	TransferReset();
 	SetTransferOn();
+#endif
 	vacuum(rel_list, &tab->at_params, bstrategy, true);
 }
 

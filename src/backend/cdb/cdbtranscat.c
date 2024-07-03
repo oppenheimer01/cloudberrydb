@@ -1,6 +1,6 @@
-
 #include "postgres.h"
 
+#ifdef SERVERLESS
 #include "fmgr.h"
 #include "access/xact.h"
 #include "access/nbtree.h"
@@ -244,3 +244,4 @@ CollectStartupCatalog(int *len)
 		return NULL;
 	}
 }
+#endif

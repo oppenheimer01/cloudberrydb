@@ -61,7 +61,9 @@
 #else
 #include "commands/variable.h"
 #endif
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "lib/stringinfo.h"
 #include "libpq-fe.h"
 #include "libpq/pqformat.h"
@@ -1878,8 +1880,10 @@ ExecuteSqlString(const char *sql)
 	isTopLevel = commands_remaining == 1;
 	MemoryContextSwitchTo(oldcontext);
 
+#ifdef SERVERLESS
 	TransferReset();
 	SetTransferOn();
+#endif
 
 	/*
 	 * Do parse analysis, rule rewrite, planning, and execution for each raw

@@ -103,7 +103,6 @@
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbexplain.h"             /* cdbexplain_sendExecStats() */
-#include "cdb/cdbtranscat.h"
 #include "cdb/cdbplan.h"
 #include "cdb/cdbsubplan.h"
 #include "cdb/cdbvars.h"
@@ -116,7 +115,9 @@
 #include "cdb/cdbtargeteddispatch.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 
 #define IS_PARALLEL_RETRIEVE_CURSOR(queryDesc)	(queryDesc->ddesc &&	\
 										queryDesc->ddesc->parallelCursorName &&	\
@@ -239,7 +240,9 @@ ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 */
 	pgstat_report_query_id(queryDesc->plannedstmt->queryId, false);
 
+#ifdef SERVERLESS
 	SetTransferOn();
+#endif
 
 	if (ExecutorStart_hook)
 		(*ExecutorStart_hook) (queryDesc, eflags);
@@ -596,13 +599,17 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 */
 		Assert(CurrentMemoryContext == estate->es_query_cxt);
 
+#ifdef SERVERLESS
 		if (!shouldDispatch)
 			SetTransferOff();
+#endif
 
 		InitPlan(queryDesc, eflags);
 
+#ifdef SERVERLESS
 		if (!shouldDispatch)
 			SetTransferOn();
+#endif
 
 		Assert(queryDesc->planstate);
 
@@ -2475,8 +2482,10 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_ChildToRootMapValid = false;
 	resultRelInfo->ri_CopyMultiInsertBuffer = NULL;
 
+#ifdef SERVERLESS
 	if (CollectResultInfo_hook)
 		(*CollectResultInfo_hook) (resultRelInfo);
+#endif
 }
 
 /*

@@ -156,7 +156,9 @@
 #include "cdb/cdbtm.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/ic_proxy_bgworker.h"
 #include "cdb/ml_ipc.h"
 #include "utils/metrics_utils.h"
@@ -2672,6 +2674,7 @@ retry1:
 		 * given packet length, complain.
 		 */
 		if (offset != len - 1)
+#ifdef SERVERLESS
 		{
 			int catalog_len;
 
@@ -2688,6 +2691,11 @@ retry1:
 			StartUpCatalogLen = catalog_len;
 			memcpy(StartUpCatalogData, buf + offset, catalog_len);
 		}
+#else
+		ereport(FATAL,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					errmsg("invalid startup packet layout: expected terminator as last byte")));
+#endif
 
 		/*
 		 * If the client requested a newer protocol version or if the client

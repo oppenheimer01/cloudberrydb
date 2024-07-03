@@ -92,7 +92,9 @@
 #include "access/heapam.h"
 #include "catalog/pg_resgroup.h"
 #include "catalog/pg_extprotocol.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 #include "miscadmin.h"
 
 #include "catalog/gp_indexing.h"
@@ -1693,12 +1695,15 @@ struct catclist *
 SearchSysCacheList(int cacheId, int nkeys,
 				   Datum key1, Datum key2, Datum key3)
 {
+#ifdef SERVERLESS
 	CatCList *list;
+#endif
 
 	if (cacheId < 0 || cacheId >= SysCacheSize ||
 		!PointerIsValid(SysCache[cacheId]))
 		elog(ERROR, "invalid cache ID: %d", cacheId);
 
+#ifdef SERVERLESS
 	list = SearchCatCacheList(SysCache[cacheId], nkeys,
 							  key1, key2, key3);
 
@@ -1712,6 +1717,10 @@ SearchSysCacheList(int cacheId, int nkeys,
 	}
 
 	return list;
+#else
+	return SearchCatCacheList(SysCache[cacheId], nkeys,
+							  key1, key2, key3);
+#endif
 }
 
 /*

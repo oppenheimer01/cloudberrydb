@@ -40,7 +40,9 @@
 #include "catalog/pg_class.h"
 #include "catalog/heap.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
 #include "cdb/cdbtranscat.h"
+#endif
 
 /*
  * Macros to simplify reading of different kinds of fields.  Use these
@@ -1838,7 +1840,7 @@ _readEphemeralNamedRelationInfo(void)
 	READ_DONE();
 }
 
-
+#ifdef SERVERLESS
 static SystemTableTransferNode *
 _readSystemTableTransferNode(void)
 {
@@ -1866,6 +1868,7 @@ _readTransferTuple(void)
 
 	READ_DONE();
 }
+#endif
 
 static void *
 _readAlterDatabaseStmt(void)
@@ -2974,12 +2977,6 @@ readNodeBinary(void)
 			case T_DropTaskStmt:
 				return_value = _readDropTaskStmt();
 				break;
-			case T_SystemTableTransferNode:
-				return_value= _readSystemTableTransferNode();
-				break;
-			case T_TransferTuple:
-				return_value = _readTransferTuple();
-				break;
 #ifdef SERVERLESS
 			case T_APHashExpr:
 				return_value = _readAPHashExpr();
@@ -2989,6 +2986,12 @@ readNodeBinary(void)
 				break;
 			case T_APRangeExpr:
 				return_value = _readAPRangeExpr();
+				break;
+			case T_SystemTableTransferNode:
+				return_value= _readSystemTableTransferNode();
+				break;
+			case T_TransferTuple:
+				return_value = _readTransferTuple();
 				break;
 #endif /* SERVERLESS */
 			default:

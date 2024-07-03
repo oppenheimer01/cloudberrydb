@@ -1661,9 +1661,10 @@ CopyToDispatch(CopyToState cstate)
 
 	cdbCopy = makeCdbCopyTo(cstate);
 
+#ifdef SERVERLESS
 	if (cstate->need_transcoding)
 		StoreEncodingConversion(cstate->file_encoding);
-
+#endif
 	/* XXX: lock all partitions */
 
 	/*
