@@ -3147,7 +3147,7 @@ make_pathtarget_from_tupledesc(TupleDesc tupdes)
 							attr->atttypid,
 							attr->atttypmod,
 							attr->attcollation,
-							0 /* FIXME: What if we are a subquery? */);
+							0);
 
 		target->exprs = lappend(target->exprs, (Expr*) newVar);
 	}
