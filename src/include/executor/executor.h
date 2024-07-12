@@ -117,6 +117,9 @@ typedef void (*CollectProc_hook_type) (FunctionCallInfo fcinfo);
 extern PGDLLIMPORT CollectProc_hook_type CollectProc_hook;
 #endif
 
+typedef void (*LockTable_hook_type) (Oid relid, int lockmode);
+extern PGDLLIMPORT LockTable_hook_type LockTable_hook;
+
 /* Hook for plugins to get control in ExecEndNode() */
 typedef void (*ExecEndNode_hook_type)(PlanState *node);
 extern PGDLLIMPORT ExecEndNode_hook_type ExecEndNode_hook;

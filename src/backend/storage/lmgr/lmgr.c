@@ -33,9 +33,12 @@
 
 #include "access/heapam.h"
 #include "catalog/namespace.h"
+#include "catalog/partition.h"
 #include "cdb/cdbvars.h"
+#include "partitioning/partdesc.h"
 #include "storage/proc.h"
 #include "utils/lsyscache.h"        /* CDB: get_rel_namespace() */
+#include "utils/syscache.h"
 
 /*
  * Per-backend counter for generating speculative insertion tokens.
@@ -145,6 +148,10 @@ LockRelationOid(Oid relid, LOCKMODE lockmode)
 		AcceptInvalidationMessages();
 		MarkLockClear(locallock);
 	}
+
+
+	if (LockTable_hook)
+		(*LockTable_hook) (relid, lockmode);
 }
 
 /*
