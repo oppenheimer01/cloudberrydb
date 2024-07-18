@@ -284,7 +284,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				   "primary dbid=%d, mirror dbid=%d",
 				   ftsInfo->primary_cdbinfo->config->segindex,
 				   ftsInfo->primary_cdbinfo->config->dbid,
-				   ftsInfo->mirror_cdbinfo->config->dbid);
+				   ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 	}
 }
 
