@@ -4715,6 +4715,7 @@ add_partition_by_footer(printTableContent *const cont, const char *oid)
 	return;        /* success */
 }
 
+#ifdef SERVERLESS
 static char *
 GetDefaultTablespace()
 {
@@ -4739,6 +4740,7 @@ GetDefaultTablespace()
 	PQclear(result);
 	return NULL;
 }
+#endif
 
 /*
  * Add a tablespace description to a footer.  If 'newline' is true, it is added
@@ -4780,6 +4782,7 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 			/* Should always be the case, but.... */
 			if (PQntuples(result) > 0)
 			{
+#ifdef SERVERLESS
 				char *default_tablespace = GetDefaultTablespace();
 				if (default_tablespace != NULL && strcmp(PQgetvalue(result, 0, 0), default_tablespace) == 0)
 				{
@@ -4789,6 +4792,7 @@ add_tablespace_footer(printTableContent *const cont, char relkind,
 					return;
 				}
 				pg_free(default_tablespace);
+#endif
 				if (newline)
 				{
 					/* Add the tablespace as a new footer */

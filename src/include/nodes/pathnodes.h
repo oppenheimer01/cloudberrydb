@@ -1522,7 +1522,9 @@ typedef struct Path
 	 */
 	Relids		sameslice_relids;
 
+#ifdef SERVERLESS
 	Oid			basemv; /* Oid of materialized view of Delta SeqScan based on. */
+#endif
 } Path;
 
 /* 

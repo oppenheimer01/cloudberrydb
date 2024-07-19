@@ -231,10 +231,12 @@ create_ctas_internal(List *attrList, IntoClause *into, QueryDesc *queryDesc, boo
 		CommandCounterIncrement();
 	}
 
+#ifdef SERVERLESS
 	if (!queryDesc->ddesc)
 	{
 		GetAssignedOidsForDispatch();
 	}
+#endif
 	
 	if (Gp_role == GP_ROLE_DISPATCH && dispatch)
 		CdbDispatchUtilityStatement((Node *) create,

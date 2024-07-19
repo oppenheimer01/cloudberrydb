@@ -237,11 +237,11 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					 errmsg("\"%s\" is a table",
 							RelationGetRelationName(rel)),
 					 errdetail("Tables cannot have INSTEAD OF triggers.")));
+#ifdef SERVERLESS
 		/*
 		 * FIXME: table which is not a heap table and AO table
 		 * does not support constraint(deferred) trigger now.
 		 */
-#ifdef SERVERLESS
 		if (stmt->isconstraint && RelationIsNonblockRelation(rel))
 			ereport(ERROR,
 					(errcode(ERRCODE_GP_FEATURE_NOT_YET),
@@ -745,7 +745,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 
 #ifndef SERVERLESS
 	/* Check GPDB limitations */
-	if (RelationIsAppendOptimized(rel) &&
+	if (RelationIsNonblockRelation(rel) &&
 		TRIGGER_FOR_ROW(tgtype) &&
 		!stmt->isconstraint)
 	{
@@ -2845,13 +2845,13 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 	/* Determine lock mode to use */
 	lockmode = ExecUpdateLockMode(estate, relinfo);
 
+#ifdef SERVERLESS
 	/*
 	 * FIXME: In the serverless architecture, For update operation, we save the 
 	 * oldtuple to avoid high-cost table_tuple_fetch_row_version. Thus, fdw_trigtuple
 	 * and tupleid are all valid. We also change the assert of ExecBRDeleteTriggers
 	 * because update partition table will trigger ExecBRDeleteTriggers.
 	 */
-#ifdef SERVERLESS
 		Assert(HeapTupleIsValid(fdw_trigtuple) || ItemPointerIsValid(tupleid));
 #else
 		Assert(HeapTupleIsValid(fdw_trigtuple) ^ ItemPointerIsValid(tupleid));
@@ -4409,8 +4409,12 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 						ExecDropSingleTupleTableSlot(slot2);
 						slot1 = slot2 = NULL;
 					}
+#ifdef SERVERLESS
 					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE ||
 						RelationIsNonblockRelation(rel))
+#else
+					if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+#endif
 					{
 						slot1 = MakeSingleTupleTableSlot(rel->rd_att,
 														 &TTSOpsMinimalTuple);
@@ -5397,10 +5401,10 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 {
 	int			my_level = GetCurrentTransactionNestLevel();
 
+#ifdef SERVERLESS
 	/*
 	 * FIXME: deferred trigger is not supported in the serverless architecture now.
 	 */
-#ifdef SERVERLESS
 	if (stmt->deferred)
 		ereport(ERROR,
 			(errcode(ERRCODE_GP_FEATURE_NOT_YET),
@@ -5706,6 +5710,7 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 	}
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
+#ifdef SERVERLESS
 		bool		snapshot_set = false;
 		if (!ActiveSnapshotSet())
 		{
@@ -5722,6 +5727,13 @@ AfterTriggerSetState(ConstraintsSetStmt *stmt)
 		{
 			PopActiveSnapshot();
 		}
+#else
+		CdbDispatchUtilityStatement((Node *) stmt,
+									DF_CANCEL_ON_ERROR|
+									DF_NEED_TWO_PHASE,
+									NIL,
+									NULL);
+#endif
 	}
 }
 
@@ -6028,13 +6040,13 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 							modifiedCols, oldslot, newslot))
 			continue;
 
+#ifdef SERVERLESS
 		/*
 		 * In serverless architecture, implementing trigger the
 		 * same as foreign table which use tuplestore to store the tuple
 		 * is more efficient. Because it is inefficient to fetch tuple
 		 * throught its ctid.
 		 */
-#ifdef SERVERLESS
 		if (row_trigger && (relkind == RELKIND_FOREIGN_TABLE ||
 			RelationIsNonblockRelation(rel)))
 #else

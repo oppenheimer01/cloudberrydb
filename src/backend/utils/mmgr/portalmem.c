@@ -50,16 +50,6 @@
  * ----------------
  */
 
-#if 0
-#define MAX_PORTALNAME_LEN		NAMEDATALEN
-
-typedef struct portalhashent
-{
-	char		portalname[MAX_PORTALNAME_LEN];
-	Portal		portal;
-} PortalHashEnt;
-#endif
-
 static HTAB *PortalHashTable = NULL;
 
 #define PortalHashTableLookup(NAME, PORTAL) \

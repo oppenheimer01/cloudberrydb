@@ -260,11 +260,6 @@ static bool eoxact_list_overflowed = false;
 	} while (0)
 
 /*
- * Hook for plugins to validate the relation in RelationIdGetRelation.
- */
-RelationValidation_hook_type RelationValidation_hook = NULL;
-
-/*
  * EOXactTupleDescArray stores TupleDescs that (might) need AtEOXact
  * cleanup work.  The array expands as needed; there is no hashtable because
  * we don't need to access individual items except at EOXact.
@@ -2247,9 +2242,6 @@ RelationIdGetRelation(Oid relationId)
 			Assert(!rd->rd_isvalid);
 			return NULL;
 		}
-
-		if (RelationValidation_hook)
-			(*RelationValidation_hook)(relationId, rd);
 
 		RelationIncrementReferenceCount(rd);
 		/* revalidate cache entry if necessary */

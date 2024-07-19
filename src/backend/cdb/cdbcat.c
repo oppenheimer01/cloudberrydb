@@ -97,8 +97,13 @@ makeGpPolicy(GpPolicyType ptype, int nattrs, int numsegments)
 	policy->numsegments = numsegments;
 	policy->nattrs = nattrs; 
 
+#ifdef SERVERLESS
 	Assert(numsegments >= 0 ||
 		   (ptype == POLICYTYPE_ENTRY && numsegments == -1));
+#else
+	Assert(numsegments > 0 ||
+		   (ptype == POLICYTYPE_ENTRY && numsegments == -1));
+#endif
 
 	return policy;
 }
@@ -427,9 +432,11 @@ GpPolicyFetch(Oid tbloid)
 		switch (policyform->policytype)
 		{
 			case SYM_POLICYTYPE_REPLICATED:
+#ifdef SERVERLESS
 				if (policyform->numsegments == 0)
 					policy = createReplicatedGpPolicy(getgpsegmentCount());
 				else
+#endif
 					policy = createReplicatedGpPolicy(policyform->numsegments);
 				break;
 			case SYM_POLICYTYPE_PARTITIONED:
@@ -461,16 +468,14 @@ GpPolicyFetch(Oid tbloid)
 				}
 
 				/* Create a GpPolicy object. */
+#ifdef SERVERLESS
 				if (policyform->numsegments == 0)
-				{
 					policy = makeGpPolicy(POLICYTYPE_PARTITIONED,
-									  	nattrs, getgpsegmentCount());
-				}
+										nattrs, getgpsegmentCount());
 				else
-				{
+#endif
 					policy = makeGpPolicy(POLICYTYPE_PARTITIONED,
 										nattrs, policyform->numsegments);
-				}
 
 				for (i = 0; i < nattrs; i++)
 				{

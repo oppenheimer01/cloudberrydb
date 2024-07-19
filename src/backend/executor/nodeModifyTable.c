@@ -1556,9 +1556,13 @@ ldelete:;
 
 	/* AFTER ROW DELETE Triggers */
 	/*
-	 * Disallow DELETE triggers on a split UPDATE. See comments in ExecInsert().
+	 * GPDB_12_MERGE_FIXME: PostgreSQL *does* fire INSERT and DELETE
+	 * triggers on an UPDATE that moves tuples from one partition to another.
+	 * Should we follow that example with cross-segment UPDATEs too?
 	 */
+#ifndef SERVERLESS
 	if (!RelationIsNonblockRelation(resultRelationDesc) && !splitUpdate)
+#endif
 	{
 		ExecARDeleteTriggers(estate, resultRelInfo, tupleid, oldtuple,
 							 ar_delete_trig_tcs);
@@ -2176,11 +2180,17 @@ lreplace:;
 	}
 
 	/* AFTER ROW UPDATE Triggers */
-	ExecARUpdateTriggers(estate, resultRelInfo, tupleid, oldtuple, slot,
-					 recheckIndexes,
-					 mtstate->operation == CMD_INSERT ?
-					 mtstate->mt_oc_transition_capture :
-					 mtstate->mt_transition_capture);
+#ifndef SERVERLESS
+	/* GPDB: AO and AOCO tables don't support triggers */
+	if (!RelationIsNonblockRelation(resultRelationDesc))
+#endif
+	{
+		ExecARUpdateTriggers(estate, resultRelInfo, tupleid, oldtuple, slot,
+						recheckIndexes,
+						mtstate->operation == CMD_INSERT ?
+						mtstate->mt_oc_transition_capture :
+						mtstate->mt_transition_capture);
+	}
 
 	list_free(recheckIndexes);
 

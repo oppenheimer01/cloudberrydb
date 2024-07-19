@@ -126,10 +126,8 @@ extern int	MyXactFlags;
  */
 typedef enum
 {
-#ifdef SERVERLESS
 	XACT_EVENT_BEGIN,
 	XACT_EVENT_PARALLEL_BEGIN,
-#endif
 	XACT_EVENT_COMMIT,
 	XACT_EVENT_PARALLEL_COMMIT,
 	XACT_EVENT_ABORT,
@@ -506,7 +504,6 @@ extern void MarkCurrentTransactionIdLoggedIfAny(void);
 extern void MarkTopTransactionWriteXLogOnExecutor(void);
 extern bool SubTransactionIsActive(SubTransactionId subxid);
 extern CommandId GetCurrentCommandId(bool used);
-extern void SetCurrentCommandId(CommandId cid);
 extern void SetParallelStartTimestamps(TimestampTz xact_ts, TimestampTz stmt_ts);
 extern TimestampTz GetCurrentTransactionStartTimestamp(void);
 extern TimestampTz GetCurrentStatementStartTimestamp(void);

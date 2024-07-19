@@ -6427,6 +6427,7 @@ _copyAlterWarehouseStmt(const AlterWarehouseStmt *from)
 	COPY_SCALAR_FIELD(kind);
 	COPY_STRING_FIELD(whname);
 	COPY_SCALAR_FIELD(warehouse_size);
+	COPY_NODE_FIELD(newowner);
 	COPY_NODE_FIELD(options);
 	COPY_SCALAR_FIELD(missing_ok);
 

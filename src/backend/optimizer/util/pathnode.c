@@ -1043,7 +1043,9 @@ create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
 	pathnode->barrierHazard = false;
 	pathnode->rescannable = true;
 	pathnode->sameslice_relids = rel->relids;
+#ifdef SERVERLESS
 	pathnode->basemv = 0;
+#endif
 
 	cost_seqscan(pathnode, root, rel, pathnode->param_info);
 

@@ -2554,7 +2554,7 @@ CTranslatorRelcacheToDXL::RetrieveRelStorageType(Relation rel)
 		// Why use the magic number 7015 instead of the macro definition? 
 		// Just to make it look like it doesn't make sense, 
 		// so others will notice that the logic needs to be refactored
-		case 7015:
+		case HASHDATA_AM_OID:
 		case AO_COLUMN_TABLE_AM_OID:
 			rel_storage_type = IMDRelation::ErelstorageAppendOnlyCols;
 			break;

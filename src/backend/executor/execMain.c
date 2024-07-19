@@ -265,8 +265,12 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 
 	Assert(queryDesc->plannedstmt->intoPolicy == NULL ||
 		GpPolicyIsPartitioned(queryDesc->plannedstmt->intoPolicy) ||
+#ifdef SERVERLESS
 		GpPolicyIsReplicated(queryDesc->plannedstmt->intoPolicy) || 
 		GpPolicyIsEntry(queryDesc->plannedstmt->intoPolicy));
+#else
+		GpPolicyIsReplicated(queryDesc->plannedstmt->intoPolicy));
+#endif
 
 	/* GPDB hook for collecting query info */
 	if (query_info_collect_hook)
@@ -1787,8 +1791,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 	Assert(plannedstmt->intoPolicy == NULL ||
 		GpPolicyIsPartitioned(plannedstmt->intoPolicy) ||
+#ifdef SERVERLESS
 		GpPolicyIsReplicated(plannedstmt->intoPolicy) || 
 		GpPolicyIsEntry(plannedstmt->intoPolicy));
+#else
+		GpPolicyIsReplicated(plannedstmt->intoPolicy));
+#endif
 
 	if (DEBUG1 >= log_min_messages)
 	{

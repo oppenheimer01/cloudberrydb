@@ -84,17 +84,6 @@
 
 #include "catalog/gp_indexing.h"
 
-#if 0
-/* result structure for get_rels_with_domain() */
-typedef struct
-{
-	Relation	rel;			/* opened and locked relation */
-	int			natts;			/* number of attributes of interest */
-	int		   *atts;			/* attribute numbers */
-	/* atts[] is of allocated length RelationGetNumberOfAttributes(rel) */
-} RelToCheck;
-#endif
-
 /* parameter structure for AlterTypeRecurse() */
 typedef struct
 {
@@ -137,10 +126,6 @@ static Oid	findTypeSubscriptingFunction(List *procname, Oid typeOid);
 static Oid	findRangeSubOpclass(List *opcname, Oid subtype);
 static Oid	findRangeCanonicalFunction(List *procname, Oid typeOid);
 static Oid	findRangeSubtypeDiffFunction(List *procname, Oid subtype);
-#if 0
-static void validateDomainConstraint(Oid domainoid, char *ccbin);
-static List *get_rels_with_domain(Oid domainOid, LOCKMODE lockmode);
-#endif
 static void checkEnumOwner(HeapTuple tup);
 static char *domainAddConstraint(Oid domainOid, Oid domainNamespace,
 								 Oid baseTypeOid,

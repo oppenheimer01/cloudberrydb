@@ -913,12 +913,6 @@ GetCurrentCommandId(bool used)
 	return currentCommandId;
 }
 
-void
-SetCurrentCommandId(CommandId cid)
-{
-	currentCommandId = cid;
-}
-
 /*
  *	SetParallelStartTimestamps
  *
@@ -2768,11 +2762,9 @@ StartTransaction(void)
 					  DtxContextToString(DistributedTransactionContext),
 					  IsoLevelAsUpperString(XactIsoLevel), XactReadOnly,
 					  LocalDistribXact_DisplayString(MyProc->pgprocno))));
-#ifdef SERVERLESS
+
 	CallXactCallbacks(s->blockState == TBLOCK_PARALLEL_INPROGRESS ?
 					  XACT_EVENT_PARALLEL_BEGIN : XACT_EVENT_BEGIN);
-#endif
-	
 }
 
 /*

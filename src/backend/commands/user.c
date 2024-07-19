@@ -388,6 +388,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 					 errmsg("conflicting or redundant options")));
 			denableProfile = defel;
 		}
+#ifdef SERVERLESS
 		else if (strcmp(defel->defname, "default_warehosue") == 0)
 		{
 			if (ddefaultwarehosue)
@@ -396,6 +397,7 @@ CreateRole(ParseState *pstate, CreateRoleStmt *stmt)
 					 errmsg("conflicting or redundant options")));
 			ddefaultwarehosue = defel;
 		}
+#endif
 		else
 			elog(ERROR, "option \"%s\" not recognized",
 				 defel->defname);
