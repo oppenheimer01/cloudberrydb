@@ -2849,6 +2849,8 @@ try_append_agg(Query *parse)
 			 */
 			if ((strcmp(aggname, "count") == 0) &&
 				(strcmp(aggname, "sum") == 0) &&
+				(strcmp(aggname, "min") == 0) &&
+				(strcmp(aggname, "max") == 0) &&
 				(strcmp(aggname, "avg") == 0))
 				return false;
 
