@@ -1330,7 +1330,6 @@ InsertPgClassTuple(Relation pg_class_desc,
 	values[Anum_pg_class_relisdynamic - 1] = BoolGetDatum(rd_rel->relisdynamic);
 	values[Anum_pg_class_relmvrefcount - 1] = Int32GetDatum(rd_rel->relmvrefcount);
 	values[Anum_pg_class_relhaspartialagg - 1] = BoolGetDatum(rd_rel->relhaspartialagg);
-	values[Anum_pg_class_relinsertonly - 1] = BoolGetDatum(rd_rel->relinsertonly);
 	values[Anum_pg_class_relisivm - 1] = CharGetDatum(rd_rel->relisivm);
 	if (relacl != (Datum) 0)
 		values[Anum_pg_class_relacl - 1] = relacl;

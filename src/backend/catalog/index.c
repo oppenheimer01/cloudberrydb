@@ -1076,7 +1076,6 @@ index_create_internal(Relation heapRelation,
 	indexRelation->rd_rel->relisdynamic = false;
 	indexRelation->rd_rel->relmvrefcount = 0;
 	indexRelation->rd_rel->relhaspartialagg = false;
-	indexRelation->rd_rel->relinsertonly = false;
 
 	/*
 	 * store index's pg_class entry

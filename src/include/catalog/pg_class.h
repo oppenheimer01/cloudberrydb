@@ -132,10 +132,6 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* TODO: IVM implement this. */
 	bool		relhaspartialagg BKI_DEFAULT(f);
 
-	/* materialized view's data is not up to date, but has only insert operation after latest REFRESH. */
-	/* TODO: IVM implement this. */
-	bool		relinsertonly BKI_DEFAULT(f);
-
 	/* link to original rel during table rewrite; otherwise 0 */
 	Oid			relrewrite BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
 

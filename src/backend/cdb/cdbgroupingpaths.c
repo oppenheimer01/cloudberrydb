@@ -72,6 +72,7 @@
 
 #include "access/genam.h"
 #include "access/table.h"
+#include "catalog/gp_matview_aux.h"
 #include "catalog/pg_rewrite.h"
 #include "nodes/pathnodes.h"
 #include "parser/parsetree.h"
@@ -3001,17 +3002,15 @@ simple_view_matching(Query *parse)
 		matviewRel = table_open(rewrite_tup->ev_class, AccessShareLock);
 		need_close = true;
 
-		/*
-		 * Consider IVM only has insert operation
-		 * since lastest REFRESH and with partial agg results.
-		 */ 
 		if (!RelationIsPopulated(matviewRel) || 
-			/* FIXME: uncomment below when IVM is enabled in hashdata cloud. */
-			#if 0
-			(!RelationIsIVM(matviewRel)) ||
-			#endif
-			!matviewRel->rd_rel->relhaspartialagg ||
-			!matviewRel->rd_rel->relinsertonly)
+			!matviewRel->rd_rel->relhaspartialagg)
+			continue;
+
+		/*
+		 * Consider mv data status since lastest REFRESH
+		 * with partial agg results.
+		 */
+		if (!MatviewUsableForAppendAgg(RelationGetRelid(matviewRel)))
 			continue;
 
 		if (matviewRel->rd_rel->relhasrules == false ||
