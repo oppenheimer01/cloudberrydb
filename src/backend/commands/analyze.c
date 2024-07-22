@@ -1993,6 +1993,12 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 	bool		has_child;
 
 	/*
+	 * CBDB: auto vacuum will enter here, but we will hold dispatch in
+	 * serverless mode when analyzing the table, so we will follow the
+	 * normal path.
+	 */
+#ifndef SERVERLESS
+	/*
 	 * Like in acquire_sample_rows(), if we're in the QD, fetch the sample
 	 * from segments.
 	 */
@@ -2014,6 +2020,7 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 											  totalrows, totaldeadrows);
 		}
 	}
+#endif
 
 	/*
 	 * Find all members of inheritance set.  We only need AccessShareLock on
