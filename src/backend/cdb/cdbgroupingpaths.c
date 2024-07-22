@@ -77,6 +77,7 @@
 #include "parser/parsetree.h"
 #include "utils/guc.h"
 #include "commands/matview.h"
+#include "optimizer/aqumv.h"
 
 typedef enum
 {
@@ -255,14 +256,6 @@ rewrite_to_append_agg_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Rel
 
 static PathTarget *
 make_pathtarget_from_tupledesc(TupleDesc tupdes);
-typedef struct
-{
-	int 	varno;
-} aqumv_adjust_varno_context;
-
-static void aqumv_adjust_simple_parse(Query *parse);
-static void aqumv_adjust_varno(Query *parse, int delta);
-static Node *aqumv_adjust_varno_mutator(Node *node, aqumv_adjust_varno_context *context);
 #endif
 
 /*
@@ -3055,7 +3048,7 @@ simple_view_matching(Query *parse)
 			continue;
 
 		/* Transform actions to a normal parse tree. */
-		aqumv_adjust_simple_parse(viewQuery);
+		aqumv_adjust_simple_query(viewQuery);
 
 		/*
 		 * See AQUMV_FIXME_MVP in aqumv.c
@@ -3327,73 +3320,6 @@ rewrite_to_append_agg_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Rel
 		/* For Group Agg, second stage is based on pathlist. */
 		add_path(ctx->partial_rel, path ,root);
 	}
-}
-
-/*
- * This should be refactor after CBDB github expose these functions.
- * Keep for now.
- * Wrap of aqumv_adjust_varno, expose for other places.
- * Adjust view's actions to a parse tree that can be processed as normal.
- * This in-place update the parse param.
- */
-void aqumv_adjust_simple_parse(Query *parse)
-{
-	ListCell	*lc;
-	/*
-	 * AQUMV
-	 * We have to rewrite now before we do the real Equivalent
-	 * Transformation 'rewrite'.  
-	 * Because actions sotored in rule is not a normal query tree,
-	 * it can't be used directly, ex: new/old realtions used to
-	 * refresh mv.
-	 * Earse unused relatoins, keep the right one.
-	 */
-	foreach(lc, parse->rtable)
-	{
-		RangeTblEntry* rtetmp = lfirst(lc);
-		if ((rtetmp->relkind == RELKIND_MATVIEW) &&
-			(rtetmp->alias != NULL) &&
-			(strcmp(rtetmp->alias->aliasname, "new") == 0 ||
-			strcmp(rtetmp->alias->aliasname,"old") == 0))
-		{
-			foreach_delete_current(parse->rtable, lc);
-		}
-	}
-
-	/*
-	 * Now we have the right relation, adjust
-	 * varnos in its query tree.
-	 * AQUMV_FIXME_MVP: Only one single relation
-	 * is supported now, we could assign varno
-	 * to 1 opportunistically.
-	 */
-	aqumv_adjust_varno(parse, 1);
-
-}
-static void
-aqumv_adjust_varno(Query* parse, int varno)
-{
-	aqumv_adjust_varno_context context;
-	context.varno = varno;
-	parse = query_tree_mutator(parse, aqumv_adjust_varno_mutator, &context, QTW_DONT_COPY_QUERY);
-}
-
-/* 
- * Adjust varno and rindex with delta. 
- */ 
-static Node *aqumv_adjust_varno_mutator(Node *node, aqumv_adjust_varno_context *context)
-{
-	if (node == NULL)
-		return NULL;
-	if (IsA(node, Var))
-	{
-		((Var *)node)->varno = context->varno;
-		((Var *)node)->varnosyn = context->varno; /* NB: This should be backported to CBDB github! */
-	}
-	else if (IsA(node, RangeTblRef))
- 		/* AQUMV_FIXME_MVP: currently we have only one relation */
-		((RangeTblRef*) node)->rtindex = context->varno;
-	return expression_tree_mutator(node, aqumv_adjust_varno_mutator, context);
 }
 
 #endif
