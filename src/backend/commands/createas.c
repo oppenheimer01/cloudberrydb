@@ -652,7 +652,7 @@ rewriteQueryForIMMV(Query *query, List *colNames, bool partial)
 			SortGroupClause *scl = (SortGroupClause *) lfirst(lc);
 			TargetEntry *tle = get_sortgroupclause_tle(scl, rewritten->targetList);
 
-			if (tle->resjunk && !partial)
+			if (tle->resjunk)
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("GROUP BY expression not appearing in select list is not supported on incrementally maintainable materialized view")));
