@@ -466,6 +466,7 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		 * either came straight from the parser, or suitable locks were
 		 * acquired by plancache.c.
 		 */
+		int cursor_options;
 		rewritten = QueryRewrite(query);
 
 		/* SELECT should never rewrite to more or less than one SELECT query */
@@ -476,9 +477,10 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		query = linitial_node(Query, rewritten);
 		Assert(query->commandType == CMD_SELECT);
 
+		cursor_options = partial ? CURSOR_OPT_PARALLEL_NOT_OK : CURSOR_OPT_PARALLEL_OK;
 		/* plan the query */
 		plan = pg_plan_query(query, pstate->p_sourcetext,
-							CURSOR_OPT_PARALLEL_OK, params);
+							cursor_options, params);
 
 		/*GPDB: Save the target information in PlannedStmt */
 		/*

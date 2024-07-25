@@ -38,6 +38,7 @@
 #include "optimizer/paths.h"
 #include "optimizer/placeholder.h"
 #include "optimizer/plancat.h"
+#include "optimizer/planner.h"
 #include "optimizer/planmain.h"
 #include "optimizer/prep.h"
 #include "optimizer/restrictinfo.h"
@@ -649,6 +650,9 @@ create_plan_recurse(PlannerInfo *root, Path *best_path, int flags)
 
 	plan->parallel = best_path->locus.parallel_workers;
 
+	if (create_plan_hook)
+		create_plan_hook(root, best_path, plan);
+
 	return plan;
 }
 
@@ -664,9 +668,7 @@ create_scan_plan(PlannerInfo *root, Path *best_path, int flags)
 	List	   *gating_clauses;
 	List	   *tlist;
 	Plan	   *plan;
-#ifdef SERVERLESS
-	RangeTblEntry *rte;
-#endif
+
 	/*
 	 * Extract the relevant restriction clauses from the parent relation. The
 	 * executor must apply all these restrictions during the scan, except for
@@ -900,13 +902,6 @@ create_scan_plan(PlannerInfo *root, Path *best_path, int flags)
 		DirectDispatchUpdateContentIdsFromPlan(root, plan);
 
 	plan->locustype = best_path->locus.locustype;
-#ifdef SERVERLESS
-	if (best_path->pathtype == T_SeqScan)
-	{
-		rte = planner_rt_fetch(rel->relid, root);
-		((Scan*)plan)->version = rte->version;
-	}
-#endif
 	/*
 	 * If there are any pseudoconstant clauses attached to this node, insert a
 	 * gating Result node that evaluates the pseudoconstants as one-time

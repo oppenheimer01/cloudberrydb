@@ -30,6 +30,10 @@ typedef PlannedStmt *(*planner_hook_type) (Query *parse,
 										   ParamListInfo boundParams);
 extern PGDLLIMPORT planner_hook_type planner_hook;
 
+/* Hook for plugins to get control in create_plan_recurse() */
+typedef void (*create_plan_hook_type) (PlannerInfo *root, Path *best_path, Plan *plan);
+extern PGDLLIMPORT create_plan_hook_type create_plan_hook;
+
 /* Hook for plugins to get control when grouping_planner() plans upper rels */
 typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
 											  UpperRelationKind stage,
