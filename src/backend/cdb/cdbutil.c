@@ -1115,6 +1115,9 @@ ensureInterconnectAddress(void)
 		 */
 		CdbComponentDatabaseInfo *qdInfo;
 		qdInfo = cdbcomponent_getComponentInfo(MASTER_CONTENT_ID);
+		if (!qdInfo->config->hostip)
+			ereport(ERROR,
+					(errmsg("Could not get hostip of QD")));
 		interconnect_address = MemoryContextStrdup(TopMemoryContext, qdInfo->config->hostip);
 	}
 	else if (qdHostname && qdHostname[0] != '\0')
@@ -1242,7 +1245,7 @@ CdbComponentDatabaseInfoCompare(const void *p1, const void *p2)
  * The keys are all NAMEDATALEN long.
  */
 static char *
-getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+getDnsCachedAddressInternal(char *name, int port, int elevel, bool use_cache)
 {
 	SegIpEntry	   *e = NULL;
 	char			hostinfo[NI_MAXHOST];
@@ -1388,6 +1391,30 @@ getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
 		return e->hostinfo;
 
 	return pstrdup(hostinfo);
+}
+
+/* getDnsCachedAddress
+ * 
+ * Due to unstable DNS service in cloud environment, retry 10 seconds to get the hostip from DNS 
+ */
+static char *
+getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+{
+	char	   *hostip = NULL;
+	int			i = 0;
+
+	while (!(hostip = getDnsCachedAddressInternal(name, port, elevel,use_cache)))
+	{
+		pg_usleep(1000);
+		if (++i >= 10)
+		{
+			ereport(LOG,
+					(errmsg("could not translate host name \"%s\", port \"%d\" to address after retry 10 seconds",
+							 name, port)));
+			break;
+		}
+	}
+	return hostip;
 }
 
 /*
@@ -3629,7 +3656,7 @@ CdbComponentDatabaseInfoCompare(const void *p1, const void *p2)
  * The keys are all NAMEDATALEN long.
  */
 static char *
-getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+getDnsCachedAddressInternal(char *name, int port, int elevel, bool use_cache)
 {
 	SegIpEntry	   *e = NULL;
 	char			hostinfo[NI_MAXHOST];
@@ -3775,6 +3802,30 @@ getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
 		return e->hostinfo;
 
 	return pstrdup(hostinfo);
+}
+
+/* getDnsCachedAddress
+ * 
+ * Due to unstable DNS service in cloud environment, retry 10 seconds to get the hostip from DNS 
+ */
+static char *
+getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+{
+	char	   *hostip = NULL;
+	int			i = 0;
+
+	while(!(hostip = getDnsCachedAddressInternal(name, port, elevel,use_cache)))
+	{
+		pg_usleep(1000);
+		if(++i >= 10)
+		{
+			ereport(LOG,
+					(errmsg("could not translate host name \"%s\", port \"%d\" to address after retry 10 seconds",
+							 name, port)));
+			break;
+		}
+	}
+	return hostip;
 }
 
 /*
