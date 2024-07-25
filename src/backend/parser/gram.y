@@ -890,10 +890,10 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 
 	QUEUE
 
-	RANDOMLY READABLE READS REJECT_P REPLICATED RESOURCE
+	RANDOMLY READABLE READS REJECT_P REPLICATED RESOURCE RESUME
 	ROOTPARTITION
 
-	SCATTER SEGMENT SEGMENTS SHRINK SPLIT SUBPARTITION
+	SCATTER SEGMENT SEGMENTS SHRINK SPLIT SUBPARTITION SUSPEND
 
 	TAG
 
@@ -13591,6 +13591,8 @@ DropWarehouseStmt: DROP WAREHOUSE name
  *
  *	QUERY:
  *		ALTER WAREHOUSE name SET WAREHOUSE_SIZE warehouse_size
+ *		ALTER WAREHOUSE name SUSPEND
+ *		ALTER WAREHOUSE name RESUME
  *
  *****************************************************************************/
 
@@ -13602,6 +13604,18 @@ AlterWarehouseStmt:
 					n->whname = $3;
 					n->warehouse_size = $6;
 					n->options = NULL;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS SET WAREHOUSE_SIZE SignedIconst
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE;
+					n->whname = $3;
+					n->warehouse_size = $8;
+					n->options = NULL;
+					n->missing_ok = true;
 					$$ = (Node *)n;
 				}
 			|
@@ -13613,6 +13627,95 @@ AlterWarehouseStmt:
 					n->warehouse_size = 0;
 					n->newowner = $6;
 					n->options = NULL;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS OWNER TO RoleSpec
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_ALTER_OWNER;
+					n->whname = $3;
+					n->warehouse_size = 0;
+					n->newowner = $8;
+					n->options = NULL;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name SUSPEND
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SUSPEND;
+					n->whname = $3;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS SUSPEND
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SUSPEND;
+					n->whname = $3;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name RESUME
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_RESUME;
+					n->whname = $3;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS RESUME
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_RESUME;
+					n->whname = $3;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name alter_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = false;
+					n->options = $4;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS alter_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = true;
+					n->options = $6;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name REPLACE create_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_REPLACE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = false;
+					n->options = $5;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS REPLACE create_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_REPLACE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = true;
+					n->options = $7;
 					$$ = (Node *)n;
 				}
 		;
@@ -20066,6 +20169,7 @@ unreserved_keyword:
 			| RESOURCE
 			| RESTART
 			| RESTRICT
+			| RESUME
 			| RETRIEVE
 			| RETURN
 			| RETURNS
@@ -20117,6 +20221,7 @@ unreserved_keyword:
 			| SUBPARTITION
 			| SUBSCRIPTION
 			| SUPPORT
+			| SUSPEND
 			| SYSID
 			| SYSTEM_P
 			| TABLES
@@ -21080,6 +21185,7 @@ bare_label_keyword:
 			| RESOURCE
 			| RESTART
 			| RESTRICT
+			| RESUME
 			| RETRIEVE
 			| RETURN
 			| RETURNS
@@ -21139,6 +21245,7 @@ bare_label_keyword:
 			| SUBSCRIPTION
 			| SUBSTRING
 			| SUPPORT
+			| SUSPEND
 			| SYMMETRIC
 			| SYSID
 			| SYSTEM_P

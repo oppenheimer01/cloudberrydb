@@ -466,6 +466,7 @@ HandleFtsMessage(const char* query_string)
 	error_level = WARNING;
 #endif
 
+#ifndef SERVERLESS
 	if (dbid != GpIdentity.dbid)
 		ereport(error_level,
 				(errmsg("message type: %s received dbid:%d doesn't match this segments configured dbid:%d",
@@ -475,6 +476,7 @@ HandleFtsMessage(const char* query_string)
 		ereport(error_level,
 				(errmsg("message type: %s received contentid:%d doesn't match this segments configured contentid:%d",
 						message_type, contid, GpIdentity.segindex)));
+#endif
 
 	SIMPLE_FAULT_INJECTOR("fts_handle_message");
 

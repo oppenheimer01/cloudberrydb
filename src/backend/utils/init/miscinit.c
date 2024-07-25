@@ -983,7 +983,6 @@ GetCurrentWarehouseId(void)
 void
 SetCurrentWarehouseId(Oid warehouseid)
 {
-	AssertArg(OidIsValid(warehouseid));
 	CurrentWarehouseId = warehouseid;
 }
 

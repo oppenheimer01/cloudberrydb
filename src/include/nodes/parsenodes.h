@@ -4500,7 +4500,10 @@ typedef enum AlterWarehouseType
 {
 	ALTER_WAREHOUSE_OPTIONS,
 	ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE,
-	ALTER_WAREHOUSE_ALTER_OWNER
+	ALTER_WAREHOUSE_ALTER_OWNER,
+	ALTER_WAREHOUSE_SUSPEND,
+	ALTER_WAREHOUSE_RESUME,
+	ALTER_WAREHOUSE_REPLACE_OPTIONS
 } AlterWarehouseType;
 
 typedef struct AlterWarehouseStmt
@@ -4511,6 +4514,7 @@ typedef struct AlterWarehouseStmt
 	int					warehouse_size;	/* New size of warehouse if set warehouse_size command */
 	RoleSpec			*newowner;		/* the new owner */
 	List				*options; 		/* List of DefElem nodes */
+	bool				missing_ok;
 } AlterWarehouseStmt;
 
 #endif							/* PARSENODES_H */

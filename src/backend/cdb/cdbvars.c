@@ -646,3 +646,12 @@ gp_execution_dbid(PG_FUNCTION_ARGS)
  * Warehouse hook for Create/Drop/Alter Warehouse
  */
 WarehouseMethod *warehouse_method = NULL;
+
+const char *const WarehouseStatusStr[] = {
+	"CREATING",
+	"RUNNING",
+	"SUSPENDED",
+	"STOPPING",
+	"SUSPENDING",
+	"RESUMING"
+};
