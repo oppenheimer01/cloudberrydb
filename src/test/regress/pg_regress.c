@@ -3601,6 +3601,9 @@ cluster_healthy(void)
 {
 	char line[1024];
 	int i, n;
+#ifdef SERVERLESS
+	return true;
+#endif
 	psql_command_output("postgres", line, 1024,
 						"SELECT * FROM gp_segment_configuration WHERE status = 'd' OR preferred_role != role;");
 

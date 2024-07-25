@@ -173,6 +173,14 @@ TablespaceCreateDbspace(Oid spcNode, Oid dbNode, bool isRedo)
 	if (spcNode != DEFAULTTABLESPACE_OID && !isRedo)
 		TablespaceLockTuple(spcNode, AccessShareLock, true);
 
+	/*
+	 * In Serverless mode, create local dbspace by tablespace  
+	 * set pg_default
+	 */
+#ifdef SERVERLESS
+	spcNode = DEFAULTTABLESPACE_OID;
+#endif
+
 	dir = GetDatabasePath(dbNode, spcNode);
 
 	if (stat(dir, &st) < 0)
@@ -496,7 +504,9 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 	/* Post creation hook for new tablespace */
 	InvokeObjectPostCreateHook(TableSpaceRelationId, tablespaceoid, 0);
 
+#ifndef SERVERLESS
 	create_tablespace_directories(location, tablespaceoid);
+#endif
 
 	/* Record the filesystem change in XLOG */
 	{

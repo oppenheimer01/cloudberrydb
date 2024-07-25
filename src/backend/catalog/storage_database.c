@@ -184,10 +184,17 @@ dropDatabaseDirectory(DbDirNode *deldb, bool isRedo)
 	/*
 	 * Remove files from the old tablespace
 	 */
+#ifdef SERVERLESS
+	if (!rmtree(dbpath, true))
+		ereport(LOG,
+				(errmsg("some useless files may be left behind in old database directory \"%s\"",
+						dbpath)));
+#else
 	if (!rmtree(dbpath, true))
 		ereport(WARNING,
 				(errmsg("some useless files may be left behind in old database directory \"%s\"",
 						dbpath)));
+#endif
 
 	pfree(dbpath);
 }

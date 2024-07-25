@@ -40,7 +40,9 @@
 		"deadlock_timeout",
 		"default_table_access_method",
 		"default_index_access_method",
+#ifndef SERVERLESS
 		"default_tablespace",
+#endif
 		"default_toast_compression",
 		"dml_ignore_target_partition_check",
 		"enable_parallel",

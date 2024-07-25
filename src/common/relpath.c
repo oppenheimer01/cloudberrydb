@@ -151,6 +151,14 @@ GetRelationPath(Oid dbNode, Oid spcNode, Oid relNode,
 {
 	char	   *path;
 
+	/*
+	 * In Serverless mode, get local relation path by tablespace  
+	 * set pg_default
+	 */
+#ifdef SERVERLESS
+	if (spcNode != GLOBALTABLESPACE_OID)
+		spcNode = DEFAULTTABLESPACE_OID;
+#endif
 	if (spcNode == GLOBALTABLESPACE_OID)
 	{
 		/* Shared system relations live in {datadir}/global */

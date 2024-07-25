@@ -94,6 +94,9 @@
 		"debug_walrepl_snd",
 		"debug_walrepl_syncrep",
 		"debug_xlog_record_read",
+#ifdef SERVERLESS
+		"default_tablespace",
+#endif
 		"default_statistics_target",
 		"default_text_search_config",
 		"default_transaction_deferrable",

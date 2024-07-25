@@ -2222,11 +2222,17 @@ remove_dbtablespaces(Oid db_id)
 			pfree(dstpath);
 			continue;
 		}
-
+#ifdef SERVERLESS
+		if (!rmtree(dstpath, true))
+			ereport(LOG,
+					(errmsg("some useless files may be left behind in old database directory \"%s\"",
+							dstpath)));
+#else
 		if (!rmtree(dstpath, true))
 			ereport(WARNING,
 					(errmsg("some useless files may be left behind in old database directory \"%s\"",
 							dstpath)));
+#endif
 
 		ltblspc = lappend_oid(ltblspc, dsttablespace);
 		pfree(dstpath);
