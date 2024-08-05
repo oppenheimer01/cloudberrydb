@@ -5722,8 +5722,10 @@ PostgresMain(int argc, char *argv[],
 					}
 					else if (am_ftshandler)
 						HandleFtsMessage(query_string);
+#ifdef FAULT_INJECTOR
 					else if (am_faulthandler)
 						HandleFaultMessage(query_string);
+#endif
 					else if (exec_simple_query_hook)
 						exec_simple_query_hook(query_string);
 					else

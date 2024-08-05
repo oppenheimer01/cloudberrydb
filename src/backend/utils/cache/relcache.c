@@ -6841,6 +6841,7 @@ write_relcache_init_file(bool shared)
 	fp = AllocateFile(tempfilename, PG_BINARY_W);
 	if (fp == NULL)
 	{
+#ifndef SERVERLESS
 		/*
 		 * We used to consider this a fatal error, but we might as well
 		 * continue with backend startup ...
@@ -6850,6 +6851,7 @@ write_relcache_init_file(bool shared)
 				 errmsg("could not create relation-cache initialization file \"%s\": %m",
 						tempfilename),
 				 errdetail("Continuing anyway, but there's something wrong.")));
+#endif /* SERVERLESS */
 		return;
 	}
 
