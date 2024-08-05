@@ -2413,6 +2413,14 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	lmode = (params->options & VACOPT_FULL) ?
 		AccessExclusiveLock : ShareUpdateExclusiveLock;
 
+#ifdef SERVERLESS
+	/*
+	 * Force full vacuum for hashdata table, because there are a flaky test
+	 * in vacuum.sql. Remove this code after the vacuum bug is fixed.
+	 */
+	lmode = AccessExclusiveLock;
+#endif
+
 	/* open the relation and get the appropriate lock on it */
 	rel = vacuum_open_relation(relid, relation, params->options,
 							   params->log_min_duration >= 0, lmode);
