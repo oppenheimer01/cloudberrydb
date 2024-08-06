@@ -489,6 +489,18 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		 */
 		plan->intoClause = copyObject(stmt->into);
 
+#ifdef SERVERLESS
+		/*
+		 * Though it could be Hash distibuted due to the AS Query,
+		 * we must treat it as randomly in serverless mode.
+		 */
+		if (GpPolicyIsPartitioned(plan->intoPolicy) &&
+			(plan->intoPolicy->nattrs > 0 ||
+			plan->intoPolicy->numsegments > 0))
+		{
+			plan->intoPolicy = createRandomPartitionedPolicy(0);
+		}
+#endif
 		/*
 		 * Use a snapshot with an updated command ID to ensure this query sees
 		 * results of any previously executed queries.  (This could only
