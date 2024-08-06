@@ -2870,7 +2870,17 @@ try_append_agg(Query *parse)
 		
 			TargetEntry *tle = (TargetEntry *) linitial(aggref->args);
 			if (!IsA(tle->expr, Var))
+			{
+				/*
+				 * Allow count() has const, ex: count(1)
+				 */
+				if ((strcmp(aggname, "count") == 0) &&
+					(IsA(tle->expr, Const)) &&
+					(!castNode(Const, tle->expr)->constisnull))
+					return true;
+
 				return false;
+			}
 		}
 		else
 			return false;
