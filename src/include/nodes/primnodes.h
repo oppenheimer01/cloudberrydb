@@ -1610,6 +1610,7 @@ typedef struct TargetEntry
 	Expr	   *expr;			/* expression to evaluate */
 	AttrNumber	resno;			/* attribute number (see notes above) */
 	char	   *resname;		/* name of the column (could be NULL) */
+	char	   *origname;		/* original name of the column */
 	Index		ressortgroupref;	/* nonzero if referenced by a sort/group
 									 * clause */
 	Oid			resorigtbl;		/* OID of column's source table */

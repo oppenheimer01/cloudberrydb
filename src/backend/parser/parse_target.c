@@ -126,6 +126,7 @@ transformTargetList(ParseState *pstate, List *targetlist,
 	List	   *p_target = NIL;
 	bool		expand_star;
 	ListCell   *o_target;
+	TargetEntry *target;
 
 	/* Shouldn't have any leftover multiassign items at start */
 	Assert(pstate->p_multiassign_exprs == NIL);
@@ -179,13 +180,10 @@ transformTargetList(ParseState *pstate, List *targetlist,
 		 * Not "something.*", or we want to treat that as a plain whole-row
 		 * variable, so transform as a single expression
 		 */
-		p_target = lappend(p_target,
-						   transformTargetEntry(pstate,
-												res->val,
-												NULL,
-												exprKind,
-												res->name,
-												false));
+		target = transformTargetEntry(pstate, res->val, NULL, exprKind, res->name, false);
+		if (res->use_orig_name)
+			target->origname = res->orig_name;
+		p_target = lappend(p_target, target);
 	}
 
 	/*

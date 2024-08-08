@@ -222,6 +222,10 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 
 static bool isSetWithReorganize(List **options);
+
+extern char *orig_str_val;
+bool collabel_is_ident = false;
+
 static char *greenplumLegacyAOoptions(const char *accessMethod, List **options);
 static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_t yyscanner);
 
@@ -1574,6 +1578,21 @@ stmt:
 			| RuleStmt
 			| SecLabelStmt
 			| SelectStmt
+				{
+					ListCell *lc;
+					SelectStmt *n = (SelectStmt *) $1;
+
+					while(n->op)
+						n = n->larg;
+
+					foreach(lc, n->targetList)
+					{
+						ResTarget *t = (ResTarget *) lfirst(lc);
+						if (t->orig_name)
+							t->use_orig_name = true;
+					}
+					$$ = $1;
+				}
 			| TransactionStmt
 			| TruncateStmt
 			| UnlistenStmt
@@ -19420,6 +19439,10 @@ target_list:
 target_el:	a_expr AS ColLabel
 				{
 					$$ = makeNode(ResTarget);
+					if (collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = $3;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19442,6 +19465,10 @@ target_el:	a_expr AS ColLabel
 			| a_expr BareColLabel
 				{
 					$$ = makeNode(ResTarget);
+					if (collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = $2;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19450,6 +19477,10 @@ target_el:	a_expr AS ColLabel
 			| a_expr
 				{
 					$$ = makeNode(ResTarget);
+					if (IsA($1, ColumnRef) && collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = NULL;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19849,9 +19880,9 @@ plassign_equals: COLON_EQUALS
 
 /* Column identifier --- names that can be column, table, etc names.
  */
-ColId:		IDENT									{ $$ = $1; }
-			| unreserved_keyword					{ $$ = pstrdup($1); }
-			| col_name_keyword						{ $$ = pstrdup($1); }
+ColId:		IDENT									{ collabel_is_ident = true; $$ = $1; }
+			| unreserved_keyword					{ collabel_is_ident = false; $$ = pstrdup($1); }
+			| col_name_keyword						{ collabel_is_ident = false; $$ = pstrdup($1); }
 		;
 
 /* Type/function identifier --- names that can be type or function names.
@@ -20285,8 +20316,8 @@ PartitionColId: PartitionIdentKeyword { $$ = pstrdup($1); }
 /* Bare column label --- names that can be column labels without writing "AS".
  * This classification is orthogonal to the other keyword categories.
  */
-BareColLabel:	IDENT								{ $$ = $1; }
-			| bare_label_keyword					{ $$ = pstrdup($1); }
+BareColLabel:	IDENT								{ collabel_is_ident = true; $$ = $1; }
+			| bare_label_keyword					{ collabel_is_ident = false; $$ = pstrdup($1); }
 		;
 
 

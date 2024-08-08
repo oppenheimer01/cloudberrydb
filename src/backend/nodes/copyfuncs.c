@@ -2778,6 +2778,7 @@ _copyTargetEntry(const TargetEntry *from)
 	COPY_NODE_FIELD(expr);
 	COPY_SCALAR_FIELD(resno);
 	COPY_STRING_FIELD(resname);
+	COPY_STRING_FIELD(origname);
 	COPY_SCALAR_FIELD(ressortgroupref);
 	COPY_SCALAR_FIELD(resorigtbl);
 	COPY_SCALAR_FIELD(resorigcol);

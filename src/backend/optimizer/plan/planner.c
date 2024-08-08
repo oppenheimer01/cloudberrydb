@@ -342,6 +342,21 @@ planner(Query *parse, const char *query_string, int cursorOptions,
 	else
 		result = standard_planner(parse, query_string, cursorOptions, boundParams);
 
+	if (output_col_case_sensitive && result && parse->commandType == CMD_SELECT)
+	{
+		ListCell	*lp;
+		ListCell	*lr;
+	
+		forboth(lp, result->planTree->targetlist, lr, parse->targetList)
+		{
+			TargetEntry *lte = (TargetEntry *) lfirst(lp);
+			TargetEntry *rte = (TargetEntry *) lfirst(lr);
+			Assert(lte->resno == rte->resno);
+			if (rte->origname)
+				lte->origname = rte->origname;
+		}
+	}
+
 	return result;
 }
 

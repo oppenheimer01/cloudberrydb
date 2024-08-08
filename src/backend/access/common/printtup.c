@@ -231,7 +231,10 @@ SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
 		else
 			format = 0;
 
-		pq_writestring(buf, NameStr(att->attname));
+		if (typeinfo->orignames[i])
+			pq_writestring(buf, typeinfo->orignames[i]);
+		else
+			pq_writestring(buf, NameStr(att->attname));
 		pq_writeint32(buf, resorigtbl);
 		pq_writeint16(buf, resorigcol);
 		pq_writeint32(buf, atttypid);

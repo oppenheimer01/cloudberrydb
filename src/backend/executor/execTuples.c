@@ -1998,6 +1998,9 @@ ExecTypeFromTLInternal(List *targetList, bool skipjunk)
 		TupleDescInitEntryCollation(typeInfo,
 									cur_resno,
 									exprCollation((Node *) tle->expr));
+
+		if (tle->origname)
+			typeInfo->orignames[cur_resno - 1] = tle->origname;
 		cur_resno++;
 	}
 

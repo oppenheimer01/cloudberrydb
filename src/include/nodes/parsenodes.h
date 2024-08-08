@@ -498,6 +498,8 @@ typedef struct ResTarget
 {
 	NodeTag		type;
 	char	   *name;			/* column name or NULL */
+	char	   *orig_name;		/* origin column name (case sensitive) or NULL */
+	bool		use_orig_name;	/* output origin column name to user */
 	List	   *indirection;	/* subscripts, field names, and '*', or NIL */
 	Node	   *val;			/* the value expression to compute or assign */
 	int			location;		/* token location, or -1 if unknown */

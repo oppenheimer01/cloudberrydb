@@ -492,6 +492,7 @@
 		"optimizer_use_external_constant_expression_evaluation_for_ints",
 		"optimizer_use_gpdb_allocators",
 		"optimizer_xform_bind_threshold",
+		"output_col_case_sensitive",
 		"parallel_leader_participation",
 		"parallel_setup_cost",
 		"parallel_tuple_cost",

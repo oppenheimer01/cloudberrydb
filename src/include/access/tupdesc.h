@@ -83,6 +83,7 @@ typedef struct TupleDescData
 	int32		tdtypmod;		/* typmod for tuple type */
 	int			tdrefcount;		/* reference count, or -1 if not counting */
 	TupleConstr *constr;		/* constraints, or NULL if none */
+	char 		**orignames;
 	/* attrs[N] is the description of Attribute Number N+1 */
 	FormData_pg_attribute attrs[FLEXIBLE_ARRAY_MEMBER];
 }			TupleDescData;

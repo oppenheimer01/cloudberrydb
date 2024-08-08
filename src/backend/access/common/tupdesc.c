@@ -70,6 +70,7 @@ CreateTemplateTupleDesc(int natts)
 	 * Initialize other fields of the tupdesc.
 	 */
 	desc->natts = natts;
+	desc->orignames = palloc0(natts * sizeof(char *));
 	desc->constr = NULL;
 	desc->tdtypeid = RECORDOID;
 	desc->tdtypmod = -1;
