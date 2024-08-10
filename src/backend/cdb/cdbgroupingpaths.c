@@ -63,6 +63,7 @@
 #include "optimizer/optimizer.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/paths.h"
+#include "optimizer/planner.h"
 #include "optimizer/prep.h"
 #include "optimizer/tlist.h"
 #include "parser/parse_clause.h"
@@ -244,7 +245,7 @@ static bool
 expand_append_agg(PlannerInfo *root, cdb_agg_planning_context *ctx);
 
 static Relation
-simple_view_matching(Query *parse);
+simple_view_matching(PlannerInfo *root, Query *parse);
 
 static void
 expand_append_agg_guts(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel);
@@ -2954,7 +2955,7 @@ expand_append_agg(PlannerInfo *root, cdb_agg_planning_context *ctx)
 		return false;
 
 	/* Find a matched view for input query. */
-	matviewRel = simple_view_matching(parse);
+	matviewRel = simple_view_matching(root, parse);
 	if (matviewRel == NULL)
 		return false;
 
@@ -2979,7 +2980,7 @@ expand_append_agg(PlannerInfo *root, cdb_agg_planning_context *ctx)
  *  A lock will be held if we find a matched view, the caller should handle that.
  */ 
 static Relation
-simple_view_matching(Query *parse)
+simple_view_matching(PlannerInfo *root, Query *parse)
 {
 	Query			*viewQuery; /* Query of view. */
 	Relation		matviewRel = NULL; /* Matched view relation. */
@@ -3071,8 +3072,27 @@ simple_view_matching(Query *parse)
 		 */
 		mvrte->checkAsUser = InvalidOid;
 		
-		/* To make equal parse tree, need root to assign aggno in precess_aggrefs. */
+		/*
+		 * Need a subroot to process quals, use it to eval const expressions
+		 * and AND, OR expression simplification.
+		 * ex:
+		 * 	where 1 = 1 and a > 1
+		 * will be processed to:
+		 *  where TRUE and a > 1
+		 * and then:
+		 *  where a > 1
+		 * 
+		 * and to assign aggno in precess_aggrefs.
+		 *
+		 * We only use subrrot to process view query, it's not used to do real planner,
+		 * so free it after that.
+		 */
 		subroot = (PlannerInfo *) palloc0(sizeof(PlannerInfo));
+		/*
+		 * We have to fill info from root, to avoid crash during processing,
+		 * though they are not same in act.
+		 */
+		memcpy(subroot, root, sizeof(PlannerInfo));
 		subroot->parse = viewQuery;
 		subroot->processed_tlist = viewQuery->targetList;
 		if (viewQuery->hasAggs)
@@ -3085,6 +3105,9 @@ simple_view_matching(Query *parse)
 		 */
 		viewQuery->stmt_location = parse->stmt_location;
 		viewQuery->stmt_len = parse->stmt_len;
+
+		preprocess_qual_conditions(subroot, (Node *) viewQuery->jointree);
+		pfree(subroot);
 
 		/*
 		 * Before we compare Query, quals need to be preprocessed becuase
