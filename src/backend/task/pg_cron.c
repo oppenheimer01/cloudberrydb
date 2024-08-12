@@ -1095,9 +1095,8 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 				};
 				sprintf(nodePortString, "%d", cronJob->nodePort);
 				if (cronJob->warehouse)
-					appendStringInfo(&options_buf, "-c optimizer=off"
-									" -c enable_answer_query_using_materialized_views=off"
-									" -c gp_command_count=%d -c warehouse=%s",
+					appendStringInfo(&options_buf,
+									"-c gp_command_count=%d -c warehouse=%s",
 									gp_command_count, cronJob->warehouse);
 
 				Assert(sizeof(keywordArray) == sizeof(valueArray));

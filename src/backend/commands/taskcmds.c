@@ -28,6 +28,7 @@
 
 #include "postgres.h"
 
+#include "access/xact.h"
 #include "catalog/dependency.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_task.h"
@@ -334,6 +335,7 @@ DropTask(ParseState *pstate, DropTaskStmt * stmt)
 		ObjectAddressSet(address, TaskRelationId, jobid);
 		/* Clean up dependencies */
 		deleteSharedDependencyRecordsFor(TaskRelationId, jobid, 0);
+		deleteDependencyRecordsFor(TaskRelationId, jobid, false);
 	}
 
 	return address;
