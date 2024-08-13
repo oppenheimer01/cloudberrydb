@@ -864,4 +864,22 @@ makeAPListExpr(void)
 
 	return (Node *)lexpr;
 }
+#else
+Node *
+makeAPHashExpr(int modulus)
+{
+	return NULL;
+}
+
+Node *
+makeAPRangeExpr(List *lower, List *upper, List *step, bool has_default)
+{
+	return NULL;
+}
+
+Node *
+makeAPListExpr(void)
+{
+	return NULL;
+}
 #endif /* SERVERLESS */

@@ -213,13 +213,6 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				errmsg("Triggers for statements are not yet supported")));
 	}
-#else
-	if (!stmt->row)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				errmsg("Triggers for statements are not yet supported")));
-	}
 #endif /* SERVERLESS */
 
 	/*

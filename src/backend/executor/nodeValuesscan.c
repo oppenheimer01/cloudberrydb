@@ -303,7 +303,7 @@ ExecInitValuesScan(ValuesScan *node, EState *estate, int eflags)
 			contain_subplans((Node *) exprs)) ||
 			IsTransferOn())
 #else
-			contain_subplans((Node *) exprs))
+			contain_subplans((Node *) exprs)))
 #endif
 		{
 			int			saved_jit_flags;

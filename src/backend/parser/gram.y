@@ -50,6 +50,7 @@
 #include <ctype.h>
 #include <limits.h>
 
+#include "pg_config.h"
 #include "access/tableam.h"
 #include "catalog/index.h"
 #include "catalog/namespace.h"
@@ -6742,8 +6743,10 @@ TabSubPartition:
 				}
 			| TabSubPartitionBy OptAutoPartitionBoundSpec
 				{
+#ifdef SERVERLESS
 					PartitionSpec *n = (PartitionSpec *) $1;
 					n->apExpr = (Expr *)$2;
+#endif /* SERVERLESS */
 					$$ = $1;
 				}
 			| TabSubPartitionBy TabSubPartition
@@ -9168,14 +9171,18 @@ TriggerForSpec:
 				}
 			| /* EMPTY */
 				{
-					/* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
+
+#ifdef SERVERLESS
+					$$ = false;
+#else /* SERVERLESS */
+                    /* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
 					if (!gp_enable_statement_trigger)
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 								 errmsg("Triggers for statements are not yet supported")));
 					}
-					$$ = false;
+#endif /* SERVERLESS */
 				}
 		;
 
@@ -9188,6 +9195,10 @@ TriggerForType:
 			ROW										{ $$ = true; }
 			| STATEMENT
 			{
+
+#ifdef SERVERLESS
+                $$ = false;
+#else /* SERVERLESS */
 				/* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
 				if (!gp_enable_statement_trigger)
 				{
@@ -9195,7 +9206,7 @@ TriggerForType:
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("Triggers for statements are not yet supported")));
 				}
-				$$ = false;
+#endif /* SERVERLESS */
 			}
 		;
 

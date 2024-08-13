@@ -2105,7 +2105,8 @@ ServerLoop(void)
 		 */
 		if (!IsBinaryUpgrade && AutoVacPID == 0 &&
 			(AutoVacuumingActive() || start_autovac_launcher) &&
-			pmState == PM_RUN)
+			pmState == PM_RUN &&
+			Gp_role != GP_ROLE_UTILITY)
 		{
 			AutoVacPID = StartAutoVacLauncher();
 			if (AutoVacPID != 0)
@@ -3564,7 +3565,8 @@ reaper(SIGNAL_ARGS)
 			 * Likewise, start other special children as needed.  In a restart
 			 * situation, some of them may be alive already.
 			 */
-			if (!IsBinaryUpgrade && AutoVacuumingActive() && AutoVacPID == 0)
+			if (!IsBinaryUpgrade && AutoVacuumingActive() && AutoVacPID == 0 &&
+				Gp_role != GP_ROLE_UTILITY)
 				AutoVacPID = StartAutoVacLauncher();
 			if (PgArchStartupAllowed() && PgArchPID == 0)
 				PgArchPID = StartArchiver();

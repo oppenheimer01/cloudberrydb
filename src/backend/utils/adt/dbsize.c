@@ -553,14 +553,22 @@ pg_relation_size(PG_FUNCTION_ARGS)
 	// TODO directory table
 	size = calculate_relation_size(rel, forkNumber);
 
-	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
+	if (Gp_role == GP_ROLE_DISPATCH)
 	{
-		char	   *sql;
+#ifdef SERVERLESS
+		/* The storage is shared */
+		if (!RelationIsHashdata(rel))
+		{
+#endif /* SERVERLESS */
+		char *sql;
 
 		sql = psprintf("select pg_catalog.pg_relation_size(%u, '%s')", relOid,
 					   forkNames[forkNumber]);
 
 		size += get_size_from_segDBs(sql);
+#ifdef SERVERLESS
+		}
+#endif /* SERVERLESS */
 	}
 
 	relation_close(rel, AccessShareLock);

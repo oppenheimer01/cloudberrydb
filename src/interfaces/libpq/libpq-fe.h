@@ -682,9 +682,11 @@ extern PQsslKeyPassHook_OpenSSL_type PQgetSSLKeyPassHook_OpenSSL(void);
 extern void PQsetSSLKeyPassHook_OpenSSL(PQsslKeyPassHook_OpenSSL_type hook);
 extern int	PQdefaultSSLKeyPassHook_OpenSSL(char *buf, int size, PGconn *conn);
 
+#ifdef SERVERLESS
 #ifndef FRONTEND
 extern ExecStatusType add_exec_status_type(void);
 #endif
+#endif /* SERVERLESS */
 #ifdef __cplusplus
 }
 #endif

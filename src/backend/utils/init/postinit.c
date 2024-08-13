@@ -857,6 +857,11 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		XactIsoLevel = XACT_READ_COMMITTED;
 
 		(void) GetTransactionSnapshot();
+
+#ifdef SERVERLESS
+		TransferReset();
+		SetTransferOn();
+#endif /* SERVERLESS */
 	}
 
 	/*

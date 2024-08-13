@@ -108,10 +108,8 @@ extern VacuumRelation *makeVacuumRelation(RangeVar *relation, Oid oid, List *va_
 
 extern ReindexIndexInfo *makeReindexIndexInfo(Oid indexId, Oid tableId, Oid amId, bool safe);
 
-#ifdef SERVERLESS
 extern Node *makeAPHashExpr(int modulus);
 extern Node *makeAPRangeExpr(List *lower, List *upper, List *step, bool has_default);
 extern Node *makeAPListExpr(void);
-#endif /* SERVERLESS */
 
 #endif							/* MAKEFUNC_H */

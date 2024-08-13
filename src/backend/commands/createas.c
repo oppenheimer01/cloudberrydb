@@ -1558,7 +1558,7 @@ check_ivm_restriction_walker(Node *node, check_ivm_restriction_context *context)
 				if (joinexpr->jointype > JOIN_INNER || context->partial)
 						ereport(ERROR,
 								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								 errmsg("The JOIN is not supported on incrementally maintainable materialized view")));
+								 errmsg("OUTER JOIN is not supported on incrementally maintainable materialized view")));
 
 				expression_tree_walker(node, check_ivm_restriction_walker, (void *) context);
 				break;

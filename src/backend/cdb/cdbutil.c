@@ -274,22 +274,25 @@ readGpSegConfigFromCatalog(int *total_dbs)
 		Assert(!isNull);
 		warehouseid = DatumGetObjectId(attr);
 
-		/* status */
-		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_status, RelationGetDescr(gp_seg_config_rel), &isNull);
-		Assert(!isNull);
-		char status = DatumGetChar(attr);
-
-		/* content */
-		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_content, RelationGetDescr(gp_seg_config_rel), &isNull);
-		Assert(!isNull);
-
 		/*
 		 * In serverless mode, and if we are not in fts probe process,
 		 * we only need the segment that is up and has the same warehouseid.
 		 */
 #ifdef SERVERLESS
+		char status;
+		int16 contentid;
+		/* content */
+		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_content, RelationGetDescr(gp_seg_config_rel), &isNull);
+		Assert(!isNull);
+		contentid = DatumGetInt16(attr);
+
+		/* status */
+		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_status, RelationGetDescr(gp_seg_config_rel), &isNull);
+		Assert(!isNull);
+		status = DatumGetChar(attr);
+
 		if (!am_ftsprobe)
-			need_current_segment = (warehouseid == GetCurrentWarehouseId() || DatumGetInt16(attr) == MASTER_CONTENT_ID) && (status == GP_SEGMENT_CONFIGURATION_STATUS_UP);
+			need_current_segment = (warehouseid == GetCurrentWarehouseId() || contentid == MASTER_CONTENT_ID) && (status == GP_SEGMENT_CONFIGURATION_STATUS_UP);
 #endif
 
 		if (need_current_segment)

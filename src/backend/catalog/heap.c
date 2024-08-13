@@ -1342,9 +1342,7 @@ InsertPgClassTuple(Relation pg_class_desc,
 
 	/* relpartbound is set by updating this tuple, if necessary */
 	nulls[Anum_pg_class_relpartbound - 1] = true;
-#ifdef SERVERLESS
 	nulls[Anum_pg_class_relpartspec - 1] = true;
-#endif /* SERVERLESS */
 
 	tup = heap_form_tuple(RelationGetDescr(pg_class_desc), values, nulls);
 

@@ -6797,6 +6797,8 @@ write_relcache_init_file(bool shared)
 			ResQueueCapabilityRelationId
 
 	};
+#else
+	int			i;
 #endif /* SERVERLESS */
 
 	if (write_relcache_init_file_hook && write_relcache_init_file_hook())

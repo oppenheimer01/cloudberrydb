@@ -2920,8 +2920,10 @@ GetSnapshotData(Snapshot snapshot, DtxContext distributedTransactionContext)
 					 errmsg("out of memory")));
 	}
 
+#ifdef SERVERLESS
 	if (GetSnapshotData_hook)
 		return (*GetSnapshotData_hook) (snapshot, distributedTransactionContext);
+#endif /* SERVERLESS */
 
 	/*
 	 * GP: Distributed snapshot.
