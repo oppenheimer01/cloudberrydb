@@ -608,4 +608,7 @@ extern bool gp_log_stack_trace_lines;   /* session GUC, controls line info in st
 extern const char *SegvBusIllName(int signal);
 extern void StandardHandlerForSigillSigsegvSigbus_OnMainThread(char * processName, SIGNAL_ARGS);
 
+typedef const char * (*resolve_symbol_function_hook_type) (const char *symbol_function);
+extern PGDLLIMPORT resolve_symbol_function_hook_type resolve_symbol_function_hook;
+
 #endif							/* ELOG_H */

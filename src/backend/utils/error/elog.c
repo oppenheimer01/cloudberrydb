@@ -103,6 +103,7 @@
  */
 #define _DARWIN_C_SOURCE 1
 #include <dlfcn.h>
+#include <link.h>
 
 /* In this module, access gettext() via err_gettext() */
 #undef _
@@ -115,6 +116,7 @@ ErrorContextCallback *error_context_stack = NULL;
 sigjmp_buf *PG_exception_stack = NULL;
 
 extern bool redirection_done;
+resolve_symbol_function_hook_type resolve_symbol_function_hook = NULL;
 
 /*
  * Hook for intercepting messages before they are sent to the server log.
@@ -3790,88 +3792,72 @@ append_stacktrace(PipeProtoChunk *buffer, StringInfo append, void *const *stacka
 
 
 	FILE * fd;
-	bool fd_ok = false;
 	char cmd[CMD_BUFFER_SIZE];
-	char cmdresult[STACK_DEPTH_MAX][SYMBOL_SIZE];
-	char addrtxt[ADDRESS_SIZE];
+	char cmdresult[2][SYMBOL_SIZE];
 
 #if defined(__darwin__)
 	const char * prog = "atos -o";
 #else
-	const char * prog = "addr2line -s -e";
+	const char * prog = "addr2line -s -f -e";
 #endif
 
-	static bool in_translate_stacktrace = false;
 	bool addr2line_ok = gp_log_stack_trace_lines;
 
 	if (stacksize == 0)
 		return;
 
-
-	if (!in_translate_stacktrace && addr2line_ok)
-	{
-		/*
-		 * Keep a record that we are doing this work, so if we crash during it, we don't
-		 * try to do it again when we recurse back here,
-		 */
-		in_translate_stacktrace = true;
-
-		snprintf(cmd,sizeof(cmd),"%s %s ",prog,my_exec_path);
-
-		for (stack_no = 0; stack_no < stacksize && stack_no < 100; stack_no++)
-		{
-			cmdresult[stack_no][0] = '\0';   /* clear this array for later */
-			snprintf(addrtxt, sizeof(addrtxt),"%p ",stackarray[stack_no]);
-			
-			Assert(sizeof(cmd) > strlen(cmd));
-			strncat(cmd, addrtxt, sizeof(cmd) - strlen(cmd) - 1);
-		}
-
-		cmdresult[0][0] = '\0';
-		fd = popen(cmd,"r");
-		if (fd != NULL)
-			fd_ok = true;
-
-		if (fd_ok)
-		{
-			for (stack_no = 0; stack_no < stacksize && stack_no < STACK_DEPTH_MAX; stack_no++)
-			{
-				/* initialize the string */
-				cmdresult[stack_no][0] = '\0';
-				// Get one line of the result from addr2line (or atos)
-				if (fgets(cmdresult[stack_no],SYMBOL_SIZE,fd) == NULL)
-					break;
-				// Force it to be a valid string (in case it was too long)
-				cmdresult[stack_no][SYMBOL_SIZE-1] = '\0';
-				// Get rid of the newline at the end.
-				if (strlen(cmdresult[stack_no]) > 0 &&
-					cmdresult[stack_no][strlen(cmdresult[stack_no])-1] == '\n')
-					cmdresult[stack_no][strlen(cmdresult[stack_no])-1] = '\0';
-			}
-		}
-
-		if (!fd_ok || strlen(cmdresult[0]) <= 1)
-		{
-			addr2line_ok = false;
-		}
-
-		if (fd != NULL)
-			pclose(fd);
-
-		in_translate_stacktrace = false;
-	}
-
 	for (stack_no = 0; stack_no < stacksize; stack_no++)
 	{
 		/* check if file/line info is available */
 		char *lineInfo = "";
-		if (addr2line_ok && stack_no < STACK_DEPTH_MAX)
-		{
-			lineInfo = cmdresult[stack_no];
-		}
+		struct link_map* link_map;
+		const char *function = NULL;
 
-		if (dladdr(stackarray[stack_no], &dli) != 0)
+		if (dladdr1(stackarray[stack_no], &dli, (void**)&link_map, RTLD_DL_LINKMAP) != 0)
 		{
+			if (addr2line_ok)
+			{
+				size_t vam_add = (size_t) ((char *) stackarray[stack_no] - (char *)link_map->l_addr);
+				if (strncmp(dli.dli_fname, "postgres:", strlen("postgres:")) == 0)
+					snprintf(cmd,sizeof(cmd),"%s %s %lx", prog, my_exec_path, vam_add);
+				else 
+					snprintf(cmd,sizeof(cmd),"%s %s %lx", prog, dli.dli_fname, vam_add);
+				fd = popen(cmd,"r");
+
+				if (fd != NULL)
+				{
+					size_t r_ind = 0;
+					/* initialize the string */
+					cmdresult[r_ind][0] = '\0';
+					while (fgets(cmdresult[r_ind], SYMBOL_SIZE, fd) != NULL)
+					{
+						// Force it to be a valid string (in case it was too long)
+						cmdresult[r_ind][SYMBOL_SIZE-1] = '\0';
+						if (strlen(cmdresult[r_ind]) > 0 &&
+							cmdresult[r_ind][strlen(cmdresult[r_ind])-1] == '\n')
+							cmdresult[r_ind][strlen(cmdresult[r_ind])-1] = '\0';
+#if defined(__darwin__)
+						lineInfo = cmdresult[r_ind];
+						break;
+#else
+						if (r_ind == 0) 
+						{
+							function = cmdresult[r_ind];
+						} 
+						else if (r_ind == 1)
+						{
+							lineInfo = cmdresult[r_ind];
+							break;
+						}
+						++r_ind;
+						/* initialize the string */
+						cmdresult[r_ind][0] = '\0';
+#endif
+					}
+				}
+				if (fd != NULL)
+					pclose(fd);
+			}
 			const char *file = dli.dli_fname;
 			if (file != NULL &&	file[0] != '\0')
 			{
@@ -3891,10 +3877,17 @@ append_stacktrace(PipeProtoChunk *buffer, StringInfo append, void *const *stacka
 				file = "";
 			}
 
-			const char *function = dli.dli_sname;
 			if (function == NULL || function[0] == '\0')
 			{
+#if defined(__darwin__)
+				function = "<darwin>";
+#else
 				function = "<symbol not found>";
+#endif
+			} 
+			else if (resolve_symbol_function_hook)
+			{
+				function = (*resolve_symbol_function_hook)(function);
 			}
 
 			// check if lineInfo was retrieved
@@ -3936,7 +3929,6 @@ append_stacktrace(PipeProtoChunk *buffer, StringInfo append, void *const *stacka
 									  function,
 									  lineInfo);
 			}
-
 
 		}
 		else
