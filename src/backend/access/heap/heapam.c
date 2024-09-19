@@ -1402,6 +1402,11 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 {
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
+#ifdef SERVERLESS
+	if (systup_store_active() && RelationGetRelid(sscan->rs_rd) < FirstNormalObjectId)
+		return systup_store_getnext(sscan);
+#endif
+
 	/*
 	 * This is still widely used directly, without going through table AM, so
 	 * add a safety check.  It's possible we should, at a later point,
@@ -1442,6 +1447,10 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 	 */
 
 	pgstat_count_heap_getnext(scan->rs_base.rs_rd);
+
+#ifdef SERVERLESS
+	TransStoreTuple(&scan->rs_ctup);
+#endif
 
 	return &scan->rs_ctup;
 }

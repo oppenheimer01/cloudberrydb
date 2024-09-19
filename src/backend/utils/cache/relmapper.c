@@ -49,6 +49,7 @@
 #include "catalog/catalog.h"
 #include "catalog/pg_tablespace.h"
 #include "catalog/storage.h"
+#include "cdb/cdbvars.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/fd.h"
@@ -713,6 +714,11 @@ load_relmap_file(bool shared, bool lock_held)
 	pg_crc32c	crc;
 	int			fd;
 	int			r;
+
+#ifdef SERVERLESS
+	if (GpIdentity.segindex >= 0)
+		return;
+#endif
 
 	if (shared)
 	{

@@ -679,11 +679,17 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	elog(DEBUG3, "InitPostgres");
 
 #ifdef SERVERLESS
-	if (StartUpCatalogData && !IS_QUERY_DISPATCHER())
+	if (!IS_QUERY_DISPATCHER())
 	{
-		SystemTupleStoreReset();
-		SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);
+		elog(LOG, "Startup catalog %d procid: %d", StartUpCatalogLen, MyProcPid);
+
+		if (StartUpCatalogData)
+		{
+			SystemTupleStoreReset();
+			SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);
+		}
 	}
+
 #endif
 
 	/*

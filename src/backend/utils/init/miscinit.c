@@ -1800,6 +1800,11 @@ expand_shared_preload_libraries_string()
 	{
 		for (int i = 0; i < shared_preload_libraries_num; i++)
 		{
+#ifdef SERVERLESS
+			if (strcmp(process_shared_preload_libraries_array[i], "unionstore") == 0 &&
+				GpIdentity.segindex >= 0)
+				continue;
+#endif
 			elemlist = lappend(elemlist, pstrdup((char*)process_shared_preload_libraries_array[i]));
 		}
 	}

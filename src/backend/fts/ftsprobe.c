@@ -26,6 +26,7 @@
 #include "libpq-int.h"
 #include "access/xact.h"
 #include "cdb/cdbfts.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "postmaster/fts.h"
 #include "postmaster/ftsprobe.h"
@@ -335,6 +336,11 @@ ftsConnect(fts_context *context)
 				}
 				else if (ftsInfo->poll_revents & (POLLOUT | POLLIN))
 				{
+
+#ifdef SERVERLESS
+					ftsInfo->conn->catalog =
+							CollectStartupCatalog(&ftsInfo->conn->catalog_size);
+#endif
 					switch(PQconnectPoll(ftsInfo->conn))
 					{
 						case PGRES_POLLING_OK:

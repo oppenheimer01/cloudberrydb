@@ -1448,6 +1448,11 @@ RelationInitPhysicalAddr(Relation relation)
 {
 	Oid		oldnode = relation->rd_node.relNode;
 
+#ifdef SERVERLESS
+	if (GpIdentity.segindex >= 0)
+		return;
+#endif
+
 	/* these relations kinds never have storage */
 	if (!RELKIND_HAS_STORAGE(relation->rd_rel->relkind))
 		return;

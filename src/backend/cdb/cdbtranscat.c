@@ -161,6 +161,7 @@ bool PlFuncStored(Oid funcid)
 systup_store_beginscan_hook_type systup_store_beginscan_hook = NULL;
 systup_store_endscan_hook_type systup_store_endscan_hook = NULL;
 systup_store_getnextslot_hook_type systup_store_getnextslot_hook = NULL;
+systup_store_getnext_hook_type systup_store_getnext_hook = NULL;
 systup_store_active_hook_type systup_store_active_hook = NULL;
 systup_store_sorted_active_hook_type systup_store_sorted_active_hook = NULL;
 
@@ -184,6 +185,14 @@ bool systup_store_getnextslot(TableScanDesc sscan, TupleTableSlot *slot)
 	else
 		return false;
 }
+HeapTuple systup_store_getnext(TableScanDesc sscan)
+{
+	if (systup_store_getnext_hook)
+		return (*systup_store_getnext_hook) (sscan);
+	else
+		return NULL;
+}
+
 bool systup_store_active(void)
 {
 	if (systup_store_active_hook)

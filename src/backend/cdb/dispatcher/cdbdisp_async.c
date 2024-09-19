@@ -1179,9 +1179,11 @@ processResults(CdbDispatchResult *dispatchResult)
 			if (sscanf(qnotifies->extra, "%u:%u", &dbid, &seq_oid) != 2)
 				elog(ERROR, "invalid nextval message");
 
+#ifndef SERVERLESS
 			if (dbid != MyDatabaseId)
 				elog(ERROR, "nextval message database id:%u doesn't match my database id:%u",
 					 dbid, MyDatabaseId);
+#endif
 
 			PG_TRY();
 			{

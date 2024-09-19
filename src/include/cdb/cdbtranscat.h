@@ -79,6 +79,7 @@ extern TableScanDesc systup_store_beginscan(Relation relation, int nkeys, ScanKe
 											uint32 flags);
 extern void systup_store_endscan(TableScanDesc sscan);
 extern bool systup_store_getnextslot(TableScanDesc sscan, TupleTableSlot *slot);
+extern HeapTuple systup_store_getnext(TableScanDesc sscan);
 extern bool systup_store_active(void);
 extern bool systup_store_sorted_active(void);
 
@@ -91,6 +92,9 @@ extern PGDLLIMPORT systup_store_endscan_hook_type systup_store_endscan_hook;
 typedef bool (*systup_store_getnextslot_hook_type) (TableScanDesc sscan,
 													TupleTableSlot *slot);
 extern PGDLLIMPORT systup_store_getnextslot_hook_type systup_store_getnextslot_hook;
+typedef HeapTuple (*systup_store_getnext_hook_type) (TableScanDesc sscan);
+extern PGDLLIMPORT systup_store_getnext_hook_type systup_store_getnext_hook;
+
 typedef bool (*systup_store_active_hook_type) (void);
 extern PGDLLIMPORT systup_store_active_hook_type systup_store_active_hook;
 typedef bool (*systup_store_sorted_active_hook_type) (void);

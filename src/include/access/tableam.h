@@ -1198,11 +1198,7 @@ table_beginscan_analyze(Relation rel, AnalyzeContext *ctx)
 /*
  * End relation scan.
  */
-static inline void
-table_endscan(TableScanDesc scan)
-{
-	scan->rs_rd->rd_tableam->scan_end(scan);
-}
+extern void table_endscan(TableScanDesc scan);
 
 /*
  * Restart a relation scan.

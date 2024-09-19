@@ -42,6 +42,7 @@
 #include "access/htup_details.h"
 #include "access/xlog.h"
 #include "access/xlog_internal.h"
+#include "cdb/cdbvars.h"
 #include "libpq/pqsignal.h"
 #include "miscadmin.h"
 #include "pgstat.h"
@@ -455,7 +456,11 @@ CheckpointerMain(void)
 			 */
 			if (!do_restartpoint)
 			{
-				CreateCheckPoint(flags);
+#ifdef SERVERLESS
+				if (GpIdentity.segindex < 0)
+#endif
+					CreateCheckPoint(flags);
+
 				ckpt_performed = true;
 			}
 			else

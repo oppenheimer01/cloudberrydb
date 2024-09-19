@@ -24,6 +24,7 @@
 #include "access/xact.h"
 #include "catalog/pg_subscription.h"
 #include "catalog/pg_subscription_rel.h"
+#include "cdb/cdbvars.h"
 #include "funcapi.h"
 #include "libpq/pqsignal.h"
 #include "miscadmin.h"

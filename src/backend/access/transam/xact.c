@@ -2057,6 +2057,11 @@ RecordTransactionAbort(bool isSubXact)
 	else
 		xid = GetCurrentTransactionIdIfAny();
 
+#ifdef SERVERLESS
+	if (GpIdentity.segindex >= 0)
+		return xid;
+#endif
+
 	/*
 	 * If we haven't been assigned an XID, nobody will care whether we aborted
 	 * or not.  Hence, we're done in that case.  It does not matter if we have
