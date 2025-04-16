@@ -483,9 +483,6 @@ typedef struct ViewOptions
 #define RelationIsHeap(relation) \
 	((relation)->rd_amhandler == F_HEAP_TABLEAM_HANDLER)
 
-#define RelationIsNonblockRelation(relation) \
-	((relation)->rd_tableam && (relation)->rd_rel->relam != HEAP_TABLE_AM_OID)
-
 #define AMHandlerIsAoRows(amhandler) ((amhandler) == F_AO_ROW_TABLEAM_HANDLER)
 #define AMHandlerIsAoCols(amhandler) \
 	((amhandler) == F_AO_COLUMN_TABLEAM_HANDLER)
@@ -548,6 +545,7 @@ typedef struct ViewOptions
  * can't distinguish the PAX and renamed heap(heap_psql) in test `psql`.
  */
 #define PAX_AM_OID 7047
+#define HASHDATA_AM_OID 7015
 
 #define RelationIsPax(relation) \
 	((relation)->rd_rel->relam == PAX_AM_OID)
@@ -568,7 +566,8 @@ typedef struct ViewOptions
  */
 #define RelationIsNonblockRelation(relation) \
 	(RelationIsAppendOptimized(relation) || \
-	 RelationIsPax(relation))
+	 (relation)->rd_rel->relam == PAX_AM_OID || \
+	 (relation)->rd_rel->relam == HASHDATA_AM_OID)
 
 /*
  * RelationIsBitmapIndex

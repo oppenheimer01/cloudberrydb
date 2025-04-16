@@ -129,6 +129,8 @@ f_smgr smgrsw[] = {
 	}
 };
 
+static const int NSmgr = lengthof(smgrsw);
+
 static File	AORelOpenSegFile(__attribute__((unused))Oid reloid, const char *filePath, int fileFlags)
 {
 	return PathNameOpenFile(filePath, fileFlags);
@@ -262,7 +264,7 @@ smgrinit(void)
 {
 	int			i;
 
-	for (i = 0; i <= SMGR_MAX_ID; i++)
+	for (i = 0; i < NSmgr; i++)
 	{
 		if (smgrsw[i].smgr_init)
 			smgrsw[i].smgr_init();
@@ -283,7 +285,7 @@ smgrshutdown(int code, Datum arg)
 {
 	int			i;
 
-	for (i = 0; i <= SMGR_MAX_ID; i++)
+	for (i = 0; i < NSmgr; i++)
 	{
 		if (smgrsw[i].smgr_shutdown)
 			smgrsw[i].smgr_shutdown();

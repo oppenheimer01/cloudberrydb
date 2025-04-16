@@ -14,6 +14,7 @@
 #ifndef MATVIEW_H
 #define MATVIEW_H
 
+#include "access/heapam.h"
 #include "catalog/objectaddress.h"
 #include "executor/execdesc.h"
 #include "nodes/params.h"

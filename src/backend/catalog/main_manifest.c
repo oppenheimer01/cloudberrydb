@@ -25,7 +25,7 @@
  *      Remove the main manifest record for the relnode.
  */
 void
-RemoveMainManifestByRelnode(RelFileNodeId relnode)
+RemoveMainManifestByRelnode(Oid relnode)
 {
     Relation    main_manifest;
     HeapTuple   tuple;

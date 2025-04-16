@@ -24,12 +24,12 @@
  */
 CATALOG(main_manifest,9004,ManifestRelationId)
 {
-	RelFileNodeId	relnode;
+	Oid 			relnode;
 	text			path;
 } FormData_main_manifest;
 
 typedef FormData_main_manifest *Form_main_manifest;
 
-extern void RemoveMainManifestByRelnode(RelFileNodeId relnode);
+extern void RemoveMainManifestByRelnode(Oid relnode);
 
 #endif /* MAIN_MANIFEST.h */

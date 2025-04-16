@@ -1539,7 +1539,7 @@ appendonly_beginscan_extractcolumns(Relation rel, Snapshot snapshot, int nkeys, 
 									PlanState *ps, uint32 flags)
 {
 	AppendOnlyScanDesc aoscan;
-	aoscan = (AppendOnlyScanDesc) appendonly_beginscan(rel, snapshot, nkeys, key, parallel_scan, flags);
+	aoscan = (AppendOnlyScanDesc) appendonly_beginscan(rel, snapshot, nkeys, key, parallel_scan, flags, NULL);
 	if (gp_enable_predicate_pushdown)
 		ps->qual = appendonly_predicate_pushdown_prepare(aoscan, ps->qual, ps->ps_ExprContext);
 	return (TableScanDesc) aoscan;
