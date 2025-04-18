@@ -1784,24 +1784,6 @@ has_update_delete_triggers(Oid relid)
 		}
 	}
 
-	if (including_children && !result && relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-	{
-		List	   *partitions = find_inheritance_children(relid, NoLock);
-		ListCell   *lc;
-
-		foreach(lc, partitions)
-		{
-			Oid			partrelid = lfirst_oid(lc);
-			if (has_update_triggers(partrelid, true))
-			{
-				result = true;
-				break;
-			}
-		}
-
-		list_free(partitions);
-	}
-
 	RelationClose(relation);
 
 	return result;
