@@ -3059,9 +3059,6 @@ getObjectClass(const ObjectAddress *object)
 		case ManifestRelationId:
 			return OCLASS_MAIN_MANIFEST;
 
-		case ManifestRelationId:
-			return OCLASS_MAIN_MANIFEST;
-
 		case GpWarehouseRelationId:
 			return OCLASS_WAREHOUSE;
 

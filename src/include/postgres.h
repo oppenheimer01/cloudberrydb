@@ -605,6 +605,6 @@ extern void ExceptionalCondition(const char *conditionName,
 					 const char *errorType,
 			   const char *fileName, int lineNumber) pg_attribute_noreturn();
 
-typedef void (*exec_simple_query_hook) (void (*exec)(const char *), void *whereToSendOutput);
-extern PGDLLIMPORT exec_simple_query_hook execSimpleQuery_Hook;
+typedef void (*execSimpleQuery_Hook_type) (void (*exec)(const char *), void *whereToSendOutput);
+extern PGDLLIMPORT execSimpleQuery_Hook_type execSimpleQuery_Hook;
 #endif							/* POSTGRES_H */

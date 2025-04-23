@@ -163,7 +163,7 @@ HandleTxnCommand_hook_type HandleTxnCommand_hook = NULL;
 /*
  * Hook for plugins to process query
  */
-exec_simple_query_hook execSimpleQuery_Hook = NULL;
+execSimpleQuery_Hook_type execSimpleQuery_Hook = NULL;
 
 /* ----------------
  *		private typedefs etc
