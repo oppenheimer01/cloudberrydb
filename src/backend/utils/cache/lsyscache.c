@@ -67,6 +67,8 @@
 /* Hook for plugins to get control in get_attavgwidth() */
 get_attavgwidth_hook_type get_attavgwidth_hook = NULL;
 
+/* Hook for plugins to get control in func_exec_location() */
+func_exec_location_hook_type func_exec_location_hook = NULL;
 
 /*				---------- AMOP CACHES ----------						 */
 
@@ -1753,7 +1755,7 @@ get_oprjoin(Oid opno)
  * So having an extra parameter including_children only for ORCA.
  */
 bool
-has_update_triggers(Oid relid, bool including_children)
+has_update_delete_triggers(Oid relid)
 {
 	Relation	relation;
 	bool		result = false;
@@ -1773,7 +1775,8 @@ has_update_triggers(Oid relid, bool including_children)
 			{
 				Trigger trigger = relation->trigdesc->triggers[i];
 				found = trigger_enabled(trigger.tgoid) &&
-					(get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_UPDATE) == TRIGGER_TYPE_UPDATE;
+						((get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_UPDATE) == TRIGGER_TYPE_UPDATE ||
+						 (get_trigger_type(trigger.tgoid) & TRIGGER_TYPE_DELETE) == TRIGGER_TYPE_DELETE);
 				if (found)
 				{
 					result = true;
@@ -1781,24 +1784,6 @@ has_update_triggers(Oid relid, bool including_children)
 				}
 			}
 		}
-	}
-
-	if (including_children && !result && relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-	{
-		List	   *partitions = find_inheritance_children(relid, NoLock);
-		ListCell   *lc;
-
-		foreach(lc, partitions)
-		{
-			Oid			partrelid = lfirst_oid(lc);
-			if (has_update_triggers(partrelid, true))
-			{
-				result = true;
-				break;
-			}
-		}
-
-		list_free(partitions);
 	}
 
 	RelationClose(relation);
@@ -2008,6 +1993,22 @@ get_agg_transtype(Oid aggid)
 	return result;
 }
 
+
+Oid
+get_agg_transfn(Oid aggid)
+{
+	HeapTuple	tp;
+	Oid			result;
+
+	tp = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(aggid));
+	if (!HeapTupleIsValid(tp))
+		elog(ERROR, "cache lookup failed for aggregate %u", aggid);
+
+	result = ((Form_pg_aggregate) GETSTRUCT(tp))->aggtransfn;
+	ReleaseSysCache(tp);
+	return result;
+}
+
 /*
  * is_ordered_agg
  *		Given aggregate id, check if it is an ordered aggregate
@@ -2099,7 +2100,7 @@ is_agg_partial_capable(Oid aggid)
  *
  *		Returns the relisivm flag associated with a given relation.
  */
-bool
+char
 get_rel_relisivm(Oid relid)
 {
 	HeapTuple	tp;
@@ -2108,14 +2109,30 @@ get_rel_relisivm(Oid relid)
 	if (HeapTupleIsValid(tp))
 	{
 		Form_pg_class reltup = (Form_pg_class) GETSTRUCT(tp);
-		bool		result;
+		char		result;
 
 		result = reltup->relisivm;
 		ReleaseSysCache(tp);
 		return result;
 	}
 	else
-		return false;
+		return '\0';
+}
+
+
+bool
+get_rel_haspartialagg(Oid relid)
+{
+	HeapTuple	tp;
+	bool		result;
+
+	tp = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+	if (!HeapTupleIsValid(tp))
+		elog(ERROR, "cache lookup failed for relation %u", relid);
+
+	result = ((Form_pg_class) GETSTRUCT(tp))->relhaspartialagg;
+	ReleaseSysCache(tp);
+	return result;
 }
 
 /*
@@ -2515,6 +2532,9 @@ func_exec_location(Oid funcid)
 	HeapTuple	tp;
 	char		result;
 	bool		isnull;
+
+	if (func_exec_location_hook)
+		return (*func_exec_location_hook)(funcid);
 
 	tp = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(tp))

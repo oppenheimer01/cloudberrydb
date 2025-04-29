@@ -44,6 +44,7 @@
 #define POSTGRES_H
 
 #include "c.h"
+#include "lib/stringinfo.h"
 #include "utils/elog.h"
 #include "utils/palloc.h"
 #include "storage/itemptr.h"
@@ -460,6 +461,10 @@ typedef struct NullableDatum
 	/* due to alignment padding this could be used for flags for free */
 } NullableDatum;
 
+/* Hook for plugins to handle the txn message */
+typedef void(*HandleTxnCommand_hook_type)(StringInfo input_message, volatile bool *send_ready_for_query);
+extern PGDLLIMPORT HandleTxnCommand_hook_type HandleTxnCommand_hook;
+
 #define SIZEOF_DATUM SIZEOF_VOID_P
 StaticAssertDecl(SIZEOF_DATUM == 8, "sizeof datum is not 8");
 /* 
@@ -600,4 +605,6 @@ extern void ExceptionalCondition(const char *conditionName,
 					 const char *errorType,
 			   const char *fileName, int lineNumber) pg_attribute_noreturn();
 
+typedef void (*execSimpleQuery_Hook_type) (void (*exec)(const char *), void *whereToSendOutput);
+extern PGDLLIMPORT execSimpleQuery_Hook_type execSimpleQuery_Hook;
 #endif							/* POSTGRES_H */

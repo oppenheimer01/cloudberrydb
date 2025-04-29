@@ -84,15 +84,6 @@
 
 #include "catalog/gp_indexing.h"
 
-/* result structure for get_rels_with_domain() */
-typedef struct
-{
-	Relation	rel;			/* opened and locked relation */
-	int			natts;			/* number of attributes of interest */
-	int		   *atts;			/* attribute numbers */
-	/* atts[] is of allocated length RelationGetNumberOfAttributes(rel) */
-} RelToCheck;
-
 /* parameter structure for AlterTypeRecurse() */
 typedef struct
 {
@@ -135,8 +126,6 @@ static Oid	findTypeSubscriptingFunction(List *procname, Oid typeOid);
 static Oid	findRangeSubOpclass(List *opcname, Oid subtype);
 static Oid	findRangeCanonicalFunction(List *procname, Oid typeOid);
 static Oid	findRangeSubtypeDiffFunction(List *procname, Oid subtype);
-static void validateDomainConstraint(Oid domainoid, char *ccbin);
-static List *get_rels_with_domain(Oid domainOid, LOCKMODE lockmode);
 static void checkEnumOwner(HeapTuple tup);
 static char *domainAddConstraint(Oid domainOid, Oid domainNamespace,
 								 Oid baseTypeOid,
@@ -3250,7 +3239,7 @@ AlterDomainValidateConstraint(List *names, const char *constrName)
 	return address;
 }
 
-static void
+void
 validateDomainConstraint(Oid domainoid, char *ccbin)
 {
 	Expr	   *expr = (Expr *) stringToNode(ccbin);
@@ -3370,7 +3359,7 @@ validateDomainConstraint(Oid domainoid, char *ccbin)
  * Generally used for retrieving a list of tests when adding
  * new constraints to a domain.
  */
-static List *
+List *
 get_rels_with_domain(Oid domainOid, LOCKMODE lockmode)
 {
 	List	   *result = NIL;

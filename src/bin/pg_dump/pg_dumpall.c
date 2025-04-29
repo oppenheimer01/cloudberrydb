@@ -1144,6 +1144,7 @@ dumpRoles(PGconn *conn)
 				i_rolinherit,
 				i_rolcreaterole,
 				i_rolcreatedb,
+				i_rolcreatewh = -1,	/* keep compiler quiet */
 				i_rolcanlogin,
 				i_rolconnlimit,
 				i_rolpassword,
@@ -1189,7 +1190,7 @@ dumpRoles(PGconn *conn)
 	{
 		printfPQExpBuffer(buf,
 						  "SELECT %s.oid, rolname, rolsuper, rolinherit, "
-				  		  "rolcreaterole, rolcreatedb, "
+				  		  "rolcreaterole, rolcreatedb, rolcreatewh, "
 				  		  "rolcanlogin, rolconnlimit, rolpassword, "
 				  		  "rolvaliduntil, rolreplication, rolbypassrls, "
 				  		  "rolenableprofile, prfname, rolaccountstatus, rolfailedlogins, "
@@ -1303,6 +1304,8 @@ dumpRoles(PGconn *conn)
 	i_rolinherit = PQfnumber(res, "rolinherit");
 	i_rolcreaterole = PQfnumber(res, "rolcreaterole");
 	i_rolcreatedb = PQfnumber(res, "rolcreatedb");
+	if (server_version >= 140000)
+		i_rolcreatewh = PQfnumber(res, "rolcreatewh");
 	i_rolcanlogin = PQfnumber(res, "rolcanlogin");
 	i_rolconnlimit = PQfnumber(res, "rolconnlimit");
 	i_rolpassword = PQfnumber(res, "rolpassword");
@@ -1397,6 +1400,14 @@ dumpRoles(PGconn *conn)
 			appendPQExpBufferStr(buf, " CREATEDB");
 		else
 			appendPQExpBufferStr(buf, " NOCREATEDB");
+
+		if (server_version >= 140000)
+		{
+			if (strcmp(PQgetvalue(res, i, i_rolcreatewh), "t") == 0)
+				appendPQExpBufferStr(buf, " CREATEWH");
+			else
+				appendPQExpBufferStr(buf, " NOCREATEWH");
+		}
 
 		if (strcmp(PQgetvalue(res, i, i_rolcanlogin), "t") == 0)
 			appendPQExpBufferStr(buf, " LOGIN");

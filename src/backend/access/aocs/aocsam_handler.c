@@ -707,7 +707,7 @@ aoco_beginscan(Relation relation,
                Snapshot snapshot,
                int nkeys, struct ScanKeyData *key,
                ParallelTableScanDesc pscan,
-               uint32 flags)
+               uint32 flags, void *ctx)
 {
 	AOCSScanDesc	aoscan;
 

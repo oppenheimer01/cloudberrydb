@@ -100,7 +100,6 @@
 static bool tlist_matches_tupdesc(PlanState *ps, List *tlist, Index varno, TupleDesc tupdesc);
 static void ShutdownExprContext(ExprContext *econtext, bool isCommit);
 static List *flatten_logic_exprs(Node *node);
-ProcessDispatchResult_hook_type ProcessDispatchResult_hook = NULL;
 
 
 /* ----------------------------------------------------------------
@@ -2051,13 +2050,22 @@ void mppExecutorFinishup(QueryDesc *queryDesc)
 
 		if (qeError)
 		{
+#ifdef SERVERLESS
+			/* 
+			 * The dispatcherState will be cleaned up at transaction/subtransation abort,
+			 * but in serverless architecture, we will dispatch the sub-abort statement before
+			 * dispatcherState cleanup at subtransation abort, this will throw error again.
+			 * 
+			 * We should not set dispatcherState to NULL here, the Error
+			 * is re-throwed, and mppExecutorCleanup will do the necessary cleanup before
+			 * we dispatch the sub-abort statement.
+			 */
+#else 
 			estate->dispatcherState = NULL;
+#endif
 			FlushErrorState();
 			ThrowErrorData(qeError);
 		}
-
-		if (ProcessDispatchResult_hook)
-			ProcessDispatchResult_hook(ds);
 
 		/* collect pgstat from QEs for current transaction level */
 		pgstat_combine_from_qe(pr, primaryWriterSliceIndex);
@@ -2134,8 +2142,9 @@ uint64 mppExecutorWait(QueryDesc *queryDesc)
 			ReThrowError(qeError);
 		}
 
-		if (ProcessDispatchResult_hook)
-			ProcessDispatchResult_hook(ds);
+		/* FIXME_HASHDATA open it after the ProcessDispatchResult_hook merged into */
+//		if (ProcessDispatchResult_hook)
+//			ProcessDispatchResult_hook(ds);
 
 		/* collect pgstat from QEs for current transaction level */
 		pgstat_combine_from_qe(pr, primaryWriterSliceIndex);

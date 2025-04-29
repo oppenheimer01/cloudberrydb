@@ -82,6 +82,12 @@ static bool NeedResetSession = false;
 static Oid	OldTempNamespace = InvalidOid;
 static Oid	OldTempToastNamespace = InvalidOid;
 
+/* Hook for plugins to get control in build_gpqeid_param() */
+build_gpqeid_param_hook_type build_gpqeid_param_hook = NULL;
+
+/* Hook for plugins to get control in cdbgang_parse_gpqeid_params() */
+parse_gpqeid_params_hook_type parse_gpqeid_params_hook = NULL;
+
 /*
  * cdbgang_createGang:
  *
@@ -500,6 +506,9 @@ build_gpqeid_param(char *buf, int bufsz,
 				   (is_writer ? "true" : "false"), identifier, hostSegs, icHtabSize,
 				   qeidx);
 
+	if (build_gpqeid_param_hook)
+		len = (*build_gpqeid_param_hook)(buf + len, bufsz - len, len);
+
 	return (len > 0 && len < bufsz);
 }
 
@@ -575,6 +584,28 @@ cdbgang_parse_gpqeid_params(struct Port *port pg_attribute_unused(),
 	if (gpqeid_next_param(&cp, &np))
 	{
 		qe_idx = (int) strtol(cp, NULL, 10);
+	}
+
+	if (gpqeid_next_param(&cp, &np))
+	{
+#ifdef SERVERLESS
+		GpIdentity.segindex = (int32)strtol(cp, NULL, 10);
+#endif /* SERVERLESS */
+	}
+
+	if (gpqeid_next_param(&cp, &np))
+	{
+#ifdef SERVERLESS
+		GpIdentity.dbid = (int32)strtol(cp, NULL, 10);
+#endif /* SERVERLESS */
+	}
+
+	if (parse_gpqeid_params_hook)
+	{
+		if (gpqeid_next_param(&cp, &np))
+		{
+			(*parse_gpqeid_params_hook)(cp);
+		}
 	}
 
 	/* Too few items, or too many? */

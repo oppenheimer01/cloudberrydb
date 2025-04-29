@@ -73,7 +73,7 @@ static bool TupleMatchesHashFilter(ResultState *node, TupleTableSlot *resultSlot
  *		'nil' if the constant qualification is not satisfied.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
+TupleTableSlot *
 ExecResult(PlanState *pstate)
 {
 	ResultState *node = castNode(ResultState, pstate);

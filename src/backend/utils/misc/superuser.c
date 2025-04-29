@@ -68,8 +68,10 @@ superuser_arg(Oid roleid)
 	HeapTuple	rtup;
 
 	/* Quick out for cache hit */
+#ifndef SERVERLESS
 	if (OidIsValid(last_roleid) && last_roleid == roleid)
 		return last_roleid_is_super;
+#endif
 
 	/* Special escape path in case you deleted all your users. */
 	if (!IsUnderPostmaster && roleid == BOOTSTRAP_SUPERUSERID)

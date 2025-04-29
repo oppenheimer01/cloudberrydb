@@ -23,6 +23,7 @@
 #include "catalog/catalog.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
+#include "catalog/gp_warehouse.h"
 #include "catalog/objectaddress.h"
 #include "catalog/pg_am.h"
 #include "catalog/pg_amop.h"
@@ -2460,6 +2461,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 		case OBJECT_RESGROUP:
 		case OBJECT_RESQUEUE:
 		case OBJECT_PROFILE:
+		case OBJECT_WAREHOUSE:
 			if (list_length(name) != 1)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -4282,6 +4284,27 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
+		case OCLASS_WAREHOUSE:
+			{
+				char	   *warehouse_name = NULL;
+				HeapTuple	tuple;
+
+				tuple = SearchSysCache1(GPWAREHOUSEOID, ObjectIdGetDatum(object->objectId));
+				if (HeapTupleIsValid(tuple))
+				{
+					warehouse_name = text_to_cstring(&((Form_gp_warehouse) GETSTRUCT(tuple))->warehouse_name);
+					ReleaseSysCache(tuple);
+				}
+				if (!warehouse_name)
+				{
+					if (!missing_ok)
+						elog(ERROR, "cache lookup failed for warehouse %u",
+							 object->objectId);
+					break;
+				}
+				appendStringInfo(&buffer, _("warehouse %s"), warehouse_name);
+				break;
+			}
 		default:
 			{
 				struct CustomObjectClass *coc;
@@ -4290,6 +4313,9 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				if (coc && coc->object_desc)
 					coc->object_desc(coc, object, missing_ok, &buffer);
 			}
+
+		case OCLASS_MAIN_MANIFEST:
+			break;
 	}
 
 	/* an empty buffer is equivalent to no object found */
@@ -4897,6 +4923,19 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			appendStringInfoString(&buffer, "tag description");
 			break;
 
+		case OCLASS_MAIN_MANIFEST:
+			appendStringInfoString(&buffer, "manifest");
+			break;
+			/*
+			 * There's intentionally no default: case here; we want the
+			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 */
+			break;
+
+		case OCLASS_WAREHOUSE:
+			appendStringInfoString(&buffer, "warehouse");
+			break;
+
 		default:
 		{
 			struct CustomObjectClass *coc;
@@ -4904,11 +4943,6 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			coc = find_custom_object_class_by_classid(object->classId, false);
 			if (coc->object_type_desc)
 				coc->object_type_desc(coc, object, missing_ok, &buffer);
-			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
-			 */
-			break;
 		}
 	}
 
@@ -6366,6 +6400,10 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
+		case OCLASS_MAIN_MANIFEST:
+		case OCLASS_WAREHOUSE:
+			break;
+
 		default:
 		{
 			struct CustomObjectClass *coc;
@@ -6373,6 +6411,8 @@ getObjectIdentityParts(const ObjectAddress *object,
 			coc = find_custom_object_class_by_classid(object->classId, false);
 			if (coc->object_identity_parts)
 				coc->object_identity_parts(coc, object, objname, objargs, missing_ok, &buffer);
+
+
 			/*
 			 * There's intentionally no default: case here; we want the
 			 * compiler to warn if a new OCLASS hasn't been handled above.

@@ -650,6 +650,7 @@ typedef uint32 CommandId;
 #define FirstCommandId	((CommandId) 0)
 #define InvalidCommandId	(~(CommandId)0)
 
+typedef uint64 RelFileNodeId;
 /* ----------------
  *		Variable-length datatypes all share the 'struct varlena' header.
  *

@@ -231,9 +231,16 @@ CdbTryOpenTable(Oid relid, LOCKMODE reqmode, bool *lockUpgraded)
 		{
 			lockmode = RowExclusiveLock;
 			rel = try_table_open(relid, lockmode, false);
-
-			if (RelationIsValid(rel) &&
-				RelationIsNonblockRelation(rel))
+			/*
+			 * FIXME: table which is not a heap table and AO table
+			 * does not support concurrently update or delete. So
+			 * we upgrade lockmode as the same as AO|AOCO.
+			 */
+#ifdef SERVERLESS
+			if (RelationIsNonblockRelation(rel))
+#else /* SERVERLESS */
+			if (RelationIsAppendOptimized(rel))
+#endif /* SERVERLESS */
 			{
 				/*
 				 * AO|AOCO table does not support concurrently

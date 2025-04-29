@@ -119,14 +119,18 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* is relation a partition? */
 	bool		relispartition BKI_DEFAULT(f);
 
-	/* is relation a matview with ivm? */
-	bool		relisivm BKI_DEFAULT(f);
+	/* is relation a matview with ivm or defer ivm ? */
+	char		relisivm BKI_DEFAULT(n);
 
 	/* is relation a dynamic table? */
 	bool		relisdynamic BKI_DEFAULT(f);
 
 	/* count of materialized views referred to the relation */
 	int32		relmvrefcount	BKI_DEFAULT(0);
+
+	/* materialized view has partial agg results instead of final results? */
+	/* TODO: IVM implement this. */
+	bool		relhaspartialagg BKI_DEFAULT(f);
 
 	/* link to original rel during table rewrite; otherwise 0 */
 	Oid			relrewrite BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
@@ -136,6 +140,12 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 
 	/* all multixacts in this rel are >= this; it is really a MultiXactId */
 	TransactionId relminmxid BKI_DEFAULT(1);	/* FirstMultiXactId */
+
+	/*
+	 * Can partition relation reuse attributes (have the same column definitions) of its parent? 
+	 * This filed is pointless if rel is not a partition.
+	 */
+	bool		relreuseattrs BKI_DEFAULT(f);
 
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
 	/* NOTE: These fields are not present in a relcache entry's rd_rel field. */
@@ -147,6 +157,11 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 
 	/* partition bound node tree */
 	pg_node_tree relpartbound BKI_DEFAULT(_null_);
+
+#ifdef SERVERLESS
+	/* cbdb auto paritition spec */
+	pg_node_tree relpartspec BKI_DEFAULT(_null_);
+#endif /* SERVERLESS */
 #endif
 } FormData_pg_class;
 
@@ -210,6 +225,9 @@ DECLARE_INDEX(pg_class_tblspc_relfilenode_index, 3455, on pg_class using btree(r
  */
 #define		  REPLICA_IDENTITY_INDEX	'i'
 
+#define		  MATVIEW_IVM_NOTHING		'n' /* not ivm */
+#define		  MATVIEW_IVM_DEFERRED		'd' /* defer ivm */
+#define		  MATVIEW_IVM_IMMEDIATE		'i' /* immediate ivm */
 /*
  * Relation kinds that have physical storage. These relations normally have
  * relfilenode set to non-zero, but it can also be zero if the relation is

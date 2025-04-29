@@ -1043,6 +1043,9 @@ create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
 	pathnode->barrierHazard = false;
 	pathnode->rescannable = true;
 	pathnode->sameslice_relids = rel->relids;
+#ifdef SERVERLESS
+	pathnode->basemv = 0;
+#endif
 
 	cost_seqscan(pathnode, root, rel, pathnode->param_info);
 
@@ -1411,6 +1414,9 @@ create_append_path(PlannerInfo *root,
 	Assert(!parallel_aware || parallel_workers > 0);
 #endif
 
+#ifdef SERVERLESS
+	pathnode->append_agg = false;
+#endif
 
 	pathnode->path.pathtype = T_Append;
 	pathnode->path.parent = rel;

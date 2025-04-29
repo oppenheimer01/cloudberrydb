@@ -171,6 +171,7 @@ _equalIntoClause(const IntoClause *a, const IntoClause *b)
 	COMPARE_STRING_FIELD(tableSpaceName);
 	COMPARE_NODE_FIELD(viewQuery);
 	COMPARE_SCALAR_FIELD(skipData);
+	COMPARE_SCALAR_FIELD(defer);
 	COMPARE_NODE_FIELD(distributedBy);
 	COMPARE_SCALAR_FIELD(ivm);
 	COMPARE_SCALAR_FIELD(matviewOid);
@@ -263,6 +264,7 @@ _equalAggref(const Aggref *a, const Aggref *b)
 	COMPARE_SCALAR_FIELD(aggno);
 	COMPARE_SCALAR_FIELD(aggtransno);
 	COMPARE_LOCATION_FIELD(location);
+	COMPARE_SCALAR_FIELD(extrasplit);
 
 	return true;
 }
@@ -1366,6 +1368,9 @@ _equalCopyStmt(const CopyStmt *a, const CopyStmt *b)
 	COMPARE_NODE_FIELD(options);
 	COMPARE_NODE_FIELD(whereClause);
 	COMPARE_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	COMPARE_NODE_FIELD(custom_exprs);
+#endif /* SERVERLESS */
 
 	return true;
 }
@@ -1966,6 +1971,8 @@ _equalRefreshMatViewStmt(const RefreshMatViewStmt *a, const RefreshMatViewStmt *
 	COMPARE_SCALAR_FIELD(skipData);
 	COMPARE_NODE_FIELD(relation);
 	COMPARE_SCALAR_FIELD(isdynamic);
+	COMPARE_SCALAR_FIELD(incremental);
+	COMPARE_SCALAR_FIELD(combine);
 
 	return true;
 }
@@ -3177,6 +3184,7 @@ _equalRangeTblEntry(const RangeTblEntry *a, const RangeTblEntry *b)
 	COMPARE_BITMAPSET_FIELD(updatedCols);
 	COMPARE_BITMAPSET_FIELD(extraUpdatedCols);
 	COMPARE_NODE_FIELD(securityQuals);
+	COMPARE_NODE_FIELD(version);
 
 	return true;
 }
@@ -3427,6 +3435,9 @@ _equalPartitionSpec(const PartitionSpec *a, const PartitionSpec *b)
 {
 	COMPARE_STRING_FIELD(strategy);
 	COMPARE_NODE_FIELD(partParams);
+#ifdef SERVERLESS
+	COMPARE_NODE_FIELD(apExpr);
+#endif /* SERVERLESS */
 	COMPARE_LOCATION_FIELD(location);
 
 	return true;

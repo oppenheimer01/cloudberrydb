@@ -171,7 +171,7 @@ static bool baseTempCreationPending = false;
 static Oid	namespaceUser = InvalidOid;
 
 /* The above four values are valid only if baseSearchPathValid */
-static bool baseSearchPathValid = true;
+bool baseSearchPathValid = true;
 
 /* Override requests are remembered in a stack of OverrideStackEntry structs */
 
@@ -185,25 +185,25 @@ typedef struct
 static List *overrideStack = NIL;
 
 /*
- * myTempNamespace is InvalidOid until and unless a TEMP namespace is set up
+ * my_temp_namespace is InvalidOid until and unless a TEMP namespace is set up
  * in a particular backend session (this happens when a CREATE TEMP TABLE
  * command is first executed).  Thereafter it's the OID of the temp namespace.
  *
- * myTempToastNamespace is the OID of the namespace for my temp tables' toast
- * tables.  It is set when myTempNamespace is, and is InvalidOid before that.
+ * my_temp_toast_namespace is the OID of the namespace for my temp tables' toast
+ * tables.  It is set when my_temp_namespace is, and is InvalidOid before that.
  *
  * myTempNamespaceSubID shows whether we've created the TEMP namespace in the
  * current subtransaction.  The flag propagates up the subtransaction tree,
  * so the main transaction will correctly recognize the flag if all
  * intermediate subtransactions commit.  When it is InvalidSubTransactionId,
  * we either haven't made the TEMP namespace yet, or have successfully
- * committed its creation, depending on whether myTempNamespace is valid.
+ * committed its creation, depending on whether my_temp_namespace is valid.
  */
-static Oid	myTempNamespace = InvalidOid;
+Oid	myTempNamespace = InvalidOid;
 
-static Oid	myTempToastNamespace = InvalidOid;
+Oid	myTempToastNamespace = InvalidOid;
 
-static SubTransactionId myTempNamespaceSubID = InvalidSubTransactionId;
+SubTransactionId myTempNamespaceSubID = InvalidSubTransactionId;
 
 /*
  * This is the user's textual search path specification --- it's the value
@@ -3465,11 +3465,12 @@ GetTempNamespaceState(Oid *tempNamespaceId, Oid *tempToastNamespaceId)
 void
 SetTempNamespaceState(Oid tempNamespaceId, Oid tempToastNamespaceId)
 {
+#ifndef SERVERLESS
 	/* Worker should not have created its own namespaces ... */
 	Assert(myTempNamespace == InvalidOid);
 	Assert(myTempToastNamespace == InvalidOid);
 	Assert(myTempNamespaceSubID == InvalidSubTransactionId);
-
+#endif
 	/* Assign same namespace OIDs that leader has */
 	myTempNamespace = tempNamespaceId;
 	myTempToastNamespace = tempToastNamespaceId;

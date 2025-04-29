@@ -203,6 +203,8 @@ static void acquire_hll_by_query(Relation onerel, int nattrs, VacAttrStats **att
 
 static int16 AcquireCountOfSegmentFile(Relation onerel);
 
+void parse_record_to_string(char *string, TupleDesc tupdesc, char** values, bool *nulls);
+
 /*
  *	analyze_rel() -- analyze one relation
  *
@@ -1076,7 +1078,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	{
 		BlockNumber relallvisible;
 
-		if (RelationStorageIsAO(onerel))
+		if (RelationIsNonblockRelation(onerel))
 			relallvisible = 0;
 		else
             		relallvisible = AcquireNumberOfAllVisibleBlocks(onerel);
@@ -1674,12 +1676,22 @@ acquire_sample_rows(Relation onerel, int elevel,
 	Assert(targrows > 0);
 
 	if (Gp_role == GP_ROLE_DISPATCH &&
-		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
-	{
-		/* Fetch sample from the segments. */
-		return acquire_sample_rows_dispatcher(onerel, false, elevel,
-											  rows, targrows,
-											  totalrows, totaldeadrows);
+		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy)) 
+	{	
+		int flags = 0;
+		VacuumStmt *stmt = makeNode(VacuumStmt);
+		stmt->is_vacuumcmd = false;
+		if(CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook((Node*)stmt, &flags))
+		{
+			pfree(stmt);
+		}
+		else
+		{
+			pfree(stmt);
+			/* Fetch sample from the segments. */
+			return acquire_sample_rows_dispatcher(
+				onerel, false, elevel, rows, targrows, totalrows, totaldeadrows);
+		}
 	}
 
 	/*
@@ -1744,7 +1756,13 @@ acquire_sample_rows(Relation onerel, int elevel,
 	/* Prepare for sampling rows */
 	reservoir_init_selection_state(&rstate, targrows);
 
-	scan = table_beginscan_analyze(onerel);
+	AnalyzeContext ctx;
+	if(Gp_role == GP_ROLE_DISPATCH) 
+	{
+		ctx.targrows = targrows;
+	}
+	
+	scan = table_beginscan_analyze(onerel, &ctx);
 	slot = table_slot_create(onerel, NULL);
 
 #ifdef USE_PREFETCH
@@ -1975,6 +1993,36 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 	bool		has_child;
 
 	/*
+	 * CBDB: auto vacuum will enter here, but we will hold dispatch in
+	 * serverless mode when analyzing the table, so we will follow the
+	 * normal path.
+	 */
+#ifndef SERVERLESS
+	/*
+	 * Like in acquire_sample_rows(), if we're in the QD, fetch the sample
+	 * from segments.
+	 */
+	if (Gp_role == GP_ROLE_DISPATCH && ENABLE_DISPATCH())
+	{
+		int flags = 0;
+		VacuumStmt *stmt = makeNode(VacuumStmt);
+		stmt->is_vacuumcmd = false;
+		if(CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook((Node*)stmt, &flags))
+		{
+			pfree(stmt);
+		}
+		else
+		{
+			pfree(stmt);
+			return acquire_sample_rows_dispatcher(onerel,
+											  true, /* inherited stats */
+											  elevel, rows, targrows,
+											  totalrows, totaldeadrows);
+		}
+	}
+#endif
+
+	/*
 	 * Find all members of inheritance set.  We only need AccessShareLock on
 	 * the children.
 	 */
@@ -2166,7 +2214,7 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 				if (childrows > 0 &&
 					!equalTupleDescs(RelationGetDescr(childrel),
 									 RelationGetDescr(onerel),
-									 false))
+									 false, false))
 				{
 					TupleConversionMap *map;
 
@@ -2342,11 +2390,8 @@ AcquireNumberOfBlocks(Relation onerel)
 		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
 	{
 		/* Query the segments using pg_relation_size(<rel>). */
-		char		relsize_sql[100];
-
-		snprintf(relsize_sql, sizeof(relsize_sql),
-				 "select pg_catalog.pg_relation_size(%u, 'main')", RelationGetRelid(onerel));
-		totalbytes = get_size_from_segDBs(relsize_sql);
+		totalbytes = DatumGetInt64(DirectFunctionCall2(pg_relation_size,
+						ObjectIdGetDatum(RelationGetRelid(onerel)), CStringGetTextDatum("main")));
 		if (GpPolicyIsReplicated(onerel->rd_cdbpolicy))
 		{
 			/*
@@ -2458,7 +2503,7 @@ acquire_index_number_of_blocks(Relation indexrel, Relation tablerel)
  * CDB: a copy of record_in, but only parse the record string
  * into separate strs for each column.
  */
-static void
+void
 parse_record_to_string(char *string, TupleDesc tupdesc, char** values, bool *nulls)
 {
 	char	*ptr;

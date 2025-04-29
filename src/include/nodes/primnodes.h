@@ -121,8 +121,10 @@ typedef struct IntoClause
 	char	   *tableSpaceName; /* table space to use, or NULL */
 	Node	   *viewQuery;		/* materialized view's SELECT query */
 	bool		skipData;		/* true for WITH NO DATA */
+	bool 		defer;			/* true for DEFERRED REFRESH */
 	Node       *distributedBy;  /* GPDB: columns to distribubte the data on. */
 	bool		ivm;			/* true for WITH IVM */
+	char	   *interval;		/* interval for IVM REFRESH */
 	Oid 		matviewOid;		/* matview oid */
 	char		*enrname;		/* ENR name for materialized view delta */
 	bool		dynamicTbl;		/* true for Dynamic Tables. */
@@ -374,6 +376,7 @@ typedef struct Aggref
 	int			location;		/* token location, or -1 if unknown */
 
 	int         agg_expr_id;    /* gpdb private, if aggref is distinct qualified, record AggExprId value in tuple split */
+	int			extrasplit;		/* gpdb private, extra agg-splitting mode of parent Agg */
 } Aggref;
 
 typedef struct
@@ -1607,6 +1610,7 @@ typedef struct TargetEntry
 	Expr	   *expr;			/* expression to evaluate */
 	AttrNumber	resno;			/* attribute number (see notes above) */
 	char	   *resname;		/* name of the column (could be NULL) */
+	char	   *origname;		/* original name of the column */
 	Index		ressortgroupref;	/* nonzero if referenced by a sort/group
 									 * clause */
 	Oid			resorigtbl;		/* OID of column's source table */
@@ -1753,5 +1757,27 @@ typedef struct DMLActionExpr
 {
 	Expr        xpr;
 } DMLActionExpr;
+
+#ifdef SERVERLESS
+typedef struct APListExpr
+{
+	Expr		xpr;
+} APListExpr;
+
+typedef struct APHashExpr
+{
+	Expr		xpr;
+	int			modulus;
+} APHashExpr;
+
+typedef struct APRangeExpr
+{
+	Expr		xpr;
+	bool		hasdefault;
+	List		*lower; /* List of PartitionRangeDatums */
+	List		*upper; /* List of PartitionRangeDatums */
+	List		*step;  /* every specification */
+} APRangeExpr;
+#endif /* SERVERLESS */
 
 #endif							/* PRIMNODES_H */

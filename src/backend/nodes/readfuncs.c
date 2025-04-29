@@ -52,6 +52,9 @@
 #include "utils/builtins.h"
 
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "nodes/altertablenodes.h"
 
 /*
@@ -564,6 +567,7 @@ _readIntoClause(void)
 	READ_STRING_FIELD(tableSpaceName);
 	READ_NODE_FIELD(viewQuery);
 	READ_BOOL_FIELD(skipData);
+	READ_BOOL_FIELD(defer);
 	READ_NODE_FIELD(distributedBy);
 	READ_BOOL_FIELD(ivm);
 	READ_OID_FIELD(matviewOid);
@@ -618,6 +622,19 @@ _readConst(void)
 	else
 		local_node->constvalue = readDatum(local_node->constbyval);
 
+#ifdef SERVERLESS
+	if (local_node->consttype == REGCLASSOID && IsTransferOn())
+	{
+		if (!RelationStoredCheck(local_node->constvalue))
+		{
+			Relation rel;
+
+			rel = relation_open(local_node->constvalue, AccessShareLock);
+			relation_close(rel, AccessShareLock);
+		}
+	}
+#endif
+
 	READ_DONE();
 }
 #endif /* COMPILING_BINARY_FUNCS */
@@ -668,6 +685,7 @@ _readAggref(void)
 	READ_INT_FIELD(aggtransno);
 	READ_LOCATION_FIELD(location);
 	READ_INT_FIELD(agg_expr_id);
+	READ_INT_FIELD(extrasplit);
 
 	READ_DONE();
 }
@@ -1532,6 +1550,7 @@ _readRangeTblEntry(void)
 	READ_NODE_FIELD(securityQuals);
 
 	READ_BOOL_FIELD(forceDistRandom);
+	READ_NODE_FIELD(version);
 
 	READ_DONE();
 }
@@ -1699,6 +1718,7 @@ ReadCommonPlan(Plan *local_node)
 #endif /* COMPILING_BINARY_FUNCS */
 
 	READ_UINT64_FIELD(operatorMemKB);
+	READ_NODE_FIELD(info_context);
 }
 
 /*
@@ -1888,6 +1908,11 @@ ReadCommonScan(Scan *local_node)
 	ReadCommonPlan(&local_node->plan);
 
 	READ_UINT_FIELD(scanrelid);
+	READ_UINT_FIELD(scanflags);
+#ifdef SERVERLESS
+	READ_NODE_FIELD(version);
+	READ_OID_FIELD(basemv);
+#endif
 }
 
 /*
@@ -2898,6 +2923,40 @@ _readPartitionRangeDatum(void)
 	READ_DONE();
 }
 
+#ifdef SERVERLESS
+static APHashExpr *
+_readAPHashExpr(void)
+{
+	READ_LOCALS(APHashExpr);
+
+	READ_INT_FIELD(modulus);
+
+	READ_DONE();
+}
+
+static APListExpr *
+_readAPListExpr(void)
+{
+	READ_LOCALS_NO_FIELDS(APListExpr);
+
+	READ_DONE();
+}
+
+static APRangeExpr *
+_readAPRangeExpr(void)
+{
+	READ_LOCALS(APRangeExpr);
+
+	READ_BOOL_FIELD(hasdefault);
+	READ_NODE_FIELD(lower);
+	READ_NODE_FIELD(upper);
+	READ_NODE_FIELD(step);
+
+	READ_DONE();
+
+}
+#endif /* SERVERLESS */
+
 #include "readfuncs_common.c"
 #ifndef COMPILING_BINARY_FUNCS
 /*
@@ -3415,6 +3474,14 @@ parseNodeString(void)
 		return_value = _readReturnStmt();
 	else if (MATCHX("DROPDIRECTORYTABLESTMT"))
 		return_value = _readDropDirectoryTableStmt();
+#ifdef SERVERLESS
+	else if (MATCHX("APHASHEXPR"))
+		return_value = _readAPHashExpr();
+	else if (MATCHX("APLISTEXPR"))
+		return_value = _readAPListExpr();
+	else if (MATCHX("APRANGEEXPR"))
+		return_value = _readAPRangeExpr();
+#endif /* SERVERLESS*/
 	else
 	{
         ereport(ERROR,

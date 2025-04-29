@@ -26,13 +26,14 @@
 #include "libpq-int.h"
 #include "access/xact.h"
 #include "cdb/cdbfts.h"
+#include "cdb/cdbtranscat.h"
 #include "cdb/cdbvars.h"
 #include "postmaster/fts.h"
 #include "postmaster/ftsprobe.h"
 #include "postmaster/postmaster.h"
 #include "utils/snapmgr.h"
 
-static struct pollfd *PollFds;
+struct pollfd *PollFds = NULL;
 
 static CdbComponentDatabaseInfo *
 FtsGetPeerSegment(CdbComponentDatabases *cdbs,
@@ -169,6 +170,14 @@ ftsConnectStart(fts_segment_info *ftsInfo)
 			 GPCONN_TYPE_FTS);
 	ftsInfo->conn = PQconnectStart(conninfo);
 
+	/*
+	 * Pass and set the Coordinator env declared GUCs in FTS process which can
+	 * raising undefined behaviour, since the two callback functions for an GUC
+	 * can touch any resource but FTS process does not prepare ready.
+	 */
+	if (ftsInfo->conn->pgoptions)
+		ftsInfo->conn->pgoptions = NULL;
+
 	if (ftsInfo->conn == NULL)
 	{
 		elog(ERROR, "FTS: cannot create libpq connection object, possibly out"
@@ -253,7 +262,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				 "primary dbid=%d, mirror dbid=%d",
 				 ftsInfo->primary_cdbinfo->config->segindex,
 				 ftsInfo->primary_cdbinfo->config->dbid,
-				 ftsInfo->mirror_cdbinfo->config->dbid);
+				 ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 		}
 		else
 		{
@@ -266,7 +275,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				   (uint32) tmpptr,
 				   ftsInfo->primary_cdbinfo->config->segindex,
 				   ftsInfo->primary_cdbinfo->config->dbid,
-				   ftsInfo->mirror_cdbinfo->config->dbid);
+				   ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 		}
 	}
 	else if (strstr(PQerrorMessage(ftsInfo->conn), _(POSTMASTER_IN_RESET_MSG)))
@@ -276,7 +285,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
 				   "primary dbid=%d, mirror dbid=%d",
 				   ftsInfo->primary_cdbinfo->config->segindex,
 				   ftsInfo->primary_cdbinfo->config->dbid,
-				   ftsInfo->mirror_cdbinfo->config->dbid);
+				   ftsInfo->mirror_cdbinfo ? ftsInfo->mirror_cdbinfo->config->dbid : -1);
 	}
 }
 
@@ -291,7 +300,7 @@ checkIfFailedDueToNormalRestart(fts_segment_info *ftsInfo)
  *
  * Upon failure, transition that object to a failed state.
  */
-static void
+void
 ftsConnect(fts_context *context)
 {
 	int i;
@@ -327,6 +336,11 @@ ftsConnect(fts_context *context)
 				}
 				else if (ftsInfo->poll_revents & (POLLOUT | POLLIN))
 				{
+
+#ifdef SERVERLESS
+					ftsInfo->conn->catalog =
+							CollectStartupCatalog(&ftsInfo->conn->catalog_size);
+#endif
 					switch(PQconnectPoll(ftsInfo->conn))
 					{
 						case PGRES_POLLING_OK:
@@ -433,7 +447,7 @@ ftsCheckTimeout(fts_segment_info *ftsInfo, pg_time_t now)
 	}
 }
 
-static void
+void
 ftsPoll(fts_context *context)
 {
 	int i;
@@ -546,7 +560,7 @@ ftsPoll(fts_context *context)
 /*
  * Send FTS query
  */
-static void
+void
 ftsSend(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -663,7 +677,7 @@ probeRecordResponse(fts_segment_info *ftsInfo, PGresult *result)
 /*
  * Receive segment response
  */
-static void
+void
 ftsReceive(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -832,7 +846,7 @@ retryForFtsFailed(fts_segment_info *ftsInfo, pg_time_t now)
  * corresponding to their failure state.  If retries have exhausted, leave the
  * segment in the failure state.
  */
-static void
+void
 processRetry(fts_context *context)
 {
 	fts_segment_info *ftsInfo;
@@ -850,6 +864,10 @@ processRetry(fts_context *context)
 				 * mirror as down prematurely.  If mirror is already marked
 				 * down in configuration, there is no need to retry.
 				 */
+#ifdef SERVERLESS
+				break;
+#endif
+
 				if (!(ftsInfo->result.retryRequested &&
 					  SEGMENT_IS_ALIVE(ftsInfo->mirror_cdbinfo)))
 					break;
@@ -941,13 +959,13 @@ updateConfiguration(CdbComponentDatabaseInfo *primary,
 
 		if (UpdatePrimary)
 			probeWalRepUpdateConfig(primary->config->dbid, primary->config->segindex,
-									newPrimaryRole, IsPrimaryAlive,
-									IsInSync);
+									primary->config->warehouseid,
+									newPrimaryRole, IsPrimaryAlive, IsInSync);
 
 		if (UpdateMirror)
 			probeWalRepUpdateConfig(mirror->config->dbid, mirror->config->segindex,
-									newMirrorRole, IsMirrorAlive,
-									IsInSync);
+									primary->config->warehouseid,
+									newMirrorRole, IsMirrorAlive, IsInSync);
 
 		CommitTransactionCommand();
 		CurrentResourceOwner = save;

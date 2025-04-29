@@ -19,10 +19,13 @@
 #include "access/table.h"
 #include "access/xact.h"
 #include "catalog/dependency.h"
+#include "catalog/gp_matview_dependency.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
+#include "catalog/gp_warehouse.h"
 #include "catalog/heap.h"
 #include "catalog/index.h"
+#include "catalog/main_manifest.h"
 #include "catalog/namespace.h"
 #include "catalog/objectaccess.h"
 #include "catalog/pg_am.h"
@@ -217,6 +220,8 @@ static const Oid object_classes[] = {
 	ExtprotocolRelationId,		/* OCLASS_EXTPROTOCOL */
 	GpMatviewAuxId,				/* OCLASS_MATVIEW_AUX */
 	TaskRelationId,				/* OCLASS_TASK */
+	ManifestRelationId,			/* MAIN_MANIFEST */
+	GpWarehouseRelationId		/* OCLASS_WAREHOUSE */
 };
 
 
@@ -1491,6 +1496,11 @@ doDeletion(const ObjectAddress *object, int flags)
 				{
 					bool 		drop_with_content = (flags & PERFORM_DELETION_WITH_CONTENT) != 0;
 
+					if (relKind == RELKIND_MATVIEW)
+					{
+						remove_matview_dependency_byoid(object->objectId);
+					}
+
 					if (object->objectSubId != 0)
 						RemoveAttributeById(object->objectId,
 											object->objectSubId);
@@ -1593,6 +1603,9 @@ doDeletion(const ObjectAddress *object, int flags)
 		case OCLASS_TASK:
 			RemoveTaskById(object->objectId);
 			break;
+		case OCLASS_MAIN_MANIFEST:
+			RemoveManifestRecord(object->objectId);
+			break;
 
 		case OCLASS_MATVIEW_AUX:
 			RemoveMatviewAuxEntry(object->objectId);
@@ -1633,6 +1646,7 @@ doDeletion(const ObjectAddress *object, int flags)
 		case OCLASS_STORAGE_USER_MAPPING:
 		case OCLASS_TAG:
 		case OCLASS_TAG_DESCRIPTION:
+		case OCLASS_WAREHOUSE:
 			elog(ERROR, "global objects cannot be deleted by doDeletion");
 			break;
 
@@ -3041,6 +3055,12 @@ getObjectClass(const ObjectAddress *object)
 
 		case TagDescriptionRelationId:
 			return OCLASS_TAG_DESCRIPTION;
+
+		case ManifestRelationId:
+			return OCLASS_MAIN_MANIFEST;
+
+		case GpWarehouseRelationId:
+			return OCLASS_WAREHOUSE;
 
 		default:
 		{

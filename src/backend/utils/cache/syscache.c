@@ -83,6 +83,7 @@
 #include "catalog/pg_user_mapping.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/gp_storage_server.h"
+#include "catalog/gp_warehouse.h"
 #include "lib/qunique.h"
 #include "utils/catcache.h"
 #include "utils/rel.h"
@@ -91,6 +92,9 @@
 #include "access/heapam.h"
 #include "catalog/pg_resgroup.h"
 #include "catalog/pg_extprotocol.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "miscadmin.h"
 
 #include "catalog/gp_indexing.h"
@@ -548,6 +552,28 @@ static const struct cachedesc cacheinfo[] = {
 			0
 		},
 		1024
+	},
+	{GpWarehouseRelationId,               /* GPWAREHOUSENAME */
+	 	GpWarehouseNameIndexId,
+	 	1,
+	 	{
+		 	Anum_gp_warehouse_warehouse_name,
+		 	0,
+		 	0,
+		 	0
+	 	},
+	 	4
+	},
+	{GpWarehouseRelationId,                /* GPWAREHOUSEOID */
+		GpWarehouseOidIndexId,
+		1,
+		{
+			Anum_gp_warehouse_oid,
+			0,
+			0,
+			0
+		},
+		4
 	},
 	{AppendOnlyRelationId,	/* AORELID */
 		AppendOnlyRelidIndexId,
@@ -1669,12 +1695,32 @@ struct catclist *
 SearchSysCacheList(int cacheId, int nkeys,
 				   Datum key1, Datum key2, Datum key3)
 {
+#ifdef SERVERLESS
+	CatCList *list;
+#endif
+
 	if (cacheId < 0 || cacheId >= SysCacheSize ||
 		!PointerIsValid(SysCache[cacheId]))
 		elog(ERROR, "invalid cache ID: %d", cacheId);
 
+#ifdef SERVERLESS
+	list = SearchCatCacheList(SysCache[cacheId], nkeys,
+							  key1, key2, key3);
+
+	for (int i = 0; i < list->n_members; ++i)
+	{
+		CatCTup *catCTup;
+
+		catCTup = list->members[i];
+
+		TransStoreTuple(&catCTup->tuple);
+	}
+
+	return list;
+#else
 	return SearchCatCacheList(SysCache[cacheId], nkeys,
 							  key1, key2, key3);
+#endif
 }
 
 /*

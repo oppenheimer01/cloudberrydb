@@ -23,6 +23,7 @@
 #include "access/xact.h"
 #include "utils/guc.h"
 #include "utils/session_state.h"
+#include "storage/proc.h"
 
 /*
  * process local cache used to identify "dispatch units"
@@ -45,7 +46,11 @@ DtxContextInfo_CreateOnMaster(DtxContextInfo *dtxContextInfo, bool inCursor,
 
 	DtxContextInfo_Reset(dtxContextInfo);
 
+#ifdef SERVERLESS
+	dtxContextInfo->distributedXid = MyProc->lxid;
+#else /* SERVERLESS */
 	dtxContextInfo->distributedXid = getDistributedTransactionId();
+#endif /* SERVERLESS */
 	if (dtxContextInfo->distributedXid != InvalidDistributedTransactionId)
 		dtxContextInfo->curcid = curcid;
 

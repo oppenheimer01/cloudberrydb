@@ -436,6 +436,10 @@ check_gp_role(char **newval, void **extra, GucSource source)
 		return true;
 	else if (Gp_role == GP_ROLE_UNDEFINED)
 		return (newrole != GP_ROLE_UNDEFINED);
+#ifdef SERVERLESS
+	else if (Gp_role == GP_ROLE_EXECUTE && newrole == GP_ROLE_UTILITY)
+		elog(ERROR, "connecting to qe in utility mode is forbidden in Cloud");
+#endif
 	else /* can only downgrade to utility. */
 		return (newrole == GP_ROLE_UTILITY);
 }
@@ -646,3 +650,12 @@ gp_execution_dbid(PG_FUNCTION_ARGS)
  * Warehouse hook for Create/Drop/Alter Warehouse
  */
 WarehouseMethod *warehouse_method = NULL;
+
+const char *const WarehouseStatusStr[] = {
+	"CREATING",
+	"RUNNING",
+	"SUSPENDED",
+	"STOPPING",
+	"SUSPENDING",
+	"RESUMING"
+};

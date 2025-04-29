@@ -19,6 +19,7 @@
 #include "catalog/pg_am.h"
 #include "executor/executor.h"
 #include "executor/tuptable.h"
+#include "nodes/altertablenodes.h"
 #include "nodes/execnodes.h"
 #include "access/htup.h"
 #include "catalog/dependency.h"
@@ -31,6 +32,10 @@
 struct AlterTableUtilityContext;	/* avoid including tcop/utility.h here */
 
 extern const char *synthetic_sql;
+
+/* Hook for plugins to get control in ATExecSetDistributedBy */
+typedef void (*ATExecSetDistributedBy_hook_type)(Relation rel, Node *node, AlterTableCmd *cmd);
+extern PGDLLIMPORT ATExecSetDistributedBy_hook_type ATExecSetDistributedBy_hook;
 
 extern void	DefineExternalRelation(CreateExternalStmt *stmt);
 
@@ -135,4 +140,13 @@ extern void GpRenameChildPartitions(Relation targetrelation,
 extern void set_random_distribution_if_drop_distkey(Relation rel, AttrNumber attnum);
 
 extern Datum get_rel_opts(Relation rel);
+
+typedef void (*ATRewriteTable_hook_type)(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode);
+extern PGDLLIMPORT ATRewriteTable_hook_type ATRewriteTable_hook;
+
+typedef void (*ATExecSetRelOptionsCheck_hook_type) (Relation rel, DefElem *def);
+extern PGDLLIMPORT ATExecSetRelOptionsCheck_hook_type ATExecSetRelOptionsCheck_hook;
+
+typedef void (*check_types_am_hook_type) (List *schema, Oid oid, const char * relname, char relkind);
+extern PGDLLIMPORT check_types_am_hook_type check_types_am_hook;
 #endif							/* TABLECMDS_H */

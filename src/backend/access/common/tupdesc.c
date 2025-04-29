@@ -70,6 +70,7 @@ CreateTemplateTupleDesc(int natts)
 	 * Initialize other fields of the tupdesc.
 	 */
 	desc->natts = natts;
+	desc->orignames = palloc0(natts * sizeof(char *));
 	desc->constr = NULL;
 	desc->tdtypeid = RECORDOID;
 	desc->tdtypmod = -1;
@@ -397,16 +398,26 @@ DecrTupleDescRefCount(TupleDesc tupdesc)
  * This allows typcache.c to use this routine to see if a cached record type
  * matches a requested type, and is harmless for relcache.c's uses.
  * We don't compare tdrefcount, either.
+ *
+ * SERVERLESS:
+ * param for_partition_reuse_attrs means that we will check partition
+ * column definitons with its parent.
+ * If true, we skip some fields: tdtypeid, attislocal, attinhcount.
+ * This should be used with strict is set to true.
+ *
  */
 bool
-equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict)
+equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict, bool for_partition_reuse_attrs)
 {
 	int			i,
 				n;
 
+	AssertImply(for_partition_reuse_attrs, strict);
+
 	if (tupdesc1->natts != tupdesc2->natts)
 		return false;
-	if (strict && tupdesc1->tdtypeid != tupdesc2->tdtypeid)
+
+	if (!for_partition_reuse_attrs && (strict && tupdesc1->tdtypeid != tupdesc2->tdtypeid))
 		return false;
 
 	for (i = 0; i < tupdesc1->natts; i++)
@@ -460,9 +471,9 @@ equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict)
                 return false;
 			if (attr1->attisdropped != attr2->attisdropped)
 				return false;
-			if (attr1->attislocal != attr2->attislocal)
+			if (!for_partition_reuse_attrs && (attr1->attislocal != attr2->attislocal))
 				return false;
-			if (attr1->attinhcount != attr2->attinhcount)
+			if (!for_partition_reuse_attrs && (attr1->attinhcount != attr2->attinhcount))
 				return false;
 			if (attr1->attcollation != attr2->attcollation)
 				return false;

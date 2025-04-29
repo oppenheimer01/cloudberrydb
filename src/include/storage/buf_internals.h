@@ -240,6 +240,10 @@ typedef union BufferDescPadded
 
 extern PGDLLIMPORT ConditionVariableMinimallyPadded *BufferIOCVArray;
 
+/* Hook for plugins to validate buffer in BufferAlloc() */
+typedef BufferDesc *(*BufferValidation_hook_type)(BufferDesc *buf, bool valid, bool *found);
+extern PGDLLIMPORT BufferValidation_hook_type BufferValidation_hook;
+
 /*
  * The freeNext field is either the index of the next freelist entry,
  * or one of these special values:

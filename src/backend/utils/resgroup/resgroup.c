@@ -265,6 +265,17 @@ static void resgroupDumpCaps(StringInfo str, ResGroupCap *caps);
 static void resgroupDumpSlots(StringInfo str);
 static void resgroupDumpFreeSlots(StringInfo str);
 
+static ResGroupData* resgroupCreateOrUpdate(Oid groupId, const ResGroupCaps *caps);
+static ResGroupData* resgroupCreate(Oid groupId, const ResGroupCaps *caps);
+static void resgroupUpdate(ResGroupData *group, ResGroupCaps oldCaps,
+						   const ResGroupCaps *caps);
+static void resgroupUpdateCpuSet(ResGroupData *group, const ResGroupCaps *caps,
+								 const char *oldcpuset);
+#ifdef SERVERLESS
+static void resgroupSimpleInitCpuSet(ResGroupData *group, const ResGroupCaps *caps);
+static ResGroupData *findGroupOrCreate(Oid groupId, const ResGroupCaps *caps);
+#endif
+
 static void sessionSetSlot(ResGroupSlotData *slot);
 static void sessionResetSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *sessionGetSlot(void);
@@ -419,6 +430,99 @@ initCgroup(void)
 
 	cgroupOpsRoutine->checkcgroup();
 	cgroupOpsRoutine->initcgroup();
+}
+
+static ResGroupData*
+resgroupCreate(Oid groupId, const ResGroupCaps *caps)
+{
+	ResGroupData *group;
+
+	group = createGroup(groupId, caps);
+	Assert(group != NULL);
+
+	cgroupOpsRoutine->createcgroup(groupId);
+
+	if (CpusetIsEmpty(caps->cpuset))
+	{
+		cgroupOpsRoutine->setcpulimit(groupId, caps->cpuHardQuotaLimit);
+		cgroupOpsRoutine->setcpupriority(groupId, caps->cpuSoftPriority);
+	}
+
+	return group;
+}
+
+#ifdef SERVERLESS
+/*
+ * The efficiency is not high, so the bitmap implementation is still needed
+ * for backend startup.
+ */
+static void
+resgroupSimpleInitCpuSet(ResGroupData *group, const ResGroupCaps *caps)
+{
+	resgroupUpdateCpuSet(group, caps, "");
+}
+#endif
+
+static void
+resgroupUpdateCpuSet(ResGroupData *group, const ResGroupCaps *caps, const char *oldcpuset)
+{
+	char defaultCpusetGroup[MaxCpuSetLength];
+
+	/* update current group cpuset */
+	char *cpuset = getCpuSetByRole(caps->cpuset);
+	cgroupOpsRoutine->setcpuset(group->groupId, cpuset);
+
+	/* reset default group if cpuset has changed */
+	cgroupOpsRoutine->getcpuset(DEFAULT_CPUSET_GROUP_ID,
+								defaultCpusetGroup,
+								MaxCpuSetLength);
+	/* Add old value to default group sub new value from default group */
+	CpusetUnion(defaultCpusetGroup, oldcpuset, MaxCpuSetLength);
+	CpusetDifference(defaultCpusetGroup, cpuset, MaxCpuSetLength);
+	cgroupOpsRoutine->setcpuset(DEFAULT_CPUSET_GROUP_ID, defaultCpusetGroup);
+}
+
+static void
+resgroupUpdate(ResGroupData *group, ResGroupCaps oldCaps, const ResGroupCaps *caps)
+{
+	group->caps = *caps;
+
+	if (oldCaps.cpuHardQuotaLimit != caps->cpuHardQuotaLimit)
+	{
+		cgroupOpsRoutine->setcpulimit(group->groupId, caps->cpuHardQuotaLimit);
+	}
+	if (oldCaps.cpuSoftPriority != caps->cpuSoftPriority)
+	{
+		cgroupOpsRoutine->setcpupriority(group->groupId, caps->cpuSoftPriority);
+	}
+	if (strcmp(oldCaps.cpuset, caps->cpuset) &&
+		gp_resource_group_enable_cgroup_cpuset)
+	{
+		char *oldcpuset = getCpuSetByRole(oldCaps.cpuset);
+		resgroupUpdateCpuSet(group, caps, oldcpuset);
+	}
+	if (oldCaps.concurrency != caps->concurrency)
+	{
+		wakeupSlots(group, true);
+	}
+}
+
+static ResGroupData*
+resgroupCreateOrUpdate(Oid groupId, const ResGroupCaps *caps)
+{
+	ResGroupData *group;
+
+	group = groupHashFind(groupId, false);
+	if (group == NULL)
+	{
+		group = resgroupCreate(groupId, caps);
+	}
+	else
+	{
+		resgroupUpdate(group, group->caps, caps);
+	}
+
+	return group;
 }
 
 /*
@@ -1659,6 +1763,25 @@ UnassignResGroup(void)
 
 	pgstat_report_resgroup(InvalidOid);
 }
+
+#ifdef SERVERLESS
+static ResGroupData *
+findGroupOrCreate(Oid groupId, const ResGroupCaps *caps)
+{
+	ResGroupData *group;
+
+	group = groupHashFind(groupId, false);
+	if (group == NULL)
+	{
+		group = resgroupCreate(groupId, caps);
+		if (gp_resource_group_enable_cgroup_cpuset)
+			resgroupSimpleInitCpuSet(group, caps);
+	}
+
+	Assert(group != NULL);
+	return group;
+}
+#endif
 
 /*
  * QEs are not assigned/unassigned to a resource group on segments for each

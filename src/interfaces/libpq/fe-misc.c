@@ -64,6 +64,12 @@ static int	pqSocketCheck(PGconn *conn, int forRead, int forWrite,
 						  time_t end_time);
 static int	pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time);
 
+#ifdef SERVERLESS
+#ifndef FRONTEND
+static int32	last_assigned_exec_status_type = PGRES_LAST_DEFAULT;
+#endif
+#endif /* SERVERLESS */
+
 /*
  * PQlibVersion: return the libpq version number
  */
@@ -1390,3 +1396,23 @@ libpq_ngettext(const char *msgid, const char *msgid_plural, unsigned long n)
 }
 
 #endif							/* ENABLE_NLS */
+
+#ifdef SERVERLESS
+#ifndef FRONTEND
+/*
+ * When we need to add a new exec status in extension, we should
+ * call add_exec_status_type to get a slot, then init the slot.
+ */
+ExecStatusType
+add_exec_status_type(void)
+{
+	if (last_assigned_exec_status_type >= INT32_MAX)
+		ereport(ERROR,
+			(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+			 errmsg("extensible exec status types limit exceeded")));
+
+	last_assigned_exec_status_type++;
+	return (ExecStatusType) last_assigned_exec_status_type;
+}
+#endif
+#endif /* SERVERLESS */

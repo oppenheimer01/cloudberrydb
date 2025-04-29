@@ -1514,7 +1514,18 @@ lazy_scan_heap(LVRelState *vacrel, VacuumParams *params, bool aggressive)
 		else if (all_visible_according_to_vm && !PageIsAllVisible(page)
 				 && VM_ALL_VISIBLE(vacrel->rel, blkno, &vmbuffer))
 		{
-			elog(WARNING, "page is not marked all-visible but visibility map bit is set in relation \"%s\" page %u",
+			int log_level = WARNING;
+
+#ifdef SERVERLESS
+			/*
+			 * In serverless architecture, FSM is not WAL-logged together with corresponding page, but WAL-logged
+			 * when FSM page is evicted. It's possible that the visibility map bit is set but the page-level bit is
+			 * clear, so set the LOG_LEVEL to LOG to omit this case.
+			 */
+			log_level = LOG;
+#endif /* SERVERLESS */
+
+			elog(log_level, "page is not marked all-visible but visibility map bit is set in relation \"%s\" page %u",
 				 vacrel->relname, blkno);
 			visibilitymap_clear(vacrel->rel, blkno, vmbuffer,
 								VISIBILITYMAP_VALID_BITS);

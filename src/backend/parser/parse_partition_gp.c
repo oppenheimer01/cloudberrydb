@@ -60,6 +60,9 @@ typedef struct
 	int			every_location;
 } PartEveryIterator;
 
+/* Hook for plugins to get control in makePartitionCreateStmt() */
+makePartitionCreateStmt_hook_type makePartitionCreateStmt_hook = NULL;
+
 static List *generateRangePartitions(ParseState *pstate,
 									 Relation parentrel,
 									 GpPartDefElem *elem,
@@ -898,6 +901,10 @@ makePartitionCreateStmt(Relation parentrel, char *partname, PartitionBoundSpec *
 	RangeVar   *childrv;
 	char	   *schemaname;
 	const char *final_part_name;
+
+	if (makePartitionCreateStmt_hook)
+		return (*makePartitionCreateStmt_hook) (parentrel, partname, boundspec,
+												subPart, elem, partnamecomp);
 
 	if (partnamecomp->tablename)
 		final_part_name = partnamecomp->tablename;

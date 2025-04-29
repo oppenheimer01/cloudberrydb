@@ -39,6 +39,7 @@
  */
 PGDLLIMPORT needs_fmgr_hook_type needs_fmgr_hook = NULL;
 PGDLLIMPORT fmgr_hook_type fmgr_hook = NULL;
+PGDLLIMPORT fmgr_isbuiltin_hook_type fmgr_isbuiltin_hook = NULL;
 
 /*
  * Hashtable for fast lookup of external C functions
@@ -89,7 +90,8 @@ fmgr_isbuiltin(Oid id)
 	index = fmgr_builtin_oid_index[id];
 	if (index == InvalidOidBuiltinMapping)
 		return NULL;
-
+	if (fmgr_isbuiltin_hook)
+		return (*fmgr_isbuiltin_hook)(id);
 	return &fmgr_builtins[index];
 }
 
@@ -106,7 +108,12 @@ fmgr_lookupByName(const char *name)
 	for (i = 0; i < fmgr_nbuiltins; i++)
 	{
 		if (strcmp(name, fmgr_builtins[i].funcName) == 0)
-			return fmgr_builtins + i;
+		{
+			if (fmgr_isbuiltin_hook)
+				return (*fmgr_isbuiltin_hook)(fmgr_builtins[i].foid);
+			else
+				return fmgr_builtins + i;
+		}	
 	}
 	return NULL;
 }

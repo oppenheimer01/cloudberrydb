@@ -1138,7 +1138,11 @@ tmShmemInit(void)
 		/* Initialize locks and shared memory area */
 	{
 		*shmNextSnapshotId = 0;
+#ifdef SERVERLESS
+		*shmDtmStarted = true;
+#else
 		*shmDtmStarted = false;
+#endif
 		*shmCleanupBackends = false;
 		*shmDtxRecoveryPid = 0;
 		*shmDtxRecoveryEvents = DTX_RECOVERY_EVENT_ABORT_PREPARED;
@@ -1421,6 +1425,10 @@ dispatchDtxCommand(const char *cmd)
 		return false;
 	}
 
+#ifdef SERVERLESS
+	return true;
+#endif
+
 	CdbDispatchCommand(cmd, DF_NEED_TWO_PHASE, &cdb_pgresults);
 
 	if (cdb_pgresults.numResults == 0)
@@ -1643,9 +1651,13 @@ isDtxQueryDispatcher(void)
 	isDtmStarted = (shmDtmStarted != NULL && *shmDtmStarted);
 	isSharedLocalSnapshotSlotPresent = (SharedLocalSnapshotSlot != NULL);
 
+#ifdef SERVERLESS
+	return false;
+#else /* SERVERLESS */
 	return (Gp_role == GP_ROLE_DISPATCH &&
 			isDtmStarted &&
 			isSharedLocalSnapshotSlotPresent);
+#endif /* SERVERLESS */
 }
 
 /*

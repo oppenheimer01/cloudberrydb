@@ -1,0 +1,64 @@
+-- start_matchsubs
+-- s/database oid:\d+/database oid:#####/
+-- m/database oid:\s+[0-9].*/
+-- s/database oid:\s+[0-9].*/database oid:/
+-- end_matchsubs
+set tde_get_master_key_from_cm to false;
+DROP DATABASE IF EXISTS encryptdb1;
+NOTICE:  database "encryptdb1" does not exist, skipping
+CREATE DATABASE encryptdb1 WITH ENCRYPTION_ENABLE 'aes' TABLESPACE regress_oss_test;
+select datname,is_encrypt,dek_version from hashdata_encrypt_database where datname = 'encryptdb1';
+  datname   | is_encrypt | dek_version 
+------------+------------+-------------
+ encryptdb1 | t          |           1
+(1 row)
+
+\c encryptdb1
+set tde_get_master_key_from_cm to false;
+set warehouse to test;
+-- success
+create table t1 (id int) with (storage_format=vbf) tablespace regress_oss_test;
+insert into t1 select generate_series(1,5);
+select * from t1 order by id;
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+(5 rows)
+
+set debug_tde_print_encrypt_data = true;
+insert into t1 select generate_series(6,10);
+NOTICE:  Encrypt data BLock, the dek_version:1  (seg1 127.0.0.1:5435 pid=31493)
+NOTICE:  Encrypt data BLock, the dek_version:1  (seg0 127.0.0.1:5434 pid=31491)
+NOTICE:  Encrypt data BLock, the dek_version:1  (seg2 127.0.0.1:5436 pid=31492)
+select * from t1 order by id;
+NOTICE:  Decrypt data Block,the dek_version:1  (seg0 slice1 127.0.0.1:5434 pid=31491)
+NOTICE:  Decrypt data Block,the dek_version:1  (seg0 slice1 127.0.0.1:5434 pid=31491)
+NOTICE:  Decrypt data Block,the dek_version:1  (seg2 slice1 127.0.0.1:5436 pid=31492)
+NOTICE:  Decrypt data Block,the dek_version:1  (seg1 slice1 127.0.0.1:5435 pid=31493)
+NOTICE:  Decrypt data Block,the dek_version:1  (seg1 slice1 127.0.0.1:5435 pid=31493)
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
+
+drop table t1;
+-- fail, do not setting the tablespace of database, can not create the encrypted db.
+reset default_tablespace;
+CREATE DATABASE encryptdb3 WITH ENCRYPTION_ENABLE 'aes';
+ERROR:  can not create encrypt database, need to use the dfs tablespace, database oid:114771, tspc_oid:1663 (keys_manager.cc:1019)
+\c postgres
+set tde_get_master_key_from_cm to false;
+DROP DATABASE encryptdb1;

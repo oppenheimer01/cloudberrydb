@@ -2452,6 +2452,12 @@ expression_tree_walker(Node *node,
 					return true;
 			}
 			break;
+#ifdef SERVERLESS
+		case T_APHashExpr:
+		case T_APListExpr:
+		case T_APRangeExpr:
+			return false;
+#endif /* SERVERLESS */
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
@@ -3560,6 +3566,48 @@ expression_tree_mutator(Node *node,
 				return (Node *) newgathermerge;
 			}
 			break;
+#ifdef SERVERLESS
+		case T_APHashExpr:
+			{
+				APHashExpr *hexpr = (APHashExpr *)node;
+				APHashExpr *newhexpr;
+				FLATCOPY(newhexpr, hexpr, APHashExpr);
+
+				return (Node *)newhexpr;
+			}
+			break;
+		case T_APListExpr:
+			{
+				APListExpr *lexpr = (APListExpr *)node;
+				APListExpr *newlexpr;
+				FLATCOPY(newlexpr, lexpr, APListExpr);
+
+				return (Node *)newlexpr;
+			}
+			break;
+		case T_APRangeExpr:
+			{
+				APRangeExpr *rexpr = (APRangeExpr *)node;
+				APRangeExpr *newrexpr;
+				FLATCOPY(newrexpr, rexpr, APRangeExpr);
+				MUTATE(newrexpr->lower, rexpr->lower, List*);
+				MUTATE(newrexpr->upper, rexpr->upper, List*);
+				MUTATE(newrexpr->step, rexpr->step, List*);
+
+				return (Node *)rexpr;
+			}
+			break;
+		case T_PartitionElem:
+			{
+				PartitionElem *partelem = (PartitionElem *)node;
+				PartitionElem *newpartelem;
+				FLATCOPY(newpartelem, partelem, PartitionElem);
+				MUTATE(newpartelem->expr, partelem->expr, Node*);
+				MUTATE(newpartelem->collation, partelem->collation, List*);
+				return (Node *)newpartelem;
+			}
+			break;
+#endif /* SERVERLESS */
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));

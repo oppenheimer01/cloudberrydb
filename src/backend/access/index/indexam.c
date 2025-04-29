@@ -55,6 +55,9 @@
 #include "catalog/index.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_type.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "commands/defrem.h"
 #include "nodes/makefuncs.h"
 #include "pgstat.h"
@@ -147,6 +150,28 @@ index_open(Oid relationId, LOCKMODE lockmode)
 	return r;
 }
 
+#ifdef SERVERLESS
+Relation
+order_index_open(Oid relationId, LOCKMODE lockmode)
+{
+	Relation	r;
+
+	if (systup_store_sorted_active())
+		return NULL;
+
+	r = relation_open(relationId, lockmode);
+
+	if (r->rd_rel->relkind != RELKIND_INDEX &&
+		r->rd_rel->relkind != RELKIND_PARTITIONED_INDEX)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+						errmsg("\"%s\" is not an index",
+							   RelationGetRelationName(r))));
+
+	return r;
+}
+#endif
+
 /* ----------------
  *		index_close - close an index relation
  *
@@ -159,7 +184,16 @@ index_open(Oid relationId, LOCKMODE lockmode)
 void
 index_close(Relation relation, LOCKMODE lockmode)
 {
+#ifdef SERVERLESS
+	LockRelId	relid;
+
+	if (!relation)
+		return;
+
+	relid = relation->rd_lockInfo.lockRelId;
+#else
 	LockRelId	relid = relation->rd_lockInfo.lockRelId;
+#endif
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 

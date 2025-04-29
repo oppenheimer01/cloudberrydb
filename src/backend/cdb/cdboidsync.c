@@ -120,10 +120,14 @@ pg_highest_oid(PG_FUNCTION_ARGS pg_attribute_unused())
 void
 cdb_sync_oid_to_segments(void)
 {
+#ifdef SERVERLESS
+	/* do not collect oid from qe for serverless */
+#else
 	if (Gp_role == GP_ROLE_DISPATCH && IsNormalProcessingMode())
 	{
 		Oid max_oid_from_primaries = get_max_oid_from_segDBs();
 
 		AdvanceObjectId(max_oid_from_primaries + 1);
 	}
+#endif
 }

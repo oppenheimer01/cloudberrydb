@@ -104,6 +104,10 @@ typedef struct TransitionCaptureState
 #define TRIGGER_EVENT_INSTEAD			0x00000010
 #define TRIGGER_EVENT_TIMINGMASK		0x00000018
 
+#ifdef SERVERLESS
+#define TRIGGER_EVENT_PREPARE			0x00000020
+#endif
+
 /* More TriggerEvent flags, used only within trigger.c */
 
 #define AFTER_TRIGGER_DEFERRABLE		0x00000020

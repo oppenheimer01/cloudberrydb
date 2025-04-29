@@ -101,6 +101,10 @@ typedef enum
 	HEAPTUPLE_DELETE_IN_PROGRESS	/* deleting xact is still in progress */
 } HTSV_Result;
 
+/* Hook for plugins to get control in heap_page_prune_opt */
+typedef void (*heap_page_prune_opt_hook_type)(Relation relation, Buffer buffer);
+extern PGDLLIMPORT heap_page_prune_opt_hook_type heap_page_prune_opt_hook;
+
 /* ----------------
  *		function prototypes for heap access method
  *
@@ -119,7 +123,7 @@ typedef enum
 extern TableScanDesc heap_beginscan(Relation relation, Snapshot snapshot,
 									int nkeys, ScanKey key,
 									ParallelTableScanDesc parallel_scan,
-									uint32 flags);
+									uint32 flags, void *ctx);
 extern void heap_setscanlimits(TableScanDesc scan, BlockNumber startBlk,
 							   BlockNumber numBlks);
 extern void heapgetpage(TableScanDesc scan, BlockNumber page);
@@ -190,6 +194,7 @@ extern TransactionId heap_index_delete_tuples(Relation rel,
 /* in heap/pruneheap.c */
 struct GlobalVisState;
 extern void heap_page_prune_opt(Relation relation, Buffer buffer);
+extern void heap_page_prune_opt_internal(Relation relation, Buffer buffer);
 extern int	heap_page_prune(Relation relation, Buffer buffer,
 							struct GlobalVisState *vistest,
 							TransactionId old_snap_xmin,

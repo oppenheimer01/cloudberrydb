@@ -56,6 +56,9 @@
 #include "catalog/pg_operator.h"
 #include "catalog/pg_range.h"
 #include "catalog/pg_type.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "commands/defrem.h"
 #include "executor/executor.h"
 #include "lib/dshash.h"
@@ -76,7 +79,7 @@
 
 
 /* The main type cache hashtable searched by lookup_type_cache */
-static HTAB *TypeCacheHash = NULL;
+HTAB *TypeCacheHash = NULL;
 
 /* List of type cache entries for domain types */
 static TypeCacheEntry *firstDomainTypeEntry = NULL;
@@ -232,7 +235,7 @@ shared_record_table_compare(const void *a, const void *b, size_t size,
 	else
 		t2 = k2->u.local_tupdesc;
 
-	return equalTupleDescs(t1, t2, true) ? 0 : 1;
+	return equalTupleDescs(t1, t2, true, false) ? 0 : 1;
 }
 
 /*
@@ -315,7 +318,6 @@ static void TypeCacheRelCallback(Datum arg, Oid relid);
 static void TypeCacheTypCallback(Datum arg, int cacheid, uint32 hashvalue);
 static void TypeCacheOpcCallback(Datum arg, int cacheid, uint32 hashvalue);
 static void TypeCacheConstrCallback(Datum arg, int cacheid, uint32 hashvalue);
-static void load_enum_cache_data(TypeCacheEntry *tcache);
 static EnumItem *find_enumitem(TypeCacheEnumData *enumdata, Oid arg);
 static int	enum_oid_cmp(const void *left, const void *right);
 static void shared_record_typmod_registry_detach(dsm_segment *segment,
@@ -323,7 +325,20 @@ static void shared_record_typmod_registry_detach(dsm_segment *segment,
 static TupleDesc find_or_make_matching_shared_tupledesc(TupleDesc tupdesc);
 static dsa_pointer share_tupledesc(dsa_area *area, TupleDesc tupdesc,
 								   uint32 typmod);
-
+#ifdef SERVERLESS
+static void
+CreateTypeMemoryContext(void)
+{
+	/*
+	 * Purely for paranoia, check that context doesn't exist; caller probably
+	 * did so already.
+	 */
+	if (!TypeMemoryContext)
+		TypeMemoryContext = AllocSetContextCreate(TopMemoryContext,
+												  "TypeMemoryContext",
+												  ALLOCSET_DEFAULT_SIZES);
+}
+#endif
 
 /*
  * lookup_type_cache
@@ -359,8 +374,13 @@ lookup_type_cache(Oid type_id, int flags)
 		CacheRegisterSyscacheCallback(CONSTROID, TypeCacheConstrCallback, (Datum) 0);
 
 		/* Also make sure CacheMemoryContext exists */
+#ifdef SERVERLESS
+		CreateCacheMemoryContext();
+		CreateTypeMemoryContext();
+#else
 		if (!CacheMemoryContext)
 			CreateCacheMemoryContext();
+#endif
 	}
 
 	/* Try to look up an existing entry */
@@ -463,6 +483,11 @@ lookup_type_cache(Oid type_id, int flags)
 
 		ReleaseSysCache(tp);
 	}
+
+#ifdef SERVERLESS
+	if (!InTypeStore())
+		TypeStore(type_id, flags);
+#endif
 
 	/*
 	 * Look up opclasses if we haven't already and any dependent info is
@@ -1961,7 +1986,7 @@ record_type_typmod_compare(const void *a, const void *b, size_t size)
 	RecordCacheEntry *left = (RecordCacheEntry *) a;
 	RecordCacheEntry *right = (RecordCacheEntry *) b;
 
-	return equalTupleDescs(left->tupdesc, right->tupdesc, true) ? 0 : 1;
+	return equalTupleDescs(left->tupdesc, right->tupdesc, true, false) ? 0 : 1;
 }
 
 /*
@@ -1995,8 +2020,13 @@ assign_record_type_typmod(TupleDesc tupDesc)
 									  HASH_ELEM | HASH_FUNCTION | HASH_COMPARE);
 
 		/* Also make sure CacheMemoryContext exists */
+#ifdef SERVERLESS
+		CreateCacheMemoryContext();
+		CreateTypeMemoryContext();
+#else
 		if (!CacheMemoryContext)
 			CreateCacheMemoryContext();
+#endif
 	}
 
 	/*
@@ -2625,7 +2655,7 @@ compare_values_of_enum(TypeCacheEntry *tcache, Oid arg1, Oid arg2)
 /*
  * Load (or re-load) the enumData member of the typcache entry.
  */
-static void
+void
 load_enum_cache_data(TypeCacheEntry *tcache)
 {
 	TypeCacheEnumData *enumdata;

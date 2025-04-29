@@ -44,10 +44,14 @@
 #include "mb/pg_wchar.h"
 
 #include "cdb/cdbdisp.h"
+#include "cdb/cdbdisp_extra.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdisp_dtx.h"	/* for qdSerializeDtxContextInfo() */
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbcopy.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "executor/execUtils.h"
 #include "cdb/cdbpq.h"
 
@@ -59,6 +63,7 @@ extern bool gp_print_create_gang_time;
 
 ExtendProtocolDataStore epd_storage = {0};
 ExtendProtocolData epd = &epd_storage;
+CdbDispatchPlan_hook_type CdbDispatchPlan_hook = NULL;
 
 typedef struct ParamWalkerContext
 {
@@ -92,6 +97,10 @@ typedef struct DispatchCommandQueryParms
 	int			serializedPlantreelen;
 	char	   *serializedQueryDispatchDesc;
 	int			serializedQueryDispatchDesclen;
+#ifdef SERVERLESS
+	char	   *serializedCatalog;
+	int			serializedCatalogLen;
+#endif
 
 	/*
 	 * Additional information.
@@ -105,6 +114,12 @@ typedef struct DispatchCommandQueryParms
 	char	   *serializedDtxContextInfo;
 	int			serializedDtxContextInfolen;
 } DispatchCommandQueryParms;
+
+/*
+ * Hooks for plugins to get control in command dispatch
+ */
+CdbNeedDispatchCommand_hook_type CdbNeedDispatchCommand_hook = NULL;
+CdbNeedDispatchUtility_hook_type CdbNeedDispatchUtility_hook = NULL;
 
 static int fillSliceVector(SliceTable *sliceTable,
 				int sliceIndex,
@@ -181,6 +196,19 @@ static SerializedParams *serializeParamsForDispatch(QueryDesc *queryDesc,
  */
 void
 CdbDispatchPlan(struct QueryDesc *queryDesc,
+				ParamExecData *execParams,
+				bool planRequiresTxn,
+				bool cancelOnError)
+{
+	if(CdbDispatchPlan_hook){
+		return CdbDispatchPlan_hook(queryDesc, execParams, planRequiresTxn, cancelOnError);
+	}
+
+	return CdbDispatchPlanInternal(queryDesc, execParams, planRequiresTxn, cancelOnError);
+}
+
+void
+CdbDispatchPlanInternal(struct QueryDesc *queryDesc,
 				ParamExecData *execParams,
 				bool planRequiresTxn,
 				bool cancelOnError)
@@ -308,6 +336,15 @@ CdbDispatchSetCommand(const char *strCommand, bool cancelOnError)
 	int		queryTextLength;
 	ListCell   *le;
 	ErrorData *qeError = NULL;
+	int flags = DF_NONE;
+
+#ifdef SERVERLESS
+	SetTransferOn();
+	InitQuery(strCommand);
+#endif
+
+	if (CdbNeedDispatchCommand_hook && !CdbNeedDispatchCommand_hook(strCommand, &flags, NULL, NULL))
+		return;
 
 	elog((Debug_print_full_dtm ? LOG : DEBUG5),
 		 "CdbDispatchSetCommand for command = '%s'",
@@ -385,6 +422,11 @@ CdbDispatchCommand(const char *strCommand,
 				   int flags,
 				   CdbPgResults *cdb_pgresults)
 {
+#ifdef SERVERLESS
+	SetTransferOn();
+	InitQuery(strCommand);
+#endif
+
 	return CdbDispatchCommandToSegments(strCommand,
 										flags,
 										cdbcomponent_getCdbComponentsList(),
@@ -402,7 +444,12 @@ CdbDispatchCommandToSegments(const char *strCommand,
 							 CdbPgResults *cdb_pgresults)
 {
 	DispatchCommandQueryParms *pQueryParms;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
+
+	if (CdbNeedDispatchCommand_hook && !CdbNeedDispatchCommand_hook(strCommand, &flags, segments, cdb_pgresults))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 
 	if (needTwoPhase)
 		setupDtxTransaction();
@@ -440,9 +487,14 @@ CdbDispatchUtilityStatement(struct Node *stmt,
 							CdbPgResults *cdb_pgresults)
 {
 	DispatchCommandQueryParms *pQueryParms;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
 
 	Assert(Gp_role == GP_ROLE_DISPATCH && ENABLE_DISPATCH());
+
+	if (CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook(stmt, &flags))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 	if (needTwoPhase)
 		setupDtxTransaction();
 
@@ -544,7 +596,12 @@ cdbdisp_buildCommandQueryParms(const char *strCommand, int flags)
 	pQueryParms->strCommand = strCommand;
 	pQueryParms->serializedQueryDispatchDesc = NULL;
 	pQueryParms->serializedQueryDispatchDesclen = 0;
-
+#ifdef SERVERLESS
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
+#endif
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -618,6 +675,12 @@ cdbdisp_buildUtilityQueryParms(struct Node *stmt,
 	pQueryParms->serializedQueryDispatchDesc = serializedQueryDispatchDesc;
 	pQueryParms->serializedQueryDispatchDesclen = serializedQueryDispatchDesc_len;
 
+#ifdef SERVERLESS
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
+#endif
 	/*
 	 * Serialize a version of our DTX Context Info
 	 */
@@ -677,6 +740,12 @@ cdbdisp_buildPlanQueryParms(struct QueryDesc *queryDesc,
 	pQueryParms->serializedQueryDispatchDesc = sddesc;
 	pQueryParms->serializedQueryDispatchDesclen = sddesc_len;
 
+#ifdef SERVERLESS
+	if (IsTransferOn())
+		pQueryParms->serializedCatalog = serializeNode((Node*) GetTransferNode(),
+												   &pQueryParms->serializedCatalogLen,
+												   NULL);
+#endif
 	/*
 	 * Serialize a version of our snapshot, and generate our transction
 	 * isolations. We generally want Plan based dispatch to be in a global
@@ -870,6 +939,10 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			plantree_len = pQueryParms->serializedPlantreelen;
 	const char *sddesc = pQueryParms->serializedQueryDispatchDesc;
 	int			sddesc_len = pQueryParms->serializedQueryDispatchDesclen;
+#ifdef SERVERLESS
+	const char *sdcatalog = pQueryParms->serializedCatalog;
+	int			sdcatalog_len = pQueryParms->serializedCatalogLen;
+#endif
 	const char *dtxContextInfo = pQueryParms->serializedDtxContextInfo;
 	int			dtxContextInfo_len = pQueryParms->serializedDtxContextInfolen;
 	int64		currentStatementStartTimestamp = GetCurrentStatementStartTimestamp();
@@ -886,6 +959,8 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	int			total_query_len;
 	char	   *shared_query,
 			   *pos;
+	char		*extraMsgs;
+	int			extraLen;		   
 	MemoryContext oldContext;
 
 	/*
@@ -923,17 +998,26 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sizeof(command_len) +
 		sizeof(plantree_len) +
 		sizeof(sddesc_len) +
+#ifdef SERVERLESS
+		sizeof(sdcatalog_len) +
+#endif
 		sizeof(dtxContextInfo_len) +
 		dtxContextInfo_len +
 		command_len +
 		plantree_len +
 		sddesc_len +
+#ifdef SERVERLESS
+		sdcatalog_len +
+#endif
 		sizeof(numsegments) +
 		sizeof(resgroupInfo.len) +
 		resgroupInfo.len +
 		sizeof(tempNamespaceId) +
 		sizeof(tempToastNamespaceId) +
 		0;
+
+	extraMsgs = PackExtraMsgs(&extraLen);
+	total_query_len += extraLen;
 
 	shared_query = palloc(total_query_len);
 
@@ -987,6 +1071,12 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
 
+#ifdef SERVERLESS
+	tmp = htonl(sdcatalog_len);
+	memcpy(pos, &tmp, sizeof(tmp));
+	pos += sizeof(tmp);
+#endif
+
 	tmp = htonl(dtxContextInfo_len);
 	memcpy(pos, &tmp, sizeof(tmp));
 	pos += sizeof(tmp);
@@ -1014,6 +1104,14 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		pos += sddesc_len;
 	}
 
+#ifdef SERVERLESS
+	if (sdcatalog_len > 0)
+	{
+		memcpy(pos, sdcatalog, sdcatalog_len);
+		pos += sdcatalog_len;
+	}
+#endif
+
 	tmp = htonl(numsegments);
 	memcpy(pos, &tmp, sizeof(numsegments));
 	pos += sizeof(numsegments);
@@ -1037,6 +1135,15 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	pos += sizeof(tempNamespaceId);
 	memcpy(pos, &tempToastNamespaceId, sizeof(tempToastNamespaceId));
 	pos += sizeof(tempToastNamespaceId);
+
+	if (extraLen > 0)
+	{
+		memcpy(pos, extraMsgs, extraLen);
+		pos += extraLen;
+		pfree(extraMsgs);
+	}
+
+	len = pos - shared_query - 1;
 
 	/*
 	 * fill in length placeholder
@@ -1335,8 +1442,12 @@ CdbDispatchCopyStart(struct CdbCopy *cdbCopy, Node *stmt, int flags)
 	CdbDispatcherState *ds;
 	Gang *primaryGang;
 	ErrorData *error = NULL;
-	bool needTwoPhase = flags & DF_NEED_TWO_PHASE;
+	bool needTwoPhase;
 
+	if (CdbNeedDispatchUtility_hook && !CdbNeedDispatchUtility_hook(stmt, &flags))
+		return;
+
+	needTwoPhase = flags & DF_NEED_TWO_PHASE;
 	if (needTwoPhase)
 		setupDtxTransaction();
 
@@ -1392,6 +1503,10 @@ CdbDispatchCopyEnd(struct CdbCopy *cdbCopy)
 	CdbDispatcherState *ds;
 
 	ds = cdbCopy->dispatcherState;
+
+	if (CdbCopyEnd_hook)
+		CdbCopyEnd_hook();
+
 	cdbCopy->dispatcherState = NULL;
 	cdbdisp_destroyDispatcherState(ds);
 }

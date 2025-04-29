@@ -41,6 +41,9 @@
 #include "catalog/heap.h"
 #include "catalog/index.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "utils/workfile_mgr.h"
 #include "parser/parsetree.h"
 
@@ -856,6 +859,28 @@ _outGpSplitPartitionCmd(StringInfo str, const GpSplitPartitionCmd *node)
 	WRITE_NODE_FIELD(at);
 	WRITE_NODE_FIELD(arg2);
 }
+
+#ifdef SERVERLESS
+static void
+_outSystemTableTransferNode(StringInfo str, const SystemTableTransferNode *node)
+{
+	WRITE_NODE_TYPE("SYSTEMTABLETRANSFERNODE");
+	WRITE_OID_FIELD(my_temp_namespace);
+	WRITE_OID_FIELD(my_temp_toast_namespace);
+	WRITE_NODE_FIELD(transfer_tuples);
+}
+
+static void
+_outTransferTuple(StringInfo str, const TransferTuple *node)
+{
+	WRITE_NODE_TYPE("TRANSFERTUPLE");
+
+	WRITE_UINT_FIELD(t_len);
+	appendBinaryStringInfo(str, (char *) &node->t_self, sizeof(ItemPointerData));
+	WRITE_OID_FIELD(t_tableOid);
+	appendBinaryStringInfo(str, node->t_data, node->t_len);
+}
+#endif
 
 /*
  * _outNode -
@@ -1933,6 +1958,23 @@ _outNode(StringInfo str, void *obj)
 			case T_AlterDatabaseStmt:
 				_outAlterDatabaseStmt(str, obj);
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				_outAPHashExpr(str, obj);
+				break;
+			case T_APListExpr:
+				_outAPListExpr(str, obj);
+				break;
+			case T_APRangeExpr:
+				_outAPRangeExpr(str, obj);
+				break;
+			case T_SystemTableTransferNode:
+				_outSystemTableTransferNode(str, obj);
+				break;
+			case T_TransferTuple:
+				_outTransferTuple(str, obj);
+				break;
+#endif /* SERVERLESS */
 			default:
 				elog(ERROR, "could not serialize unrecognized node type: %d",
 						 (int) nodeTag(obj));

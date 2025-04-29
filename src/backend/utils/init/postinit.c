@@ -46,6 +46,9 @@
 #include "libpq/libpq-be.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbtm.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "cdb/cdbutil.h"
 #include "mb/pg_wchar.h"
@@ -675,6 +678,20 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 
 	elog(DEBUG3, "InitPostgres");
 
+#ifdef SERVERLESS
+	if (!IS_QUERY_DISPATCHER())
+	{
+		elog(LOG, "Startup catalog %d procid: %d", StartUpCatalogLen, MyProcPid);
+
+		if (StartUpCatalogData)
+		{
+			SystemTupleStoreReset();
+			SystemTupleStoreInit(StartUpCatalogData, StartUpCatalogLen);
+		}
+	}
+
+#endif
+
 	/*
 	 * Add my PGPROC struct to the ProcArray.
 	 *
@@ -840,6 +857,11 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		XactIsoLevel = XACT_READ_COMMITTED;
 
 		(void) GetTransactionSnapshot();
+
+#ifdef SERVERLESS
+		TransferReset();
+		SetTransferOn();
+#endif /* SERVERLESS */
 	}
 
 	/*
@@ -1147,6 +1169,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	 */
 	fullpath = GetDatabasePath(MyDatabaseId, MyDatabaseTableSpace);
 
+#ifndef SERVERLESS
 	if (!bootstrap)
 	{
 		if (access(fullpath, F_OK) == -1)
@@ -1167,6 +1190,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 
 		ValidatePgVersion(fullpath);
 	}
+#endif
 
 	SetDatabasePath(fullpath);
 	pfree(fullpath);

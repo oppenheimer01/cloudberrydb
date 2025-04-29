@@ -1329,6 +1329,8 @@ InsertPgClassTuple(Relation pg_class_desc,
 	values[Anum_pg_class_relisivm - 1] = BoolGetDatum(rd_rel->relisivm);
 	values[Anum_pg_class_relisdynamic - 1] = BoolGetDatum(rd_rel->relisdynamic);
 	values[Anum_pg_class_relmvrefcount - 1] = Int32GetDatum(rd_rel->relmvrefcount);
+	values[Anum_pg_class_relhaspartialagg - 1] = BoolGetDatum(rd_rel->relhaspartialagg);
+	values[Anum_pg_class_relisivm - 1] = CharGetDatum(rd_rel->relisivm);
 	if (relacl != (Datum) 0)
 		values[Anum_pg_class_relacl - 1] = relacl;
 	else
@@ -1340,6 +1342,7 @@ InsertPgClassTuple(Relation pg_class_desc,
 
 	/* relpartbound is set by updating this tuple, if necessary */
 	nulls[Anum_pg_class_relpartbound - 1] = true;
+	nulls[Anum_pg_class_relpartspec - 1] = true;
 
 	tup = heap_form_tuple(RelationGetDescr(pg_class_desc), values, nulls);
 
@@ -4488,6 +4491,17 @@ StorePartitionBound(Relation rel, Relation parent, PartitionBoundSpec *bound)
 								 new_val, new_null, new_repl);
 	/* Also set the flag */
 	((Form_pg_class) GETSTRUCT(newtuple))->relispartition = true;
+#ifdef SERVERLESS
+	/*
+	 * Fill in relreuseattrs value.
+	 * True if partition has the same physical column definitions with its parent.
+	 */
+	TupleDesc	rel_tupleDesc = RelationGetDescr(rel);
+	TupleDesc	parent_tupleDesc = RelationGetDescr(parent);
+
+	((Form_pg_class) GETSTRUCT(newtuple))->relreuseattrs =
+		equalTupleDescs(rel_tupleDesc, parent_tupleDesc, true, true);
+#endif
 	CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
 	heap_freetuple(newtuple);
 	table_close(classRel, RowExclusiveLock);
@@ -4516,3 +4530,60 @@ StorePartitionBound(Relation rel, Relation parent, PartitionBoundSpec *bound)
 
 	CacheInvalidateRelcache(parent);
 }
+
+#ifdef SERVERLESS
+/*
+ * TODO: FIXME use PartitionSpec is fine but the serialize format contain so
+ * many redundant infor which is not related to parititon dispatch. we need to
+ * define a auto partition private Expr to record it.
+ */
+void
+StorePartitionSpec(Relation rel, List *apExprs)
+{
+	Relation	classRel;
+	HeapTuple	tuple,
+				newtuple;
+	Datum		new_val[Natts_pg_class];
+	bool		new_null[Natts_pg_class],
+				new_repl[Natts_pg_class];
+
+	/* Update pg_class tuple */
+	classRel = table_open(RelationRelationId, RowExclusiveLock);
+	tuple = SearchSysCacheCopy1(RELOID,
+								ObjectIdGetDatum(RelationGetRelid(rel)));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for relation %u",
+			 RelationGetRelid(rel));
+
+#ifdef USE_ASSERT_CHECKING
+	{
+		Form_pg_class classForm;
+		bool		isnull;
+
+		classForm = (Form_pg_class) GETSTRUCT(tuple);
+		Assert(!classForm->relispartition);
+		(void) SysCacheGetAttr(RELOID, tuple, Anum_pg_class_relpartbound,
+							   &isnull);
+		Assert(isnull);
+	}
+#endif
+
+	/* Fill in relpartspec value */
+	memset(new_val, 0, sizeof(new_val));
+	memset(new_null, false, sizeof(new_null));
+	memset(new_repl, false, sizeof(new_repl));
+	new_val[Anum_pg_class_relpartspec - 1] = CStringGetTextDatum(nodeToString(apExprs));
+	new_null[Anum_pg_class_relpartspec - 1] = false;
+	new_repl[Anum_pg_class_relpartspec - 1] = true;
+	newtuple = heap_modify_tuple(tuple, RelationGetDescr(classRel),
+								 new_val, new_null, new_repl);
+	CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
+	heap_freetuple(newtuple);
+
+	table_close(classRel, RowExclusiveLock);
+	/* Make these updates visible */
+	CommandCounterIncrement();
+
+	CacheInvalidateRelcache(rel);
+}
+#endif

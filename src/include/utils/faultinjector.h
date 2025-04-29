@@ -81,6 +81,7 @@ typedef struct FaultInjectorEntry_s {
 	
 } FaultInjectorEntry_s;
 
+#ifdef FAULT_INJECTOR
 extern void InjectFaultInit(void);
 
 extern Size FaultInjector_ShmemSize(void);
@@ -118,6 +119,7 @@ extern char *InjectFault(
 	char *tableName, int startOccurrence, int endOccurrence, int extraArg, int gpSessionid);
 
 extern void HandleFaultMessage(const char* msg);
+#endif
 
 typedef void (*fault_injection_warning_function)(FaultInjectorEntry_s faultEntry);
 void register_fault_injection_warning(fault_injection_warning_function warning);

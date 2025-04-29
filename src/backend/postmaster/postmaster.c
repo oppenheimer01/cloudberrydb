@@ -156,6 +156,9 @@
 #include "cdb/cdbtm.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/ic_proxy_bgworker.h"
 #include "cdb/ml_ipc.h"
 #include "utils/metrics_utils.h"
@@ -285,6 +288,9 @@ bool		enable_password_profile = true;
 
 /* Hook for plugins to start background workers */
 start_bgworkers_hook_type start_bgworkers_hook = NULL;
+
+/* Hook for plugins to get control in StartChildProcess */
+StartChildProcess_hook_type StartChildProcess_hook = NULL;
 
 /*
  * PIDs of special child processes; 0 when not running. When adding a new PID
@@ -2099,7 +2105,8 @@ ServerLoop(void)
 		 */
 		if (!IsBinaryUpgrade && AutoVacPID == 0 &&
 			(AutoVacuumingActive() || start_autovac_launcher) &&
-			pmState == PM_RUN)
+			pmState == PM_RUN &&
+			Gp_role != GP_ROLE_UTILITY)
 		{
 			AutoVacPID = StartAutoVacLauncher();
 			if (AutoVacPID != 0)
@@ -2586,7 +2593,7 @@ retry1:
 					/* If no defined USE_INTERNAL_FTS
 					 * Allow deal fts meesage in master
 					 * Also support promote standby when standby_promote_ready is true
-					 */ 
+					 */
 					am_ftshandler = true;
 
 #ifdef FAULT_INJECTOR
@@ -2668,9 +2675,28 @@ retry1:
 		 * given packet length, complain.
 		 */
 		if (offset != len - 1)
-			ereport(FATAL,
-					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-					 errmsg("invalid startup packet layout: expected terminator as last byte")));
+#ifdef SERVERLESS
+		{
+			int catalog_len;
+
+			offset += 1;
+			memcpy(&catalog_len, buf + offset, sizeof(int));
+
+			offset += 4;
+			if (len - offset != catalog_len)
+				ereport(FATAL,
+						(errcode(ERRCODE_PROTOCOL_VIOLATION),
+						 errmsg("invalid startup packet layout: expected terminator as last byte")));
+
+			StartUpCatalogData = malloc(catalog_len);
+			StartUpCatalogLen = catalog_len;
+			memcpy(StartUpCatalogData, buf + offset, catalog_len);
+		}
+#else
+		ereport(FATAL,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					errmsg("invalid startup packet layout: expected terminator as last byte")));
+#endif
 
 		/*
 		 * If the client requested a newer protocol version or if the client
@@ -3539,7 +3565,8 @@ reaper(SIGNAL_ARGS)
 			 * Likewise, start other special children as needed.  In a restart
 			 * situation, some of them may be alive already.
 			 */
-			if (!IsBinaryUpgrade && AutoVacuumingActive() && AutoVacPID == 0)
+			if (!IsBinaryUpgrade && AutoVacuumingActive() && AutoVacPID == 0 &&
+				Gp_role != GP_ROLE_UTILITY)
 				AutoVacPID = StartAutoVacLauncher();
 			if (PgArchStartupAllowed() && PgArchPID == 0)
 				PgArchPID = StartArchiver();
@@ -6063,6 +6090,15 @@ CountChildren(int target)
  */
 static pid_t
 StartChildProcess(AuxProcType type)
+{
+	if (StartChildProcess_hook)
+		return (*StartChildProcess_hook) (type);
+
+	return StartChildProcessInternal(type);
+}
+
+pid_t
+StartChildProcessInternal(AuxProcType type)
 {
 	pid_t		pid;
 	char	   *av[10];

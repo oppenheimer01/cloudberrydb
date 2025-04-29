@@ -53,6 +53,13 @@ extern int qe_idx;
 extern MemoryContext GangContext;
 extern Gang *CurrentGangCreating;
 
+/* Hook for plugins to get control in build_gpqeid_param() */
+typedef int (*build_gpqeid_param_hook_type) (char *buf, int bufsz, int buf_len);
+extern PGDLLIMPORT build_gpqeid_param_hook_type build_gpqeid_param_hook;
+
+/* Hook for plugins to get control in cdbgang_parse_gpqeid_params() */
+typedef bool (*parse_gpqeid_params_hook_type) (char *param);
+extern PGDLLIMPORT parse_gpqeid_params_hook_type parse_gpqeid_params_hook;
 /*
  * cdbgang_createGang:
  *

@@ -58,6 +58,11 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_db_role_setting_databaseid_rol_index, 2965, on pg_d
 #define DbRoleSettingDatidRolidIndexId	2965
 
 /*
+ * Hooks for tde function 
+ */
+typedef bool(*Alter_database_encrypt_key_hook_type)(Oid databaseid, Oid roleid, VariableSetStmt *setstmt, char* valuestr);
+extern PGDLLIMPORT Alter_database_encrypt_key_hook_type Alter_database_encrypt_key_hook;
+/*
  * prototypes for functions in pg_db_role_setting.h
  */
 extern void AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt);

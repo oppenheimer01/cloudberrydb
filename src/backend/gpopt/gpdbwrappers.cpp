@@ -2170,11 +2170,11 @@ gpdb::CheckRTPermissions(List *rtable)
 
 // check that a table doesn't have UPDATE triggers.
 bool
-gpdb::HasUpdateTriggers(Oid relid)
+gpdb::HasUpdateDeleteTriggers(Oid relid)
 {
 	GP_WRAP_START;
 	{
-		return has_update_triggers(relid, true);
+		return has_update_delete_triggers(relid);
 	}
 	GP_WRAP_END;
 	return false;

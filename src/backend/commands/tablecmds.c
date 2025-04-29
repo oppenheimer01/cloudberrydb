@@ -49,7 +49,6 @@
 #include "catalog/pg_tablespace.h"
 #include "catalog/pg_statistic_ext.h"
 #include "catalog/pg_trigger.h"
-#include "catalog/pg_tablespace.h"
 #include "catalog/pg_type.h"
 #include "catalog/storage.h"
 #include "catalog/storage_xlog.h"
@@ -137,9 +136,15 @@
 #include "cdb/cdbvars.h"
 #include "cdb/cdbrelsize.h"
 #include "cdb/cdboidsync.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "postmaster/autostats.h"
 
 const char *synthetic_sql = "(internally generated SQL command)";
+
+/* Hook for plugins to get control in ATExecSetDistributedBy */
+ATExecSetDistributedBy_hook_type ATExecSetDistributedBy_hook = NULL;
 
 /*
  * ON COMMIT action list
@@ -356,7 +361,7 @@ static AlterTableCmd *ATParseTransformCmd(List **wqueue, AlteredTableInfo *tab,
 static void ATRewriteTables(AlterTableStmt *parsetree,
 							List **wqueue, LOCKMODE lockmode,
 							AlterTableUtilityContext *context);
-static void ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode);
+void ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode);
 static void ATAocsWriteSegFileNewColumns(
 		AOCSAddColumnDesc idesc, AOCSHeaderScanDesc sdesc,
 		AlteredTableInfo *tab, ExprContext *econtext, TupleTableSlot *slot, const char *relname);
@@ -581,12 +586,65 @@ static RangeVar *make_temp_table_name(Relation rel, BackendId id);
 static bool prebuild_temp_table(Relation rel, RangeVar *tmpname, DistributedBy *distro,
 								char *amname, List *opts,
 								bool isTmpTableAo, bool useExistingColumnAttributes);
+static void ATExecSetRelOptionsCheck(Relation rel, DefElem *def);
 
+ATExecSetRelOptionsCheck_hook_type ATExecSetRelOptionsCheck_hook = NULL;
+ATRewriteTable_hook_type ATRewriteTable_hook = NULL;
+check_types_am_hook_type check_types_am_hook = NULL;
 
 static void checkATSetDistributedByStandalone(AlteredTableInfo *tab, Relation rel);
 static void populate_rel_col_encodings(Relation rel, List *stenc, List *withOptions, Oid newAm);
 static void clear_rel_opts(Relation rel);
 
+#ifdef SERVERLESS
+static void maintenance_relreuseattrs(Relation rel);
+static void maintenance_relreuseattrs_guts(Relation rel);
+
+static List *
+validateAndMergeAPExprs(CreateStmt *stmt)
+{
+	PartitionSpec *partspec = stmt->partspec;
+	GpPolicy *policy = stmt->intoPolicy;
+	List *apExprs = NIL;
+	if (partspec->apExpr)
+	{
+		if (GpPolicyIsEntry(policy))
+			ereport(ERROR, (errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+							errmsg("AutoPartition do not support entry policy")));
+
+		for (PartitionSpec *curSpec = partspec;
+			 curSpec;
+			 curSpec = partspec->subPartSpec)
+		{
+			if (pg_strcasecmp(curSpec->strategy, "hash") == 0 &&
+				!IsA(curSpec->apExpr, APHashExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("Hash AutoPartition grammar error")));
+			}
+			else if (pg_strcasecmp(partspec->strategy, "list") == 0 &&
+					 !IsA(curSpec->apExpr, APListExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("List AutoPartition grammar error")));
+
+			}
+			else if (pg_strcasecmp(partspec->strategy, "range") == 0 &&
+					 !IsA(curSpec->apExpr, APRangeExpr))
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+						 errmsg("Range AutoPartition grammar error")));
+			}
+
+			apExprs = lappend(apExprs, curSpec->apExpr);
+		}
+	}
+	return apExprs;
+}
+#endif
 
 /* ----------------------------------------------------------------
  *		DefineRelation
@@ -781,10 +839,12 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		 */
 		tablespaceId = get_tablespace_oid(stmt->tablespacename, false);
 
+#ifndef SERVERLESS
 		if (partitioned && tablespaceId == MyDatabaseTableSpace)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot specify default tablespace for partitioned relations")));
+#endif				 
 	}
 	else if (stmt->partbound)
 	{
@@ -804,9 +864,15 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		tablespaceId = InvalidOid;
 
 	/* still nothing? use the default */
+#ifdef SERVERLESS
+	if (!OidIsValid(tablespaceId) && !stmt->partbound)
+		tablespaceId = GetDefaultTablespace(stmt->relation->relpersistence,
+											partitioned);
+#else
 	if (!OidIsValid(tablespaceId))
 		tablespaceId = GetDefaultTablespace(stmt->relation->relpersistence,
 											partitioned);
+#endif
 
 	/* Check permissions except when using database's default */
 	if (OidIsValid(tablespaceId) && tablespaceId != MyDatabaseTableSpace)
@@ -1023,6 +1089,10 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 	 * default values or CHECK constraints; we handle those below.
 	 */
 	descriptor = BuildDescForRelation(schema);
+	if (check_types_am_hook)
+	{
+		(*check_types_am_hook)(schema, accessMethodId, stmt->relation->relname, relkind);
+	}
 
 	/*
 	 * now that we have the final list of attributes, interpret DISTRIBUTED BY
@@ -1490,6 +1560,13 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		Oid			partopclass[PARTITION_MAX_KEYS];
 		Oid			partcollation[PARTITION_MAX_KEYS];
 		List	   *partexprs = NIL;
+#ifdef SERVERLESS
+		/* 
+		 * `transformPartitionSpec` will modify partspec, so eager merge all
+		 * auto partition expr from sub partspec
+		 */
+		List		*apExprs = validateAndMergeAPExprs(stmt);
+#endif
 
 		pstate = make_parsestate(NULL);
 		pstate->p_sourcetext = queryString;
@@ -1519,6 +1596,11 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		StorePartitionKey(rel, strategy, partnatts, partattrs, partexprs,
 						  partopclass, partcollation);
 
+#ifdef SERVERLESS
+	/* Process and store auto partition spec, if any. */
+	if (apExprs)
+		StorePartitionSpec(rel, apExprs);
+#endif
 		/* make it all visible */
 		CommandCounterIncrement();
 	}
@@ -6432,6 +6514,36 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
 			break;
 	}
 
+#ifdef SERVERLESS
+	/*
+	 * maintenance_relreuseattrs
+	 * Not all ALTER COLUMN commands are considered, some commands like
+	 * ALTER COLUMN SET(options) doesn't have an impact on Attributes Reuse.
+	 */
+	if (cmd != NULL)
+	{
+		switch (cmd->subtype)
+		{
+			case AT_DropNotNull:	/* ALTER COLUMN DROP NOT NULL */
+			case AT_SetNotNull:		/* ALTER COLUMN SET NOT NULL */
+			case AT_ColumnDefault:	/* ALTER COLUMN DEFAULT */
+			case AT_AddIdentity:
+			case AT_SetIdentity:
+			case AT_DropIdentity:
+			case AT_DropExpression:
+			case AT_SetStatistics:	/* ALTER COLUMN SET STATISTICS */
+			case AT_SetStorage:		/* ALTER COLUMN SET STORAGE */
+			case AT_AlterColumnType:	/* ALTER COLUMN TYPE */
+			case AT_SetCompression:
+				maintenance_relreuseattrs(rel);
+				break;
+			default:
+				/* do nothing. */
+				break;
+		}
+	}
+#endif
+
 	/*
 	 * Report the subcommand to interested event triggers.
 	 */
@@ -7362,7 +7474,7 @@ ATAocsWriteNewColumns(AlteredTableInfo *tab)
  *
  * OIDNewHeap is InvalidOid if we don't need to rewrite
  */
-static void
+void
 ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 {
 	Relation	oldrel;
@@ -7378,6 +7490,7 @@ ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 	BulkInsertState bistate;
 	int			ti_options;
 	ExprState  *partqualstate = NULL;
+
 
 	/*
 	 * Open the relation(s).  We have surely already locked the existing
@@ -7742,6 +7855,10 @@ ATRewriteTable(AlteredTableInfo *tab, Oid OIDNewHeap, LOCKMODE lockmode)
 
 		table_close(newrel, NoLock);
 	}
+
+
+	if (ATRewriteTable_hook)
+		ATRewriteTable_hook(tab, OIDNewHeap, lockmode);
 }
 
 /*
@@ -8677,7 +8794,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		 * should be smarter..
 		 */
 
-		if (RelationIsAppendOptimized(rel))
+		if (!(table_scan_flags(rel) & SCAN_SUPPORT_DEFAULT_COLUMNS))
 		{
 			if (!defval)
 				defval = (Expr *) makeNullConst(typeOid, -1, collOid);
@@ -14466,6 +14583,8 @@ ATExecAlterColumnType(AlteredTableInfo *tab, Relation rel,
 			case OCLASS_STORAGE_USER_MAPPING:
 			case OCLASS_TAG:
 			case OCLASS_TAG_DESCRIPTION:
+			case OCLASS_MAIN_MANIFEST:
+			case OCLASS_WAREHOUSE:
 
 				/*
 				 * We don't expect any of these sorts of objects to depend on
@@ -16183,6 +16302,7 @@ ATExecSetRelOptions(Relation rel, List *defList, AlterTableType operation,
 		{
 			DefElem    *def = lfirst(cell);
 
+			ATExecSetRelOptionsCheck(rel, def);
 			/*
 			 * Autovacuum on user tables is not enabled in Cloudberry.  Move on
 			 * with a warning.  The decision to not error out is in favor of
@@ -17926,6 +18046,7 @@ build_ctas_with_dist(Relation rel, DistributedBy *dist_clause,
 		into->options = storage_opts;
 		into->tableSpaceName = get_tablespace_name(tblspc);
 		into->distributedBy = (Node *)dist_clause;
+
 		if (RelationIsAppendOptimized(rel))
 		{
 			/*
@@ -17939,6 +18060,9 @@ build_ctas_with_dist(Relation rel, DistributedBy *dist_clause,
 			 */
 			into->options = build_ao_rel_storage_opts(into->options, rel);
 		}
+
+		into->ivm = false;
+		into->defer = false;
 		s->intoClause = into;
 
 		RawStmt *rawstmt = makeNode(RawStmt);
@@ -18756,6 +18880,9 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 	bool 				save_optimizer_replicated_table_insert;
 	Oid					relationOid = InvalidOid;
 	AutoStatsCmdType 	cmdType = AUTOSTATS_CMDTYPE_SENTINEL;
+
+	if (ATExecSetDistributedBy_hook)
+		return (*ATExecSetDistributedBy_hook)(rel, node, cmd);
 
 	/* Can't ALTER TABLE SET system catalogs */
 	if (IsSystemRelation(rel))
@@ -22504,6 +22631,9 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
 								 new_val, new_null, new_repl);
 
 	((Form_pg_class) GETSTRUCT(newtuple))->relispartition = false;
+#ifdef SERVERLESS
+	((Form_pg_class) GETSTRUCT(newtuple))->relreuseattrs = false;
+#endif
 	CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
 	heap_freetuple(newtuple);
 	table_close(classRel, RowExclusiveLock);
@@ -23221,7 +23351,122 @@ checkATSetDistributedByStandalone(AlteredTableInfo *tab, Relation rel)
 	if (!standalone)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					errmsg("cannot alter distribution with other subcommands for relation \"%s\"",
-						   RelationGetRelationName(rel)),
-					errhint("consider separating into multiple statements")));
+						errmsg("cannot alter distribution with other subcommands for relation \"%s\"",
+							   RelationGetRelationName(rel)),
+						errhint("consider separating into multiple statements")));
 }
+
+static void
+ATExecSetRelOptionsCheck(Relation rel, DefElem *def)
+{
+	int kw_len = strlen(def->defname);
+
+	if (pg_strncasecmp(SOPT_APPENDONLY, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_BLOCKSIZE, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_COMPTYPE, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_COMPLEVEL, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_CHECKSUM, def->defname, kw_len) == 0 ||
+		pg_strncasecmp(SOPT_PARTIAL_AGG, def->defname, kw_len) == 0)
+		ereport(ERROR,
+                  (errcode(ERRCODE_WRONG_OBJECT_TYPE),
+                   errmsg("cannot SET reloption \"%s\"",
+                          def->defname)));
+
+	if (ATExecSetRelOptionsCheck_hook)
+		ATExecSetRelOptionsCheck_hook(rel, def);
+	return;
+}
+
+#ifdef SERVERLESS
+static void
+maintenance_relreuseattrs(Relation rel)
+{
+	if (unlikely(Gp_role != GP_ROLE_DISPATCH))
+		return;
+	CommandCounterIncrement();
+	maintenance_relreuseattrs_guts(rel);
+}
+
+/*
+ * SERVERLESS
+ * maintenance pg_class.relreuseattrs
+ * If column of one relation of a partition tree is altered:
+ * 1.Check columns with its parent(if exists)
+ * 2.Check columns with its children recursively (if exists)
+ *       t1
+ *      / \
+ *    p1  p2
+ *       /  \
+ *     p2_1 p2_2
+ * example: alter table p2 alter column set xxx;
+ * check p2's columns with t1, update p2.relreuseattrs.
+ * check p2_1, p2_2's columns with p2, update relreuseattrs of p2_1, p2_2.
+ */
+static void
+maintenance_relreuseattrs_guts(Relation rel)
+{
+	Relation	classRel;
+	bool    	could_reuse;
+	Datum		new_val[Natts_pg_class];
+	bool		new_null[Natts_pg_class], new_repl[Natts_pg_class];
+	HeapTuple	tuple, newtuple;
+	Form_pg_class classform;
+	Relation    parentrel;
+	TupleDesc   rel_tupleDesc;
+	TupleDesc   parent_tupleDesc;
+	Oid         parent_oid;
+	Oid relid = RelationGetRelid(rel);
+
+	/* check with parent */
+	if (rel->rd_rel->relispartition)
+	{
+		parent_oid = get_partition_parent(relid, true);
+		if (OidIsValid(parent_oid))
+		{
+			classRel = table_open(RelationRelationId, RowExclusiveLock);
+			parentrel = relation_open(parent_oid, AccessShareLock);
+			rel_tupleDesc = RelationGetDescr(rel);
+			parent_tupleDesc = RelationGetDescr(parentrel);
+			could_reuse = equalTupleDescs(rel_tupleDesc, parent_tupleDesc, true, true);
+			tuple = SearchSysCacheCopy1(RELOID, relid);
+			if (!HeapTupleIsValid(tuple))
+				elog(ERROR, "cache lookup failed for relation %u", relid);
+			classform = (Form_pg_class) GETSTRUCT(tuple);
+			if (classform->relreuseattrs != could_reuse)
+			{
+				memset(new_val, 0, sizeof(new_val));
+				memset(new_null, false, sizeof(new_null));
+				memset(new_repl, false, sizeof(new_repl));
+				new_val[Anum_pg_class_relreuseattrs - 1] = could_reuse;
+				new_null[Anum_pg_class_relreuseattrs - 1] = false;
+				new_repl[Anum_pg_class_relreuseattrs - 1] = true;
+				newtuple = heap_modify_tuple(tuple, RelationGetDescr(classRel), new_val, new_null, new_repl);
+				CatalogTupleUpdate(classRel, &newtuple->t_self, newtuple);
+				heap_freetuple(newtuple);
+				CommandCounterIncrement();
+			}
+			table_close(classRel, RowExclusiveLock);
+			relation_close(parentrel, NoLock);
+		}
+	}
+
+	/* not partitioned, do nothing */
+	if (rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
+		return;
+
+	List	*children;
+	ListCell   *child;
+	children = find_inheritance_children(relid,  AccessExclusiveLock);
+	foreach(child, children)
+	{
+		Oid			childrelid = lfirst_oid(child);
+		Relation	childrel;
+		/* find_inheritance_children already got lock */
+		childrel = table_open(childrelid, NoLock);
+		CheckTableNotInUse(childrel, "ALTER TABLE");
+		maintenance_relreuseattrs_guts(childrel);
+		table_close(childrel, NoLock);
+	}
+}
+
+#endif

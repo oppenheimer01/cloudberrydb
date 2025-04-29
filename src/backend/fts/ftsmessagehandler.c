@@ -315,6 +315,16 @@ HandleFtsWalRepSyncRepOff(void)
 		false, /* RequestRetry */
 	};
 
+#ifdef FAULT_INJECTOR
+	if (FaultInjector_InjectFaultIfSet("fts_probe",
+										   DDLNotSpecified,
+										   "" /* databaseName */,
+										   "" /* tableName */) == FaultInjectorTypeSkip)
+	{
+		SendFtsResponse(&response, FTS_MSG_SYNCREP_OFF);
+	}
+#endif
+
 	ereport(LOG,
 			(errmsg("turning off synchronous wal replication due to FTS request")));
 	UnsetSyncStandbysDefined();
@@ -387,6 +397,16 @@ HandleFtsWalRepPromote(void)
 	ereport(LOG,
 			(errmsg("promoting mirror to primary due to FTS request")));
 
+#ifdef FAULT_INJECTOR
+	if (FaultInjector_InjectFaultIfSet("fts_probe",
+										   DDLNotSpecified,
+										   "" /* databaseName */,
+										   "" /* tableName */) == FaultInjectorTypeSkip)
+	{
+		goto skip_promote;
+	}
+#endif
+
 #ifndef USE_INTERNAL_FTS
 	if (IS_QUERY_DISPATCHER()) {
 		bool succ;
@@ -439,7 +459,7 @@ HandleFtsWalRepPromote(void)
 			 " DBState = %d, RedoPtr = %X/%X", state, (uint32) (redo >> 32), (uint32) redo);
 	}
 
-#ifndef USE_INTERNAL_FTS
+#if defined(FAULT_INJECTOR) || !defined(USE_INTERNAL_FTS)
 skip_promote:
 #endif
 	SendFtsResponse(&response, FTS_MSG_PROMOTE);
@@ -466,6 +486,7 @@ HandleFtsMessage(const char* query_string)
 	error_level = WARNING;
 #endif
 
+#ifndef SERVERLESS
 	if (dbid != GpIdentity.dbid)
 		ereport(error_level,
 				(errmsg("message type: %s received dbid:%d doesn't match this segments configured dbid:%d",
@@ -475,6 +496,7 @@ HandleFtsMessage(const char* query_string)
 		ereport(error_level,
 				(errmsg("message type: %s received contentid:%d doesn't match this segments configured contentid:%d",
 						message_type, contid, GpIdentity.segindex)));
+#endif
 
 	SIMPLE_FAULT_INJECTOR("fts_handle_message");
 

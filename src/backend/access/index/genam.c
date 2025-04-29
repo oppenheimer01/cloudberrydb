@@ -25,6 +25,9 @@
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "catalog/index.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
@@ -361,6 +364,23 @@ index_compute_xid_horizon_for_tuples(Relation irel,
  * ----------------------------------------------------------------
  */
 
+#ifdef SERVERLESS
+static SysScanDesc
+systable_beginscan_qe(Relation heapRelation, int nkeys, ScanKey key)
+{
+	SysScanDesc sysscan;
+
+	sysscan = (SysScanDesc) palloc0(sizeof(SysScanDescData));
+
+	sysscan->heap_rel = heapRelation;
+	sysscan->slot = MakeSingleTupleTableSlot(RelationGetDescr(heapRelation),
+											 &TTSOpsHeapTuple);
+	sysscan->scan = systup_store_beginscan(heapRelation, nkeys, key, false);
+
+	return sysscan;
+}
+#endif
+
 /*
  * systable_beginscan --- set up for heap-or-index scan
  *
@@ -389,6 +409,11 @@ systable_beginscan(Relation heapRelation,
 {
 	SysScanDesc sysscan;
 	Relation	irel;
+
+#ifdef SERVERLESS
+	if (systup_store_active())
+		return systable_beginscan_qe(heapRelation, nkeys, key);
+#endif
 
 	if (indexOK &&
 		!IgnoreSystemIndexes &&
@@ -487,6 +512,24 @@ HandleConcurrentAbort()
 				 errmsg("transaction aborted during system catalog scan")));
 }
 
+#ifdef SERVERLESS
+static HeapTuple
+systable_getnext_qe(SysScanDesc sysscan)
+{
+	HeapTuple	htup = NULL;
+
+	if (systup_store_getnextslot(sysscan->scan, sysscan->slot))
+	{
+		bool		shouldFree;
+
+		htup = ExecFetchSlotHeapTuple(sysscan->slot, false, &shouldFree);
+		Assert(!shouldFree);
+	}
+
+	return htup;
+}
+#endif
+
 /*
  * systable_getnext --- get next tuple in a heap-or-index scan
  *
@@ -503,6 +546,11 @@ HeapTuple
 systable_getnext(SysScanDesc sysscan)
 {
 	HeapTuple	htup = NULL;
+
+#ifdef SERVERLESS
+	if (systup_store_active())
+		return systable_getnext_qe(sysscan);
+#endif
 
 	if (sysscan->irel)
 	{
@@ -541,6 +589,10 @@ systable_getnext(SysScanDesc sysscan)
 	 * logical streaming of a transaction.
 	 */
 	HandleConcurrentAbort();
+
+#ifdef SERVERLESS
+	TransStoreTuple(htup);
+#endif
 
 	return htup;
 }
@@ -587,6 +639,23 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 	return result;
 }
 
+#ifdef SERVERLESS
+static void
+systable_endscan_qe(SysScanDesc sysscan)
+{
+	if (sysscan->slot)
+	{
+		ExecDropSingleTupleTableSlot(sysscan->slot);
+		sysscan->slot = NULL;
+	}
+
+	systup_store_endscan(sysscan->scan);
+	if (sysscan->snapshot)
+		UnregisterSnapshot(sysscan->snapshot);
+	pfree(sysscan);
+}
+#endif
+
 /*
  * systable_endscan --- close scan, release resources
  *
@@ -595,6 +664,14 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 void
 systable_endscan(SysScanDesc sysscan)
 {
+#ifdef SERVERLESS
+	if (systup_store_active())
+	{
+		systable_endscan_qe(sysscan);
+		return;
+	}
+#endif
+
 	if (sysscan->slot)
 	{
 		ExecDropSingleTupleTableSlot(sysscan->slot);
@@ -647,6 +724,11 @@ systable_beginscan_ordered(Relation heapRelation,
 {
 	SysScanDesc sysscan;
 	int			i;
+
+#ifdef SERVERLESS
+	if (systup_store_sorted_active())
+		return systable_beginscan_qe(heapRelation, nkeys, key);
+#endif
 
 	/* REINDEX can probably be a hard error here ... */
 	if (ReindexIsProcessingIndex(RelationGetRelid(indexRelation)))
@@ -709,6 +791,11 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 {
 	HeapTuple	htup = NULL;
 
+#ifdef SERVERLESS
+	if (systup_store_sorted_active())
+		return systable_getnext_qe(sysscan);
+#endif
+
 	Assert(sysscan->irel);
 	if (index_getnext_slot(sysscan->iscan, direction, sysscan->slot))
 		htup = ExecFetchSlotHeapTuple(sysscan->slot, false, NULL);
@@ -723,6 +810,10 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 	 */
 	HandleConcurrentAbort();
 
+#ifdef SERVERLESS
+	TransStoreTuple(htup);
+#endif
+
 	return htup;
 }
 
@@ -732,6 +823,13 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 void
 systable_endscan_ordered(SysScanDesc sysscan)
 {
+#ifdef SERVERLESS
+	if (systup_store_sorted_active())
+	{
+		systable_endscan_qe(sysscan);
+		return;
+	}
+#endif
 	if (sysscan->slot)
 	{
 		ExecDropSingleTupleTableSlot(sysscan->slot);

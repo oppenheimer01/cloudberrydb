@@ -52,6 +52,8 @@ typedef enum SMgrImplementation
 	SMGR_MD = 0,
 	SMGR_AO = 1,
 	SMGR_PAX = 2,
+
+	SMGR_LAST_DEFAULT = SMGR_AO
 } SMgrImpl;
 
 struct f_smgr;
@@ -212,6 +214,7 @@ extern void smgrtruncate(SMgrRelation reln, ForkNumber *forknum,
 						 int nforks, BlockNumber *nblocks);
 extern void smgrimmedsync(SMgrRelation reln, ForkNumber forknum);
 extern void AtEOXact_SMgr(void);
+extern SMgrImpl add_smgr_kind(void);
 
 extern const struct f_smgr_ao * smgrAOGetDefault(void);
 
@@ -245,4 +248,8 @@ extern PGDLLIMPORT file_unlink_hook_type file_unlink_hook;
 typedef void (*smgr_get_impl_hook_type)(const Relation rel, SMgrImpl* smgr_impl);
 extern PGDLLIMPORT smgr_get_impl_hook_type smgr_get_impl_hook;
 
+typedef void (*pending_relation_deletes_hook_type) (void);
+extern PGDLLIMPORT pending_relation_deletes_hook_type pending_relation_deletes_hook;
+
+extern f_smgr smgrsw[];
 #endif							/* SMGR_H */

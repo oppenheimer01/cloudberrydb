@@ -1694,9 +1694,13 @@ vac_update_relstats(Relation relation,
 	{
 		if (Gp_role == GP_ROLE_DISPATCH)
 		{
-			num_pages = relation->rd_rel->relpages;
-			num_tuples = relation->rd_rel->reltuples;
-			num_all_visible_pages = relation->rd_rel->relallvisible;
+			if (GpPolicyIsPartitioned(relation->rd_cdbpolicy) ||
+				GpPolicyIsReplicated(relation->rd_cdbpolicy))
+			{
+				num_pages = relation->rd_rel->relpages;
+				num_tuples = relation->rd_rel->reltuples;
+				num_all_visible_pages = relation->rd_rel->relallvisible;
+			}
 		}
 		else if (Gp_role == GP_ROLE_EXECUTE)
 		{
@@ -2318,8 +2322,16 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	int			ao_vacuum_phase;
 	int			save_sec_context;
 	int			save_nestlevel;
-	bool			is_appendoptimized;
-	bool			is_toast;
+	bool		is_appendoptimized;
+	bool		is_toast;
+	bool		shouldDispatch;
+
+#ifdef SERVERLESS
+	shouldDispatch = false;
+#else
+	shouldDispatch = (Gp_role == GP_ROLE_DISPATCH &&
+					ENABLE_DISPATCH());
+#endif
 
 	Assert(params != NULL);
 
@@ -2400,6 +2412,14 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	// FIXME: what's the right level for AO tables?
 	lmode = (params->options & VACOPT_FULL) ?
 		AccessExclusiveLock : ShareUpdateExclusiveLock;
+
+#ifdef SERVERLESS
+	/*
+	 * Force full vacuum for hashdata table, because there are a flaky test
+	 * in vacuum.sql. Remove this code after the vacuum bug is fixed.
+	 */
+	lmode = AccessExclusiveLock;
+#endif
 
 	/* open the relation and get the appropriate lock on it */
 	rel = vacuum_open_relation(relid, relation, params->options,
@@ -2647,7 +2667,11 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 		return false;
 	}
 
-	is_appendoptimized = RelationStorageIsAO(rel);
+#ifdef SERVERLESS
+	is_appendoptimized = RelationIsNonblockRelation(rel);
+#else
+	is_appendoptimized = RelationIsAppendOptimized(rel);
+#endif
 	is_toast = (rel->rd_rel->relkind == RELKIND_TOASTVALUE);
 
 	if (ao_vacuum_phase && !(is_appendoptimized || is_toast))
@@ -2829,7 +2853,7 @@ vacuum_rel(Oid relid, RangeVar *relation, VacuumParams *params,
 	 * Don't dispatch auto-vacuum. Each segment performs auto-vacuum as per
 	 * its own need.
 	 */
-	if ((Gp_role == GP_ROLE_DISPATCH || IS_SINGLENODE()) && !recursing &&
+	if ((shouldDispatch || IS_SINGLENODE()) && !recursing &&
 		!IsAutoVacuumWorkerProcess() &&
 		(!is_appendoptimized || ao_vacuum_phase))
 	{

@@ -83,12 +83,6 @@
 
 #include "utils/pg_rusage.h"
 
-typedef struct
-{
-	Oid			src_dboid;		/* source (template) DB */
-	Oid			dest_dboid;		/* DB we are trying to create */
-} createdb_failure_params;
-
 /*
  * GPDB: A different cleanup mechanism is used. Refer comment in movedb().
  */
@@ -101,7 +95,6 @@ typedef struct
 #endif
 
 /* non-export function prototypes */
-static void createdb_failure_callback(int code, Datum arg);
 static void movedb(const char *dbname, const char *tblspcname);
 /*
  * GPDB: A different cleanup mechanism is used. Refer comment in movedb().
@@ -109,18 +102,9 @@ static void movedb(const char *dbname, const char *tblspcname);
 #if 0
 static void movedb_failure_callback(int code, Datum arg);
 #endif
-static bool get_db_info(const char *name, LOCKMODE lockmode,
-						Oid *dbIdP, Oid *ownerIdP,
-						int *encodingP, bool *dbIsTemplateP, bool *dbAllowConnP,
-						Oid *dbLastSysOidP, TransactionId *dbFrozenXidP,
-						MultiXactId *dbMinMultiP,
-						Oid *dbTablespace, char **dbCollate, char **dbCtype);
-static bool have_createdb_privilege(void);
 static void remove_dbtablespaces(Oid db_id);
-static bool check_db_file_conflict(Oid db_id);
-static int	errdetail_busy_db(int notherbackends, int npreparedxacts);
 
-
+DropDb_hook_type DropDb_hook = NULL;
 /*
  * CREATE DATABASE
  */
@@ -275,6 +259,14 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errmsg("LOCATION is not supported anymore"),
 					 errhint("Consider using tablespaces instead."),
 					 parser_errposition(pstate, defel->location)));
+		}
+		else if (strcmp(defel->defname, "encryption_enable") == 0)
+		{
+			if (FileEncryptionEnabled)
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("If tde for whole cluster, can not create encrypted database"),
+						 parser_errposition(pstate, defel->location)));
 		}
 		else
 			ereport(ERROR,
@@ -887,7 +879,7 @@ check_encoding_locale_matches(int encoding, const char *collate, const char *cty
 }
 
 /* Error cleanup callback for createdb */
-static void
+void
 createdb_failure_callback(int code, Datum arg)
 {
 	createdb_failure_params *fparms = (createdb_failure_params *) DatumGetPointer(arg);
@@ -977,6 +969,8 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	/* DROP hook for the database being removed */
 	InvokeObjectDropHook(DatabaseRelationId, db_id, 0);
 
+	if (DropDb_hook)
+		DropDb_hook(db_id);
 	/*
 	 * Disallow dropping a DB that is marked istemplate.  This is just to
 	 * prevent people from accidentally dropping template0 or template1; they
@@ -1168,6 +1162,7 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	 * according to pg_database, which is not good.
 	 */
 	ForceSyncCommit();
+
 }
 
 
@@ -2046,7 +2041,7 @@ AlterDatabaseOwner(const char *dbname, Oid newOwnerId)
  * parameters that aren't NULL, and return true.  If no such database,
  * return false.
  */
-static bool
+bool
 get_db_info(const char *name, LOCKMODE lockmode,
 			Oid *dbIdP, Oid *ownerIdP,
 			int *encodingP, bool *dbIsTemplateP, bool *dbAllowConnP,
@@ -2169,7 +2164,7 @@ get_db_info(const char *name, LOCKMODE lockmode,
 }
 
 /* Check if current user has createdb privileges */
-static bool
+bool
 have_createdb_privilege(void)
 {
 	bool		result = false;
@@ -2227,11 +2222,17 @@ remove_dbtablespaces(Oid db_id)
 			pfree(dstpath);
 			continue;
 		}
-
+#ifdef SERVERLESS
+		if (!rmtree(dstpath, true))
+			ereport(LOG,
+					(errmsg("some useless files may be left behind in old database directory \"%s\"",
+							dstpath)));
+#else
 		if (!rmtree(dstpath, true))
 			ereport(WARNING,
 					(errmsg("some useless files may be left behind in old database directory \"%s\"",
 							dstpath)));
+#endif
 
 		ltblspc = lappend_oid(ltblspc, dsttablespace);
 		pfree(dstpath);
@@ -2284,7 +2285,7 @@ remove_dbtablespaces(Oid db_id)
  * database.  This exactly parallels what GetNewRelFileNode() does for table
  * relfilenode values.
  */
-static bool
+bool
 check_db_file_conflict(Oid db_id)
 {
 	bool		result = false;
@@ -2327,7 +2328,7 @@ check_db_file_conflict(Oid db_id)
 /*
  * Issue a suitable errdetail message for a busy database
  */
-static int
+int
 errdetail_busy_db(int notherbackends, int npreparedxacts)
 {
 	if (notherbackends > 0 && npreparedxacts > 0)

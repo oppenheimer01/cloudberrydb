@@ -552,7 +552,12 @@ ExplainOneQuery(Query *query, int cursorOptions,
 		 * to correctly set the into-clause and into-policy of the PlannedStmt.
 		 */
 		if (into != NULL)
+		{
 			plan->intoClause = copyObject(into);
+			if (into->ivm && es->analyze)
+				ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							errmsg("IVM is not supported with EXPLAIN ANALYZE")));
+		}
 
 		/* calc differences of buffer counters. */
 		if (es->buffers)
@@ -1649,8 +1654,17 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			sname = "Hash Join";
 			break;
 		case T_SeqScan:
+#ifdef SERVERLESS
+			/* Ugly but for right indent. */
+			if (OidIsValid(((SeqScan *)plan)->basemv))
+				pname = sname = "Delta Seq Scan";
+			else
+				pname = sname = "Seq Scan";
+			break;
+#else
 			pname = sname = "Seq Scan";
 			break;
+#endif
 		case T_DynamicSeqScan:
 			pname = sname = "Dynamic Seq Scan";
 			break;
@@ -4868,6 +4882,16 @@ ExplainTargetRel(Plan *plan, Index rti, ExplainState *es)
 		if (dynamicScanId != 0)
 			appendStringInfo(es->str, " (dynamic scan id: %d)",
 							 dynamicScanId);
+#ifdef SERVERLESS
+		if (es->verbose &&
+			IsA(plan, SeqScan) &&
+			(OidIsValid(castNode(SeqScan, plan)->basemv)))
+		{
+			/* FIXME: consider namespace in the future. */
+			appendStringInfo(es->str, " (based on materialized view: %s)",
+							quote_identifier(get_rel_name(castNode(SeqScan, plan)->basemv)));
+		}
+#endif
 	}
 	else
 	{

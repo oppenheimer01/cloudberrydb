@@ -843,6 +843,11 @@ LockAcquireExtended(const LOCKTAG *locktag,
 			 lockMethodTable->lockModeNames[lockmode]);
 #endif
 
+#ifdef SERVERLESS
+	if (!IS_QUERY_DISPATCHER())
+		return LOCKACQUIRE_ALREADY_CLEAR;
+#endif /* SERVERLESS */
+
 	/* Identify owner for lock */
 	if (sessionLock)
 		owner = NULL;
@@ -2242,6 +2247,11 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	LWLock	   *partitionLock;
 	bool		wakeupNeeded;
 
+#ifdef SERVERLESS
+	if (!IS_QUERY_DISPATCHER())
+		return true;
+#endif /* SERVERLESS */
+
 	if (lockmethodid <= 0 || lockmethodid >= lengthof(LockMethods))
 		elog(ERROR, "unrecognized lock method: %d", lockmethodid);
 	lockMethodTable = LockMethods[lockmethodid];
@@ -2270,11 +2280,26 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	 * let the caller print its own error message, too. Do not ereport(ERROR).
 	 */
 	if (!locallock || locallock->nLocks <= 0)
+#ifdef SERVERLESS
+	{
+		if (IsNormalProcessingMode() && !IS_QUERY_DISPATCHER())
+		{
+			return true;
+		}
+		else
+		{
+			elog(WARNING, "you don't own a lock of type %s",
+				 lockMethodTable->lockModeNames[lockmode]);
+			return false;
+		}
+	}
+#else /* SERVERLESS */
 	{
 		elog(WARNING, "you don't own a lock of type %s",
 			 lockMethodTable->lockModeNames[lockmode]);
 		return false;
 	}
+#endif /* SERVERLESS */
 
 	/*
 	 * Decrease the count for the resource owner.

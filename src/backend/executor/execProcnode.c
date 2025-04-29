@@ -146,6 +146,20 @@
  /* flags bits for planstate walker */
 #define PSW_IGNORE_INITPLAN    0x01
 
+/* Hook for plugins to get control in ExecInitNode() */
+ExecInitNode_hook_type ExecInitNode_hook = NULL;
+
+/* Hook for plugins to get control in ExecEndNode() */
+ExecEndNode_hook_type ExecEndNode_hook = NULL;
+
+#ifdef SERVERLESS
+ExprEvalPushStep_hook_type ExprEvalPushStep_hook = NULL;
+CollectResultInfo_hook_type CollectResultInfo_hook = NULL;
+CollectProc_hook_type CollectProc_hook = NULL;
+#endif
+
+LockTable_hook_type LockTable_hook = NULL;
+
  /**
   * Forward declarations of static functions
   */
@@ -188,6 +202,15 @@ static TupleTableSlot *ExecProcNodeGPDB(PlanState *node);
  */
 PlanState *
 ExecInitNode(Plan *node, EState *estate, int eflags)
+{
+	if (ExecInitNode_hook)
+		return (*ExecInitNode_hook)(node, estate, eflags);
+
+	return ExecInitNode_Internal(node, estate, eflags);
+}
+
+PlanState *
+ExecInitNode_Internal(Plan *node, EState *estate, int eflags)
 {
 	PlanState  *result;
 	List	   *subps;
@@ -789,6 +812,15 @@ MultiExecProcNode(PlanState *node)
  */
 void
 ExecEndNode(PlanState *node)
+{
+	if (ExecEndNode_hook)
+		return (*ExecEndNode_hook) (node);
+	
+	return ExecEndNode_Internal(node);
+}
+
+void
+ExecEndNode_Internal(PlanState *node)
 {
 	/*
 	 * do nothing when we get to the end of a leaf on tree.

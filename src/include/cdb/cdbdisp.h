@@ -214,4 +214,9 @@ void AtSubAbort_DispatcherState(void);
 char *
 segmentsToContentStr(List *segments);
 
+extern void
+SetupDispatchFuncs(DispatcherInternalFuncs *dispatcherInternalFuncs);
+
+extern DispatcherInternalFuncs *pDispatchFuncs;
+
 #endif   /* CDBDISP_H */

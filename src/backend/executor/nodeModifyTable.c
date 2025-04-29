@@ -1556,9 +1556,13 @@ ldelete:;
 
 	/* AFTER ROW DELETE Triggers */
 	/*
-	 * Disallow DELETE triggers on a split UPDATE. See comments in ExecInsert().
+	 * GPDB_12_MERGE_FIXME: PostgreSQL *does* fire INSERT and DELETE
+	 * triggers on an UPDATE that moves tuples from one partition to another.
+	 * Should we follow that example with cross-segment UPDATEs too?
 	 */
+#ifndef SERVERLESS
 	if (!RelationIsNonblockRelation(resultRelationDesc) && !splitUpdate)
+#endif
 	{
 		ExecARDeleteTriggers(estate, resultRelInfo, tupleid, oldtuple,
 							 ar_delete_trig_tcs);
@@ -2176,13 +2180,17 @@ lreplace:;
 	}
 
 	/* AFTER ROW UPDATE Triggers */
+#ifndef SERVERLESS
 	/* GPDB: AO and AOCO tables don't support triggers */
 	if (!RelationIsNonblockRelation(resultRelationDesc))
+#endif
+	{
 		ExecARUpdateTriggers(estate, resultRelInfo, tupleid, oldtuple, slot,
-						 recheckIndexes,
-						 mtstate->operation == CMD_INSERT ?
-						 mtstate->mt_oc_transition_capture :
-						 mtstate->mt_transition_capture);
+						recheckIndexes,
+						mtstate->operation == CMD_INSERT ?
+						mtstate->mt_oc_transition_capture :
+						mtstate->mt_transition_capture);
+	}
 
 	list_free(recheckIndexes);
 
@@ -2582,7 +2590,7 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
  *		if needed.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
+TupleTableSlot *
 ExecModifyTable(PlanState *pstate)
 {
 	ModifyTableState *node = castNode(ModifyTableState, pstate);
@@ -2770,7 +2778,8 @@ ExecModifyTable(PlanState *pstate)
 				 * PAX_STORAGE_FIXME(gongxun):we reuse the logic of the AO table to implement ExecUpdate,
 				 * If there is a better implementation, we need to revert it
 				 */
-				if (operation == CMD_UPDATE && RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc) &&
+				if ((operation == CMD_UPDATE || operation == CMD_DELETE) &&
+					RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc) &&
 					AttributeNumberIsValid(resultRelInfo->ri_WholeRowNo))
 				{
 					/* ri_WholeRowNo refers to a wholerow attribute */
@@ -3282,7 +3291,8 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 					elog(ERROR, "could not find junk ctid column");
 
 				/* extra GPDB junk columns for update AO table */
-				if (operation == CMD_UPDATE && RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc))
+				if ((operation == CMD_UPDATE || operation == CMD_DELETE)
+					&& RelationIsNonblockRelation(resultRelInfo->ri_RelationDesc))
 				{
 					resultRelInfo->ri_WholeRowNo =
 						ExecFindJunkAttributeInTlist(subplan->targetlist, "wholerow");

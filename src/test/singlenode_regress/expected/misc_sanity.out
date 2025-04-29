@@ -156,6 +156,7 @@ ORDER BY 1;
  gp_fastsequence
  gp_id
  gp_matview_aux
+ gp_matview_dependency
  gp_matview_tables
  gp_partition_template
  gp_version_at_initdb

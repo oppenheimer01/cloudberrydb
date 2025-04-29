@@ -54,7 +54,6 @@ static TupleTableSlot *execMotionSender(MotionState *node);
 static TupleTableSlot *execMotionUnsortedReceiver(MotionState *node);
 static TupleTableSlot *execMotionSortedReceiver(MotionState *node);
 
-static int	CdbMergeComparator(Datum lhs, Datum rhs, void *context);
 static uint32 evalHashKey(ExprContext *econtext, List *hashkeys, CdbHash *h);
 
 static void doSendEndOfStream(Motion *motion, MotionState *node);
@@ -96,7 +95,7 @@ formatTuple(StringInfo buf, TupleTableSlot *slot, Oid *outputFunArray)
  *		ExecMotion
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
+TupleTableSlot *
 ExecMotion(PlanState *pstate)
 {
 	MotionState *node = castNode(MotionState, pstate);
@@ -1034,7 +1033,7 @@ ExecEndMotion(MotionState *node)
  * CdbMergeComparator:
  * Used to compare tuples for a sorted motion node.
  */
-static int
+int
 CdbMergeComparator(Datum lhs, Datum rhs, void *context)
 {
 	MotionState *node = (MotionState *) context;

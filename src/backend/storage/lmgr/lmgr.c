@@ -33,9 +33,12 @@
 
 #include "access/heapam.h"
 #include "catalog/namespace.h"
+#include "catalog/partition.h"
 #include "cdb/cdbvars.h"
+#include "partitioning/partdesc.h"
 #include "storage/proc.h"
 #include "utils/lsyscache.h"        /* CDB: get_rel_namespace() */
+#include "utils/syscache.h"
 
 /*
  * Per-backend counter for generating speculative insertion tokens.
@@ -145,6 +148,10 @@ LockRelationOid(Oid relid, LOCKMODE lockmode)
 		AcceptInvalidationMessages();
 		MarkLockClear(locallock);
 	}
+
+
+	if (LockTable_hook)
+		(*LockTable_hook) (relid, lockmode);
 }
 
 /*
@@ -340,6 +347,11 @@ bool
 CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger)
 {
 	LOCKTAG		tag;
+
+#ifdef SERVERLESS
+	if (IsNormalProcessingMode() && !IS_QUERY_DISPATCHER())
+		return true;
+#endif /* SERVERLESS */
 
 	SET_LOCKTAG_RELATION(tag,
 						 relation->rd_lockInfo.lockRelId.dbId,
@@ -807,10 +819,40 @@ void
 LockWarehouse(Oid warehouseOid, LOCKMODE lockmode)
 {
 	LOCKTAG		tag;
+	LOCALLOCK  *locallock;
+	LockAcquireResult	lockResult;
 
 	SET_LOCKTAG_WAREHOUSE(tag, warehouseOid);
 
-	(void) LockAcquire(&tag, lockmode, true, false);
+	lockResult = LockAcquireExtended(&tag, lockmode, true, false, true, &locallock);
+
+	/*
+	 * Now that we have the lock, check for invalidation messages;
+	 */
+	if (lockResult != LOCKACQUIRE_ALREADY_CLEAR)
+	{
+		AcceptInvalidationMessages();
+		MarkLockClear(locallock);
+	}
+}
+
+LockAcquireResult
+LockWarehouseNoWait(Oid warehouseOid, LOCKMODE lockmode)
+{
+	LOCKTAG 	tag;
+	LockAcquireResult	lockResult;
+
+	SET_LOCKTAG_WAREHOUSE(tag, warehouseOid);
+
+	lockResult = LockAcquire(&tag, lockmode, true, true);
+
+	/*
+	 * Now that we have the lock, check for invalidation messages;
+	 */
+	if (lockResult != LOCKACQUIRE_ALREADY_HELD)
+		AcceptInvalidationMessages();
+
+	return lockResult;
 }
 
 void

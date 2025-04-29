@@ -24,6 +24,7 @@
 #include "access/syncscan.h"
 #include "access/tableam.h"
 #include "access/xact.h"
+#include "cdb/cdbtranscat.h"
 #include "optimizer/plancat.h"
 #include "port/pg_bitutils.h"
 #include "storage/bufmgr.h"
@@ -117,10 +118,30 @@ table_beginscan_catalog(Relation relation, int nkeys, struct ScanKeyData *key)
 	uint32		flags = SO_TYPE_SEQSCAN |
 	SO_ALLOW_STRAT | SO_ALLOW_SYNC | SO_ALLOW_PAGEMODE | SO_TEMP_SNAPSHOT;
 	Oid			relid = RelationGetRelid(relation);
-	Snapshot	snapshot = RegisterSnapshot(GetCatalogSnapshot(relid));
+	Snapshot	snapshot;
+
+#ifdef SERVERLESS
+	if (systup_store_active() && RelationGetRelid(relation) < FirstNormalObjectId)
+		return systup_store_beginscan(relation, nkeys, key, false);
+#endif
+	snapshot = RegisterSnapshot(GetCatalogSnapshot(relid));
 
 	return relation->rd_tableam->scan_begin(relation, snapshot, nkeys, key,
-											NULL, flags);
+											NULL, flags, NULL);
+}
+
+void
+table_endscan(TableScanDesc scan)
+{
+#ifdef SERVERLESS
+	if (systup_store_active() && RelationGetRelid(scan->rs_rd) < FirstNormalObjectId)
+	{
+		systup_store_endscan(scan);
+		return;
+	}
+#endif
+
+	scan->rs_rd->rd_tableam->scan_end(scan);
 }
 
 void
@@ -252,7 +273,7 @@ table_beginscan_parallel(Relation relation, ParallelTableScanDesc parallel_scan)
 	}
 
 	return relation->rd_tableam->scan_begin(relation, snapshot, 0, NULL,
-											parallel_scan, flags);
+											parallel_scan, flags, NULL);
 }
 
 

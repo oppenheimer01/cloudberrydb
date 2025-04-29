@@ -478,7 +478,11 @@ lookup_ts_config_cache(Oid cfgId)
 					ObjectIdGetDatum(cfgId));
 
 		maprel = table_open(TSConfigMapRelationId, AccessShareLock);
+#ifdef SERVERLESS
+		mapidx = order_index_open(TSConfigMapIndexId, AccessShareLock);
+#else
 		mapidx = index_open(TSConfigMapIndexId, AccessShareLock);
+#endif
 		mapscan = systable_beginscan_ordered(maprel, mapidx,
 											 NULL, 1, &mapskey);
 
@@ -489,8 +493,10 @@ lookup_ts_config_cache(Oid cfgId)
 
 			if (toktype <= 0 || toktype > MAXTOKENTYPE)
 				elog(ERROR, "maptokentype value %d is out of range", toktype);
+#ifndef SERVERLESS
 			if (toktype < maxtokentype)
 				elog(ERROR, "maptokentype entries are out of order");
+#endif
 			if (toktype > maxtokentype)
 			{
 				/* starting a new token type, but first save the prior data */

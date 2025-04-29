@@ -40,6 +40,9 @@
 #include "catalog/pg_class.h"
 #include "catalog/heap.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 
 /*
  * Macros to simplify reading of different kinds of fields.  Use these
@@ -843,7 +846,11 @@ _readCopyStmt(void)
 	READ_STRING_FIELD(filename);
 	READ_STRING_FIELD(dirfilename);
 	READ_NODE_FIELD(options);
+	READ_NODE_FIELD(whereClause);
 	READ_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	READ_NODE_FIELD(custom_exprs);
+#endif /* SERVERLESS */
 
 	READ_DONE();
 }
@@ -1832,6 +1839,36 @@ _readEphemeralNamedRelationInfo(void)
 
 	READ_DONE();
 }
+
+#ifdef SERVERLESS
+static SystemTableTransferNode *
+_readSystemTableTransferNode(void)
+{
+	READ_LOCALS(SystemTableTransferNode);
+
+	READ_OID_FIELD(my_temp_namespace);
+	READ_OID_FIELD(my_temp_toast_namespace);
+	READ_NODE_FIELD(transfer_tuples);
+
+	READ_DONE();
+}
+
+static TransferTuple *
+_readTransferTuple(void)
+{
+	READ_LOCALS(TransferTuple);
+
+	READ_UINT_FIELD(t_len);
+	memcpy(&local_node->t_self, read_str_ptr, sizeof(ItemPointerData));
+	read_str_ptr += sizeof(ItemPointerData);
+	READ_OID_FIELD(t_tableOid);
+	local_node->t_data = palloc(local_node->t_len);
+	memcpy(local_node->t_data, read_str_ptr, local_node->t_len);
+	read_str_ptr += local_node->t_len;
+
+	READ_DONE();
+}
+#endif
 
 static void *
 _readAlterDatabaseStmt(void)
@@ -2940,6 +2977,23 @@ readNodeBinary(void)
 			case T_DropTaskStmt:
 				return_value = _readDropTaskStmt();
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				return_value = _readAPHashExpr();
+				break;
+			case T_APListExpr:
+				return_value = _readAPListExpr();
+				break;
+			case T_APRangeExpr:
+				return_value = _readAPRangeExpr();
+				break;
+			case T_SystemTableTransferNode:
+				return_value= _readSystemTableTransferNode();
+				break;
+			case T_TransferTuple:
+				return_value = _readTransferTuple();
+				break;
+#endif /* SERVERLESS */
 			default:
 				return_value = NULL; /* keep the compiler silent */
 				elog(ERROR, "could not deserialize unrecognized node type: %d",

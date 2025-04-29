@@ -112,13 +112,9 @@
 char	   *default_tablespace = NULL;
 char	   *temp_tablespaces = NULL;
 
-
-static void create_tablespace_directories(const char *location,
-										  const Oid tablespaceoid);
 static bool destroy_tablespace_directories(Oid tablespaceoid, bool redo);
 
 static bool is_tablespace_empty(const Oid tablespace_oid);
-static void ensure_tablespace_directory_is_empty(const Oid tablespaceoid, const char *tablespace_name);
 
 static void unlink_during_redo(Oid tablepace_oid_to_unlink);
 static void unlink_without_redo(Oid tablespace_oid_to_unlink);
@@ -176,6 +172,14 @@ TablespaceCreateDbspace(Oid spcNode, Oid dbNode, bool isRedo)
 
 	if (spcNode != DEFAULTTABLESPACE_OID && !isRedo)
 		TablespaceLockTuple(spcNode, AccessShareLock, true);
+
+	/*
+	 * In Serverless mode, create local dbspace by tablespace  
+	 * set pg_default
+	 */
+#ifdef SERVERLESS
+	spcNode = DEFAULTTABLESPACE_OID;
+#endif
 
 	dir = GetDatabasePath(dbNode, spcNode);
 
@@ -500,7 +504,9 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 	/* Post creation hook for new tablespace */
 	InvokeObjectPostCreateHook(TableSpaceRelationId, tablespaceoid, 0);
 
+#ifndef SERVERLESS
 	create_tablespace_directories(location, tablespaceoid);
+#endif
 
 	/* Record the filesystem change in XLOG */
 	{
@@ -605,7 +611,7 @@ is_tablespace_empty(const Oid tablespace_oid)
 }
 
 
-static void 
+void 
 ensure_tablespace_directory_is_empty(const Oid tablespace_oid,
 									 const char *tablespace_name) {
 	if (tablespace_oid == InvalidOid)
@@ -850,7 +856,7 @@ DropTableSpace(DropTableSpaceStmt *stmt)
  *	Attempt to create filesystem infrastructure linking $PGDATA/pg_tblspc/
  *	to the specified directory
  */
-static void
+void
 create_tablespace_directories(const char *location, const Oid tablespaceoid)
 {
 	char	   *linkloc;
@@ -1697,13 +1703,18 @@ GetDefaultTablespace(char relpersistence, bool partitioned)
 {
 	Oid			result;
 
-	/* The temp-table case is handled elsewhere */
+	/* 
+	 * The temp-table case is handled elsewhere.
+	 * FIXME:In serverless mode, we use the default table space 
+	 * just for pg_regress, maybe need to fix it.
+	 */
+#ifndef SERVERLESS
 	if (relpersistence == RELPERSISTENCE_TEMP)
 	{
 		PrepareTempTablespaces();
 		return GetNextTempTableSpace();
 	}
-
+#endif
 	/* Fast path for default_tablespace == "" */
 	if (default_tablespace == NULL || default_tablespace[0] == '\0')
 		return InvalidOid;

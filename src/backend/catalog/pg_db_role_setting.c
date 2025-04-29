@@ -28,6 +28,8 @@
 #include "utils/builtins.h"
 #include "utils/syscache.h"
 
+Alter_database_encrypt_key_hook_type Alter_database_encrypt_key_hook = NULL;
+
 void
 AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 {
@@ -38,6 +40,10 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 	SysScanDesc scan;
 
 	valuestr = ExtractSetVariableArgs(setstmt);
+
+	if (Alter_database_encrypt_key_hook 
+		&& Alter_database_encrypt_key_hook(databaseid, roleid, setstmt, valuestr))
+		return;
 
 	/* Get the old tuple, if any. */
 

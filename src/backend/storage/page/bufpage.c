@@ -102,6 +102,10 @@ PageIsVerifiedExtended(Page page, ForkNumber forknum,
 	 */
 	if (!PageIsNew(page))
 	{
+		/*
+		 * In serverless architecture, the page is checked in smgrread.
+		 */
+#ifndef SERVERLESS
 		if (DataChecksumsEnabled())
 		{
 			checksum = pg_checksum_page((char *) page, blkno);
@@ -109,6 +113,7 @@ PageIsVerifiedExtended(Page page, ForkNumber forknum,
 			if (checksum != p->pd_checksum)
 				checksum_failure = true;
 		}
+#endif
 
 		PageDecryptInplace(page, forknum, blkno);
 

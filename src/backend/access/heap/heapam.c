@@ -73,6 +73,9 @@
 #include "utils/spccache.h"
 
 #include "catalog/oid_dispatch.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
 #include "utils/faultinjector.h"
@@ -1243,7 +1246,7 @@ TableScanDesc
 heap_beginscan(Relation relation, Snapshot snapshot,
 			   int nkeys, ScanKey key,
 			   ParallelTableScanDesc parallel_scan,
-			   uint32 flags)
+			   uint32 flags, void *ctx)
 {
 	HeapScanDesc scan;
 
@@ -1399,6 +1402,11 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 {
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
+#ifdef SERVERLESS
+	if (systup_store_active() && RelationGetRelid(sscan->rs_rd) < FirstNormalObjectId)
+		return systup_store_getnext(sscan);
+#endif
+
 	/*
 	 * This is still widely used directly, without going through table AM, so
 	 * add a safety check.  It's possible we should, at a later point,
@@ -1439,6 +1447,10 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 	 */
 
 	pgstat_count_heap_getnext(scan->rs_base.rs_rd);
+
+#ifdef SERVERLESS
+	TransStoreTuple(&scan->rs_ctup);
+#endif
 
 	return &scan->rs_ctup;
 }
@@ -1623,7 +1635,7 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 uint32
 heap_scan_flags(Relation relation)
 {
-	return 0;
+	return (uint32)SCAN_SUPPORT_DEFAULT_COLUMNS;
 }
 
 /*
@@ -2755,6 +2767,10 @@ simple_heap_insert(Relation relation, HeapTuple tup)
 {
 	heap_insert(relation, tup, GetCurrentCommandId(true), 0, NULL,
 				GetCurrentTransactionId());
+
+#ifdef SERVERLESS
+	TransStoreTuple(tup);
+#endif
 }
 
 /*
@@ -3278,6 +3294,10 @@ simple_heap_delete(Relation relation, ItemPointer tid)
 			elog(ERROR, "unrecognized heap_delete status: %u", result);
 			break;
 	}
+
+#ifdef SERVERLESS
+	TransRemoveTuple(RelationGetRelid(relation), *tid);
+#endif
 }
 
 /*
@@ -4377,6 +4397,10 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 	TM_FailureData tmfd;
 	LockTupleMode lockmode;
 
+#ifdef SERVERLESS
+	TransRemoveTuple(tup->t_tableOid, *otid);
+#endif
+
 	result = heap_update_internal(relation, otid, tup,
 						 GetCurrentCommandId(true), InvalidSnapshot,
 						 true /* wait for commit */ ,
@@ -4405,6 +4429,10 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup)
 			elog(ERROR, "unrecognized heap_update status: %u", result);
 			break;
 	}
+
+#ifdef SERVERLESS
+	TransStoreTuple(tup);
+#endif
 }
 
 

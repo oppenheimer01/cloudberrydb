@@ -4522,6 +4522,17 @@ remove_unused_subquery_outputs(Query *subquery, RelOptInfo *rel)
 	ListCell   *lc;
 
 	/*
+	 * CBDB:
+	 * This function changes target list in a hacky way, set NULL for
+	 * a target entry which cause diffs if we want to rewirte with a
+	 * materialized view.
+	 * We may use subquery's parse tree to match view, so do not
+	 * change target list in that case.
+	 */
+	if (enable_answer_query_using_materialized_views)
+		return;
+
+	/*
 	 * Do nothing if subquery has UNION/INTERSECT/EXCEPT: in principle we
 	 * could update all the child SELECTs' tlists, but it seems not worth the
 	 * trouble presently.

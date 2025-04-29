@@ -415,6 +415,7 @@ _outPlanInfo(StringInfo str, const Plan *node)
 #endif /* COMPILING_BINARY_FUNCS */
 
 	WRITE_UINT64_FIELD(operatorMemKB);
+	WRITE_NODE_FIELD(info_context);
 }
 
 /*
@@ -426,6 +427,11 @@ _outScanInfo(StringInfo str, const Scan *node)
 	_outPlanInfo(str, (const Plan *) node);
 
 	WRITE_UINT_FIELD(scanrelid);
+	WRITE_UINT_FIELD(scanflags);
+#ifdef SERVERLESS
+	WRITE_NODE_FIELD(version);
+	WRITE_OID_FIELD(basemv);
+#endif
 }
 
 /*
@@ -1297,6 +1303,7 @@ _outIntoClause(StringInfo str, const IntoClause *node)
 	WRITE_STRING_FIELD(tableSpaceName);
 	WRITE_NODE_FIELD(viewQuery);
 	WRITE_BOOL_FIELD(skipData);
+	WRITE_BOOL_FIELD(defer);
 	WRITE_NODE_FIELD(distributedBy);
 	WRITE_BOOL_FIELD(ivm);
 	WRITE_OID_FIELD(matviewOid);
@@ -1381,6 +1388,7 @@ _outAggref(StringInfo str, const Aggref *node)
 	WRITE_INT_FIELD(aggtransno);
 	WRITE_LOCATION_FIELD(location);
     WRITE_INT_FIELD(agg_expr_id);
+	WRITE_INT_FIELD(extrasplit);
 }
 
 static void
@@ -3675,6 +3683,7 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 	WRITE_NODE_FIELD(securityQuals);
 
 	WRITE_BOOL_FIELD(forceDistRandom);
+	WRITE_NODE_FIELD(version);
 }
 
 static void
@@ -4170,6 +4179,33 @@ _outDropTaskStmt(StringInfo str, const DropTaskStmt *node)
 	WRITE_STRING_FIELD(taskname);
 	WRITE_BOOL_FIELD(missing_ok);
 }
+
+#ifdef SERVERLESS
+static void
+_outAPHashExpr(StringInfo str, const APHashExpr *node)
+{
+	WRITE_NODE_TYPE("APHASHEXPR");
+
+	WRITE_INT_FIELD(modulus);
+}
+
+static void
+_outAPListExpr(StringInfo str, const APListExpr *node)
+{
+	WRITE_NODE_TYPE("APLISTEXPR");
+}
+
+static void
+_outAPRangeExpr(StringInfo str, const APRangeExpr *node)
+{
+	WRITE_NODE_TYPE("APRANGEEXPR");
+
+	WRITE_BOOL_FIELD(hasdefault);
+	WRITE_NODE_FIELD(lower);
+	WRITE_NODE_FIELD(upper);
+	WRITE_NODE_FIELD(step);
+}
+#endif /* SERVERLESS */
 
 #include "outfuncs_common.c"
 #ifndef COMPILING_BINARY_FUNCS
@@ -5358,6 +5394,17 @@ outNode(StringInfo str, const void *obj)
 			case T_DropTaskStmt:
 				_outDropTaskStmt(str, obj);
 				break;
+#ifdef SERVERLESS
+			case T_APHashExpr:
+				_outAPHashExpr(str, obj);
+				break;
+			case T_APListExpr:
+				_outAPListExpr(str, obj);
+				break;
+			case T_APRangeExpr:
+				_outAPRangeExpr(str, obj);
+				break;
+#endif /* SERVERLESS */
 			default:
 
 				/*

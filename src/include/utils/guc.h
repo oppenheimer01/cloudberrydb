@@ -644,6 +644,7 @@ extern int  gp_predicate_pushdown_sample_rows;
 extern bool gp_log_endpoints;
 
 extern bool gp_allow_date_field_width_5digits;
+extern bool output_col_case_sensitive;
 
 /*
  * Try to push the hash table of hash join node down to the scan node as
@@ -661,11 +662,13 @@ typedef enum
 extern IndexCheckType gp_indexcheck_insert;
 
 /* Storage option names */
+#define SOPT_APPENDONLY    "appendonly"
 #define SOPT_FILLFACTOR    "fillfactor"
 #define SOPT_BLOCKSIZE     "blocksize"
 #define SOPT_COMPTYPE      "compresstype"
 #define SOPT_COMPLEVEL     "compresslevel"
 #define SOPT_CHECKSUM      "checksum"
+#define SOPT_PARTIAL_AGG   "partial_agg"
 
 /*
  * Functions exported by guc.c
@@ -766,6 +769,7 @@ extern int	GetNumConfigOptions(void);
 
 extern void SetPGVariable(const char *name, List *args, bool is_local);
 extern void SetPGVariableOptDispatch(const char *name, List *args, bool is_local, bool gp_dispatch);
+extern void DispatchSetPGVariable(const char *name, List *args, bool is_local);
 extern void GetPGVariable(const char *name, DestReceiver *dest);
 extern TupleDesc GetPGVariableResultDesc(const char *name);
 

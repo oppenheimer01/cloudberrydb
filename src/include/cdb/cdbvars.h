@@ -793,8 +793,18 @@ typedef enum WarehouseStatus
 	WAREHOUSE_STATUS_CREATING,
 	WAREHOUSE_STATUS_RUNNING,
 	WAREHOUSE_STATUS_SUSPENDED,
-	WAREHOUSE_STATUS_STOPPING
+	WAREHOUSE_STATUS_STOPPING,
+	WAREHOUSE_STATUS_SUSPENDING,
+	WAREHOUSE_STATUS_RESUMING
 } WarehouseStatus;
+
+extern const char *const WarehouseStatusStr[];
+
+typedef enum WarehouseAction
+{
+	WAREHOUSE_STATUS_SUSPEND,
+	WAREHOUSE_STATUS_RESUME
+} WarehouseAction;
 
 typedef struct WarehouseSegmentConfig
 {
@@ -822,13 +832,24 @@ bool (*DropWarehouse_hook)(char *warehouse_name,
 						   WarehouseSegmentConfig *seg_configs,
 						   int warehouse_size);
 
-bool (*AlterWarehouse_hook)(char *warehouse_name,
-							int old_warehouse_size,
-							int new_warehouse_size,
-							WarehouseSegmentConfig **new_seg_configs,
-							int *seg_configs_size);
+bool (*AlterWarehouseSize_hook)(char *warehouse_name,
+								int old_warehouse_size,
+								int new_warehouse_size,
+								WarehouseSegmentConfig **new_seg_configs,
+								int *seg_configs_size);
+
+bool (*AlterWarehouseStatus_hook)(char *warehouse_name,
+								  WarehouseAction action,
+								  bool *update_catalog);
+
+bool (*AlterWarehouseOptions_hook)(char *warehouse_name,
+								   char **warehouse_options,
+								   int warehouse_options_size);
 } WarehouseMethod;
 
 extern WarehouseMethod *warehouse_method;
+
+/* notification condition name of dek info, used in PGnotify */
+#define CDB_NOTIFY_DEK_INFO "dek_info"
 
 #endif   /* CDBVARS_H */

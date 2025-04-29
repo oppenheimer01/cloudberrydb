@@ -154,6 +154,10 @@ typedef struct TypeCacheEntry
 /* This value will not equal any valid tupledesc identifier, nor 0 */
 #define INVALID_TUPLEDESC_IDENTIFIER ((uint64) 1)
 
+#ifdef SERVERLESS
+extern MemoryContext TypeMemoryContext;
+#endif
+
 /*
  * Callers wishing to maintain a long-lived reference to a domain's constraint
  * set must store it in one of these.  Use InitDomainConstraintRef() and
@@ -214,5 +218,8 @@ extern List *build_tuple_node_list(int start);
 
 /* GPDB: retrieve conn calls this function to clear record cache */
 extern void reset_record_cache(void);
+
+extern void load_enum_cache_data(TypeCacheEntry *tcache);
+
 
 #endif							/* TYPCACHE_H */

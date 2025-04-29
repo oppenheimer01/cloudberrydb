@@ -73,7 +73,11 @@
 #include "utils/rls.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
+#include "utils/plancache.h"
 
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbutil.h"
 
 /*
@@ -83,6 +87,8 @@
 #define IsTransactionStmtPlan(plansource)  \
 	((plansource)->raw_parse_tree && \
 	 IsA((plansource)->raw_parse_tree->stmt, TransactionStmt))
+
+post_parse_ctas_query_hook_type post_parse_ctas_query_hook = NULL;
 
 /*
  * This is the head of the backend's list of "saved" CachedPlanSources (i.e.,
@@ -711,6 +717,11 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		Assert(list_length(tlist) == 1);
 		Query *query = (Query *) linitial(tlist);
 		query->parentStmtType = PARENTSTMTTYPE_CTAS;
+
+		if (post_parse_ctas_query_hook)
+		{
+			(*post_parse_ctas_query_hook)(query, intoClause);
+		}
 	}
 
 	/* Release snapshot if we got one */
@@ -734,7 +745,7 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		/* OK */
 	}
 	else if (resultDesc == NULL || plansource->resultDesc == NULL ||
-			 !equalTupleDescs(resultDesc, plansource->resultDesc, true))
+			 !equalTupleDescs(resultDesc, plansource->resultDesc, true, false))
 	{
 		/* can we give a better error message? */
 		if (plansource->fixed_result)
@@ -870,6 +881,13 @@ CheckCachedPlan(CachedPlanSource *plansource)
 		 */
 		if (plan->is_valid)
 		{
+			ListCell   *lc1;
+
+			foreach(lc1, plan->stmt_list)
+			{
+				PlannedStmt *plannedstmt = lfirst_node(PlannedStmt, lc1);
+				plannedstmt->extensionContext = NULL;
+			}
 			/* Successfully revalidated and locked the query. */
 			return true;
 		}
@@ -1077,6 +1095,11 @@ choose_custom_plan(CachedPlanSource *plansource, ParamListInfo boundParams, Into
 	/* ... nor for transaction control statements */
 	if (IsTransactionStmtPlan(plansource))
 		return false;
+
+#ifdef SERVERLESS
+	if (IsTransferOn())
+		return true;
+#endif
 
 	/* Let settings force the decision */
 	if (plan_cache_mode == PLAN_CACHE_MODE_FORCE_GENERIC_PLAN)

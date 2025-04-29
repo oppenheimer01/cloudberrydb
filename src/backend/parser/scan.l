@@ -40,6 +40,7 @@
 #include "parser/parser.h"		/* only needed for GUC variables */
 #include "parser/scansup.h"
 #include "mb/pg_wchar.h"
+#include "utils/guc.h"
 }
 
 %{
@@ -65,6 +66,25 @@ fprintf_to_ereport(const char *fmt, const char *msg)
 int			backslash_quote = BACKSLASH_QUOTE_SAFE_ENCODING;
 bool		escape_string_warning = true;
 bool		standard_conforming_strings = true;
+char		*orig_str_val = NULL;
+
+static void
+set_orig_str_val(const char *val, int len)
+{
+	if (orig_str_val != NULL)
+	{
+		pfree(orig_str_val);
+		orig_str_val = NULL;
+	}
+
+	if (output_col_case_sensitive && val != NULL)
+	{
+		orig_str_val = MemoryContextAllocZero(TopMemoryContext, len + 1);
+		memcpy(orig_str_val, val, len);
+		if (len >= NAMEDATALEN)
+			truncate_identifier(orig_str_val, len, false);
+	}
+}
 
 /*
  * Constant data exported from this file.  This array maps from the
@@ -513,6 +533,7 @@ other			.
 					{
 						/* If NCHAR isn't a keyword, just return "n" */
 						yylval->str = pstrdup("n");
+						set_orig_str_val(NULL, 0);
 						return IDENT;
 					}
 				}
@@ -781,6 +802,7 @@ other			.
 					if (yyextra->literallen >= NAMEDATALEN)
 						truncate_identifier(ident, yyextra->literallen, true);
 					yylval->str = ident;
+					set_orig_str_val(NULL, 0);
 					return IDENT;
 				}
 <xui>{dquote}	{
@@ -806,6 +828,7 @@ other			.
 					/* throw back all but the initial u/U */
 					yyless(1);
 					/* and treat it as {identifier} */
+					set_orig_str_val(yytext, yyleng);
 					ident = downcase_truncate_identifier(yytext, yyleng, true);
 					yylval->str = ident;
 					return IDENT;
@@ -1029,6 +1052,7 @@ other			.
 					 * No.  Convert the identifier to lower case, and truncate
 					 * if necessary.
 					 */
+					set_orig_str_val(yytext, yyleng);
 					ident = downcase_truncate_identifier(yytext, yyleng, true);
 					yylval->str = ident;
 					return IDENT;

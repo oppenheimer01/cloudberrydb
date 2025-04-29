@@ -261,6 +261,7 @@ CopyPlanFields(const Plan *from, Plan *newnode)
 	COPY_SCALAR_FIELD(parallel);
 
 	COPY_SCALAR_FIELD(operatorMemKB);
+	COPY_NODE_FIELD(info_context);
 }
 
 /*
@@ -565,6 +566,11 @@ CopyScanFields(const Scan *from, Scan *newnode)
 	CopyPlanFields((const Plan *) from, (Plan *) newnode);
 
 	COPY_SCALAR_FIELD(scanrelid);
+	COPY_SCALAR_FIELD(scanflags);
+#ifdef SERVERLESS
+	COPY_NODE_FIELD(version);
+	COPY_SCALAR_FIELD(basemv);
+#endif
 }
 
 /*
@@ -1905,6 +1911,7 @@ _copyIntoClause(const IntoClause *from)
 	COPY_STRING_FIELD(tableSpaceName);
 	COPY_NODE_FIELD(viewQuery);
 	COPY_SCALAR_FIELD(skipData);
+	COPY_SCALAR_FIELD(defer);
 	COPY_NODE_FIELD(distributedBy);
 	COPY_SCALAR_FIELD(ivm);
 	COPY_SCALAR_FIELD(matviewOid);
@@ -2057,6 +2064,7 @@ _copyAggref(const Aggref *from)
 	COPY_SCALAR_FIELD(aggtransno);
 	COPY_LOCATION_FIELD(location);
 	COPY_SCALAR_FIELD(agg_expr_id);
+	COPY_SCALAR_FIELD(extrasplit);
 
 	return newnode;
 }
@@ -2770,6 +2778,7 @@ _copyTargetEntry(const TargetEntry *from)
 	COPY_NODE_FIELD(expr);
 	COPY_SCALAR_FIELD(resno);
 	COPY_STRING_FIELD(resname);
+	COPY_STRING_FIELD(origname);
 	COPY_SCALAR_FIELD(ressortgroupref);
 	COPY_SCALAR_FIELD(resorigtbl);
 	COPY_SCALAR_FIELD(resorigcol);
@@ -3115,6 +3124,7 @@ _copyRangeTblEntry(const RangeTblEntry *from)
 	COPY_SCALAR_FIELD(self_reference);
 
 	COPY_SCALAR_FIELD(forceDistRandom);
+	COPY_NODE_FIELD(version);
 
 	return newnode;
 }
@@ -4198,6 +4208,9 @@ _copyCopyStmt(const CopyStmt *from)
 	COPY_NODE_FIELD(options);
 	COPY_NODE_FIELD(whereClause);
 	COPY_NODE_FIELD(sreh);
+#ifdef SERVERLESS
+	COPY_NODE_FIELD(custom_exprs);
+#endif /* SERVERLERSS */
 
 	return newnode;
 }
@@ -4908,6 +4921,8 @@ _copyRefreshMatViewStmt(const RefreshMatViewStmt *from)
 	COPY_SCALAR_FIELD(skipData);
 	COPY_NODE_FIELD(relation);
 	COPY_SCALAR_FIELD(isdynamic);
+	COPY_SCALAR_FIELD(incremental);
+	COPY_SCALAR_FIELD(combine);
 
 	return newnode;
 }
@@ -5969,6 +5984,9 @@ _copyPartitionSpec(const PartitionSpec *from)
 	COPY_NODE_FIELD(partParams);
 	COPY_NODE_FIELD(gpPartDef);
 	COPY_NODE_FIELD(subPartSpec);
+#ifdef SERVERLESS
+	COPY_NODE_FIELD(apExpr);
+#endif /* SERVERLESS */
 	COPY_LOCATION_FIELD(location);
 
 	return newnode;
@@ -6338,6 +6356,19 @@ _copyCreateDirectoryTableStmt(const CreateDirectoryTableStmt *from)
 	return newnode;
 }
 
+static CreateWarehouseStmt *
+_copyCreateWarehouseStmt(const CreateWarehouseStmt *from)
+{
+	CreateWarehouseStmt *newnode = makeNode(CreateWarehouseStmt);
+
+	COPY_STRING_FIELD(whname);
+	COPY_NODE_FIELD(options);
+	COPY_NODE_FIELD(wh_options);
+	COPY_SCALAR_FIELD(if_not_exists);
+
+	return newnode;
+}
+
 static AlterDirectoryTableStmt *
 _copyAlterDirectoryTableStmt(const AlterDirectoryTableStmt *from)
 {
@@ -6377,6 +6408,76 @@ _copyEphemeralNamedRelationInfo(const EphemeralNamedRelationInfo *from)
 
 	return newnode;
 }
+
+static DropWarehouseStmt *
+_copyDropWarehouseStmt(const DropWarehouseStmt *from)
+{
+	DropWarehouseStmt *newnode = makeNode(DropWarehouseStmt);
+
+	COPY_STRING_FIELD(whname);
+	COPY_SCALAR_FIELD(missing_ok);
+
+	return newnode;
+}
+
+static AlterWarehouseStmt *
+_copyAlterWarehouseStmt(const AlterWarehouseStmt *from)
+{
+	AlterWarehouseStmt *newnode = makeNode(AlterWarehouseStmt);
+
+	COPY_SCALAR_FIELD(kind);
+	COPY_STRING_FIELD(whname);
+	COPY_SCALAR_FIELD(warehouse_size);
+	COPY_NODE_FIELD(newowner);
+	COPY_NODE_FIELD(options);
+	COPY_SCALAR_FIELD(missing_ok);
+
+	return newnode;
+}
+
+static TupleDescNode *
+_copyTupleDescNode(const TupleDescNode *from)
+{
+	TupleDescNode *newnode = makeNode(TupleDescNode);
+
+	COPY_SCALAR_FIELD(natts);
+
+	newnode->tuple = CreateTupleDescCopyConstr(from->tuple);
+
+	return newnode;
+}
+
+#ifdef SERVERLESS
+static APHashExpr*
+_copyAPHashExpr(const APHashExpr *from)
+{
+	APHashExpr *newnode = makeNode(APHashExpr);
+	COPY_SCALAR_FIELD(modulus);
+
+	return newnode;
+}
+
+static APListExpr*
+_copyAPListExpr(const APListExpr *from)
+{
+	APListExpr *newnode = makeNode(APListExpr);
+
+	return newnode;
+}
+
+static APRangeExpr*
+_copyAPRangeExpr(const APRangeExpr *from)
+{
+	APRangeExpr *newnode = makeNode(APRangeExpr);
+	COPY_SCALAR_FIELD(hasdefault);
+	COPY_NODE_FIELD(lower);
+	COPY_NODE_FIELD(upper);
+	COPY_NODE_FIELD(step);
+
+	return newnode;
+}
+
+#endif /* SERVERLESS */
 
 /*
  * copyObjectImpl -- implementation of copyObject(); see nodes/nodes.h
@@ -7502,6 +7603,9 @@ copyObjectImpl(const void *from)
 		case T_DenyLoginPoint:
 			retval = _copyDenyLoginPoint(from);
 			break;
+		case T_TupleDescNode:
+			retval = _copyTupleDescNode(from);
+			break;
 
 		case T_CookedConstraint:
 			retval = _copyCookedConstraint(from);
@@ -7558,6 +7662,31 @@ copyObjectImpl(const void *from)
 		case T_EphemeralNamedRelationInfo:
 			retval = _copyEphemeralNamedRelationInfo(from);
 			break;
+
+		case T_CreateWarehouseStmt:
+			retval = _copyCreateWarehouseStmt(from);
+			break;
+
+		case T_DropWarehouseStmt:
+			retval = _copyDropWarehouseStmt(from);
+			break;
+
+		case T_AlterWarehouseStmt:
+			retval = _copyAlterWarehouseStmt(from);
+			break;
+
+#ifdef SERVERLESS
+		case T_APHashExpr:
+			retval = _copyAPHashExpr(from);
+			break;
+		case T_APListExpr:
+			retval = _copyAPListExpr(from);
+			break;
+		case T_APRangeExpr:
+			retval = _copyAPRangeExpr(from);
+			break;
+#endif /* SERVERLESS */
+
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(from));
 			retval = 0;			/* keep compiler quiet */

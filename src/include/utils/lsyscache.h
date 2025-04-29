@@ -80,6 +80,10 @@ typedef struct AttStatsSlot
 typedef int32 (*get_attavgwidth_hook_type) (Oid relid, AttrNumber attnum);
 extern PGDLLIMPORT get_attavgwidth_hook_type get_attavgwidth_hook;
 
+/* Hook for plugins to get control in func_exec_location() */
+typedef char (*func_exec_location_hook_type) (Oid funcid);
+extern PGDLLIMPORT func_exec_location_hook_type func_exec_location_hook;
+
 extern bool op_in_opfamily(Oid opno, Oid opfamily);
 extern int	get_op_opfamily_strategy(Oid opno, Oid opfamily);
 extern Oid	get_op_opfamily_sortfamily(Oid opno, Oid opfamily);
@@ -140,7 +144,7 @@ extern Oid	get_commutator(Oid opno);
 extern Oid	get_negator(Oid opno);
 extern RegProcedure get_oprrest(Oid opno);
 extern RegProcedure get_oprjoin(Oid opno);
-extern bool has_update_triggers(Oid relid, bool including_children);
+extern bool has_update_delete_triggers(Oid relid);
 extern int32 get_trigger_type(Oid triggerid);
 extern bool trigger_enabled(Oid triggerid);
 extern char *get_func_name(Oid funcid);
@@ -161,6 +165,7 @@ extern char get_func_prokind(Oid funcid);
 extern bool get_func_leakproof(Oid funcid);
 extern char func_exec_location(Oid funcid);
 extern Oid get_agg_transtype(Oid aggid);
+extern Oid get_agg_transfn(Oid aggid);
 extern bool is_agg_ordered(Oid aggid);
 extern bool is_agg_repsafe(Oid aggid);
 extern bool is_agg_partial_capable(Oid aggid);
@@ -174,6 +179,7 @@ extern bool get_rel_relispartition(Oid relid);
 extern bool get_rel_relisivm(Oid relid);
 extern bool get_rel_relisdynamic(Oid relid);
 extern int32 get_rel_relmvrefcount(Oid relid);
+extern bool get_rel_haspartialagg(Oid relid);
 extern Oid	get_rel_tablespace(Oid relid);
 extern char get_rel_persistence(Oid relid);
 extern Oid	get_transform_fromsql(Oid typid, Oid langid, List *trftypes);

@@ -573,6 +573,15 @@ static relopt_string stringRelOpts[] =
 		},
 		0, true, NULL, NULL, NULL
 	},
+	{
+		{
+			"storage",
+			"the storage type of the tablespace",
+			RELOPT_KIND_TABLESPACE,
+			AccessExclusiveLock
+		},
+		0, true, NULL, NULL, NULL
+	},
 	/* list terminator */
 	{{NULL}}
 };
@@ -2130,7 +2139,8 @@ tablespace_reloptions(Datum reloptions, bool validate)
 		{"maintenance_io_concurrency", RELOPT_TYPE_INT, offsetof(TableSpaceOpts, maintenance_io_concurrency)},
 		{"stage", RELOPT_TYPE_BOOL, offsetof(TableSpaceOpts, stage)},
 		{"server", RELOPT_TYPE_STRING, offsetof(TableSpaceOpts, serverOffset)},
-		{"path", RELOPT_TYPE_STRING, offsetof(TableSpaceOpts, pathOffset)}
+		{"path", RELOPT_TYPE_STRING, offsetof(TableSpaceOpts, pathOffset)}, 
+		{"storage", RELOPT_TYPE_STRING, offsetof(TableSpaceOpts, storageOffset)}
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate,

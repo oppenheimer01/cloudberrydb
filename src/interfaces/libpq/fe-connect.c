@@ -432,6 +432,10 @@ static const PQEnvironmentOption EnvironmentOptions[] =
 	}
 };
 
+#ifdef SERVERLESS
+extern char *CollectStartupCatalog(int *len);
+#endif
+
 /* The connection URI must start with either of the following designators: */
 static const char uri_designator[] = "postgresql://";
 static const char short_uri_designator[] = "postgres://";

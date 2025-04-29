@@ -97,8 +97,13 @@ makeGpPolicy(GpPolicyType ptype, int nattrs, int numsegments)
 	policy->numsegments = numsegments;
 	policy->nattrs = nattrs; 
 
+#ifdef SERVERLESS
+	Assert(numsegments >= 0 ||
+		   (ptype == POLICYTYPE_ENTRY && numsegments == -1));
+#else
 	Assert(numsegments > 0 ||
 		   (ptype == POLICYTYPE_ENTRY && numsegments == -1));
+#endif
 
 	return policy;
 }
@@ -427,7 +432,12 @@ GpPolicyFetch(Oid tbloid)
 		switch (policyform->policytype)
 		{
 			case SYM_POLICYTYPE_REPLICATED:
-				policy = createReplicatedGpPolicy(policyform->numsegments);
+#ifdef SERVERLESS
+				if (policyform->numsegments == 0)
+					policy = createReplicatedGpPolicy(getgpsegmentCount());
+				else
+#endif
+					policy = createReplicatedGpPolicy(policyform->numsegments);
 				break;
 			case SYM_POLICYTYPE_PARTITIONED:
 				/*
@@ -458,8 +468,14 @@ GpPolicyFetch(Oid tbloid)
 				}
 
 				/* Create a GpPolicy object. */
-				policy = makeGpPolicy(POLICYTYPE_PARTITIONED,
-									  nattrs, policyform->numsegments);
+#ifdef SERVERLESS
+				if (policyform->numsegments == 0)
+					policy = makeGpPolicy(POLICYTYPE_PARTITIONED,
+										nattrs, getgpsegmentCount());
+				else
+#endif
+					policy = makeGpPolicy(POLICYTYPE_PARTITIONED,
+										nattrs, policyform->numsegments);
 
 				for (i = 0; i < nattrs; i++)
 				{
@@ -502,7 +518,11 @@ GpPolicyStore(Oid tbloid, const GpPolicy *policy)
 
 	/* Sanity check the policy and its opclasses before storing it. */
 	if (policy->ptype == POLICYTYPE_ENTRY)
+#ifdef SERVERLESS
+		return;
+#else
 		elog(ERROR, "cannot store entry-type policy in gp_distribution_policy");
+#endif
 	for (i = 0; i < policy->nattrs; i++)
 	{
 		if (policy->opclasses[i] == InvalidOid)

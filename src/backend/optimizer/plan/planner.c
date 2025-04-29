@@ -80,6 +80,9 @@
 #include "cdb/cdbgroupingpaths.h"		/* create_grouping_paths() extensions */
 #include "cdb/cdbsetop.h"		/* motion utilities */
 #include "cdb/cdbtargeteddispatch.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "optimizer/aqumv.h" /* answer_query_using_materialized_views */
@@ -99,6 +102,7 @@ bool		optimizer_init = false;
 
 /* Hook for plugins to get control in planner() */
 planner_hook_type planner_hook = NULL;
+create_plan_hook_type create_plan_hook = NULL;
 
 /* Hook for plugins to get control when grouping_planner() plans upper rels */
 create_upper_paths_hook_type create_upper_paths_hook = NULL;
@@ -338,6 +342,21 @@ planner(Query *parse, const char *query_string, int cursorOptions,
 	else
 		result = standard_planner(parse, query_string, cursorOptions, boundParams);
 
+	if (output_col_case_sensitive && result && parse->commandType == CMD_SELECT)
+	{
+		ListCell	*lp;
+		ListCell	*lr;
+	
+		forboth(lp, result->planTree->targetlist, lr, parse->targetList)
+		{
+			TargetEntry *lte = (TargetEntry *) lfirst(lp);
+			TargetEntry *rte = (TargetEntry *) lfirst(lr);
+			Assert(lte->resno == rte->resno);
+			if (rte->origname)
+				lte->origname = rte->origname;
+		}
+	}
+
 	return result;
 }
 
@@ -376,7 +395,12 @@ standard_planner(Query *parse, const char *query_string, int cursorOptions,
 		GP_ROLE_DISPATCH == Gp_role &&
 		IS_QUERY_DISPATCHER() &&
 		(cursorOptions & CURSOR_OPT_SKIP_FOREIGN_PARTITIONS) == 0 &&
+#ifdef SERVERLESS
+		(cursorOptions & CURSOR_OPT_PARALLEL_RETRIEVE) == 0 &&
+		!inPlPgsql)
+#else
 		(cursorOptions & CURSOR_OPT_PARALLEL_RETRIEVE) == 0)
+#endif
 	{
 
 #ifdef USE_ORCA

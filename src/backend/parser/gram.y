@@ -50,6 +50,7 @@
 #include <ctype.h>
 #include <limits.h>
 
+#include "pg_config.h"
 #include "access/tableam.h"
 #include "catalog/index.h"
 #include "catalog/namespace.h"
@@ -150,6 +151,13 @@ typedef struct GroupClause
 	List   *list;
 } GroupClause;
 
+/* Private struct for the result of OptRefreshOption production */
+typedef struct RefreshOption
+{
+	bool		deferred;
+	char		*interval;
+} RefreshOption;
+
 /* ConstraintAttributeSpec yields an integer bitmask of these flags: */
 #define CAS_NOT_DEFERRABLE			0x01
 #define CAS_DEFERRABLE				0x02
@@ -215,6 +223,10 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 
 static bool isSetWithReorganize(List **options);
+
+extern char *orig_str_val;
+bool collabel_is_ident = false;
+
 static char *greenplumLegacyAOoptions(const char *accessMethod, List **options);
 static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_t yyscanner);
 
@@ -276,6 +288,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	DistributionKeyElem *dkelem;
 	SetQuantifier	 setquantifier;
 	struct GroupClause  *groupclause;
+	struct RefreshOption *refresh_option;
 }
 
 %type <node>	stmt toplevel_stmt schema_stmt routine_body_stmt
@@ -297,8 +310,8 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 		CreateTableSpaceStmt CreateFdwStmt CreateForeignServerStmt CreateForeignTableStmt CreateDirectoryTableStmt
 		CreateAssertionStmt CreateTransformStmt CreateTrigStmt CreateEventTrigStmt
 		CreateUserStmt CreateUserMappingStmt CreateRoleStmt CreatePolicyStmt
-		CreatedbStmt CreateWarehouseStmt DeclareCursorStmt DefineStmt DeleteStmt DiscardStmt DoStmt
-		DropDirectoryTableStmt DropOpClassStmt DropOpFamilyStmt DropStmt DropWarehouseStmt
+		CreatedbStmt DeclareCursorStmt DefineStmt DeleteStmt DiscardStmt DoStmt
+		DropDirectoryTableStmt DropOpClassStmt DropOpFamilyStmt DropStmt
 		DropCastStmt DropRoleStmt
 		DropdbStmt DropTableSpaceStmt
 		DropTransformStmt
@@ -321,10 +334,10 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 		RetrieveStmt CreateTaskStmt AlterTaskStmt DropTaskStmt
 
 /* GPDB-specific commands */
-%type <node>	AlterProfileStmt AlterQueueStmt AlterResourceGroupStmt AlterSchemaStmt AlterTagStmt
+%type <node>	AlterProfileStmt AlterQueueStmt AlterResourceGroupStmt AlterSchemaStmt AlterTagStmt AlterWarehouseStmt
 		CreateExternalStmt
-		CreateProfileStmt CreateQueueStmt CreateResourceGroupStmt CreateTagStmt
-		DropProfileStmt DropQueueStmt DropResourceGroupStmt DropTagStmt
+		CreateProfileStmt CreateQueueStmt CreateResourceGroupStmt CreateWarehouseStmt CreateTagStmt
+		DropProfileStmt DropQueueStmt DropResourceGroupStmt DropWarehouseStmt DropTagStmt
 		ExtTypedesc ExtSingleRowErrorHandling
 
 %type<list> 	OptSingleRowErrorHandling
@@ -488,6 +501,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 
 %type <node>	opt_routine_body
 %type <groupclause> group_clause
+%type <refresh_option> OptRefreshOption
 %type <list>	group_by_list
 %type <node>	group_by_item empty_grouping_set rollup_clause cube_clause
 %type <node>	grouping_sets_clause
@@ -717,6 +731,8 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %type <partelem>	part_elem
 %type <list>		part_params
 %type <partboundspec> PartitionBoundSpec
+%type <boolean> autopart_default
+%type <node> OptAutoPartitionBoundSpec
 %type <list>		hash_partbound
 %type <defelt>		hash_partbound_elem
 
@@ -751,13 +767,14 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %token <keyword> ABORT_P ABSOLUTE_P ACCESS ACTION ADD_P ADMIN AFTER
 	AGGREGATE ALL ALSO ALTER ALWAYS ANALYSE ANALYZE AND ANY ARRAY AS ASC
 	ASENSITIVE ASSERTION ASSIGNMENT ASYMMETRIC ATOMIC AT ATTACH ATTRIBUTE AUTHORIZATION
+	AUTO
 
 	BACKWARD BEFORE BEGIN_P BETWEEN BIGINT BINARY BIT
 	BOOLEAN_P BOTH BREADTH BY
 
 	CACHE CALL CALLED CASCADE CASCADED CASE CAST CATALOG_P CHAIN CHAR_P
 	CHARACTER CHARACTERISTICS CHECK CHECKPOINT CLASS CLOSE
-	CLUSTER COALESCE COLLATE COLLATION COLUMN COLUMNS COMMENT COMMENTS COMMIT
+	CLUSTER COALESCE COLLATE COLLATION COLUMN COLUMNS COMBINE COMMENT COMMENTS COMMIT
 	COMMITTED COMPRESSION CONCURRENTLY CONFIGURATION CONFLICT CONNECTION CONSTRAINT
 	CONCURRENCY
 	CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY COST CREATE
@@ -765,12 +782,12 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA
 	CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER CURSOR CYCLE
 
-	DATA_P DATABASE DAY_P DEALLOCATE DEC DECIMAL_P DECLARE DEFAULT DEFAULTS
+	DATA_P DATABASE DAY_P DEALLOCATE DEC DECIMAL_P DECLARE DEFAULT DEFAULTS DEFAULTWAREHOUSE
 	DEFERRABLE DEFERRED DEFINER DELETE_P DELIMITER DELIMITERS DEPENDS DEPTH DESC
 	DETACH DICTIONARY DIRECTORY DISABLE_P DISCARD DISTINCT DO DOCUMENT_P DOMAIN_P
 	DOUBLE_P DROP DYNAMIC
 
-	EACH ELSE ENABLE_P ENCODING ENCRYPTED END_P ENDPOINT ENUM_P ESCAPE EVENT EXCEPT
+	EACH ELSE ENABLE_P ENCODING ENCRYPTED ENCRYPTION_ENABLE END_P ENDPOINT ENUM_P ESCAPE EVENT EXCEPT
 	EXCLUDE EXCLUDING EXCLUSIVE EXECUTE EXISTS EXPLAIN EXPRESSION
 	EXTENSION EXTERNAL EXTRACT
 
@@ -878,10 +895,10 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 
 	QUEUE
 
-	RANDOMLY READABLE READS REJECT_P REPLICATED RESOURCE
+	RANDOMLY READABLE READS REJECT_P REPLICATED RESOURCE RESUME
 	ROOTPARTITION
 
-	SCATTER SEGMENT SEGMENTS SHRINK SPLIT SUBPARTITION
+	SCATTER SEGMENT SEGMENTS SHRINK SPLIT SUBPARTITION SUSPEND
 
 	TAG
 
@@ -1035,6 +1052,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc DEALLOCATE
 			%nonassoc DECLARE
 			%nonassoc DEFAULTS
+			%nonassoc DEFAULTWAREHOUSE
 			%nonassoc DEFERRED
 			%nonassoc DEFINER
 			%nonassoc DELETE_P
@@ -1459,6 +1477,7 @@ stmt:
 			| AlterTSDictionaryStmt
 			| AlterUserMappingStmt
 			| AlterStorageUserMappingStmt
+			| AlterWarehouseStmt
 			| AnalyzeStmt
 			| CallStmt
 			| CheckPointStmt
@@ -1560,6 +1579,21 @@ stmt:
 			| RuleStmt
 			| SecLabelStmt
 			| SelectStmt
+				{
+					ListCell *lc;
+					SelectStmt *n = (SelectStmt *) $1;
+
+					while(n->op)
+						n = n->larg;
+
+					foreach(lc, n->targetList)
+					{
+						ResTarget *t = (ResTarget *) lfirst(lc);
+						if (t->orig_name)
+							t->use_orig_name = true;
+					}
+					$$ = $1;
+				}
 			| TransactionStmt
 			| TruncateStmt
 			| UnlistenStmt
@@ -1968,6 +2002,10 @@ AlterOptRoleElem:
 						$$ = makeDefElem("createdb", (Node *)makeInteger(true), @1);
 					else if (strcmp($1, "nocreatedb") == 0)
 						$$ = makeDefElem("createdb", (Node *)makeInteger(false), @1);
+					else if (strcmp($1, "createwh") == 0)
+						$$ = makeDefElem("createwh", (Node *)makeInteger(true), @1);
+					else if (strcmp($1, "nocreatewh") == 0)
+						$$ = makeDefElem("createwh", (Node *)makeInteger(false), @1);
 					else if (strcmp($1, "login") == 0)
 						$$ = makeDefElem("canlogin", (Node *)makeInteger(true), @1);
 					else if (strcmp($1, "nologin") == 0)
@@ -2014,6 +2052,10 @@ CreateOptRoleElem:
 			| IN_P GROUP_P role_list
 				{
 					$$ = makeDefElem("addroleto", (Node *)$3, @1);
+				}
+			| DEFAULTWAREHOUSE name
+				{
+					$$ = makeDefElem("default_warehosue", (Node *) makeString($2), @1);
 				}
 		;
 
@@ -4082,6 +4124,59 @@ alter_identity_column_option:
 				}
 		;
 
+autopart_default: WITHOUT DEFAULT
+				{
+					$$ = false;
+				}
+			| WITH DEFAULT
+				{
+					$$ = true;
+				}
+			;
+/*
+ * So far, auto partition only support one level hash partition
+ */
+OptAutoPartitionBoundSpec:
+			AUTO BY '(' NonReservedWord Iconst ')'
+				{
+ 					/* HASH partition */
+					if (strcmp($4, "modulus"))
+					{
+						ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								 errmsg("unrecognized auto hash partition bound specification \"%s\"",
+										$4),
+								 parser_errposition(@4)));
+					}
+					$$ = makeAPHashExpr($5);
+				}
+			| AUTO BY ENUM_P
+				{
+ 					/* LIST partition */
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("auto partition do not support list yet")));
+					$$ = makeAPListExpr();
+				}
+			| AUTO START '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
+				{
+					/* Open Range partition */
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+						 	 errmsg("auto partition do not support open space range yet")));
+					$$ = makeAPRangeExpr($4, NULL, $8, $10);
+				}
+			| AUTO START '(' expr_list ')' END_P '(' expr_list ')' EVERY '(' expr_list ')' autopart_default
+				{
+					/* Close Range partition with default */
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+						 	 errmsg("auto partition do not support close space range yet")));
+					$$ = makeAPRangeExpr($4, $8, $12, $14);
+				}
+			| { $$ = NULL; }
+			;
+
 PartitionBoundSpec:
 			/* a HASH partition */
 			FOR VALUES WITH '(' hash_partbound ')'
@@ -5989,6 +6084,20 @@ OptFirstPartitionSpec: PartitionSpec opt_list_subparts OptTabPartitionSpec
 				{
 					$1->gpPartDef = (GpPartitionDefinition *) $3;
 					$1->subPartSpec = (PartitionSpec *) $2;
+#ifdef SERVERLESS
+					if ($1->subPartSpec)
+					{
+						bool error = ($1->apExpr != NULL);
+						for (PartitionSpec *current = $1; current; current = current->subPartSpec)
+							error |= ($1->apExpr != NULL);
+
+						if (error)
+							ereport(ERROR,
+									(errcode(ERRCODE_SYNTAX_ERROR),
+									 errmsg("auto partition do not support multi level partition yet")));
+
+					}
+#endif /* SEVERLESS */
 					/*
 					 * Only if GPDB legacy partition syntax, check for expression in partition
 					 * key. If gpPartDef is present then only its legacy syntax.
@@ -6045,13 +6154,16 @@ OptSecondPartitionSpec:
 				}
 		;
 
-PartitionSpec: PARTITION BY ColId '(' part_params ')'
+PartitionSpec: PARTITION BY ColId '(' part_params ')' OptAutoPartitionBoundSpec
 				{
 					PartitionSpec *n = makeNode(PartitionSpec);
 
 					n->strategy = $3;
 					n->partParams = $5;
 					n->location = @1;
+#ifdef SERVERLESS
+					n->apExpr = (Expr *)$7;
+#endif /* SERVERLESS */
 
 					$$ = n;
 				}
@@ -6629,7 +6741,14 @@ TabSubPartition:
 
 					$$ = $1;
 				}
-			| TabSubPartitionBy { $$ = $1; }
+			| TabSubPartitionBy OptAutoPartitionBoundSpec
+				{
+#ifdef SERVERLESS
+					PartitionSpec *n = (PartitionSpec *) $1;
+					n->apExpr = (Expr *)$2;
+#endif /* SERVERLESS */
+					$$ = $1;
+				}
 			| TabSubPartitionBy TabSubPartition
 				{
 					PartitionSpec *n = (PartitionSpec *) $1;
@@ -7317,7 +7436,7 @@ CreateMatViewStmt:
 		;
 
 create_mv_target:
-			qualified_name opt_column_list table_access_method_clause opt_reloptions OptTableSpace
+			qualified_name opt_column_list table_access_method_clause opt_reloptions OptTableSpace OptRefreshOption
 				{
 					$$ = makeNode(IntoClause);
 					$$->rel = $1;
@@ -7331,6 +7450,11 @@ create_mv_target:
 					$$->ivm = false;
 					$$->dynamicTbl = false;
 					$$->schedule = NULL;
+					if ($6)
+					{
+						$$->defer = $6->deferred;
+						$$->interval = $6->interval;
+					}
 
 					$$->accessMethod = greenplumLegacyAOoptions($$->accessMethod, &$$->options);
 				}
@@ -7344,6 +7468,34 @@ OptNoLog:	UNLOGGED					{ $$ = RELPERSISTENCE_UNLOGGED; }
 			| /*EMPTY*/					{ $$ = RELPERSISTENCE_PERMANENT; }
 		;
 
+OptRefreshOption:
+			REFRESH IMMEDIATE
+			{
+				RefreshOption *n = (RefreshOption *) palloc(sizeof(RefreshOption));
+				n->deferred = false;
+				n->interval = NULL;
+				$$ = n;
+			}
+			| REFRESH DEFERRED
+			{
+				RefreshOption *n = (RefreshOption *) palloc(sizeof(RefreshOption));
+				n->deferred = true;
+				n->interval = NULL;
+				$$ = n;
+			}
+			| REFRESH DEFERRED SCHEDULE Sconst
+			{
+				RefreshOption *n = (RefreshOption *) palloc(sizeof(RefreshOption));
+				n->deferred = true;
+				n->interval = $4;
+				$$ = n;
+			}
+			| /*EMPTY*/
+			{
+				$$ = NULL;
+			}
+		;
+
 /*****************************************************************************
  *
  *		QUERY :
@@ -7353,12 +7505,23 @@ OptNoLog:	UNLOGGED					{ $$ = RELPERSISTENCE_UNLOGGED; }
  *****************************************************************************/
 
 RefreshMatViewStmt:
-			REFRESH MATERIALIZED VIEW opt_concurrently qualified_name opt_with_data
+			COMBINE INCREMENTAL MATERIALIZED VIEW qualified_name
+			{
+				RefreshMatViewStmt *n = makeNode(RefreshMatViewStmt);
+				n->incremental = true;
+				n->concurrent = false;
+				n->relation = $5;
+				n->skipData = false;
+				n->combine = true;
+				$$ = (Node *) n;
+			}
+			| REFRESH incremental MATERIALIZED VIEW opt_concurrently qualified_name opt_with_data
 				{
 					RefreshMatViewStmt *n = makeNode(RefreshMatViewStmt);
-					n->concurrent = $4;
-					n->relation = $5;
-					n->skipData = !($6);
+					n->incremental = $2;
+                    n->concurrent = $5;
+                    n->relation = $6;
+                    n->skipData = !($7);
 					n->isdynamic = false;
 					$$ = (Node *) n;
 				}
@@ -9008,14 +9171,18 @@ TriggerForSpec:
 				}
 			| /* EMPTY */
 				{
-					/* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
+
+#ifdef SERVERLESS
+					$$ = false;
+#else /* SERVERLESS */
+                    /* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
 					if (!gp_enable_statement_trigger)
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 								 errmsg("Triggers for statements are not yet supported")));
 					}
-					$$ = false;
+#endif /* SERVERLESS */
 				}
 		;
 
@@ -9028,6 +9195,10 @@ TriggerForType:
 			ROW										{ $$ = true; }
 			| STATEMENT
 			{
+
+#ifdef SERVERLESS
+                $$ = false;
+#else /* SERVERLESS */
 				/* let creation of triggers go through for pg_restore when upgrading from GP6 to GP7 */
 				if (!gp_enable_statement_trigger)
 				{
@@ -9035,7 +9206,7 @@ TriggerForType:
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("Triggers for statements are not yet supported")));
 				}
-				$$ = false;
+#endif /* SERVERLESS */
 			}
 		;
 
@@ -10655,6 +10826,14 @@ privilege_target:
 					PrivTarget *n = (PrivTarget *) palloc(sizeof(PrivTarget));
 					n->targtype = ACL_TARGET_OBJECT;
 					n->objtype = OBJECT_DATABASE;
+					n->objs = $2;
+					$$ = n;
+				}
+			| WAREHOUSE name_list
+				{
+					PrivTarget *n = (PrivTarget *) palloc(sizeof(PrivTarget));
+					n->targtype = ACL_TARGET_OBJECT;
+					n->objtype = OBJECT_WAREHOUSE;
 					n->objs = $2;
 					$$ = n;
 				}
@@ -13379,12 +13558,23 @@ publication_for_tables:
  *
  *****************************************************************************/
 
-CreateWarehouseStmt: CREATE WAREHOUSE name OptWarehouseOptList OptTagOptList
+CreateWarehouseStmt: CREATE WAREHOUSE name OptWarehouseOptList create_generic_options OptTagOptList
 						{
 							CreateWarehouseStmt *n = makeNode(CreateWarehouseStmt);
 							n->whname = $3;
 							n->options = $4;
-							n->tags = $5;
+							n->wh_options = $5;
+							n->if_not_exists = false;
+							n->tags = $6;
+							$$ = (Node *) n;
+						}
+					| CREATE WAREHOUSE IF_P NOT EXISTS name OptWarehouseOptList create_generic_options
+						{
+							CreateWarehouseStmt *n = makeNode(CreateWarehouseStmt);
+							n->whname = $6;
+							n->options = $7;
+							n->wh_options = $8;
+							n->if_not_exists = true;
 							$$ = (Node *) n;
 						}
 				;
@@ -13404,15 +13594,161 @@ WarehouseOptElem:
 				}
 		;
 
+/*****************************************************************************
+ *
+ *	QUERY:
+ *		DROP WAREHOUSE name
+ *
+ *****************************************************************************/
 
 DropWarehouseStmt: DROP WAREHOUSE name
 						{
 							DropWarehouseStmt *n = makeNode(DropWarehouseStmt);
 							n->whname = $3;
+							n->missing_ok = false;
+							$$ = (Node *) n;
+						}
+					| DROP WAREHOUSE IF_P EXISTS name
+						{
+							DropWarehouseStmt *n = makeNode(DropWarehouseStmt);
+							n->whname = $5;
+							n->missing_ok = true;
 							$$ = (Node *) n;
 						}
 				;
 
+/*****************************************************************************
+ *
+ *	QUERY:
+ *		ALTER WAREHOUSE name SET WAREHOUSE_SIZE warehouse_size
+ *		ALTER WAREHOUSE name SUSPEND
+ *		ALTER WAREHOUSE name RESUME
+ *
+ *****************************************************************************/
+
+AlterWarehouseStmt:
+			ALTER WAREHOUSE name SET WAREHOUSE_SIZE SignedIconst
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE;
+					n->whname = $3;
+					n->warehouse_size = $6;
+					n->options = NULL;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS SET WAREHOUSE_SIZE SignedIconst
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE;
+					n->whname = $3;
+					n->warehouse_size = $8;
+					n->options = NULL;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name OWNER TO RoleSpec
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_ALTER_OWNER;
+					n->whname = $3;
+					n->warehouse_size = 0;
+					n->newowner = $6;
+					n->options = NULL;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS OWNER TO RoleSpec
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_ALTER_OWNER;
+					n->whname = $3;
+					n->warehouse_size = 0;
+					n->newowner = $8;
+					n->options = NULL;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name SUSPEND
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SUSPEND;
+					n->whname = $3;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS SUSPEND
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_SUSPEND;
+					n->whname = $3;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name RESUME
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_RESUME;
+					n->whname = $3;
+					n->missing_ok = false;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS RESUME
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_RESUME;
+					n->whname = $3;
+					n->missing_ok = true;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name alter_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = false;
+					n->options = $4;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS alter_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = true;
+					n->options = $6;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name REPLACE create_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_REPLACE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = false;
+					n->options = $5;
+					$$ = (Node *)n;
+				}
+			|
+			ALTER WAREHOUSE name IF_P EXISTS REPLACE create_generic_options
+				{
+					AlterWarehouseStmt *n = makeNode(AlterWarehouseStmt);
+					n->kind = ALTER_WAREHOUSE_REPLACE_OPTIONS;
+					n->whname = $3;
+					n->missing_ok = true;
+					n->options = $7;
+					$$ = (Node *)n;
+				}
+		;
 
 /*****************************************************************************
  *
@@ -14028,6 +14364,7 @@ createdb_opt_name:
 			| OWNER							{ $$ = pstrdup($1); }
 			| TABLESPACE					{ $$ = pstrdup($1); }
 			| TEMPLATE						{ $$ = pstrdup($1); }
+			| ENCRYPTION_ENABLE				{ $$ = pstrdup($1); }
 		;
 
 /*
@@ -19113,6 +19450,10 @@ target_list:
 target_el:	a_expr AS ColLabel
 				{
 					$$ = makeNode(ResTarget);
+					if (collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = $3;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19135,6 +19476,10 @@ target_el:	a_expr AS ColLabel
 			| a_expr BareColLabel
 				{
 					$$ = makeNode(ResTarget);
+					if (collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = $2;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19143,6 +19488,10 @@ target_el:	a_expr AS ColLabel
 			| a_expr
 				{
 					$$ = makeNode(ResTarget);
+					if (IsA($1, ColumnRef) && collabel_is_ident && orig_str_val != NULL)
+					{
+						$$->orig_name = pstrdup(orig_str_val);
+					}
 					$$->name = NULL;
 					$$->indirection = NIL;
 					$$->val = (Node *)$1;
@@ -19542,9 +19891,9 @@ plassign_equals: COLON_EQUALS
 
 /* Column identifier --- names that can be column, table, etc names.
  */
-ColId:		IDENT									{ $$ = $1; }
-			| unreserved_keyword					{ $$ = pstrdup($1); }
-			| col_name_keyword						{ $$ = pstrdup($1); }
+ColId:		IDENT									{ collabel_is_ident = true; $$ = $1; }
+			| unreserved_keyword					{ collabel_is_ident = false; $$ = pstrdup($1); }
+			| col_name_keyword						{ collabel_is_ident = false; $$ = pstrdup($1); }
 		;
 
 /* Type/function identifier --- names that can be type or function names.
@@ -19609,6 +19958,7 @@ unreserved_keyword:
 			| ATOMIC
 			| ATTACH
 			| ATTRIBUTE
+			| AUTO
 			| BACKWARD
 			| BEFORE
 			| BEGIN_P
@@ -19627,6 +19977,7 @@ unreserved_keyword:
 			| CLOSE
 			| CLUSTER
 			| COLUMNS
+			| COMBINE
 			| COMMENT
 			| COMMENTS
 			| COMMIT
@@ -19659,6 +20010,7 @@ unreserved_keyword:
 			| DEALLOCATE
 			| DECLARE
 			| DEFAULTS
+			| DEFAULTWAREHOUSE
 			| DEFERRED
 			| DEFINER
 			| DELETE_P
@@ -19859,6 +20211,7 @@ unreserved_keyword:
 			| RESOURCE
 			| RESTART
 			| RESTRICT
+			| RESUME
 			| RETRIEVE
 			| RETURN
 			| RETURNS
@@ -19910,6 +20263,7 @@ unreserved_keyword:
 			| SUBPARTITION
 			| SUBSCRIPTION
 			| SUPPORT
+			| SUSPEND
 			| SYSID
 			| SYSTEM_P
 			| TABLES
@@ -19973,8 +20327,8 @@ PartitionColId: PartitionIdentKeyword { $$ = pstrdup($1); }
 /* Bare column label --- names that can be column labels without writing "AS".
  * This classification is orthogonal to the other keyword categories.
  */
-BareColLabel:	IDENT								{ $$ = $1; }
-			| bare_label_keyword					{ $$ = pstrdup($1); }
+BareColLabel:	IDENT								{ collabel_is_ident = true; $$ = $1; }
+			| bare_label_keyword					{ collabel_is_ident = false; $$ = pstrdup($1); }
 		;
 
 
@@ -20058,6 +20412,7 @@ PartitionIdentKeyword: ABORT_P
 			| ENABLE_P
 			| ENCODING
 			| ENCRYPTED
+			| ENCRYPTION_ENABLE
 			| ENDPOINT
 			| ERRORS
 			| ENUM_P
@@ -20540,6 +20895,7 @@ bare_label_keyword:
 			| ATTACH
 			| ATTRIBUTE
 			| AUTHORIZATION
+			| AUTO
 			| BACKWARD
 			| BEFORE
 			| BEGIN_P
@@ -20571,6 +20927,7 @@ bare_label_keyword:
 			| COLLATION
 			| COLUMN
 			| COLUMNS
+			| COMBINE
 			| COMMENT
 			| COMMENTS
 			| COMMIT
@@ -20616,6 +20973,7 @@ bare_label_keyword:
 			| DECODE
 			| DEFAULT
 			| DEFAULTS
+			| DEFAULTWAREHOUSE
 			| DEFERRABLE
 			| DEFERRED
 			| DEFINER
@@ -20869,6 +21227,7 @@ bare_label_keyword:
 			| RESOURCE
 			| RESTART
 			| RESTRICT
+			| RESUME
 			| RETRIEVE
 			| RETURN
 			| RETURNS
@@ -20928,6 +21287,7 @@ bare_label_keyword:
 			| SUBSCRIPTION
 			| SUBSTRING
 			| SUPPORT
+			| SUSPEND
 			| SYMMETRIC
 			| SYSID
 			| SYSTEM_P

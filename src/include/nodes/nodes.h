@@ -572,6 +572,7 @@ typedef enum NodeTag
 	T_CreateWarehouseStmt,
 	T_DropWarehouseStmt,
 	T_AddForeignSegStmt,
+	T_AlterWarehouseStmt,
 
 	/*
 	 * TAGS FOR PARSE TREE NODES (parsenodes.h)
@@ -685,7 +686,16 @@ typedef enum NodeTag
 	T_RetrieveStmt,
 	T_ReindexIndexInfo,			/* in nodes/parsenodes.h */
 	T_EphemeralNamedRelationInfo, /* utils/queryenvironment.h */
-
+	T_FileFragment,
+	T_FileScanTask,
+	T_ExternalTableMetadata,
+#ifdef SERVERLESS
+	T_APListExpr,
+	T_APRangeExpr,
+	T_APHashExpr,
+	T_SystemTableTransferNode,
+	T_TransferTuple,
+#endif /* SERVERLESS */
 } NodeTag;
 
 /*
@@ -971,6 +981,8 @@ typedef enum AggStrategy
 #define AGGSPLITOP_DESERIALIZE	0x08	/* apply deserialfn to input */
 
 #define AGGSPLITOP_DEDUPLICATED	0x100
+#define AGGSPLITOP_REPLACE_FINAL 0x200
+#define AGGSPLITOP_REPLACE_TRANS 0x400
 
 /* Supported operating modes (i.e., useful combinations of these options): */
 typedef enum AggSplit
@@ -999,7 +1011,8 @@ typedef enum AggSplit
 #define DO_AGGSPLIT_DESERIALIZE(as) (((as) & AGGSPLITOP_DESERIALIZE) != 0)
 
 #define DO_AGGSPLIT_DEDUPLICATED(as) (((as) & AGGSPLITOP_DEDUPLICATED) != 0)
-
+#define DO_AGGSPLIT_REPLACE_FINAL(as) (((as) & AGGSPLITOP_REPLACE_FINAL) != 0)
+#define DO_AGGSPLIT_REPLACE_TRANS(as) (((as) & AGGSPLITOP_REPLACE_TRANS) != 0)
 /*
  * SetOpCmd and SetOpStrategy -
  *	  overall semantics and execution strategies for SetOp plan nodes

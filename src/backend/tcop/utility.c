@@ -84,11 +84,17 @@
 #include "catalog/pg_profile.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/cdbvars.h"
 
 
 /* Hook for plugins to get control in ProcessUtility() */
 ProcessUtility_hook_type ProcessUtility_hook = NULL;
+
+/* Hook for plugins to send explicit begin command */
+SendTxnExplicitBegin_hook_type SendTxnExplicitBegin_hook = NULL;
 
 /* counter to disable dispatch */
 int dispatch_nest_level = 0;
@@ -267,6 +273,7 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_CreateTaskStmt:
 		case T_CreateTagStmt:
 		case T_AlterTaskStmt:
+		case T_AlterWarehouseStmt:
 		case T_DropTaskStmt:
 		case T_DropProfileStmt:
 		case T_DropQueueStmt:
@@ -581,6 +588,10 @@ ProcessUtility(PlannedStmt *pstmt,
 	Assert(queryString != NULL);	/* required as of 8.4 */
 	Assert(qc == NULL || qc->commandTag == CMDTAG_UNKNOWN);
 
+#ifdef SERVERLESS
+	SetTransferOn();
+#endif
+
 	/*
 	 * Greenplum specific code:
 	 *   Please refer to the comments at the definition of process_utility_nesting_level.
@@ -714,7 +725,10 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 												  /* gp_dispatch */ false);
 							}
 
-							sendDtxExplicitBegin();
+							if (SendTxnExplicitBegin_hook)
+								SendTxnExplicitBegin_hook();
+							else
+								sendDtxExplicitBegin();
 						}
 						break;
 
@@ -783,7 +797,10 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 						 * that the BEGIN has been dispatched
 						 * before we start dispatching our savepoint.
 						 */
-						sendDtxExplicitBegin();
+						if (SendTxnExplicitBegin_hook)
+							SendTxnExplicitBegin_hook();
+						else
+							sendDtxExplicitBegin();
 
 						DefineDispatchSavepoint(stmt->savepoint_name);
 						break;
@@ -1968,6 +1985,7 @@ ProcessUtilitySlow(ParseState *pstate,
 
 			case T_CreateWarehouseStmt:
 			case T_DropWarehouseStmt:
+			case T_AlterWarehouseStmt:
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("warehouse feature is not supported")));
@@ -3029,6 +3047,9 @@ AlterObjectTypeCommandTag(ObjectType objtype)
 		case OBJECT_EXTPROTOCOL:
 			tag = CMDTAG_ALTER_PROTOCOL;
 			break;
+		case OBJECT_WAREHOUSE:
+			tag = CMDTAG_ALTER_WAREHOUSE;
+			break;
 		default:
 			tag = CMDTAG_UNKNOWN;
 			break;
@@ -4065,6 +4086,13 @@ CreateCommandTag(Node *parsetree)
 		case T_DropWarehouseStmt:
 			tag = CMDTAG_DROP_WAREHOUSE;
 			break;
+		case T_AlterWarehouseStmt:
+			tag = CMDTAG_ALTER_WAREHOUSE;
+			break;
+
+		case T_ExtensibleNode:
+			tag = CMDTAG_EXTENSIBLE;
+			break;
 
 		default:
 			elog(WARNING, "unrecognized node type: %d",
@@ -4575,6 +4603,10 @@ GetCommandLogLevel(Node *parsetree)
 			break;
 
 		case T_DropWarehouseStmt:
+			lev = LOGSTMT_DDL;
+			break;
+
+		case T_AlterWarehouseStmt:
 			lev = LOGSTMT_DDL;
 			break;
 

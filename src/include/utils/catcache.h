@@ -185,7 +185,6 @@ typedef struct catcacheheader
 	int			ch_ntup;		/* # of tuples in all caches */
 } CatCacheHeader;
 
-
 /* this extern duplicates utils/memutils.h... */
 extern PGDLLIMPORT MemoryContext CacheMemoryContext;
 
@@ -194,7 +193,12 @@ extern void CreateCacheMemoryContext(void);
 extern CatCache *InitCatCache(int id, Oid reloid, Oid indexoid,
 							  int nkeys, const int *key,
 							  int nbuckets);
+
+extern void CatalogCacheInitializeCache(CatCache *cache);
+
 extern void InitCatCachePhase2(CatCache *cache, bool touch_index);
+
+extern bool IndexScanOK(CatCache *cache, ScanKey cur_skey);
 
 extern HeapTuple SearchCatCache(CatCache *cache,
 								Datum v1, Datum v2, Datum v3, Datum v4);

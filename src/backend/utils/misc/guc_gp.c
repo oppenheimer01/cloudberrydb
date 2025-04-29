@@ -213,6 +213,7 @@ int			Debug_dtm_action_nestinglevel = DEBUG_DTM_ACTION_NESTINGLEVEL_DEFAULT;
 int			gp_connection_send_timeout;
 
 bool create_restartpoint_on_ckpt_record_replay = false;
+bool output_col_case_sensitive = false;
 
 /*
  * This variable is a dummy that doesn't do anything, except in some
@@ -3290,6 +3291,16 @@ struct config_bool ConfigureNamesBool_gp[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"output_col_case_sensitive", PGC_USERSET, CUSTOM_OPTIONS,
+		 gettext_noop("Set 'as' column label case sensitive"),
+		 NULL
+		 },
+		&output_col_case_sensitive,
+		false,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, false, NULL, NULL
@@ -3850,7 +3861,7 @@ struct config_int ConfigureNamesInt_gp[] =
 #endif
 
 	{
-		{"gp_command_count", PGC_INTERNAL, CLIENT_CONN_OTHER,
+		{"gp_command_count", PGC_BACKEND, CLIENT_CONN_OTHER,
 			gettext_noop("Shows the number of commands received from the client in this session."),
 			NULL,
 			GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE

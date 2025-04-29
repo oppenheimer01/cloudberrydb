@@ -61,6 +61,9 @@
 #else
 #include "commands/variable.h"
 #endif
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "lib/stringinfo.h"
 #include "libpq-fe.h"
 #include "libpq/pqformat.h"
@@ -141,7 +144,7 @@ bool task_log_statement = true;
 bool task_log_run = true;
 bool task_use_background_worker = false;
 char *task_timezone = "GMT";
-int max_running_tasks = 5;
+int max_running_tasks = 50;
 char *task_host_addr = "127.0.0.1";
 
 static pg_tz *task_timezone_tz = NULL;
@@ -417,6 +420,8 @@ PgCronLauncherMain(Datum arg)
 
 		WaitForCronTasks(taskList);
 		ManageCronTasks(taskList, currentTime);
+
+		increment_command_count();
 
 		MemoryContextReset(CronLoopContext);
 	}
@@ -1033,10 +1038,14 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 			}
 
 			task->pendingRunCount -= 1;
+#ifndef SERVERLESS
 			if (task_use_background_worker)
 				task->state = CRON_TASK_BGW_START;
 			else
 				task->state = CRON_TASK_START;
+#else
+			task->state = CRON_TASK_START;
+#endif
 
 			task->lastStartTime = currentTime;
 
@@ -1060,6 +1069,8 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 			{
 				const char *clientEncoding = GetDatabaseEncodingName();
 				char nodePortString[12];
+				StringInfoData	options_buf;
+				initStringInfo(&options_buf);
 				TimestampTz startDeadline = 0;
 
 				const char *keywordArray[] = {
@@ -1069,6 +1080,7 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 					"client_encoding",
 					"dbname",
 					"user",
+					"options",
 					NULL
 					};
 				const char *valueArray[] = {
@@ -1078,9 +1090,14 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 					clientEncoding,
 					cronJob->database,
 					cronJob->userName,
+					options_buf.data,
 					NULL
 				};
 				sprintf(nodePortString, "%d", cronJob->nodePort);
+				if (cronJob->warehouse)
+					appendStringInfo(&options_buf,
+									"-c gp_command_count=%d -c warehouse=%s",
+									gp_command_count, cronJob->warehouse);
 
 				Assert(sizeof(keywordArray) == sizeof(valueArray));
 
@@ -1338,7 +1355,6 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 
 		case CRON_TASK_SENDING:
 		{
-			char *command = cronJob->command;
 			int sendResult = 0;
 
 			Assert(!task_use_background_worker);
@@ -1367,7 +1383,7 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
 				break;
 			}
 
-			sendResult = PQsendQuery(connection, command);
+			sendResult = PQsendQuery(connection, cronJob->command);
 			if (sendResult == 1)
 			{
 				/* wait for socket to be ready to receive results */
@@ -1862,6 +1878,11 @@ ExecuteSqlString(const char *sql)
 	commands_remaining = list_length(raw_parsetree_list);
 	isTopLevel = commands_remaining == 1;
 	MemoryContextSwitchTo(oldcontext);
+
+#ifdef SERVERLESS
+	TransferReset();
+	SetTransferOn();
+#endif
 
 	/*
 	 * Do parse analysis, rule rewrite, planning, and execution for each raw

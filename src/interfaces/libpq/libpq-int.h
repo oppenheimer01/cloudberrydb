@@ -438,6 +438,10 @@ struct pg_conn
     char       *diffoptions;  /* MPP: transfer changed GUCs(require sync) from QD to QEs */
 	char	   *gsslib;			/* What GSS library to use ("gssapi" or
 								 * "sspi") */
+#ifdef SERVERLESS
+	char	   *catalog;
+	int 		catalog_size;
+#endif
 	char	   *ssl_min_protocol_version;	/* minimum TLS protocol version */
 	char	   *ssl_max_protocol_version;	/* maximum TLS protocol version */
 	char	   *target_session_attrs;	/* desired session properties */
@@ -907,6 +911,8 @@ extern ssize_t pg_GSS_read(PGconn *conn, void *ptr, size_t len);
 extern void pqTraceOutputMessage(PGconn *conn, const char *message,
 								 bool toServer);
 extern void pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message);
+
+extern bool pqAddTuple(PGresult *res, PGresAttValue *tup, const char **errmsgp);
 
 /* === miscellaneous macros === */
 

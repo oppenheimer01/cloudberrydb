@@ -68,6 +68,13 @@ typedef struct partname_comp
 	int partnum;
 } partname_comp;
 
+/* Hook for plugins to get control in makePartitionCreateStmt() */
+typedef CreateStmt *(*makePartitionCreateStmt_hook_type) (Relation parentrel, char *partname,
+													PartitionBoundSpec *boundspec,
+													PartitionSpec *subPart, GpPartDefElem *elem,
+													partname_comp *partnamecomp);
+extern PGDLLIMPORT makePartitionCreateStmt_hook_type makePartitionCreateStmt_hook;
+
 extern CreateStmt *makePartitionCreateStmt(Relation parentrel, char *partname,
 										   PartitionBoundSpec *boundspec,
 										   PartitionSpec *subPart,

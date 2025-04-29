@@ -310,7 +310,7 @@ get_partitioned_policy_from_path(PlannerInfo *root, Path *path)
  * returned in that case.
  *
  * TODO: This only handles a few cases. For example, INSERT INTO SELECT ...
- * is not handled, because the parser injects a subquery for ti which makes
+ * is not handled, because the parser injects a subquery for it which makes
  * it tricky.
  */
 CdbPathLocus
@@ -328,7 +328,12 @@ cdbllize_get_final_locus(PlannerInfo *root, PathTarget *target)
 
 		if (intoPolicy != NULL)
 		{
+#ifdef SERVERLESS
+			Assert(GpPolicyIsEntry(query->intoPolicy) || GpPolicyIsPartitioned(query->intoPolicy) ||
+				   GpPolicyIsReplicated(query->intoPolicy));
+#else
 			Assert(intoPolicy->ptype != POLICYTYPE_ENTRY);
+#endif
 			Assert(intoPolicy->nattrs >= 0);
 			Assert(intoPolicy->nattrs <= MaxPolicyAttributeNumber);
 
@@ -344,6 +349,19 @@ cdbllize_get_final_locus(PlannerInfo *root, PathTarget *target)
 				CdbPathLocus_MakeReplicated(&locus, intoPolicy->numsegments, 0);
 				return locus;
 			}
+#ifdef SERVERLESS
+			else if (intoPolicy->ptype == POLICYTYPE_ENTRY)
+			{
+				/*
+				 * Query result needs to be brought back to the QD.
+				 */
+				CdbPathLocus entryLocus;
+
+				CdbPathLocus_MakeEntry(&entryLocus);
+
+				return entryLocus;
+			}
+#endif
 		}
 	}
 	else if (query->commandType == CMD_SELECT && query->parentStmtType == PARENTSTMTTYPE_NONE)
@@ -413,7 +431,12 @@ cdbllize_adjust_top_path(PlannerInfo *root, Path *best_path,
 		{
 			targetPolicy = query->intoPolicy;
 
+#ifdef SERVERLESS
+			Assert(GpPolicyIsEntry(query->intoPolicy) || GpPolicyIsPartitioned(query->intoPolicy) ||
+				   GpPolicyIsReplicated(query->intoPolicy));
+#else
 			Assert(query->intoPolicy->ptype != POLICYTYPE_ENTRY);
+#endif
 			Assert(query->intoPolicy->nattrs >= 0);
 			Assert(query->intoPolicy->nattrs <= MaxPolicyAttributeNumber);
 		}
@@ -501,8 +524,12 @@ cdbllize_adjust_top_path(PlannerInfo *root, Path *best_path,
 								 " Make sure column(s) chosen are the optimal data distribution key to minimize skew.")));
 			}
 		}
+#ifdef SERVERLESS
+		Assert(GpPolicyIsEntry(targetPolicy) || GpPolicyIsPartitioned(targetPolicy) ||
+			   GpPolicyIsReplicated(targetPolicy));
+#else
 		Assert(targetPolicy->ptype != POLICYTYPE_ENTRY);
-
+#endif
 		query->intoPolicy = targetPolicy;
 
 		if (GpPolicyIsReplicated(targetPolicy) &&

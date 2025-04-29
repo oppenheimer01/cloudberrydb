@@ -498,6 +498,8 @@ typedef struct ResTarget
 {
 	NodeTag		type;
 	char	   *name;			/* column name or NULL */
+	char	   *orig_name;		/* origin column name (case sensitive) or NULL */
+	bool		use_orig_name;	/* output origin column name to user */
 	List	   *indirection;	/* subscripts, field names, and '*', or NIL */
 	Node	   *val;			/* the value expression to compute or assign */
 	int			location;		/* token location, or -1 if unknown */
@@ -893,6 +895,9 @@ typedef struct PartitionSpec
 
 	struct GpPartitionDefinition *gpPartDef;
 	struct PartitionSpec         *subPartSpec;     /* subpartition specification */
+	#ifdef SERVERLESS
+	Expr		*apExpr;
+	#endif
 	int                          location;		/* token location, or -1 if unknown */
 } PartitionSpec;
 
@@ -1250,6 +1255,7 @@ typedef struct RangeTblEntry
 	Bitmapset  *updatedCols;	/* columns needing UPDATE permission */
 	Bitmapset  *extraUpdatedCols;	/* generated columns being updated */
 	List	   *securityQuals;	/* security barrier quals to apply, if any */
+	List	   *version;		/* delta scan version */
 } RangeTblEntry;
 
 /*
@@ -1959,6 +1965,7 @@ typedef enum ObjectType
 	OBJECT_USER_MAPPING,
 	OBJECT_STORAGE_USER_MAPPING,
 	OBJECT_VIEW,
+	OBJECT_WAREHOUSE,
 	OBJECT_RESQUEUE,
 	OBJECT_RESGROUP,
 	OBJECT_DIRECTORY_TABLE
@@ -2434,7 +2441,10 @@ typedef struct CopyStmt
 	List	   *options;		/* List of DefElem nodes */
 	Node	   *whereClause;	/* WHERE condition (or NULL) */
 
-	List	   *sreh;			/* Single row error handling info */
+	Node	   *sreh;			/* Single row error handling info */
+#ifdef SERVERLESS
+	List	   *custom_exprs;	/* expr list */
+#endif /* SERVERLESS */
 } CopyStmt;
 
 /* ----------------------
@@ -3529,6 +3539,7 @@ typedef struct SecLabelStmt
 #define CURSOR_OPT_GENERIC_PLAN 0x0200	/* force use of generic plan */
 #define CURSOR_OPT_CUSTOM_PLAN	0x0400	/* force use of custom plan */
 #define CURSOR_OPT_PARALLEL_OK	0x0800	/* parallel mode OK */
+#define CURSOR_OPT_PARALLEL_NOT_OK 0x0000  /* parallel mode not OK */
 
 /*
  * This is used to request the planner to create a plan that's updatable with
@@ -3768,6 +3779,7 @@ typedef struct CallContext
 {
 	NodeTag		type;
 	bool		atomic;
+	bool		prepare;
 } CallContext;
 
 /* ----------------------
@@ -4155,6 +4167,8 @@ typedef struct RefreshMatViewStmt
 	bool		skipData;		/* true for WITH NO DATA */
 	RangeVar   *relation;		/* relation to insert into */
 	bool		isdynamic;		/* relation is dynamic table? */
+	bool 		incremental;	/* true for incremental refresh */
+	bool 		combine;		/* combine current results for defer ivm */
 } RefreshMatViewStmt;
 
 /* ----------------------
@@ -4473,6 +4487,8 @@ typedef struct CreateWarehouseStmt
 	NodeTag		type;
 	char		*whname;
 	List		*options;		/* List of DefElem nodes */
+	List		*wh_options;	/* generic options to warehouse */
+	bool		if_not_exists;
 	List		*tags;			/* List of tag DefElem nodes */
 } CreateWarehouseStmt;
 
@@ -4480,6 +4496,28 @@ typedef struct DropWarehouseStmt
 {
 	NodeTag		type;
 	char		*whname;
+	bool		missing_ok;
 } DropWarehouseStmt;
+
+typedef enum AlterWarehouseType
+{
+	ALTER_WAREHOUSE_OPTIONS,
+	ALTER_WAREHOUSE_SET_WAREHOUSE_SIZE,
+	ALTER_WAREHOUSE_ALTER_OWNER,
+	ALTER_WAREHOUSE_SUSPEND,
+	ALTER_WAREHOUSE_RESUME,
+	ALTER_WAREHOUSE_REPLACE_OPTIONS
+} AlterWarehouseType;
+
+typedef struct AlterWarehouseStmt
+{
+	NodeTag				type;
+	AlterWarehouseType	kind; 	  		/* ALTER_WAREHOUSE_OPTIONS, etc */
+	char	   			*whname;  		/* Name of the warehouse */
+	int					warehouse_size;	/* New size of warehouse if set warehouse_size command */
+	RoleSpec			*newowner;		/* the new owner */
+	List				*options; 		/* List of DefElem nodes */
+	bool				missing_ok;
+} AlterWarehouseStmt;
 
 #endif							/* PARSENODES_H */

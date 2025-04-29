@@ -43,6 +43,7 @@
 #include "catalog/catalog.h"
 #include "catalog/storage.h"
 #include "catalog/storage_xlog.h"
+#include "cdb/cdbvars.h"
 #include "crypto/bufenc.h"
 #include "executor/instrument.h"
 #include "lib/binaryheap.h"
@@ -179,6 +180,9 @@ static bool IsForInput;
 
 /* local state for LockBufferForCleanup */
 static BufferDesc *PinCountWaitBuf = NULL;
+
+/* Hook for plugins to validate buffer in BufferAlloc() */
+BufferValidation_hook_type BufferValidation_hook = NULL;
 
 /*
  * Backend-Private refcount management:
@@ -485,7 +489,6 @@ static uint32 WaitBufHdrUnlocked(BufferDesc *buf);
 static int	SyncOneBuffer(int buf_id, bool skip_recently_used,
 						  WritebackContext *wb_context);
 static void WaitIO(BufferDesc *buf);
-static bool StartBufferIO(BufferDesc *buf, bool forInput);
 static void TerminateBufferIO(BufferDesc *buf, bool clear_dirty,
 							  uint32 set_flag_bits);
 static void shared_buffer_write_error_callback(void *arg);
@@ -1254,6 +1257,13 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		LWLockRelease(newPartitionLock);
 
 		*foundPtr = true;
+
+		/*
+		 * The page in buffer may be out of date, we need to check the buffer
+		 * and refresh the buffer if the page has been modified.
+		 */
+		if (BufferValidation_hook)
+			return (*BufferValidation_hook)(buf, valid, foundPtr);
 
 		if (!valid)
 		{
@@ -4672,7 +4682,7 @@ WaitIO(BufferDesc *buf)
  * Returns true if we successfully marked the buffer as I/O busy,
  * false if someone else already did the work.
  */
-static bool
+bool
 StartBufferIO(BufferDesc *buf, bool forInput)
 {
 	uint32		buf_state;
@@ -5172,3 +5182,12 @@ BufferLockHeldByMe(Page page)
 	return true;
 }
 #endif
+
+/*
+ * Get the buffer we were doing I/O on
+ */
+BufferDesc *
+GetInProgressBuf(void)
+{
+	return InProgressBuf;
+}

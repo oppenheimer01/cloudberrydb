@@ -438,6 +438,20 @@ pg_do_encoding_conversion(unsigned char *src, int len,
 	return result;
 }
 
+#ifdef SERVERLESS
+void
+StoreEncodingConversion(int dest_encoding)
+{
+	Oid			proc;
+	HeapTuple htup;
+
+	proc = FindDefaultConversionProc(DatabaseEncoding->encoding, dest_encoding);
+	htup = SearchSysCache1(PROCOID, proc);
+	if (htup)
+		ReleaseSysCache(htup);
+}
+#endif
+
 /*
  * Convert src string to another encoding.
  *

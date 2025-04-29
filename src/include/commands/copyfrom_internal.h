@@ -249,4 +249,9 @@ CopyGetInt16(CopyFromState cstate, int16 *val)
 extern char *limit_printout_length(const char *str);
 extern void HandleCopyError(CopyFromState cstate);
 
+#ifdef SERVERLESS
+extern void CopyInitDataParserWrapper(CopyFromState cstate);
+extern bool NextCopyFromExecuteWrapper(CopyFromState cstate, ExprContext *econtext, Datum *values, bool *nulls, bool is_directory_table);
+extern void HandleCopyErrorWrapper(CopyFromState cstate);
+#endif /* SERVERLESS */
 #endif							/* COPYFROM_INTERNAL_H */

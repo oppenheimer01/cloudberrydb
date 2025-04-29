@@ -29,7 +29,9 @@
 
 PG_MODULE_MAGIC;
 
+#ifdef FAULT_INJECTOR
 static const char *const faultInjectModuleName = "$libdir/gp_inject_fault";
+#endif
 
 extern Datum gp_inject_fault(PG_FUNCTION_ARGS);
 extern Datum insert_noop_xlog_record(PG_FUNCTION_ARGS);
@@ -51,6 +53,8 @@ fts_with_panic_warning(FaultInjectorEntry_s faultEntry)
 			errmsg("consider disabling FTS probes while injecting a panic."),
 				errhint("Inject an infinite 'skip' into the 'fts_probe' fault to disable FTS probing.")));
 }
+
+#ifdef FAULT_INJECTOR
 /*
  * Intercept log messages.
  * Define a method here to override default notice handling routines.
@@ -99,6 +103,8 @@ print_log_handler(void *arg, const PGresult *pgresult)
 
 	ThrowErrorData(edata);
 }
+#endif
+
 /*
  * Register warning when extension is loaded.
  *
@@ -106,13 +112,16 @@ print_log_handler(void *arg, const PGresult *pgresult)
 void
 _PG_init(void)
 {
+#ifdef FAULT_INJECTOR
 	InjectFaultInit();
+#endif
 
 	MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
 	register_fault_injection_warning(fts_with_panic_warning);
 	MemoryContextSwitchTo(oldContext);
 }
 
+#ifdef FAULT_INJECTOR
 static void
 get_segment_configuration(int dbid, char **hostname, int *port, int *content)
 {
@@ -174,11 +183,13 @@ get_segment_configuration(int dbid, char **hostname, int *port, int *content)
 	table_close(configrel, NoLock);
 #endif
 }
+#endif
 
 PG_FUNCTION_INFO_V1(gp_inject_fault);
 Datum
 gp_inject_fault(PG_FUNCTION_ARGS)
 {
+#ifdef FAULT_INJECTOR
 	char	*faultName = TextDatumGetCString(PG_GETARG_DATUM(0));
 	char	*type = TextDatumGetCString(PG_GETARG_DATUM(1));
 	char	*ddlStatement = TextDatumGetCString(PG_GETARG_DATUM(2));
@@ -288,6 +299,11 @@ gp_inject_fault(PG_FUNCTION_ARGS)
 			elog(ERROR, "%s", response);
 	}
 	PG_RETURN_TEXT_P(cstring_to_text(response));
+#else
+	ereport(ERROR,
+		(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+		errmsg("fault injection disable, enable with flags --enable-faultinjector ")));
+#endif
 }
 
 PG_FUNCTION_INFO_V1(insert_noop_xlog_record);

@@ -998,8 +998,8 @@ insert into wide select generate_series(3, 100) as id, rpad('', 320000, 'x') as 
 explain (costs off)
   select length(max(s.t))
   from wide left join (select id, coalesce(t, '') || '' as t from wide) s using (id);
-                                  QUERY PLAN                                  
-------------------------------------------------------------------------------
+                                     QUERY PLAN                                     
+------------------------------------------------------------------------------------
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
@@ -1009,11 +1009,12 @@ explain (costs off)
                            Hash Key: wide.id
                            ->  Seq Scan on wide
                      ->  Hash
-                           ->  Redistribute Motion 3:3  (slice3; segments: 3)
-                                 Hash Key: wide_1.id
-                                 ->  Seq Scan on wide wide_1
+                           ->  Result
+                                 ->  Redistribute Motion 3:3  (slice3; segments: 3)
+                                       Hash Key: wide_1.id
+                                       ->  Seq Scan on wide wide_1
  Optimizer: Pivotal Optimizer (GPORCA)
-(13 rows)
+(14 rows)
 
 select length(max(s.t))
 from wide left join (select id, coalesce(t, '') || '' as t from wide) s using (id);

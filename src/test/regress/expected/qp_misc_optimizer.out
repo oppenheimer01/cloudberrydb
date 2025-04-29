@@ -14,7 +14,7 @@ SET default_with_oids = false;
 --
 CREATE LANGUAGE plpgsql;
 SET search_path = public, pg_catalog;
-SET default_tablespace = '';
+-- SET default_tablespace = '';
 --
 -- Name: tset1; Type: TABLE; Schema: public; Owner: gpadmin; Tablespace:
 --

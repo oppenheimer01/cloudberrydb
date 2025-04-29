@@ -79,6 +79,10 @@ FtsShmemInit(void)
 void
 FtsNotifyProber(void)
 {
+#ifdef SERVERLESS
+	return;
+#endif /* SERVERLESS */
+
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	int32			initial_started;
 	int32			started;
@@ -177,6 +181,10 @@ getFtsVersion(void)
 void
 FtsNotifyProber(void)
 {
+#ifdef SERVERLESS
+	return;
+#endif /* SERVERLESS */
+
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);
 	SIMPLE_FAULT_INJECTOR("ftsNotify_before");

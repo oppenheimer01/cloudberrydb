@@ -13,6 +13,8 @@
 #ifndef _POSTMASTER_H
 #define _POSTMASTER_H
 
+#include "miscadmin.h"
+
 /* GUC options */
 extern bool EnableSSL;
 extern int	ReservedBackends;
@@ -58,6 +60,10 @@ extern int	postmaster_alive_fds[2];
 
 extern PGDLLIMPORT const char *progname;
 
+/* Hook for plugins to get control in StartChildProcess */
+typedef pid_t (*StartChildProcess_hook_type) (AuxProcType type);
+extern PGDLLIMPORT StartChildProcess_hook_type StartChildProcess_hook;
+
 extern void PostmasterMain(int argc, char *argv[]) pg_attribute_noreturn();
 extern void ClosePostmasterPorts(bool am_syslogger);
 extern void InitProcessGlobals(void);
@@ -79,6 +85,7 @@ extern void ShmemBackendArrayAllocation(void);
 extern void load_auxiliary_libraries(void);
 extern bool amAuxiliaryBgWorker(void);
 
+extern pid_t StartChildProcessInternal(AuxProcType type);
 #ifdef ENABLE_IC_PROXY
 # define IC_PROXY_NUM_BGWORKER 1
 #else  /* ENABLE_IC_PROXY */

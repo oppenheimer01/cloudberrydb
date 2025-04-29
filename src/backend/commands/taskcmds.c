@@ -28,6 +28,7 @@
 
 #include "postgres.h"
 
+#include "access/xact.h"
 #include "catalog/dependency.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_task.h"
@@ -47,14 +48,16 @@
 ObjectAddress
 DefineTask(ParseState *pstate, CreateTaskStmt * stmt)
 {
-	ObjectAddress address;
-	char	   *dbname = NULL;
-	char	   *username = NULL;
-	ListCell   *option;
-	DefElem    *d_dbname = NULL;
-	DefElem    *d_username = NULL;
-	Oid			jobid = InvalidOid;
-	AclResult	aclresult;
+    ObjectAddress address;
+    char          *dbname = NULL;
+    char          *username = NULL;
+    char          *warehosue = NULL;
+    ListCell      *option;
+    DefElem       *d_dbname = NULL;
+    DefElem       *d_username = NULL;
+    DefElem       *d_warehouse = NULL;
+    Oid           jobid = InvalidOid;
+    AclResult     aclresult;
 
 	/* must have CREATE privilege on database */
 	aclresult = pg_database_aclcheck(MyDatabaseId, GetUserId(), ACL_CREATE);
@@ -73,18 +76,27 @@ DefineTask(ParseState *pstate, CreateTaskStmt * stmt)
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("conflicting or redundant options"),
 						 parser_errposition(pstate, defel->location)));
-			d_dbname = defel;
-		}
-		else if (strcmp(defel->defname, "username") == 0)
-		{
-			if (d_username)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("conflicting or redundant options"),
-						 parser_errposition(pstate, defel->location)));
-			d_username = defel;
-		}
-		else
+            d_dbname = defel;
+        }
+        else if (strcmp(defel->defname, "username") == 0)
+        {
+            if (d_username)
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                         errmsg("conflicting or redundant options"),
+                         parser_errposition(pstate, defel->location)));
+            d_username = defel;
+        }
+        else if (strcmp(defel->defname, "warehouse") == 0)
+        {
+            if (d_warehouse)
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                         errmsg("conflicting or redundant options"),
+                         parser_errposition(pstate, defel->location)));
+            d_warehouse = defel;
+        }
+        else
 			elog(ERROR, "option \"%s\" not recognized",
 				 defel->defname);
 	}
@@ -107,10 +119,13 @@ DefineTask(ParseState *pstate, CreateTaskStmt * stmt)
 	else
 		dbname = get_database_name(MyDatabaseId);
 
-	if (!OidIsValid(get_database_oid(dbname, true)))
-		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_DATABASE),
-				 errmsg("database \"%s\" does not exist", dbname)));
+    if (d_warehouse != NULL && d_warehouse->arg)
+        warehosue = defGetString(d_warehouse);
+
+    if (!OidIsValid(get_database_oid(dbname, true)))
+        ereport(ERROR,
+                (errcode(ERRCODE_UNDEFINED_DATABASE),
+                 errmsg("database \"%s\" does not exist", dbname)));
 
 	/* check if the task already exists */
 	if (stmt->if_not_exists)
@@ -135,7 +150,7 @@ DefineTask(ParseState *pstate, CreateTaskStmt * stmt)
 	}
 	jobid = ScheduleCronJob(cstring_to_text(stmt->schedule), cstring_to_text(stmt->sql),
 							cstring_to_text(dbname), cstring_to_text(username),
-							true, cstring_to_text(stmt->taskname));
+							true, cstring_to_text(stmt->taskname), warehosue);
 
 	/* Depend on owner. */
 	recordDependencyOnOwner(TaskRelationId, jobid, get_role_oid(username, false));
@@ -320,6 +335,7 @@ DropTask(ParseState *pstate, DropTaskStmt * stmt)
 		ObjectAddressSet(address, TaskRelationId, jobid);
 		/* Clean up dependencies */
 		deleteSharedDependencyRecordsFor(TaskRelationId, jobid, 0);
+		deleteDependencyRecordsFor(TaskRelationId, jobid, false);
 	}
 
 	return address;

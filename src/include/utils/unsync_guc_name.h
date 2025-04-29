@@ -94,6 +94,9 @@
 		"debug_walrepl_snd",
 		"debug_walrepl_syncrep",
 		"debug_xlog_record_read",
+#ifdef SERVERLESS
+		"default_tablespace",
+#endif
 		"default_statistics_target",
 		"default_text_search_config",
 		"default_transaction_deferrable",
@@ -139,7 +142,6 @@
 		"event_source",
 		"exit_on_error",
 		"external_pid_file",
-		"extra_float_digits",
 		"from_collapse_limit",
 		"fsync",
 		"full_page_writes",
@@ -490,6 +492,7 @@
 		"optimizer_use_external_constant_expression_evaluation_for_ints",
 		"optimizer_use_gpdb_allocators",
 		"optimizer_xform_bind_threshold",
+		"output_col_case_sensitive",
 		"parallel_leader_participation",
 		"parallel_setup_cost",
 		"parallel_tuple_cost",

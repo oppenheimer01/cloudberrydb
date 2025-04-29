@@ -35,7 +35,9 @@ typedef struct SQLFunctionParseInfo
 typedef SQLFunctionParseInfo *SQLFunctionParseInfoPtr;
 
 extern Datum fmgr_sql(PG_FUNCTION_ARGS);
-
+#ifdef SERVERLESS
+extern void fmgr_sql_init(PG_FUNCTION_ARGS);
+#endif
 extern SQLFunctionParseInfoPtr prepare_sql_fn_parse_info(HeapTuple procedureTuple,
 														 Node *call_expr,
 														 Oid inputCollation);
@@ -53,5 +55,7 @@ extern bool check_sql_fn_retval(List *queryTreeLists,
 extern DestReceiver *CreateSQLFunctionDestReceiver(void);
 
 extern void querytree_safe_for_qe(Node *node);
+extern void init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK);
+
 
 #endif							/* FUNCTIONS_H */

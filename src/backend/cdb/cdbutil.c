@@ -80,6 +80,16 @@
 MemoryContext CdbComponentsContext = NULL;
 static CdbComponentDatabases *cdb_component_dbs = NULL;
 
+/*
+ * Hook for plugins to get control in getgpsegmentCount.
+ */
+getgpsegmentCount_hook_type getgpsegmentCount_hook = NULL;
+
+/*
+ * Hook for plugins to get control in getCdbComponentInfo.
+ */
+getCdbComponentInfo_hook_type getCdbComponentInfo_hook = NULL;
+
 #ifdef USE_INTERNAL_FTS
 
 /*
@@ -158,9 +168,9 @@ readGpSegConfigFromFTSFiles(int *total_dbs)
 	{
 		config = &configs[idx];
 
-		if (sscanf(buf, "%d %d %c %c %c %c %d %s %s", (int *)&config->dbid, (int *)&config->segindex,
+		if (sscanf(buf, "%d %d %c %c %c %c %d %s %s %u", (int *)&config->dbid, (int *)&config->segindex,
 				   &config->role, &config->preferred_role, &config->mode, &config->status,
-				   &config->port, hostname, address) != GPSEGCONFIGNUMATTR)
+				   &config->port, hostname, address, (Oid *)&config->warehouseid) != GPSEGCONFIGNUMATTR)
 		{
 			FreeFile(fd);
 			elog(ERROR, "invalid data in gp_segment_configuration dump file: %s:%m", GPSEGCONFIGDUMPFILE);
@@ -218,9 +228,9 @@ writeGpSegConfigToFTSFiles(void)
 	{
 		config = &configs[idx];
 
-		if (fprintf(fd, "%d %d %c %c %c %c %d %s %s\n", config->dbid, config->segindex,
+		if (fprintf(fd, "%d %d %c %c %c %c %d %s %s %u\n", config->dbid, config->segindex,
 					config->role, config->preferred_role, config->mode, config->status,
-					config->port, config->hostname, config->address) < 0)
+					config->port, config->hostname, config->address, config->warehouseid) < 0)
 		{
 			FreeFile(fd);
 			elog(ERROR, "could not dump gp_segment_configuration to file: %s: %m", GPSEGCONFIGDUMPFILE);
@@ -248,6 +258,7 @@ readGpSegConfigFromCatalog(int *total_dbs)
 	SysScanDesc			gp_seg_config_scan;
 	GpSegConfigEntry	*configs;
 	GpSegConfigEntry	*config;
+	bool				need_current_segment = true;
 
 	array_size = 500;
 	configs = palloc0(sizeof(GpSegConfigEntry) * array_size);
@@ -263,13 +274,33 @@ readGpSegConfigFromCatalog(int *total_dbs)
 		Assert(!isNull);
 		warehouseid = DatumGetObjectId(attr);
 
+		/*
+		 * In serverless mode, and if we are not in fts probe process,
+		 * we only need the segment that is up and has the same warehouseid.
+		 */
+#ifdef SERVERLESS
+		char status;
+		int16 contentid;
 		/* content */
 		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_content, RelationGetDescr(gp_seg_config_rel), &isNull);
 		Assert(!isNull);
+		contentid = DatumGetInt16(attr);
 
-		if (warehouseid == GetCurrentWarehouseId() || DatumGetInt16(attr) == MASTER_CONTENT_ID)
+		/* status */
+		attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_status, RelationGetDescr(gp_seg_config_rel), &isNull);
+		Assert(!isNull);
+		status = DatumGetChar(attr);
+
+		if (!am_ftsprobe)
+			need_current_segment = (warehouseid == GetCurrentWarehouseId() || contentid == MASTER_CONTENT_ID) && (status == GP_SEGMENT_CONFIGURATION_STATUS_UP);
+#endif
+
+		if (need_current_segment)
 		{
 			config = &configs[idx];
+
+			/* warehouseid */
+			config->warehouseid = warehouseid;
 
 			/* dbid */
 			attr = heap_getattr(gp_seg_config_tuple, Anum_gp_segment_configuration_dbid, RelationGetDescr(gp_seg_config_rel), &isNull);
@@ -465,12 +496,14 @@ getCdbComponentInfo(void)
 	/*
 	 * In singlenode deployment, total_segment_dbs is zero and it should still work.
 	 */
+#ifndef SERVERLESS
 	if (component_databases->total_segment_dbs == 0 && !IS_SINGLENODE())
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
 				 errmsg("number of segment databases cannot be 0")));
 	}
+#endif /* SERVERLESS */
 	if (component_databases->total_entry_dbs == 0)
 	{
 		ereport(ERROR,
@@ -488,6 +521,9 @@ getCdbComponentInfo(void)
 	qsort(component_databases->entry_db_info,
 		  component_databases->total_entry_dbs, sizeof(CdbComponentDatabaseInfo),
 		  CdbComponentDatabaseInfoCompare);
+
+	if (getCdbComponentInfo_hook)
+		(*getCdbComponentInfo_hook)(component_databases);
 
 	/*
 	 * Now count the number of distinct segindexes. Since it's sorted, this is
@@ -1082,6 +1118,9 @@ ensureInterconnectAddress(void)
 		 */
 		CdbComponentDatabaseInfo *qdInfo;
 		qdInfo = cdbcomponent_getComponentInfo(MASTER_CONTENT_ID);
+		if (!qdInfo->config->hostip)
+			ereport(ERROR,
+					(errmsg("Could not get hostip of QD")));
 		interconnect_address = MemoryContextStrdup(TopMemoryContext, qdInfo->config->hostip);
 	}
 	else if (qdHostname && qdHostname[0] != '\0')
@@ -1209,7 +1248,7 @@ CdbComponentDatabaseInfoCompare(const void *p1, const void *p2)
  * The keys are all NAMEDATALEN long.
  */
 static char *
-getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+getDnsCachedAddressInternal(char *name, int port, int elevel, bool use_cache)
 {
 	SegIpEntry	   *e = NULL;
 	char			hostinfo[NI_MAXHOST];
@@ -1355,6 +1394,30 @@ getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
 		return e->hostinfo;
 
 	return pstrdup(hostinfo);
+}
+
+/* getDnsCachedAddress
+ * 
+ * Due to unstable DNS service in cloud environment, retry 10 seconds to get the hostip from DNS 
+ */
+static char *
+getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+{
+	char	   *hostip = NULL;
+	int			i = 0;
+
+	while (!(hostip = getDnsCachedAddressInternal(name, port, elevel,use_cache)))
+	{
+		pg_usleep(1000);
+		if (++i >= 10)
+		{
+			ereport(LOG,
+					(errmsg("could not translate host name \"%s\", port \"%d\" to address after retry 10 seconds",
+							 name, port)));
+			break;
+		}
+	}
+	return hostip;
 }
 
 /*
@@ -1877,6 +1940,9 @@ getgpsegmentCount(void)
 {
 	/* 1 represents a singleton postgresql in utility mode */
 	int32 numsegments = 1;
+
+	if (getgpsegmentCount_hook)
+		return (*getgpsegmentCount_hook)();
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 		numsegments = cdbcomponent_getCdbComponents()->total_segments;
@@ -2883,12 +2949,14 @@ getCdbComponentInfo(void)
 	 * Validate that there exists at least one entry and one segment database
 	 * in the configuration
 	 */
+#ifndef SERVERLESS
 	if (component_databases->total_segment_dbs == 0)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
 				 errmsg("number of segment databases cannot be 0")));
 	}
+#endif /*SERVERLESS */
 	if (component_databases->total_entry_dbs == 0)
 	{
 		ereport(ERROR,
@@ -3591,7 +3659,7 @@ CdbComponentDatabaseInfoCompare(const void *p1, const void *p2)
  * The keys are all NAMEDATALEN long.
  */
 static char *
-getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+getDnsCachedAddressInternal(char *name, int port, int elevel, bool use_cache)
 {
 	SegIpEntry	   *e = NULL;
 	char			hostinfo[NI_MAXHOST];
@@ -3737,6 +3805,30 @@ getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
 		return e->hostinfo;
 
 	return pstrdup(hostinfo);
+}
+
+/* getDnsCachedAddress
+ * 
+ * Due to unstable DNS service in cloud environment, retry 10 seconds to get the hostip from DNS 
+ */
+static char *
+getDnsCachedAddress(char *name, int port, int elevel, bool use_cache)
+{
+	char	   *hostip = NULL;
+	int			i = 0;
+
+	while(!(hostip = getDnsCachedAddressInternal(name, port, elevel,use_cache)))
+	{
+		pg_usleep(1000);
+		if(++i >= 10)
+		{
+			ereport(LOG,
+					(errmsg("could not translate host name \"%s\", port \"%d\" to address after retry 10 seconds",
+							 name, port)));
+			break;
+		}
+	}
+	return hostip;
 }
 
 /*
@@ -4098,6 +4190,9 @@ getgpsegmentCount(void)
 {
 	/* 1 represents a singleton postgresql in utility mode */
 	int32 numsegments = 1;
+
+	if (getgpsegmentCount_hook)
+		return (*getgpsegmentCount_hook)();
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 		numsegments = cdbcomponent_getCdbComponents()->total_segments;

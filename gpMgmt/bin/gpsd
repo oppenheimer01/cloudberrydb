@@ -19,7 +19,7 @@ gpsd_version = '%prog 1.0'
 sysnslist = "('pg_toast', 'pg_bitmapindex', 'pg_temp_1', 'pg_catalog', 'information_schema')"
 # turn off optimizer to fall back to planner and speed up statistic queries
 # unset search path due to CVE-2018-1058
-pgoptions = '-c optimizer=off -c gp_role=utility -c search_path='
+pgoptions = '-c optimizer=off -c search_path= '
 
 def ResultIter(cursor, arraysize=1000):
     'An iterator that uses fetchmany to keep memory usage down'
@@ -119,9 +119,13 @@ def parseCmdLine():
                  default=True, help='Just dump the stats, do not do a schema dump')
     p.add_option('-l', '--hll', action='store_true', dest='dumpHLL',
                  default=False, help='Include HLL stats')
+    p.add_option('-w', '--warehouse', dest='warehouse', type='string',
+                default='test', help='Specify a warehouse')
+
     return p
 
 def main():
+    global pgoptions
     parser = parseCmdLine()
     options, args = parser.parse_args()
     if len(args) != 1:
@@ -136,6 +140,10 @@ def main():
     port = options.port or ('PGPORT' in envOpts and envOpts['PGPORT']) or '5432'
     inclSchema = options.dumpSchema
     inclHLL = options.dumpHLL
+
+    if options.warehouse:
+        warehouse_opt = "-c warehouse=%s" % options.warehouse
+        pgoptions = warehouse_opt + " " + pgoptions
 
     envOpts['PGOPTIONS'] = pgoptions
 

@@ -122,7 +122,11 @@ connectDatabase(const ConnParams *cparams, const char *progname,
 	}
 
 	/* Start strict; callers may override this. */
+#ifdef SERVERLESS
+	executeCommand(conn, ALWAYS_SECURE_SEARCH_PATH_SQL, echo);
+#else  /* SERVERLESS */
 	PQclear(executeQuery(conn, ALWAYS_SECURE_SEARCH_PATH_SQL, echo));
+#endif /* SERVERLESS */
 
 	return conn;
 }

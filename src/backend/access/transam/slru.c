@@ -133,16 +133,16 @@ typedef enum
 static SlruErrorCause slru_errcause;
 static int	slru_errno;
 
+/*
+ * Hooks for plugins to get control in SlruPhysicalReadPage/SlruPhysicalWritePage/SimpleLruReadPage
+ */
+SlruPhysicalReadPage_hook_type SlruPhysicalReadPage_hook = NULL;
+SlruPhysicalWritePage_hook_type SlruPhysicalWritePage_hook = NULL;
+SimpleLruReadPage_hook_type SimpleLruReadPage_hook = NULL;
 
-static void SimpleLruZeroLSNs(SlruCtl ctl, int slotno);
-static void SimpleLruWaitIO(SlruCtl ctl, int slotno);
 static void SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata);
-static bool SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno);
 static bool SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno,
 								  SlruWriteAll fdata);
-static void SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid);
-static int	SlruSelectLRUPage(SlruCtl ctl, int pageno);
-
 static bool SlruScanDirCbDeleteCutoff(SlruCtl ctl, char *filename,
 									  int segpage, void *data);
 static void SlruInternalDeleteSegment(SlruCtl ctl, int segno);
@@ -319,7 +319,7 @@ SimpleLruZeroPage(SlruCtl ctl, int pageno)
  *
  * This assumes that InvalidXLogRecPtr is bitwise-all-0.
  */
-static void
+void
 SimpleLruZeroLSNs(SlruCtl ctl, int slotno)
 {
 	SlruShared	shared = ctl->shared;
@@ -336,7 +336,7 @@ SimpleLruZeroLSNs(SlruCtl ctl, int slotno)
  *
  * Control lock must be held at entry, and will be held at exit.
  */
-static void
+void
 SimpleLruWaitIO(SlruCtl ctl, int slotno)
 {
 	SlruShared	shared = ctl->shared;
@@ -395,6 +395,9 @@ SimpleLruReadPage(SlruCtl ctl, int pageno, bool write_ok,
 				  TransactionId xid)
 {
 	SlruShared	shared = ctl->shared;
+
+	if (SimpleLruReadPage_hook)
+		return (*SimpleLruReadPage_hook) (ctl, pageno, write_ok, xid);
 
 	/* Outer loop handles restart if we must wait for someone else's I/O */
 	for (;;)
@@ -495,6 +498,12 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid)
 {
 	SlruShared	shared = ctl->shared;
 	int			slotno;
+
+	if (SimpleLruReadPage_hook)
+	{
+		LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
+		return (*SimpleLruReadPage_hook) (ctl, pageno, true, xid);
+	}
 
 	/* Try to find the page while holding only shared lock */
 	LWLockAcquire(shared->ControlLock, LW_SHARED);
@@ -679,7 +688,7 @@ SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno)
  * For now, assume it's not worth keeping a file pointer open across
  * read/write operations.  We could cache one virtual file pointer ...
  */
-static bool
+bool
 SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno)
 {
 	SlruShared	shared = ctl->shared;
@@ -688,6 +697,13 @@ SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno)
 	off_t		offset = rpageno * BLCKSZ;
 	char		path[MAXPGPATH];
 	int			fd;
+	bool		result;
+
+	if (SlruPhysicalReadPage_hook &&
+		SlruPhysicalReadPage_hook(ctl, pageno, slotno, &result))
+	{
+		return result;
+	}
 
 	SlruFileName(ctl, path, segno);
 
@@ -760,6 +776,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	off_t		offset = rpageno * BLCKSZ;
 	char		path[MAXPGPATH];
 	int			fd = -1;
+	bool		result;
 
 	/* update the stats counter of written pages */
 	pgstat_count_slru_page_written(shared->slru_stats_idx);
@@ -804,6 +821,12 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 			XLogFlush(max_lsn);
 			END_CRIT_SECTION();
 		}
+	}
+
+	if (SlruPhysicalWritePage_hook && 
+		SlruPhysicalWritePage_hook(ctl, pageno, slotno, &result))
+	{
+		return result;
 	}
 
 	/*
@@ -926,7 +949,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
  * Issue the error message after failure of SlruPhysicalReadPage or
  * SlruPhysicalWritePage.  Call this after cleaning up shared-memory state.
  */
-static void
+void
 SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
 {
 	int			segno = pageno / SLRU_PAGES_PER_SEGMENT;
@@ -1011,7 +1034,7 @@ SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
  *
  * Control lock must be held at entry, and will be held at exit.
  */
-static int
+int
 SlruSelectLRUPage(SlruCtl ctl, int pageno)
 {
 	SlruShared	shared = ctl->shared;

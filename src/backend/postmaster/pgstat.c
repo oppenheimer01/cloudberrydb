@@ -75,7 +75,6 @@
 
 #include "libpq-int.h"
 #include "cdb/cdbconn.h"
-#include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbvars.h"
 #include "commands/resgroupcmds.h"
 #include "libpq/pqformat.h"
@@ -215,18 +214,9 @@ typedef struct TabStatusArray
 static TabStatusArray *pgStatTabList = NULL;
 
 /*
- * pgStatTabHash entry: map from relation OID to PgStat_TableStatus pointer
- */
-typedef struct TabStatHashEntry
-{
-	Oid			t_id;
-	PgStat_TableStatus *tsa_entry;
-} TabStatHashEntry;
-
-/*
  * Hash table for O(1) t_id -> tsa_entry lookup
  */
-static HTAB *pgStatTabHash = NULL;
+HTAB *pgStatTabHash = NULL;
 
 /*
  * Backends store per-function info that's waiting to be sent to the collector
@@ -240,21 +230,7 @@ static HTAB *pgStatFunctions = NULL;
  */
 static bool have_function_stats = false;
 
-/*
- * Tuple insertion/deletion counts for an open transaction can't be propagated
- * into PgStat_TableStatus counters until we know if it is going to commit
- * or abort.  Hence, we keep these counts in per-subxact structs that live
- * in TopTransactionContext.  This data structure is designed on the assumption
- * that subxacts won't usually modify very many tables.
- */
-typedef struct PgStat_SubXactStatus
-{
-	int			nest_level;		/* subtransaction nest level */
-	struct PgStat_SubXactStatus *prev;	/* higher-level subxact if any */
-	PgStat_TableXactStatus *first;	/* head of list for this subxact */
-} PgStat_SubXactStatus;
-
-static PgStat_SubXactStatus *pgStatXactStack = NULL;
+PgStat_SubXactStatus *pgStatXactStack = NULL;
 
 static int	pgStatXactCommit = 0;
 static int	pgStatXactRollback = 0;
@@ -265,25 +241,6 @@ PgStat_Counter pgStatActiveTime = 0;
 PgStat_Counter pgStatTransactionIdleTime = 0;
 SessionEndType pgStatSessionEndCause = DISCONNECT_NORMAL;
 
-/* Record that's written to 2PC state file when pgstat state is persisted */
-typedef struct TwoPhasePgStatRecord
-{
-	PgStat_Counter tuples_inserted; /* tuples inserted in xact */
-	PgStat_Counter tuples_updated;	/* tuples updated in xact */
-	PgStat_Counter tuples_deleted;	/* tuples deleted in xact */
-	PgStat_Counter inserted_pre_trunc;	/* tuples inserted prior to truncate */
-	PgStat_Counter updated_pre_trunc;	/* tuples updated prior to truncate */
-	PgStat_Counter deleted_pre_trunc;	/* tuples deleted prior to truncate */
-	Oid			t_id;			/* table's OID */
-	bool		t_shared;		/* is it a shared catalog? */
-	bool		t_truncated;	/* was the relation truncated? */
-} TwoPhasePgStatRecord;
-
-typedef struct PgStatTabRecordFromQE
-{
-	TwoPhasePgStatRecord 	table_stat;
-	int						nest_level;
-} PgStatTabRecordFromQE;
 
 /*
  * Info about current "snapshot" of stats file
@@ -354,8 +311,6 @@ static HTAB *pgstat_collect_oids(Oid catalogid, AttrNumber anum_oid);
 static bool pgstat_should_report_connstat(void);
 static void pgstat_report_disconnect(Oid dboid);
 
-static PgStat_TableStatus *get_tabstat_entry(Oid rel_id, bool isshared);
-
 static void pgstat_setup_memcxt(void);
 
 static void pgstat_setheader(PgStat_MsgHdr *hdr, StatMsgType mtype);
@@ -387,6 +342,13 @@ static void pgstat_recv_connect(PgStat_MsgConnect *msg, int len);
 static void pgstat_recv_disconnect(PgStat_MsgDisconnect *msg, int len);
 static void pgstat_recv_replslot(PgStat_MsgReplSlot *msg, int len);
 static void pgstat_recv_tempfile(PgStat_MsgTempFile *msg, int len);
+
+
+/* Hook for plugins to get control in pgstat_send_qd_tabstats() */
+pgstat_send_qd_tabstats_hook_type  pgstat_send_qd_tabstats_hook = NULL;
+
+/* Hook for plugins to get control in pgstat_combine_from_qe() */
+pgstat_combine_from_qe_hook_type  pgstat_combine_from_qe_hook = NULL;
 
 /* ------------------------------------------------------------
  * Public functions called from postmaster follow
@@ -2088,7 +2050,7 @@ pgstat_initstats(Relation rel)
 /*
  * get_tabstat_entry - find or create a PgStat_TableStatus entry for rel
  */
-static PgStat_TableStatus *
+PgStat_TableStatus *
 get_tabstat_entry(Oid rel_id, bool isshared)
 {
 	TabStatHashEntry *hash_entry;
@@ -2196,7 +2158,7 @@ find_tabstat_entry(Oid rel_id)
 /*
  * get_tabstat_stack_level - add a new (sub)transaction stack entry if needed
  */
-static PgStat_SubXactStatus *
+PgStat_SubXactStatus *
 get_tabstat_stack_level(int nest_level)
 {
 	PgStat_SubXactStatus *xact_state;
@@ -2218,7 +2180,7 @@ get_tabstat_stack_level(int nest_level)
 /*
  * add_tabstat_xact_level - add a new (sub)transaction state record
  */
-static void
+void
 add_tabstat_xact_level(PgStat_TableStatus *pgstat_info, int nest_level)
 {
 	PgStat_SubXactStatus *xact_state;
@@ -3129,6 +3091,9 @@ pgstat_send_bgwriter(void)
 void
 pgstat_send_qd_tabstats(void)
 {
+	if(pgstat_send_qd_tabstats_hook)
+		return pgstat_send_qd_tabstats_hook();
+
 	int								nest_level;
 	StringInfoData					buf;
 	StringInfoData					stat_data;
@@ -3327,6 +3292,10 @@ pgstat_combine_one_qe_result(List **oidList, struct pg_result *pgresult,
 void
 pgstat_combine_from_qe(CdbDispatchResults *results, int writerSliceIndex)
 {
+	
+	if(pgstat_combine_from_qe_hook)
+		return pgstat_combine_from_qe_hook(results, writerSliceIndex);
+		
 	CdbDispatchResult	   *dispatchResult;
 	CdbDispatchResult	   *resultEnd;
 	struct pg_result	   *pgresult;

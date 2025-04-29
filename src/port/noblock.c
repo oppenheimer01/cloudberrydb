@@ -30,6 +30,8 @@ pg_set_noblock(pgsocket sock)
 	flags = fcntl(sock, F_GETFL);
 	if (flags < 0)
 		return false;
+	if (fcntl(sock, F_SETFD, flags | FD_CLOEXEC) == -1)
+		return false;
 	if (fcntl(sock, F_SETFL, (flags | O_NONBLOCK)) == -1)
 		return false;
 	return true;
@@ -53,6 +55,8 @@ pg_set_block(pgsocket sock)
 
 	flags = fcntl(sock, F_GETFL);
 	if (flags < 0)
+		return false;
+	if (fcntl(sock, F_SETFD, flags | FD_CLOEXEC) == -1)
 		return false;
 	if (fcntl(sock, F_SETFL, (flags & ~O_NONBLOCK)) == -1)
 		return false;

@@ -403,7 +403,11 @@ enum_endpoint(Oid enumtypoid, ScanDirection direction)
 				ObjectIdGetDatum(enumtypoid));
 
 	enum_rel = table_open(EnumRelationId, AccessShareLock);
+#ifdef SERVERLESS
+	enum_idx = order_index_open(EnumTypIdSortOrderIndexId, AccessShareLock);
+#else
 	enum_idx = index_open(EnumTypIdSortOrderIndexId, AccessShareLock);
+#endif
 	enum_scan = systable_beginscan_ordered(enum_rel, enum_idx, NULL,
 										   1, &skey);
 
@@ -562,7 +566,11 @@ enum_range_internal(Oid enumtypoid, Oid lower, Oid upper)
 				ObjectIdGetDatum(enumtypoid));
 
 	enum_rel = table_open(EnumRelationId, AccessShareLock);
+#ifdef SERVERLESS
+	enum_idx = order_index_open(EnumTypIdSortOrderIndexId, AccessShareLock);
+#else
 	enum_idx = index_open(EnumTypIdSortOrderIndexId, AccessShareLock);
+#endif
 	enum_scan = systable_beginscan_ordered(enum_rel, enum_idx, NULL, 1, &skey);
 
 	max = 64;

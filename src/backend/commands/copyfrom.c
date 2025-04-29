@@ -1710,9 +1710,14 @@ CopyFrom(CopyFromState cstate)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 					 errmsg("cannot perform COPY FREEZE because of prior transaction activity")));
-
+#ifdef SERVERLESS
+		if (cstate->rel->rd_createSubid != GetCurrentSubTransactionId() &&
+			cstate->rel->rd_newRelfilenodeSubid != GetCurrentSubTransactionId() &&
+			Gp_role == GP_ROLE_DISPATCH)
+#else
 		if (cstate->rel->rd_createSubid != GetCurrentSubTransactionId() &&
 			cstate->rel->rd_newRelfilenodeSubid != GetCurrentSubTransactionId())
+#endif
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("cannot perform COPY FREEZE because the table was not created or truncated in the current subtransaction")));
@@ -4062,6 +4067,11 @@ SendCopyFromForwardedError(CopyFromState cstate, CdbCopy *cdbCopy, char *errorms
 	int			target_seg;
 	int			errormsg_len = strlen(errormsg);
 
+#ifdef SERVERLESS
+	if (cstate->rel && GpPolicyIsEntry(cstate->rel->rd_cdbpolicy))
+		return;
+#endif
+
 	msgbuf = cstate->dispatch_msgbuf;
 	resetStringInfo(msgbuf);
 	enlargeStringInfo(msgbuf, SizeOfCopyFromDispatchError);
@@ -4256,6 +4266,7 @@ InitCopyFromDispatchSplit(CopyFromState cstate, GpDistributionData *distData,
 	else
 	{
 		int			fieldno;
+		List		*whereVars;
 		/*
 		 * We need all the columns that form the distribution key.
 		 */
@@ -4263,6 +4274,14 @@ InitCopyFromDispatchSplit(CopyFromState cstate, GpDistributionData *distData,
 		{
 			for (int i = 0; i < distData->policy->nattrs; i++)
 				needed_cols = bms_add_member(needed_cols, distData->policy->attrs[i]);
+		}
+
+		/* Also need all the columns that in copy where clause. */
+		whereVars = pull_var_clause(cstate->whereClause, 0);
+		foreach(lc, whereVars)
+		{
+			Var *var = lfirst(lc);
+			needed_cols = bms_add_member(needed_cols, var->varattno);
 		}
 
 		/* Get the max fieldno that contains one of the needed attributes. */
@@ -4350,3 +4369,25 @@ GetTargetSeg(GpDistributionData *distData, TupleTableSlot *slot)
 
 	return target_seg;
 }
+
+#ifdef SERVERLESS
+void
+CopyInitDataParserWrapper(CopyFromState cstate)
+{
+	CopyInitDataParser(cstate);
+}
+
+bool
+NextCopyFromExecuteWrapper(CopyFromState cstate, ExprContext *econtext,
+						   Datum *values, bool *nulls, bool is_directory_table)
+{
+	return NextCopyFromExecute(cstate, econtext, values, nulls,
+							   is_directory_table);
+}
+
+void
+HandleCopyErrorWrapper(CopyFromState cstate)
+{
+	HandleCopyError(cstate);
+}
+#endif /* SERVERLESS */

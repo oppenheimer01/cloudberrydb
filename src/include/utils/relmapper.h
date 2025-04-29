@@ -34,6 +34,10 @@ typedef struct xl_relmap_update
 
 #define MinSizeOfRelmapUpdate offsetof(xl_relmap_update, data)
 
+typedef struct RelMapFile RelMapFile;
+/* Hook for plugins to get control in load_relmap_file */
+typedef void (*LoadRelMap_hook_type)(bool shared, bool lock_held, RelMapFile *map);
+extern PGDLLIMPORT LoadRelMap_hook_type LoadRelMap_hook;
 
 extern Oid  RelationMapOidToFilenode(Oid relationId, bool shared);
 

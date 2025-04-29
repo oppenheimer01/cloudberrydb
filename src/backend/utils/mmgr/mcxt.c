@@ -63,6 +63,9 @@ MemoryContext TopMemoryContext = NULL;
 MemoryContext ErrorContext = NULL;
 MemoryContext PostmasterContext = NULL;
 MemoryContext CacheMemoryContext = NULL;
+#ifdef SERVERLESS
+MemoryContext TypeMemoryContext = NULL;
+#endif
 MemoryContext MessageContext = NULL;
 MemoryContext TopTransactionContext = NULL;
 MemoryContext CurTransactionContext = NULL;

@@ -552,7 +552,9 @@ cdbexplain_recvExecStats(struct PlanState *planstate,
 		CdbDispatchResult *dispatchResult = &dispatchResultBeg[iDispatch];
 		PGresult   *pgresult;
 		CdbExplain_StatHdr *hdr;
-		pgCdbStatCell *statcell;
+		pgCdbStatCell *statcell = NULL;
+		int nres;
+		int ires;
 
 		/* Update worker counts. */
 		if (!dispatchResult->hasDispatched)
@@ -568,19 +570,30 @@ cdbexplain_recvExecStats(struct PlanState *planstate,
 									 * side-effect of another qExec's failure,
 									 * e.g. an interconnect error */
 
-		/* Find this qExec's last PGresult.  If none, skip to next qExec. */
-		pgresult = cdbdisp_getPGresult(dispatchResult, -1);
-		if (!pgresult)
+		nres = cdbdisp_numPGresult(dispatchResult);
+		for (ires = nres -1; ires >= 0; ires--)
+		{
+			pgresult = cdbdisp_getPGresult(dispatchResult, ires);
+			if (!pgresult)
+				continue;
+			if (pgresult->cdbstats)
+			{
+				/* Find the cdbstats */
+				statcell = pgresult->cdbstats;
+				break;
+			}
+		}
+
+		/* can't find our statistics */
+		if (!statcell)
 			continue;
 
 		/* Find our statistics in list of response messages.  If none, skip. */
-		for (statcell = pgresult->cdbstats; statcell; statcell = statcell->next)
+		for (; statcell; statcell = statcell->next)
 		{
 			if (IsA((Node *) statcell->data, CdbExplain_StatHdr))
 				break;
 		}
-		if (!statcell)
-			continue;
 
 		/* Validate the message header. */
 		hdr = (CdbExplain_StatHdr *) statcell->data;

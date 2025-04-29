@@ -59,6 +59,7 @@
 
 #include "catalog/gp_configuration_history.h"
 #include "catalog/gp_id.h"
+#include "catalog/gp_matview_dependency.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/gp_version_at_initdb.h"
@@ -79,6 +80,7 @@
 #include "catalog/pg_trigger.h"
 #include "catalog/gp_matview_aux.h"
 #include "catalog/gp_matview_tables.h"
+#include "catalog/main_manifest.h"
 #include "cdb/cdbvars.h"
 
 #include "catalog/gp_indexing.h"
@@ -588,7 +590,11 @@ IsSharedRelation(Oid relationId)
 	{
 		return true;
 	}
-
+	/* ivm table */
+	if (relationId == MatviewDependencyId)
+	{
+		return true;
+	}
 	return false;
 }
 

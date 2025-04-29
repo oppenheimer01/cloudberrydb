@@ -63,12 +63,23 @@
 #include "optimizer/optimizer.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/paths.h"
+#include "optimizer/planner.h"
 #include "optimizer/prep.h"
 #include "optimizer/tlist.h"
 #include "parser/parse_clause.h"
 #include "parser/parse_oper.h"
 #include "utils/lsyscache.h"
 #include "utils/selfuncs.h"
+
+#include "access/genam.h"
+#include "access/table.h"
+#include "catalog/gp_matview_aux.h"
+#include "catalog/pg_rewrite.h"
+#include "nodes/pathnodes.h"
+#include "parser/parsetree.h"
+#include "utils/guc.h"
+#include "commands/matview.h"
+#include "optimizer/aqumv.h"
 
 typedef enum
 {
@@ -225,6 +236,29 @@ recognize_dqa_type(cdb_agg_planning_context *ctx);
 
 static PathTarget *
 strip_aggdistinct(PathTarget *target);
+
+#ifdef SERVERLESS
+static bool
+try_append_agg(Query *parse);
+
+static bool
+expand_append_agg(PlannerInfo *root, cdb_agg_planning_context *ctx);
+
+static Relation
+simple_view_matching(PlannerInfo *root, Query *parse);
+
+static void
+expand_append_agg_guts(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel);
+
+static Path*
+build_view_seqscan_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel);
+
+static void
+rewrite_to_append_agg_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel, Path *mv_seqscan_path);
+
+static PathTarget *
+make_pathtarget_from_tupledesc(TupleDesc tupdes);
+#endif
 
 /*
  * cdb_create_multistage_grouping_paths
@@ -758,6 +792,20 @@ create_two_stage_paths(PlannerInfo *root, cdb_agg_planning_context *ctx,
 										 ctx->partial_rel, &extra);
 	}
 
+#ifdef SERVERLESS
+	/*
+	 * Incremental AGG based on materialized views.	
+	 */
+	bool	path_changed = false;
+
+	if (enable_answer_query_using_materialized_views && /* Use this GUC for now. */
+		try_append_agg(root->parse))
+	{
+		path_changed = expand_append_agg(root, ctx);
+	}
+	
+#endif
+
 	/*
 	 * We now have partially aggregated paths in ctx->partial_rel. Consider
 	 * different ways of performing the Finalize Aggregate stage.
@@ -766,7 +814,13 @@ create_two_stage_paths(PlannerInfo *root, cdb_agg_planning_context *ctx,
 	{
 		Path	   *cheapest_first_stage_path;
 
+#ifdef SERVERLESS
+		/* Do not change cheapest if we assign, trust Append with agg always win. */
+		if (!path_changed)
+			set_cheapest(ctx->partial_rel);
+#else
 		set_cheapest(ctx->partial_rel);
+#endif
 		cheapest_first_stage_path = ctx->partial_rel->cheapest_total_path;
 
 		if (!IsA(cheapest_first_stage_path, ForeignPath))
@@ -804,6 +858,15 @@ create_two_stage_paths(PlannerInfo *root, cdb_agg_planning_context *ctx,
 													  path->pathkeys);
 				else
 					is_sorted = false;
+#ifdef SERVERLESS
+				/*
+				 * We eager append agg if there was, the previous normal agg with sort may break
+				 * that case. Though the cost is same but different order matters.
+				 * Bypass others to make sure that.
+				 */
+				if (path_changed && (path != cheapest_first_stage_path))
+					continue;
+#endif
 				if (path == cheapest_first_stage_path || is_sorted)
 				{
 					add_second_stage_group_agg_path(root, path, is_sorted,
@@ -2720,3 +2783,577 @@ cdb_prepare_path_for_hashed_agg(PlannerInfo *root,
 
 	return subpath;
 }
+
+#ifdef SERVERLESS
+/*
+ * Precheck if we could try append agg of a Query.
+ * We will compare parse with view query if there were
+ * exactly matched.
+ * But we clould stop early if we are sure there is no chance.
+ * It doesn't matter if we miss something here.
+ */
+static bool
+try_append_agg(Query *parse)
+{
+	ListCell *lc;
+
+	/* FIXME: could we handle order by, limit? */
+	if ((parse->commandType != CMD_SELECT) ||
+		(parse->rowMarks != NIL) ||
+		(parse->distinctClause != NIL) ||
+		(parse->scatterClause != NIL) ||
+		(parse->cteList != NIL) ||
+		(parse->groupingSets != NIL) ||
+		(parse->havingQual != NULL) ||
+		(parse->setOperations != NULL) ||
+		parse->hasWindowFuncs ||
+		parse->hasDistinctOn ||
+		parse->hasModifyingCTE ||
+		parse->groupDistinct ||
+		(parse->parentStmtType == PARENTSTMTTYPE_REFRESH_MATVIEW) ||
+		(parse->parentStmtType == PARENTSTMTTYPE_CTAS) ||
+		parse->hasSubLinks)
+	{
+		return false;
+	}
+
+	/* As we will use views, make it strict to unmutable. */
+	if (contain_mutable_functions((Node*)parse))
+		return false;
+
+	/* We want Agg with Group By. */
+	if (!parse->hasAggs || (parse->groupClause == NIL))
+		return false;
+
+	/*
+	 * Only aggs: count, sum, avg of single column are supported now. 
+	 */
+	foreach(lc, parse->targetList)
+	{
+		TargetEntry* tle = lfirst_node(TargetEntry, lc);
+
+		if (tle->resjunk)
+			return false;
+
+		if (IsA(tle->expr, Var))
+		{
+			if (tle->ressortgroupref == 0)
+				return false;
+		}
+		else if (IsA(tle->expr, Aggref))
+		{
+			Aggref *aggref = (Aggref *) tle->expr;
+			const char *aggname = get_func_name(aggref->aggfnoid);
+			/*
+			 * FIXME: use func name is necessary but not sufficient
+			 * should use fnoid to restrict later.
+			 */
+			if ((strcmp(aggname, "count") == 0) &&
+				(strcmp(aggname, "sum") == 0) &&
+				(strcmp(aggname, "min") == 0) &&
+				(strcmp(aggname, "max") == 0) &&
+				(strcmp(aggname, "avg") == 0))
+				return false;
+
+			if (aggref->aggorder ||
+				(aggref->aggdirectargs != NIL) ||
+				(aggref->aggdistinct != NIL) ||
+				(aggref->aggfilter != NULL))
+				return false;
+
+			/* Star is ok. */
+			if (aggref->aggstar)
+				continue;
+			
+			if ((aggref->args == NIL ||
+				(list_length(aggref->args) != 1)))
+				return false;
+		
+			TargetEntry *tle = (TargetEntry *) linitial(aggref->args);
+			if (!IsA(tle->expr, Var))
+			{
+				/*
+				 * Allow count() has const, ex: count(1)
+				 */
+				if ((strcmp(aggname, "count") == 0) &&
+					(IsA(tle->expr, Const)) &&
+					(!castNode(Const, tle->expr)->constisnull))
+					return true;
+
+				return false;
+			}
+		}
+		else
+			return false;
+	}
+	return true;
+}
+
+/*
+ * expand_append_agg
+ * Expand two-stage agg plan to a append agg plan,
+ * return true if we succeed.
+ */
+static bool
+expand_append_agg(PlannerInfo *root, cdb_agg_planning_context *ctx)
+{
+	Path		*cheapest_first_stage_path = NULL;
+	Path		*underlying_seqscanpath = NULL;
+	Query		*parse = root->parse;
+	Relation	matviewRel = NULL;
+
+	/*
+	 * First-stage agg with seqscan on a normal table and/or with sort.
+	 * Plan A:
+	 * Partial Agg
+	 * 		SeqScan
+	 * 
+	 * Plan B:
+	 * Partial Agg
+	 * 		Sort
+	 *	 		SeqScan
+	 * Plan B requires order on segments, we have to do more such as add a additonal
+	 * Sort node above Append.
+	 */
+	set_cheapest(ctx->partial_rel);
+	cheapest_first_stage_path = ctx->partial_rel->cheapest_total_path;
+
+	if (!IsA(cheapest_first_stage_path, AggPath))
+		return false;
+
+	if ((castNode(AggPath, cheapest_first_stage_path)->aggsplit != AGGSPLIT_INITIAL_SERIAL))
+		return false;
+
+	if (castNode(AggPath, cheapest_first_stage_path)->aggstrategy == AGG_HASHED)
+	{
+		Path	*subpath = ((AggPath*) cheapest_first_stage_path)->subpath;
+
+		if (subpath->pathtype != T_SeqScan)
+			return false;
+
+		/* Seqscan on a normal table. */
+		if (subpath->parent->reloptkind != RELOPT_BASEREL)
+			return false;
+
+		underlying_seqscanpath = subpath;
+	}
+	else if (castNode(AggPath, cheapest_first_stage_path)->aggstrategy == AGG_SORTED)
+	{
+		Path	*subpath = ((AggPath*) cheapest_first_stage_path)->subpath;
+
+		if (subpath->pathtype != T_Sort)
+			return false;
+		
+		subpath = castNode(SortPath, subpath)->subpath;
+
+		if (subpath->parent->reloptkind != RELOPT_BASEREL)
+			return false;
+
+		underlying_seqscanpath = subpath;
+	}
+	else
+		return false;
+
+	/* Find a matched view for input query. */
+	matviewRel = simple_view_matching(root, parse);
+	if (matviewRel == NULL)
+		return false;
+
+	expand_append_agg_guts(root, ctx, matviewRel);
+
+	/* Now do not forget to identify delta seqscan.*/
+	underlying_seqscanpath->basemv = RelationGetRelid(matviewRel);
+
+	/* Not use matviewRel anymore, close here. */
+	table_close(matviewRel, NoLock);
+
+	return true; /* Succeed to rewrite. */
+}
+
+/*
+ * simple_view_matching
+ *	Match a view with given Query, return the view relation itself if succeed.
+ *	Only a SELECT from a single table is supported.
+ *
+ *  parse - the Query we want to match
+ * 
+ *  A lock will be held if we find a matched view, the caller should handle that.
+ */ 
+static Relation
+simple_view_matching(PlannerInfo *root, Query *parse)
+{
+	Query			*viewQuery; /* Query of view. */
+	Relation		matviewRel = NULL; /* Matched view relation. */
+	Relation		ruleDesc;
+	SysScanDesc		rcscan;
+	RewriteRule		*rule;
+	Form_pg_rewrite	rewrite_tup;
+	List			*actions;
+	HeapTuple		tup;
+	Node			*mvjtnode;
+	RangeTblEntry 	*mvrte;
+	int				varno;
+	PlannerInfo 	*subroot;
+	bool			need_close = false;
+
+	/*
+	 * We know it's a single table.
+	 */
+	Oid				underlying_relid = (rt_fetch(1, parse->rtable))->relid;
+
+	ruleDesc = table_open(RewriteRelationId, AccessShareLock);
+	rcscan = systable_beginscan(ruleDesc, InvalidOid, false,
+								NULL, 0, NULL);
+	while (HeapTupleIsValid(tup = systable_getnext(rcscan)))
+	{
+		CHECK_FOR_INTERRUPTS();
+		if (need_close)
+			table_close(matviewRel, AccessShareLock);
+
+		rewrite_tup = (Form_pg_rewrite) GETSTRUCT(tup);
+
+		matviewRel = table_open(rewrite_tup->ev_class, AccessShareLock);
+		need_close = true;
+
+		if (!RelationIsPopulated(matviewRel) || 
+			!matviewRel->rd_rel->relhaspartialagg)
+			continue;
+
+		/*
+		 * Consider mv data status since lastest REFRESH
+		 * with partial agg results.
+		 */
+		if (!MatviewUsableForAppendAgg(RelationGetRelid(matviewRel)))
+			continue;
+
+		if (matviewRel->rd_rel->relhasrules == false ||
+			matviewRel->rd_rules->numLocks != 1)
+			continue;
+
+		rule = matviewRel->rd_rules->rules[0];
+
+		/* Filter a SELECT action, and not instead. */
+		if ((rule->event != CMD_SELECT) || !(rule->isInstead))
+			continue;
+
+		actions = rule->actions;
+		if (list_length(actions) != 1)
+			continue;
+
+		viewQuery = copyObject(linitial_node(Query, actions));
+
+		if (list_length(viewQuery->jointree->fromlist) != 1)
+			continue;
+
+		mvjtnode = (Node *) linitial(viewQuery->jointree->fromlist);
+		if (!IsA(mvjtnode, RangeTblRef))
+			continue;
+
+		varno = ((RangeTblRef*) mvjtnode)->rtindex;
+		mvrte = rt_fetch(varno, viewQuery->rtable);
+		Assert(mvrte != NULL);
+
+		if (mvrte->rtekind != RTE_RELATION)
+			continue;
+
+		if (mvrte->relid != underlying_relid)
+			continue;
+
+		/* Transform actions to a normal parse tree. */
+		aqumv_adjust_simple_query(viewQuery);
+
+		/*
+		 * See AQUMV_FIXME_MVP in aqumv.c
+		 */
+		mvrte = rt_fetch(1, viewQuery->rtable);
+		mvrte->inh = false;
+		/*
+		 * This is fool way to make comparison pass.
+		 */
+		mvrte->checkAsUser = InvalidOid;
+		
+		/*
+		 * Need a subroot to process quals, use it to eval const expressions
+		 * and AND, OR expression simplification.
+		 * ex:
+		 * 	where 1 = 1 and a > 1
+		 * will be processed to:
+		 *  where TRUE and a > 1
+		 * and then:
+		 *  where a > 1
+		 * 
+		 * and to assign aggno in precess_aggrefs.
+		 *
+		 * We only use subrrot to process view query, it's not used to do real planner,
+		 * so free it after that.
+		 */
+		subroot = (PlannerInfo *) palloc0(sizeof(PlannerInfo));
+		/*
+		 * We have to fill info from root, to avoid crash during processing,
+		 * though they are not same in act.
+		 */
+		memcpy(subroot, root, sizeof(PlannerInfo));
+		subroot->parse = viewQuery;
+		subroot->processed_tlist = viewQuery->targetList;
+		if (viewQuery->hasAggs)
+		{
+			preprocess_aggrefs(subroot, (Node *) subroot->processed_tlist);
+		}
+
+		/*
+		 * This is fool way, but we don't want to compare them.
+		 */
+		viewQuery->stmt_location = parse->stmt_location;
+		viewQuery->stmt_len = parse->stmt_len;
+
+		preprocess_qual_conditions(subroot, (Node *) viewQuery->jointree);
+		pfree(subroot);
+
+		/*
+		 * Before we compare Query, quals need to be preprocessed becuase
+		 * A signle qual may be a OpExpr or a list with one element.
+		 * Both are legal but we can't use equal() with different node tag.
+		 * Wrap to list if it was.
+		 */
+		if ((viewQuery->jointree->quals != NULL) && (!IsA(viewQuery->jointree->quals, List)))
+			viewQuery->jointree->quals = (Node *)list_make1(viewQuery->jointree->quals);
+
+		/* Query and viewQuery must be exatcly matched now. */
+		if (equal(viewQuery, parse))
+		{
+			/*
+			 * As we rewrite path directly without any cost,
+			 * stop searching once a view is found.
+			 */
+			need_close = false;
+			break;
+		}
+	}
+	systable_endscan(rcscan);
+	table_close(ruleDesc, AccessShareLock);
+
+	if (need_close)
+	{
+		table_close(matviewRel, AccessShareLock);
+		matviewRel = NULL;
+	}
+	return matviewRel;
+}
+
+
+/*
+ * Make path targets from TupleDesc.
+ * This is only used if we know it's an exactly matched
+ * view with query we want.
+ * So we could use TupleDesc with the same order and definations.
+ * But IVM has extra invisible columns for maintenance besides
+ * the columns in original query, result in different tuple desc
+ * with the target list. Drop those for correct.
+ */
+static PathTarget*
+make_pathtarget_from_tupledesc(TupleDesc tupdes)
+{
+	PathTarget *target = makeNode(PathTarget);
+	int			i;
+
+	/* We are a plain select, there should be no group cloumns. */
+	target->sortgrouprefs = (Index *) palloc0((tupdes->natts) * sizeof(Index));
+
+	for (i = 0; i < tupdes->natts; i++)
+	{
+		Form_pg_attribute attr = TupleDescAttr(tupdes, i);
+
+		/*
+		 * IVM has invisible columns, drop that.
+		 */
+		if (isIvmName(NameStr(attr->attname)))
+			continue;
+
+		Var *newVar =  makeVar(2, /* See comments assign relid to 2. */
+							attr->attnum,
+							attr->atttypid,
+							attr->atttypmod,
+							attr->attcollation,
+							0);
+
+		target->exprs = lappend(target->exprs, (Expr*) newVar);
+	}
+
+	/*
+	 * Unknown, but we have called contain_mutable_functions check.
+	 * And that's more restrict.
+	 */
+	target->has_volatile_expr = VOLATILITY_UNKNOWN;
+
+	return target;
+}
+
+/*
+ * expand_append_agg_guts
+ *
+ * Do the real rewrite.
+ * 
+ * 1.HashAgg:
+ * Partial Agg
+ *		SeqScan on t
+ * to:
+ * Append
+ *		Partial Agg
+ *			Delta SeqScan on t
+ *		SeqScan on mv
+ *
+ * 2.GroupAgg:
+ * Partial Agg
+ * 	Sort
+ *		SeqScan on t
+ * to:
+ * Sort 
+ * 	Append
+ *		Partial Agg
+ *			Sort
+ *				Delta SeqScan on t
+ *		SeqScan on mv
+ */
+static void
+expand_append_agg_guts(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel)
+{
+	Path	*mv_seqscan_path;
+
+	/* Build Seq Scan path from view. */
+	mv_seqscan_path = build_view_seqscan_path(root, ctx, matviewRel);
+
+	/* Append partial agg with view seqscan.*/
+	rewrite_to_append_agg_path(root, ctx, matviewRel, mv_seqscan_path);
+}
+
+static Path*
+build_view_seqscan_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel)
+{
+	Path			*mv_seqscan_path;
+	PlannerInfo 	*dummy_root;
+	Query			*dummy_query;
+	RangeTblEntry	*dummy_rte;
+	Path			*cheapest_first_stage_path = ctx->partial_rel->cheapest_total_path;
+
+	mv_seqscan_path = makeNode(Path);
+	mv_seqscan_path->pathtype = T_SeqScan;
+	mv_seqscan_path->basemv = 0;
+	mv_seqscan_path->param_info = NULL;
+	mv_seqscan_path->parallel_aware = false;
+	mv_seqscan_path->parallel_safe = false;
+	mv_seqscan_path->parallel_workers = 0;
+	mv_seqscan_path->pathkeys = NIL;	/* seqscan has unordered result.*/
+	mv_seqscan_path->locus = cheapest_first_stage_path->locus; /* Keep same with agg path for now.*/
+	mv_seqscan_path->motionHazard = false;
+	mv_seqscan_path->barrierHazard = false;
+	mv_seqscan_path->rescannable = true;
+	mv_seqscan_path->sameslice_relids = cheapest_first_stage_path->parent->relids;
+
+	/* Build dmmmy planner info for reloptions.*/
+	dummy_query = makeNode(Query);
+	dummy_query->commandType = CMD_SELECT;
+	dummy_root = makeNode(PlannerInfo);
+	dummy_root->parse = dummy_query;
+	dummy_root->glob = makeNode(PlannerGlobal); /* Avoid crash during planner.*/
+	dummy_root->query_level = 1;
+	dummy_root->planner_cxt = CurrentMemoryContext;
+	dummy_root->wt_param_id = -1;
+
+	/* Build dmmmy rte for reloptions.*/
+	dummy_rte = makeNode(RangeTblEntry);
+	dummy_rte->rtekind = RTE_RELATION;
+	dummy_rte->relid = RelationGetRelid(matviewRel);
+	dummy_rte->relkind = RELKIND_MATVIEW;
+	dummy_rte->rellockmode = AccessShareLock;
+	dummy_rte->lateral = false;
+	dummy_rte->inh = false;
+	dummy_rte->inFromCl = true;
+	/*
+	 * Build eref for explain purpose.
+	 */
+	dummy_rte->eref = makeAlias(RelationGetRelationName(matviewRel), NIL);
+
+	/*
+	 * Build RelOptInfo 
+	 * Hack here:
+	 * we know that parse only has one table, so just make a NULL rte here
+	 * and assign dummy_rte relid to 2 later.
+	 */
+	dummy_query->rtable = list_make2(NULL, dummy_rte);
+
+	/* Set up RTE/RelOptInfo arrays and assign parent.*/
+	setup_simple_rel_arrays(dummy_root);
+	mv_seqscan_path->parent = build_simple_rel(dummy_root, 2, NULL);
+
+	/*
+	 * Now build pathtarget from mv.
+	 * But we don't have targetList from dummy_parse here,
+	 * use mv's TupleDesc to get a plain select * from mv.
+	 * As we only have a exatly matched SQL now,
+	 * a star * means only user defined columns are included,
+	 * extra columns of IVM should not be inside.
+	 */
+	mv_seqscan_path->pathtarget = make_pathtarget_from_tupledesc(matviewRel->rd_att);
+
+	/* Adjust planner info for view scan. */
+	root->parse->rtable = lappend(root->parse->rtable, dummy_rte);
+	root->simple_rel_array_size++;
+	root->simple_rte_array = repalloc(root->simple_rte_array, (root->simple_rel_array_size)* sizeof(RangeTblEntry *));
+	root->simple_rte_array[root->simple_rel_array_size - 1] = dummy_rte;
+	root->simple_rel_array = repalloc(root->simple_rel_array, (root->simple_rel_array_size)* sizeof(RelOptInfo *));
+	root->simple_rel_array[root->simple_rel_array_size - 1] = mv_seqscan_path->parent;
+
+	return mv_seqscan_path;
+}
+
+/*
+ * This is a hack way to build special append path,
+ * only for expanding append agg plan.
+ */
+static void
+rewrite_to_append_agg_path(PlannerInfo *root, cdb_agg_planning_context *ctx, Relation matviewRel, Path *mv_seqscan_path)
+{
+	AppendPath	*pathnode;
+	Path		*cheapest_first_stage_path = ctx->partial_rel->cheapest_total_path;
+
+	/* Build append path */
+	pathnode = makeNode(AppendPath);
+	pathnode->append_agg = true;
+	pathnode->path.pathtype = T_Append;
+	pathnode->path.parent = cheapest_first_stage_path->parent;
+	pathnode->path.pathtarget = cheapest_first_stage_path->parent->reltarget;
+	pathnode->path.param_info = NULL;
+	pathnode->path.parallel_aware = false;
+	pathnode->path.parallel_safe = false;
+	pathnode->path.parallel_workers = 0;
+	pathnode->path.pathkeys = NIL;
+	pathnode->path.motionHazard = false;
+	pathnode->path.barrierHazard = false;
+	pathnode->path.rescannable = true;
+	pathnode->path.locus = cheapest_first_stage_path->locus;
+	pathnode->subpaths = list_make2(cheapest_first_stage_path, mv_seqscan_path);
+
+	/* Set best path for partial_rel with ours. */
+	ctx->partial_rel->cheapest_total_path = (Path *)pathnode;
+
+	/*
+	 * If it's a Group Agg, the order is required for final agg.
+	 * The subpaths of Append node is unordered together, we have
+	 * to add a Sort above it.
+	 */ 
+	if (castNode(AggPath, cheapest_first_stage_path)->aggstrategy == AGG_SORTED)
+	{
+		Path *path;
+		path = (Path *) create_sort_path(root,
+										 ctx->partial_rel,
+										 (Path *)pathnode,
+										 ctx->partial_sort_pathkeys,
+										 -1.0);
+
+		ctx->partial_rel->cheapest_total_path = path;
+		/* For Group Agg, second stage is based on pathlist. */
+		add_path(ctx->partial_rel, path ,root);
+	}
+}
+
+#endif

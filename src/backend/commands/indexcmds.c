@@ -973,11 +973,13 @@ DefineIndex(Oid relationId,
 	if (stmt->tableSpace)
 	{
 		tablespaceId = get_tablespace_oid(stmt->tableSpace, false);
+#ifndef SERVERLESS
 		if (partitioned && tablespaceId == MyDatabaseTableSpace &&
 			Gp_role != GP_ROLE_EXECUTE)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot specify default tablespace for partitioned relations")));
+#endif /* SERVERLESS */
 	}
 	else
 	{

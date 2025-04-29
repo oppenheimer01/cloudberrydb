@@ -95,15 +95,20 @@
 #include "cdb/cdbsrlz.h"
 #include "cdb/cdbtm.h"
 #include "cdb/cdbdtxcontextinfo.h"
+#include "cdb/cdbdisp_extra.h"
 #include "cdb/cdbdisp_query.h"
 #include "cdb/cdbdispatchresult.h"
 #include "cdb/cdbendpoint.h"
 #include "cdb/cdbgang.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 #include "cdb/ml_ipc.h"
 #include "access/twophase.h"
 #include "postmaster/backoff.h"
 #include "postmaster/fts.h"
 #include "utils/guc.h"
+#include "utils/inval.h"
 #include "utils/resource_manager.h"
 #include "utils/session_state.h"
 #include "utils/vmem_tracker.h"
@@ -151,6 +156,16 @@ cancel_pending_hook_type cancel_pending_hook = NULL;
  * Hook for query execution.
  */
 exec_simple_query_hook_type exec_simple_query_hook = NULL;
+
+/*
+ * Hook for plugins to handle the txn message
+ */
+HandleTxnCommand_hook_type HandleTxnCommand_hook = NULL;
+
+/*
+ * Hook for plugins to process query
+ */
+execSimpleQuery_Hook_type execSimpleQuery_Hook = NULL;
 
 /* ----------------
  *		private typedefs etc
@@ -262,7 +277,6 @@ static int	errdetail_params(ParamListInfo params);
 static int	errdetail_abort(void);
 static int	errdetail_recovery_conflict(void);
 static void bind_param_error_callback(void *arg);
-static void start_xact_command(void);
 static void finish_xact_command(void);
 static bool IsTransactionExitStmt(Node *parsetree);
 static bool IsTransactionExitStmtList(List *pstmts);
@@ -513,6 +527,7 @@ SocketBackend(StringInfo inBuf)
 
 			break;
 
+		case 't':
 		case 'T':				/* Apache Cloudberry dispatched transaction protocol from QD */
 			maxmsglen = PQ_LARGE_MESSAGE_LIMIT;
 			doing_extended_query_message = false;
@@ -1429,8 +1444,14 @@ exec_mpp_query(const char *query_string,
 
 		/*
 		 * If writer QE, sent current pgstat for tables to QD.
+		 * In serverless architecture, all the slice send their stat like 
+		 * seq_scan to QD.
 		 */
+#ifdef SERVERLESS
+		if (Gp_role == GP_ROLE_EXECUTE)
+#else
 		if (Gp_role == GP_ROLE_EXECUTE && Gp_is_writer)
+#endif
 			pgstat_send_qd_tabstats();
 
 		(*receiver->rDestroy) (receiver);
@@ -3547,7 +3568,7 @@ exec_describe_portal_message(const char *portal_name)
 /*
  * Convenience routines for starting/committing a single command.
  */
-static void
+void
 start_xact_command(void)
 {
 	if (!xact_started)
@@ -5481,6 +5502,12 @@ PostgresMain(int argc, char *argv[],
 		InvalidateCatalogSnapshotConditionally();
 
 		/*
+		 * Also consider releasing our catalog snapshot if any, so that it's
+		 * not preventing advance of global xmin while we wait for the client.
+		 */
+		InvalidateCatalogSnapshotConditionally();
+
+		/*
 		 * (1) If we've reached idle state, tell the frontend we're ready for
 		 * a new query.
 		 *
@@ -5664,6 +5691,10 @@ PostgresMain(int argc, char *argv[],
 
 		check_forbidden_in_gpdb_handlers(firstchar);
 
+#ifdef SERVERLESS
+		TransferReset();
+#endif
+
 		switch (firstchar)
 		{
 			case 'Q':			/* simple query */
@@ -5691,12 +5722,19 @@ PostgresMain(int argc, char *argv[],
 					}
 					else if (am_ftshandler)
 						HandleFtsMessage(query_string);
+#ifdef FAULT_INJECTOR
 					else if (am_faulthandler)
 						HandleFaultMessage(query_string);
+#endif
 					else if (exec_simple_query_hook)
 						exec_simple_query_hook(query_string);
 					else
+					{
+						if (execSimpleQuery_Hook)
+							execSimpleQuery_Hook(&exec_simple_query, &whereToSendOutput);
+
 						exec_simple_query(query_string);
+					}
 
 					send_ready_for_query = true;
 				}
@@ -5712,12 +5750,18 @@ PostgresMain(int argc, char *argv[],
 					const char *serializedDtxContextInfo = NULL;
 					const char *serializedPlantree = NULL;
 					const char *serializedQueryDispatchDesc = NULL;
+#ifdef SERVERLESS
+					const char *serializedCatalog = NULL;
+#endif
 					const char *resgroupInfoBuf = NULL;
 
 					int query_string_len = 0;
 					int serializedDtxContextInfolen = 0;
 					int serializedPlantreelen = 0;
 					int serializedQueryDispatchDesclen = 0;
+#ifdef SERVERLESS
+					int serializedCatalogLen = 0;
+#endif
 					int resgroupInfoLen = 0;
 					TimestampTz statementStart;
 					Oid suid;
@@ -5753,6 +5797,9 @@ PostgresMain(int argc, char *argv[],
 					query_string_len = pq_getmsgint(&input_message, 4);
 					serializedPlantreelen = pq_getmsgint(&input_message, 4);
 					serializedQueryDispatchDesclen = pq_getmsgint(&input_message, 4);
+#ifdef SERVERLESS
+					serializedCatalogLen = pq_getmsgint(&input_message, 4);
+#endif
 					serializedDtxContextInfolen = pq_getmsgint(&input_message, 4);
 
 					/* read in the DTX context info */
@@ -5792,7 +5839,19 @@ PostgresMain(int argc, char *argv[],
 
 					if (serializedQueryDispatchDesclen > 0)
 						serializedQueryDispatchDesc = pq_getmsgbytes(&input_message,serializedQueryDispatchDesclen);
+#ifdef SERVERLESS
+					if (serializedCatalogLen > 0)
+						serializedCatalog = pq_getmsgbytes(&input_message, serializedCatalogLen);
 
+					if (!IS_QUERY_DISPATCHER())
+					{
+						SystemTupleStoreReset();
+
+						InvalidateSystemCaches();
+
+						SystemTupleStoreInit(serializedCatalog, serializedCatalogLen);
+					}
+#endif
 					/*
 					 * Always use the same GpIdentity.numsegments with QD on QEs
 					 */
@@ -5810,6 +5869,8 @@ PostgresMain(int argc, char *argv[],
 						tempToastNamespaceId = pq_getmsgint(&input_message, sizeof(tempToastNamespaceId));
 						SetTempNamespaceStateAfterBoot(tempNamespaceId, tempToastNamespaceId);
 					}
+
+					UnPackExtraMsgs(&input_message);
 
 					pq_getmsgend(&input_message);
 
@@ -5927,6 +5988,18 @@ PostgresMain(int argc, char *argv[],
 
 					send_ready_for_query = true;
             	}
+				break;
+
+    		case 't': /* handle plugin's MPP dispatched txn protocol command from QD */
+				{
+					if (HandleTxnCommand_hook)
+						HandleTxnCommand_hook(&input_message, &send_ready_for_query);
+					else
+						ereport(FATAL,
+								(errcode(ERRCODE_PROTOCOL_VIOLATION),
+								errmsg("invalid frontend message type %d", firstchar),
+								errdetail("HandleTxnCommand_hook is NULL")));
+				}
 				break;
 
 			case 'P':			/* parse */

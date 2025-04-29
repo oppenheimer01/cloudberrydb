@@ -75,6 +75,23 @@ get_partition_parent(Oid relid, bool even_if_detached)
 	return result;
 }
 
+Oid
+get_partition_parent_noerror(Oid relid)
+{
+	Relation	catalogRelation;
+	Oid			result;
+	bool		detach_pending;
+
+	catalogRelation = table_open(InheritsRelationId, AccessShareLock);
+
+	result = get_partition_parent_worker(catalogRelation, relid,
+										 &detach_pending);
+
+	table_close(catalogRelation, AccessShareLock);
+
+	return result;
+}
+
 /*
  * get_partition_parent_worker
  *		Scan the pg_inherits relation to return the OID of the parent of the

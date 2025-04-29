@@ -261,6 +261,7 @@ typedef TransactionStateData *TransactionState;
 static int fastNodeCount;
 static TransactionState previousFastLink;
 
+
 /*
  * Serialized representation used to transmit transaction state to parallel
  * workers through shared memory.
@@ -299,6 +300,14 @@ static int	nUnreportedXids;
 static TransactionId unreportedXids[PGPROC_MAX_CACHED_SUBXIDS];
 
 static TransactionState CurrentTransactionState = &TopTransactionStateData;
+
+/*
+ * Hooks for plugins to get control in Transaction Management.
+ */
+TransactionParticipateEnd_hook_type TransactionParticipateEnd_hook = NULL;
+NotifySubTransaction_hook_type NotifySubTransaction_hook = NULL;
+XactLogCommitRecord_hook_type XactLogCommitRecord_hook = NULL;
+XactLogAbortRecord_hook_type XactLogAbortRecord_hook = NULL;
 
 /*
  * The subtransaction ID and command ID assignment counters are global
@@ -2048,6 +2057,11 @@ RecordTransactionAbort(bool isSubXact)
 	else
 		xid = GetCurrentTransactionIdIfAny();
 
+#ifdef SERVERLESS
+	if (GpIdentity.segindex >= 0)
+		return xid;
+#endif
+
 	/*
 	 * If we haven't been assigned an XID, nobody will care whether we aborted
 	 * or not.  Hence, we're done in that case.  It does not matter if we have
@@ -2753,6 +2767,9 @@ StartTransaction(void)
 					  DtxContextToString(DistributedTransactionContext),
 					  IsoLevelAsUpperString(XactIsoLevel), XactReadOnly,
 					  LocalDistribXact_DisplayString(MyProc->pgprocno))));
+
+	CallXactCallbacks(s->blockState == TBLOCK_PARALLEL_INPROGRESS ?
+					  XACT_EVENT_PARALLEL_BEGIN : XACT_EVENT_BEGIN);
 }
 
 /*
@@ -2766,6 +2783,9 @@ CommitTransaction(void)
 	TransactionState s = CurrentTransactionState;
 	TransactionId latestXid;
 	bool		is_parallel_worker;
+
+	if (pending_relation_deletes_hook)
+		pending_relation_deletes_hook();
 
 	is_parallel_worker = (s->blockState == TBLOCK_PARALLEL_INPROGRESS);
 
@@ -2950,6 +2970,9 @@ CommitTransaction(void)
 	 */
 	if (notifyCommittedDtxTransactionIsNeeded())
 		notifyCommittedDtxTransaction();
+
+	if (TransactionParticipateEnd_hook)
+		TransactionParticipateEnd_hook(true);
 
 	/*
 	 * Let others know about no transaction in progress by me. Note that this
@@ -3604,6 +3627,9 @@ AbortTransaction(void)
 	 * signals to prevent recursion until we've notified the QEs.
 	 */
 	rollbackDtxTransaction();
+
+	if (TransactionParticipateEnd_hook)
+		TransactionParticipateEnd_hook(false);
 
 	/*
 	 * Let others know about no transaction in progress by me. Note that this
@@ -5227,6 +5253,9 @@ DefineSavepoint(const char *name)
 {
 	TransactionState s = CurrentTransactionState;
 
+	if (NotifySubTransaction_hook)
+		NotifySubTransaction_hook(TXN_PROTOCOL_COMMAND_SUB_BEGIN);
+
 	/*
 	 * Workers synchronize transaction state at the beginning of each parallel
 	 * operation, so we can't account for new subtransactions after that
@@ -5588,11 +5617,16 @@ BeginInternalSubTransaction(const char *name)
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
-		if (!doDispatchSubtransactionInternalCmd(
-			DTX_PROTOCOL_COMMAND_SUBTRANSACTION_BEGIN_INTERNAL))
+		if (NotifySubTransaction_hook)
+			NotifySubTransaction_hook(TXN_PROTOCOL_COMMAND_SUB_BEGIN);
+		else
 		{
-			elog(ERROR,
-				"Could not BeginInternalSubTransaction dispatch failed");
+			if (!doDispatchSubtransactionInternalCmd(
+				DTX_PROTOCOL_COMMAND_SUBTRANSACTION_BEGIN_INTERNAL))
+			{
+				elog(ERROR,
+					"Could not BeginInternalSubTransaction dispatch failed");
+			}
 		}
 	}
 
@@ -5686,7 +5720,7 @@ ReleaseCurrentSubTransaction(void)
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
-		if (!doDispatchSubtransactionInternalCmd(
+		if (!NotifySubTransaction_hook && !doDispatchSubtransactionInternalCmd(
 			DTX_PROTOCOL_COMMAND_SUBTRANSACTION_RELEASE_INTERNAL))
 		{
 			elog(ERROR,
@@ -5768,7 +5802,7 @@ RollbackAndReleaseCurrentSubTransaction(void)
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
-		if (!doDispatchSubtransactionInternalCmd(
+		if (!NotifySubTransaction_hook && !doDispatchSubtransactionInternalCmd(
 				DTX_PROTOCOL_COMMAND_SUBTRANSACTION_ROLLBACK_INTERNAL))
 		{
 			ereport(ERROR, (errcode(ERRCODE_GP_INTERCONNECTION_ERROR),
@@ -6089,6 +6123,9 @@ CommitSubTransaction(void)
 	/* Must CCI to ensure commands of subtransaction are seen as done */
 	CommandCounterIncrement();
 
+	if (NotifySubTransaction_hook)
+		NotifySubTransaction_hook(TXN_PROTOCOL_COMMAND_SUB_RELEASE);
+
 	/*
 	 * Prior to 8.4 we marked subcommit in clog at this point.  We now only
 	 * perform that step, if required, as part of the atomic update of the
@@ -6262,6 +6299,9 @@ AbortSubTransaction(void)
 		AtEOSubXact_Parallel(false, s->subTransactionId);
 		s->parallelModeLevel = 0;
 	}
+
+	if (NotifySubTransaction_hook)
+		NotifySubTransaction_hook(TXN_PROTOCOL_COMMAND_SUB_ROLLBACK);
 
 	/*
 	 * We can skip all this stuff if the subxact failed before creating a
@@ -6882,6 +6922,12 @@ XactLogCommitRecord(TimestampTz commit_time,
 
 	Assert(CritSectionCount > 0);
 
+	if (XactLogCommitRecord_hook)
+		return (* XactLogCommitRecord_hook) (commit_time, tablespace_oid_to_delete_on_commit, 
+											nsubxacts, subxacts, nrels, rels, nmsgs, msgs,
+											ndeldbs, deldbs, relcacheInval, xactflags,
+											twophase_xid, twophase_gid);
+
 	xl_xinfo.xinfo = 0;
 
 	/* decide between a plain and 2pc commit */
@@ -7071,6 +7117,11 @@ XactLogAbortRecord(TimestampTz abort_time,
 	uint8		info;
 
 	Assert(CritSectionCount > 0);
+
+	if (XactLogAbortRecord_hook)
+		return (*XactLogAbortRecord_hook) (abort_time, tablespace_oid_to_delete_on_abort,
+											nsubxacts, subxacts, nrels, rels, ndeldbs, deldbs,
+											xactflags, twophase_xid, twophase_gid);
 
 	xl_xinfo.xinfo = 0;
 
@@ -7608,4 +7659,226 @@ MarkSubTransactionAssigned(void)
 	Assert(IsSubTransactionAssignmentPending());
 
 	CurrentTransactionState->assigned = true;
+}
+
+/*
+ * Get all xids of top level transaction and subtransactons, exclude subcommitted child XIDs.
+ */
+FullTransactionId *
+GetAllXids(int *nxids)
+{
+	FullTransactionId *xids = NULL;
+	int	len = PGPROC_MAX_CACHED_SUBXIDS;
+	TransactionState xact = CurrentTransactionState;
+
+	*nxids = 0;
+
+	while (xact && !FullTransactionIdIsValid(xact->fullTransactionId))
+	{
+		xact = xact->parent;
+	}
+	
+	if (xact)
+	{
+		if (xids == NULL)
+			xids = (FullTransactionId *)palloc(sizeof(FullTransactionId) * len);
+		xids[(*nxids)++] = xact->fullTransactionId;
+
+		while (xact->parent)
+		{
+			xact = xact->parent;
+			xids[(*nxids)++] = xact->fullTransactionId;
+
+			if ((*nxids) >= len)
+			{
+				len *= 2;
+				xids = (FullTransactionId *)repalloc(xids, sizeof(FullTransactionId) * len);
+			}
+		}
+	}
+
+	return xids;
+}
+
+/*
+ * Get all xids of top level transaction and subtransactons, include subcommitted child XIDs.
+ */
+TransactionId *
+GetAllChildXids(int *nxids)
+{
+	TransactionId *xids = NULL;
+	int	len = PGPROC_MAX_CACHED_SUBXIDS;
+	TransactionState xact = CurrentTransactionState;
+
+	*nxids = 0;
+
+	while (xact && !FullTransactionIdIsValid(xact->fullTransactionId))
+	{
+		xact = xact->parent;
+	}
+
+	if (xids == NULL && xact)
+		xids = (TransactionId *)palloc(sizeof(TransactionId) * len);
+	while (xact)
+	{
+		int index = 0;
+		int nChildXids = xact->nChildXids;
+
+		/* exclude top transaction's xid */
+		if (xact->parent)
+			nChildXids += 1;
+
+		if ((*nxids) + nChildXids >= len)
+		{
+			len = ((*nxids) + nChildXids) * 2;
+			
+			xids = (TransactionId *)repalloc(xids, sizeof(TransactionId) * len);
+		}
+
+		if (nChildXids)
+			memmove((char *)xids + nChildXids * sizeof(TransactionId), (char *)xids, (*nxids) * sizeof(TransactionId));
+
+		if (xact->parent)
+			xids[index++] = XidFromFullTransactionId(xact->fullTransactionId);
+
+		if (xact->nChildXids)
+			memcpy((char *)xids + index * sizeof(TransactionId), (char *)xact->childXids, xact->nChildXids * sizeof(TransactionId));
+
+		(*nxids) = (*nxids) + nChildXids;
+
+		xact = xact->parent;
+	}
+
+	return xids;
+}
+
+void
+SetChildXids(int nChildXids, TransactionId *childXids)
+{
+	TransactionState xact;
+	MemoryContext old;
+
+	if (nChildXids == 0)
+		return;
+
+	xact = CurrentTransactionState;
+	old = MemoryContextSwitchTo(xact->curTransactionContext);
+
+	if (xact->maxChildXids < nChildXids)
+	{
+		int			new_maxChildXids;
+		TransactionId *new_childXids;
+
+		new_maxChildXids = Min(nChildXids * 2,
+							   (int) (MaxAllocSize / sizeof(TransactionId)));
+
+		if (new_maxChildXids < nChildXids)
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("maximum number of committed subtransactions (%d) exceeded",
+							(int) (MaxAllocSize / sizeof(TransactionId)))));
+
+		if (xact->childXids == NULL)
+			new_childXids =
+				MemoryContextAlloc(TopTransactionContext,
+								   new_maxChildXids * sizeof(TransactionId));
+		else
+			new_childXids = repalloc(xact->childXids,
+									 new_maxChildXids * sizeof(TransactionId));
+
+		xact->childXids = new_childXids;
+		xact->maxChildXids = new_maxChildXids;
+	}
+
+	memcpy((char *)xact->childXids, (char *)childXids, nChildXids * sizeof(TransactionId));
+
+	xact->nChildXids = nChildXids;
+
+	MemoryContextSwitchTo(old);
+}
+
+/*
+ * Get number of transaction and subtransactions which have no xid.
+ */
+int
+GetNumOfTxnStatesWithoutXid(TransactionState transactionState)
+{
+	int nlevels = 0;
+
+	if (!FullTransactionIdIsValid(transactionState->fullTransactionId))
+	{
+		TransactionState xact = transactionState;
+
+		nlevels++;
+
+		while (xact->parent)
+		{
+			xact = xact->parent;
+
+			if (!FullTransactionIdIsValid(xact->fullTransactionId))
+			{
+				nlevels++;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	return nlevels;
+}
+
+/*
+ * Get current transaction state
+ */
+TransactionState
+GetCurrentTransactionState(void)
+{
+	return CurrentTransactionState;
+}
+
+/*
+ * Get parent transaction state of given transaction state 
+ */
+TransactionState
+GetParentTransactionState(TransactionState transactionState)
+{
+	return transactionState->parent;
+}
+
+/*
+ * Get nesting level of given transaction state
+ */
+int
+GetTransactionNestLevel(TransactionState transactionState)
+{
+	return transactionState->nestingLevel;
+}
+
+/*
+ * Get full transaction id of given transaction state
+ */
+FullTransactionId
+GetFullTransactionId(TransactionState transactionState)
+{
+	return transactionState->fullTransactionId;
+}
+
+/*
+ * Set current transaction state to given transaction state
+ */
+void
+SetCurrentTransactionState(TransactionState transactionState)
+{
+	CurrentTransactionState = transactionState;
+}
+
+/*
+ * Get subtransaction ID counter
+ */
+SubTransactionId
+GetSubTransactionIdCounter(void)
+{
+	return currentSubTransactionId;
 }

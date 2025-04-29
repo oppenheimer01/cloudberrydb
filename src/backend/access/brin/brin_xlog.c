@@ -70,7 +70,21 @@ brin_xlog_insert_update(XLogReaderState *record,
 	}
 
 	/* need this page's blkno to store in revmap */
+#ifdef SERVERLESS
+	/*
+	 * In serverless architecture, use XLogRecGetBlockTag to get block number
+	 * of buffer instead of BufferGetBlockNumber.
+	 *
+	 * This redo function will be called in UnionStore to replay the WAL on page,
+	 * but walredo procedure could replay WAL on one page every time.
+	 * For this WAL, the page with block_id 0 may be skipped, action is BLK_DONE,
+	 * and the buffer is invalid, so we use XLogRecGetBlockTag here to avoid touching
+	 * the buffer.
+	 */
+	XLogRecGetBlockTag(record, 0, NULL, NULL, &regpgno);
+#else
 	regpgno = BufferGetBlockNumber(buffer);
+#endif
 
 	/* insert the index item into the page */
 	if (action == BLK_NEEDS_REDO)

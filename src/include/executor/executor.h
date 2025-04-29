@@ -17,6 +17,7 @@
 #define EXECUTOR_H
 
 #include "executor/execdesc.h"
+#include "executor/execExpr.h"
 #include "fmgr.h"
 #include "nodes/lockoptions.h"
 #include "nodes/parsenodes.h"
@@ -97,7 +98,31 @@ extern PGDLLIMPORT ExecutorEnd_hook_type ExecutorEnd_hook;
 typedef bool (*ExecutorCheckPerms_hook_type) (List *, bool);
 extern PGDLLIMPORT ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook;
 
+/* Hook for plugins to get control in DtxTransaction Management */
+typedef bool (*SetDtxFlag_hook_type) (bool needDxt);
+extern PGDLLIMPORT SetDtxFlag_hook_type SetDtxFlag_hook;
 
+/* Hook for plugins to get control in ExecInitNode() */
+typedef PlanState *(*ExecInitNode_hook_type)(Plan *node, EState *estate, int eflags);
+extern PGDLLIMPORT ExecInitNode_hook_type ExecInitNode_hook;
+
+#ifdef SERVERLESS
+typedef void (*ExprEvalPushStep_hook_type) (ExprState *es, const ExprEvalStep *s);
+extern PGDLLIMPORT ExprEvalPushStep_hook_type ExprEvalPushStep_hook;
+
+typedef void (*CollectResultInfo_hook_type) (ResultRelInfo *resultRelInfo);
+extern PGDLLIMPORT CollectResultInfo_hook_type CollectResultInfo_hook;
+
+typedef void (*CollectProc_hook_type) (FunctionCallInfo fcinfo);
+extern PGDLLIMPORT CollectProc_hook_type CollectProc_hook;
+#endif
+
+typedef void (*LockTable_hook_type) (Oid relid, int lockmode);
+extern PGDLLIMPORT LockTable_hook_type LockTable_hook;
+
+/* Hook for plugins to get control in ExecEndNode() */
+typedef void (*ExecEndNode_hook_type)(PlanState *node);
+extern PGDLLIMPORT ExecEndNode_hook_type ExecEndNode_hook;
 /*
  * prototypes from functions in execAmi.c
  */
@@ -258,9 +283,11 @@ extern Node *attrMapExpr(TupleConversionMap *map, Node *expr);
  * functions in execProcnode.c
  */
 extern PlanState *ExecInitNode(Plan *node, EState *estate, int eflags);
+extern PlanState *ExecInitNode_Internal(Plan *node, EState *estate, int eflags);
 extern void ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function);
 extern Node *MultiExecProcNode(PlanState *node);
 extern void ExecEndNode(PlanState *node);
+extern void ExecEndNode_Internal(PlanState *node);
 extern bool ExecShutdownNode(PlanState *node);
 extern void ExecSetTupleBound(int64 tuples_needed, PlanState *child_node);
 
@@ -723,4 +750,7 @@ extern void
 change_varattnos_of_a_varno(Node *node, const AttrNumber *newattno, Index varno);
 
 extern bool already_under_executor_run(void);
+extern void InitPlan(QueryDesc *queryDesc, int eflags);
+
+
 #endif							/* EXECUTOR_H  */

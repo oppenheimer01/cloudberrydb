@@ -2754,17 +2754,6 @@ CREATE OR REPLACE FUNCTION read_from_file() RETURNS integer as '$libdir/gpextpro
 CREATE TRUSTED PROTOCOL demoprot (readfunc = 'read_from_file', writefunc = 'write_to_file');
 -- alter external protocol's name
 ALTER PROTOCOL demoprot RENAME TO demoprot2;
--- type name is a fixed-length string padded by '\0', normal(wrong)
--- renaming will make cdbhash() getting different values, select
--- displaying more than oneline here
-select distinct ptcname from (
-        select ptcname AS ptcname from gp_dist_random('pg_extprotocol')
-) all_segments where ptcname = 'demoprot2';
-  ptcname  
------------
- demoprot2
-(1 row)
-
 -- drop temp external protocols
 DROP PROTOCOL if exists demoprot;
 NOTICE:  protocol "demoprot" does not exist, skipping

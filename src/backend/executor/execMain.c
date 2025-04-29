@@ -115,6 +115,9 @@
 #include "cdb/cdbtargeteddispatch.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbendpoint.h"
+#ifdef SERVERLESS
+#include "cdb/cdbtranscat.h"
+#endif
 
 #define IS_PARALLEL_RETRIEVE_CURSOR(queryDesc)	(queryDesc->ddesc &&	\
 										queryDesc->ddesc->parallelCursorName &&	\
@@ -164,9 +167,10 @@ ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook = NULL;
  *  executor_run_nesting_level.
  */
 static int executor_run_nesting_level = 0;
+/* Hook for plugins to get control in DtxTransaction Management */
+SetDtxFlag_hook_type SetDtxFlag_hook = NULL;
 
 /* decls for local routines only used within this module */
-static void InitPlan(QueryDesc *queryDesc, int eflags);
 static void CheckValidRowMarkRel(Relation rel, RowMarkType markType);
 static void ExecPostprocessPlan(EState *estate);
 static void ExecEndPlan(PlanState *planstate, EState *estate);
@@ -236,6 +240,10 @@ ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 */
 	pgstat_report_query_id(queryDesc->plannedstmt->queryId, false);
 
+#ifdef SERVERLESS
+	SetTransferOn();
+#endif
+
 	if (ExecutorStart_hook)
 		(*ExecutorStart_hook) (queryDesc, eflags);
 	else
@@ -260,7 +268,12 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 
 	Assert(queryDesc->plannedstmt->intoPolicy == NULL ||
 		GpPolicyIsPartitioned(queryDesc->plannedstmt->intoPolicy) ||
+#ifdef SERVERLESS
+		GpPolicyIsReplicated(queryDesc->plannedstmt->intoPolicy) || 
+		GpPolicyIsEntry(queryDesc->plannedstmt->intoPolicy));
+#else
 		GpPolicyIsReplicated(queryDesc->plannedstmt->intoPolicy));
+#endif
 
 	/* GPDB hook for collecting query info */
 	if (query_info_collect_hook)
@@ -585,7 +598,18 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 * Initialize the plan state tree
 		 */
 		Assert(CurrentMemoryContext == estate->es_query_cxt);
+
+#ifdef SERVERLESS
+		if (!shouldDispatch)
+			SetTransferOff();
+#endif
+
 		InitPlan(queryDesc, eflags);
+
+#ifdef SERVERLESS
+		if (!shouldDispatch)
+			SetTransferOn();
+#endif
 
 		Assert(queryDesc->planstate);
 
@@ -645,6 +669,8 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			 * work for this query.
 			 */
 			needDtx = ExecutorSaysTransactionDoesWrites();
+			if (SetDtxFlag_hook)
+				needDtx = SetDtxFlag_hook(needDtx);
 			if (needDtx)
 				setupDtxTransaction();
 
@@ -1758,7 +1784,7 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
  *		and start up the rule manager
  * ----------------------------------------------------------------
  */
-static void
+void
 InitPlan(QueryDesc *queryDesc, int eflags)
 {
 	CmdType		operation = queryDesc->operation;
@@ -1772,7 +1798,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 	Assert(plannedstmt->intoPolicy == NULL ||
 		GpPolicyIsPartitioned(plannedstmt->intoPolicy) ||
+#ifdef SERVERLESS
+		GpPolicyIsReplicated(plannedstmt->intoPolicy) || 
+		GpPolicyIsEntry(plannedstmt->intoPolicy));
+#else
 		GpPolicyIsReplicated(plannedstmt->intoPolicy));
+#endif
 
 	if (DEBUG1 >= log_min_messages)
 	{
@@ -2450,6 +2481,11 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_ChildToRootMap = NULL;
 	resultRelInfo->ri_ChildToRootMapValid = false;
 	resultRelInfo->ri_CopyMultiInsertBuffer = NULL;
+
+#ifdef SERVERLESS
+	if (CollectResultInfo_hook)
+		(*CollectResultInfo_hook) (resultRelInfo);
+#endif
 }
 
 /*
@@ -2556,12 +2592,18 @@ ExecPostprocessPlan(EState *estate)
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
 		/* Fire after triggers. */
-		foreach(lc, estate->es_auxmodifytables)
+		foreach (lc, estate->es_auxmodifytables)
 		{
+			/* 
+			 * FIXME: Trigger ASTrigger in execMain is really broken pg policy.
+			 * since customscan also do DML
+			 */
 			PlanState  *ps = (PlanState *) lfirst(lc);
-			ModifyTableState *node = castNode(ModifyTableState, ps);
-
-			fireASTriggers(node);
+			if (IsA(ps, ModifyTableState))
+			{
+				ModifyTableState *node = castNode(ModifyTableState, ps);
+				fireASTriggers(node);
+			}
 		}
 		return;
 	}

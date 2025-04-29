@@ -68,22 +68,8 @@
 #include "utils/syscache.h"
 #include "utils/typcache.h"
 
-
-typedef struct
-{
-	DestReceiver pub;			/* publicly-known function pointers */
-	Oid			transientoid;	/* OID of new heap into which to store */
-	Oid			oldreloid;
-	bool		concurrent;
-	bool		skipData;
-	char 		relpersistence;
-	/* These fields are filled by transientrel_startup: */
-	Relation	transientrel;	/* relation to write to */
-	CommandId	output_cid;		/* cmin to insert in output tuples */
-	int			ti_options;		/* table_tuple_insert performance options */
-	BulkInsertState bistate;	/* bulk insert state */
-	uint64		processed;		/* GPDB: number of tuples inserted */
-} DR_transientrel;
+/* Hook for plugins to get control in transientrel_init */
+transientrel_init_hook_type transientrel_init_hook = NULL;
 
 #define MV_INIT_QUERYHASHSIZE	32
 #define MV_INIT_SNAPSHOTHASHSIZE	(2 * MaxBackends)
@@ -155,6 +141,7 @@ typedef enum
 #define OLD_DELTA_ENRNAME "old_delta"
 
 static int	matview_maintenance_depth = 0;
+static int  saved_matview_maintenance_depth = 0;
 
 static RefreshClause* MakeRefreshClause(bool concurrent, bool skipData, RangeVar *relation);
 static IntoClause* makeIvmIntoClause(const char *enrname, Relation matviewRel);
@@ -171,7 +158,6 @@ static uint64 refresh_matview_memoryfill(DestReceiver *dest,Query *query,
 static char *make_temptable_name_n(char *tempname, int n);
 static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 								   int save_sec_context);
-static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
 static bool is_usable_unique_index(Relation indexRel);
 static void OpenMatViewIncrementalMaintenance(void);
 static void CloseMatViewIncrementalMaintenance(void);
@@ -334,7 +320,7 @@ SetDynamicTableState(Relation relation)
  * NOTE: caller must be holding an appropriate lock on the relation.
  */
 void
-SetMatViewIVMState(Relation relation, bool newstate)
+SetMatViewIVMState(Relation relation, char newstate)
 {
 	Relation	pgrel;
 	HeapTuple	tuple;
@@ -354,6 +340,7 @@ SetMatViewIVMState(Relation relation, bool newstate)
 			 RelationGetRelid(relation));
 
 	((Form_pg_class) GETSTRUCT(tuple))->relisivm = newstate;
+	((Form_pg_class) GETSTRUCT(tuple))->relhaspartialagg = RelationGetPartialAgg(relation);
 
 	CatalogTupleUpdate(pgrel, &tuple->t_self, tuple);
 
@@ -461,7 +448,7 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 
 	/* For IMMV, we need to rewrite matview query */
 	if (!stmt->skipData && RelationIsIVM(matviewRel))
-		dataQuery = rewriteQueryForIMMV(viewQuery,NIL);
+		dataQuery = rewriteQueryForIMMV(viewQuery, NIL, RelationGetPartialAgg(matviewRel));
 	else
 		dataQuery = viewQuery;
 
@@ -725,7 +712,7 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 
 	if (!stmt->skipData && RelationIsIVM(matviewRel) && !oldPopulated)
 	{
-		CreateIvmTriggersOnBaseTables(dataQuery, matviewOid);
+		CreateIvmTriggersOnBaseTables(dataQuery, matviewOid, RelationGetPartialAgg(matviewRel), false);
 	}
 
 	table_close(matviewRel, NoLock);
@@ -884,7 +871,7 @@ CreateTransientRelDestReceiver(Oid transientoid, Oid oldreloid, bool concurrent,
 }
 
 void
-transientrel_init(QueryDesc *queryDesc)
+transientrel_init_internal(QueryDesc *queryDesc)
 {
 	Oid			matviewOid;
 	Relation	matviewRel;
@@ -943,6 +930,15 @@ transientrel_init(QueryDesc *queryDesc)
 													 relpersistence, refreshClause->skipData);
 
 	heap_close(matviewRel, NoLock);
+}
+
+void
+transientrel_init(QueryDesc *queryDesc)
+{
+	if (transientrel_init_hook)
+		return (*transientrel_init_hook)(queryDesc);
+
+	transientrel_init_internal(queryDesc);
 }
 
 /*
@@ -1046,6 +1042,22 @@ transientrel_shutdown(DestReceiver *self)
 
 		table_close(matviewRel, NoLock);
 	}
+#ifdef SERVERLESS
+	else if(Gp_role == GP_ROLE_DISPATCH && !myState->concurrent)
+	{
+		Relation	matviewRel;
+
+		matviewRel = table_open(myState->oldreloid, NoLock);
+
+		/*
+		 * In serverless architecture, QD should collect trucate stat. And QE will 
+		 * collect insert stat and send to QD. we combine the stat in 
+		 * pgstat_combine_from_qe.
+		 */
+		pgstat_count_truncate(matviewRel);	
+		table_close(matviewRel, NoLock);
+	}
+#endif
 }
 
 /*
@@ -1429,7 +1441,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
  * the target's indexes and throw away the transient table.  Security context
  * swapping is handled by the called function, so it is not needed here.
  */
-static void
+void
 refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence)
 {
 	finish_heap_swap(matviewOid, OIDNewHeap,
@@ -1508,17 +1520,27 @@ MatViewIncrementalMaintenanceIsEnabled(void)
 		return matview_maintenance_depth > 0;
 }
 
-static void
+void
 OpenMatViewIncrementalMaintenance(void)
 {
 	matview_maintenance_depth++;
 }
 
-static void
+void
 CloseMatViewIncrementalMaintenance(void)
 {
 	matview_maintenance_depth--;
 	Assert(matview_maintenance_depth >= 0);
+}
+
+void SaveMatViewMaintenanceDepth(void)
+{
+	saved_matview_maintenance_depth = matview_maintenance_depth;
+}
+
+void RestoreMatViewMaintenanceDepth(void)
+{
+	matview_maintenance_depth = saved_matview_maintenance_depth;
 }
 
 /*
@@ -3830,7 +3852,7 @@ ExecuteTruncateGuts_IVM(Relation matviewRel,
 	Oid			OIDNewHeap;
 	DestReceiver *dest;
 	uint64		processed = 0;
-	Query		*dataQuery = rewriteQueryForIMMV(query, NIL);
+	Query		*dataQuery = rewriteQueryForIMMV(query, NIL, false);
 	char		relpersistence = matviewRel->rd_rel->relpersistence;
 	RefreshClause *refreshClause;
 	/*
@@ -3919,7 +3941,8 @@ makeIvmIntoClause(const char *enrname, Relation matviewRel)
 {
 	IntoClause *intoClause = makeNode(IntoClause);
 	intoClause->ivm = true;
-	/* rel is NULL means putting tuples into memory.*/
+	intoClause->defer = false;
+	/* rel is NULL means put tuples into memory.*/
 	intoClause->rel = NULL;
 	intoClause->enrname = (char*) enrname;
 	intoClause->distributedBy = (Node*) make_distributedby_for_rel(matviewRel);
@@ -3955,7 +3978,8 @@ transientenr_init(QueryDesc *queryDesc)
 											entry->resowner,
 											entry->context,
 											true,
-											into->enrname);
+											into->enrname,
+											into->defer);
 }
 
 /*

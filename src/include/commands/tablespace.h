@@ -46,6 +46,7 @@ typedef struct TableSpaceOpts
 	bool 		stage;
 	int			serverOffset;
 	int			pathOffset;
+	int			storageOffset;
 } TableSpaceOpts;
 
 extern Oid	CreateTableSpace(CreateTableSpaceStmt *stmt);
@@ -69,5 +70,7 @@ extern void remove_tablespace_symlink(const char *linkloc);
 extern void tblspc_redo(XLogReaderState *rptr);
 extern void tblspc_desc(StringInfo buf, XLogReaderState *rptr);
 extern const char *tblspc_identify(uint8 info);
-
+extern void create_tablespace_directories(const char *location,
+										  const Oid tablespaceoid);
+extern void ensure_tablespace_directory_is_empty(const Oid tablespaceoid, const char *tablespace_name);
 #endif							/* TABLESPACE_H */

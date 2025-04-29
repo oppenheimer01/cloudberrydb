@@ -1081,6 +1081,19 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 	}
 
 	GPOS_ASSERT(IMDRelation::EreldistrMasterOnly != rel_distr_policy);
+	// fall back to the planner for queries on master-only table if they are disabled with Orca. This is due to
+	// the fact that catalog tables (master-only) are not analyzed often and will result in Orca producing
+	// inferior plans.
+	if (IMDRelation::EreldistrMasterOnly == rel_distr_policy)
+	{
+		GPOS_THROW_EXCEPTION(
+			gpdxl::ExmaDXL,							 // major
+			gpdxl::ExmiQuery2DXLUnsupportedFeature,	 // minor
+			CException::
+				ExsevDebug1,  // ulSeverityLevel mapped to GPDB severity level
+			GPOS_WSZ_LIT("Queries on master-only tables"));
+	}
+
 	m_context->m_has_distributed_tables = true;
 
 	OID oid = 1;

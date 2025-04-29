@@ -18,6 +18,14 @@
 #include "catalog/objectaddress.h"
 #include "lib/stringinfo.h"
 #include "parser/parse_node.h"
+typedef struct
+{
+	Oid			src_dboid;		/* source (template) DB */
+	Oid			dest_dboid;		/* DB we are trying to create */
+} createdb_failure_params;
+
+typedef void(*DropDb_hook_type)(Oid dbOid);
+extern PGDLLIMPORT DropDb_hook_type DropDb_hook;
 
 extern Oid	createdb(ParseState *pstate, const CreatedbStmt *stmt);
 extern void dropdb(const char *dbname, bool missing_ok, bool force);
@@ -31,5 +39,14 @@ extern Oid	get_database_oid(const char *dbname, bool missing_ok);
 extern char *get_database_name(Oid dbid);
 
 extern void check_encoding_locale_matches(int encoding, const char *collate, const char *ctype);
-
+extern bool get_db_info(const char *name, LOCKMODE lockmode,
+						Oid *dbIdP, Oid *ownerIdP,
+						int *encodingP, bool *dbIsTemplateP, bool *dbAllowConnP,
+						Oid *dbLastSysOidP, TransactionId *dbFrozenXidP,
+						MultiXactId *dbMinMultiP,
+						Oid *dbTablespace, char **dbCollate, char **dbCtype);
+extern bool check_db_file_conflict(Oid db_id);
+extern bool have_createdb_privilege(void);
+extern int errdetail_busy_db(int notherbackends, int npreparedxacts);
+extern void createdb_failure_callback(int code, Datum arg);
 #endif							/* DBCOMMANDS_H */

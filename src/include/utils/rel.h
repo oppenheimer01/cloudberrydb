@@ -21,6 +21,7 @@
 #include "access/xlog.h"
 #include "catalog/pg_am.h"
 #include "catalog/pg_appendonly.h"
+#include "catalog/pg_am.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_index.h"
 #include "catalog/pg_publication.h"
@@ -348,6 +349,7 @@ typedef struct StdRdOptions
 	int			compresslevel;  /* compression level (AO rels only) */
 	char		compresstype[NAMEDATALEN]; /* compression type (AO rels only) */
 	bool		checksum;		/* checksum (AO rels only) */
+	bool		partial_agg;   /* partial aggregation result for ivm */
 } StdRdOptions;
 
 #define HEAP_MIN_FILLFACTOR			10
@@ -402,6 +404,10 @@ typedef struct StdRdOptions
 #define RelationGetParallelWorkers(relation, defaultpw) \
 	((relation)->rd_options ? \
 	 ((StdRdOptions *) (relation)->rd_options)->parallel_workers : (defaultpw))
+
+#define RelationGetPartialAgg(relation) \
+	((relation)->rd_options ? \
+	 ((StdRdOptions *) (relation)->rd_options)->partial_agg : false)
 
 /* ViewOptions->check_option values */
 typedef enum ViewOptCheckOption
@@ -544,6 +550,8 @@ typedef struct ViewOptions
  * can't distinguish the PAX and renamed heap(heap_psql) in test `psql`.
  */
 #define PAX_AM_OID 7047
+#define HASHDATA_AM_OID 7015
+#define HASHDATA_AM_HANDLER_OID 7604
 
 #define RelationIsPax(relation) \
 	((relation)->rd_rel->relam == PAX_AM_OID)
@@ -564,8 +572,11 @@ typedef struct ViewOptions
  */
 #define RelationIsNonblockRelation(relation) \
 	(RelationIsAppendOptimized(relation) || \
-	 RelationIsPax(relation))
+	 (relation)->rd_rel->relam == PAX_AM_OID || \
+	 (relation)->rd_rel->relam == HASHDATA_AM_OID)
 
+#define AMHandlerIsHashdataCols(amhandler) \
+	((amhandler) == HASHDATA_AM_HANDLER_OID)
 /*
  * RelationIsBitmapIndex
  *      True iff relation is a bitmap index
@@ -781,7 +792,7 @@ typedef struct ViewOptions
  */
 #define RelationIsPopulated(relation) ((relation)->rd_rel->relispopulated)
 
-#define RelationIsIVM(relation) ((relation)->rd_rel->relisivm)
+#define RelationIsIVM(relation) ((relation)->rd_rel->relisivm != MATVIEW_IVM_NOTHING)
 
 #define RelationHasRelativeMV(relation) (((relation)->rd_rel->relmvrefcount) > 0)
 

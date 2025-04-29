@@ -555,12 +555,20 @@ pg_relation_size(PG_FUNCTION_ARGS)
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
-		char	   *sql;
+#ifdef SERVERLESS
+		/* The storage is shared */
+		if (!RelationIsHashdata(rel))
+		{
+#endif /* SERVERLESS */
+		char *sql;
 
 		sql = psprintf("select pg_catalog.pg_relation_size(%u, '%s')", relOid,
 					   forkNames[forkNumber]);
 
 		size += get_size_from_segDBs(sql);
+#ifdef SERVERLESS
+		}
+#endif /* SERVERLESS */
 	}
 
 	relation_close(rel, AccessShareLock);
@@ -732,7 +740,7 @@ pg_table_size(PG_FUNCTION_ARGS)
 
 	size = calculate_table_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 
@@ -762,7 +770,7 @@ pg_indexes_size(PG_FUNCTION_ARGS)
 
 	size = calculate_indexes_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 
@@ -823,7 +831,7 @@ pg_total_relation_size(PG_FUNCTION_ARGS)
 
 	size = calculate_total_relation_size(rel);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && (RelationIsHeap(rel) || RelationIsAppendOptimized(rel)))
 	{
 		char	   *sql;
 

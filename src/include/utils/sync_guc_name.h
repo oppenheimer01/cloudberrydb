@@ -40,12 +40,15 @@
 		"deadlock_timeout",
 		"default_table_access_method",
 		"default_index_access_method",
+#ifndef SERVERLESS
 		"default_tablespace",
+#endif
 		"default_toast_compression",
 		"dml_ignore_target_partition_check",
 		"enable_parallel",
 		"execute_pruned_plan",
 		"explain_memory_verbosity",
+		"extra_float_digits",
 		"force_parallel_mode",
 		"gin_fuzzy_search_limit",
 		"gin_pending_list_limit",

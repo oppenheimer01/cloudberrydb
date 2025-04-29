@@ -101,6 +101,16 @@
 extern uint32 bootstrap_data_checksum_version;
 extern int bootstrap_file_encryption_method;
 
+/*
+ * Hook for plugins to get control in StartupXLOG.
+ */
+StartupXLOG_hook_type StartupXLOG_hook = NULL;
+
+/*
+ * Hook for plugins to get control in XLogFlush.
+ */
+XLogFlush_hook_type XLogFlush_hook = NULL;
+
 /* Unsupported old recovery command file names (relative to $PGDATA) */
 #define RECOVERY_COMMAND_FILE	"recovery.conf"
 #define RECOVERY_COMMAND_DONE	"recovery.done"
@@ -2941,6 +2951,9 @@ XLogFlush(XLogRecPtr record)
 	XLogRecPtr	WriteRqstPtr;
 	XLogwrtRqst WriteRqst;
 
+	if (XLogFlush_hook)
+		return (*XLogFlush_hook) (record);
+
 	/*
 	 * During REDO, we are reading not writing WAL.  Therefore, instead of
 	 * trying to flush the WAL, we should update minRecoveryPoint instead. We
@@ -4008,6 +4021,14 @@ PreallocXlogFiles(XLogRecPtr endptr)
 	int			lf;
 	bool		use_existent;
 	uint64		offset;
+
+	/*
+	 * In serverless architecture, do not need xlog files any more.
+	 */
+#ifdef SERVERLESS
+	if (IsNormalProcessingMode())
+		return;
+#endif /* SERVERLESS */
 
 	XLByteToPrevSeg(endptr, _logSegNo, wal_segment_size);
 	offset = XLogSegmentOffset(endptr - 1, wal_segment_size);
@@ -6760,6 +6781,9 @@ StartupXLOG(void)
 	XLogPageReadPrivate private;
 	bool		promoted = false;
 	struct stat st;
+
+	if (StartupXLOG_hook)
+		return (*StartupXLOG_hook) ();
 
 	/*
 	 * We should have an aux process resource owner to use, and we should not
@@ -14005,4 +14029,22 @@ void
 XLogRequestWalReceiverReply(void)
 {
 	doRequestWalReceiverReply = true;
+}
+
+/*
+ * Return pointer to pg_control in shared memory;
+ */
+ControlFileData *
+GetControlFile(void)
+{
+	return ControlFile;
+}
+
+/*
+ * Return pointer to XLogCtlData in shared memory;
+ */
+XLogCtlData *
+GetXLogCtl(void)
+{
+	return XLogCtl;
 }
