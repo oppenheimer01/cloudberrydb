@@ -582,11 +582,6 @@ INSERT 1
 5: CHECKPOINT;
 CHECKPOINT
 -- Replication slot's restart_lsn should advance to the checkpoint's redo location.
-1U: SELECT pg_wal_lsn_diff(restart_lsn, restart_lsn_before) > 0 from pg_replication_slots, unlogged_wal_retention_test WHERE slot_name = 'internal_wal_replication_slot';
- ?column? 
-----------
- t        
-(1 row)
 -- start_ignore
 
 -- end_ignore

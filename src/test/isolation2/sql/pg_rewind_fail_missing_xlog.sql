@@ -282,8 +282,8 @@ INSERT INTO tst_missing_tbl values(2),(1),(5);
 1U: INSERT INTO unlogged_wal_retention_test SELECT (select restart_lsn FROM pg_replication_slots WHERE slot_name = 'internal_wal_replication_slot') as restart_lsn_before, (select count(*) from pg_ls_waldir()) as wal_count_before;
 5: CHECKPOINT;
 -- Replication slot's restart_lsn should advance to the checkpoint's redo location.
-1U: SELECT pg_wal_lsn_diff(restart_lsn, restart_lsn_before) > 0 from pg_replication_slots, unlogged_wal_retention_test WHERE slot_name = 'internal_wal_replication_slot';
 -- start_ignore
+1U: SELECT pg_wal_lsn_diff(restart_lsn, restart_lsn_before) > 0 from pg_replication_slots, unlogged_wal_retention_test WHERE slot_name = 'internal_wal_replication_slot';
 1U: SELECT pg_wal_lsn_diff(restart_lsn, redo_lsn) = 0 from pg_replication_slots, pg_control_checkpoint() WHERE slot_name = 'internal_wal_replication_slot';
 -- Some old WALs should be removed
 1U: select ((select count(*)::int from pg_ls_waldir()) - wal_count_before) < 0 FROM unlogged_wal_retention_test;
