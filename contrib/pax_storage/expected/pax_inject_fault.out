@@ -25,7 +25,6 @@ HINT:  Inject an infinite 'skip' into the 'fts_probe' fault to disable FTS probi
  Success:
 (3 rows)
 
--- failed because of fault injection
 -- start_ignore
 
 -- end_ignore
