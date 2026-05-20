@@ -15,7 +15,7 @@ log_connections=on
 # to avoid "repairing" corruption
 full_page_writes=off
 log_min_messages=debug2
-shared_buffers=1MB
+shared_buffers=4MB
 ]);
 $node_primary->start;
 
