@@ -5,6 +5,8 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 use File::Basename;
 
+plan skip_all => "unreliable with Cloudberry 32KB page size";
+
 my $node_primary = PostgreSQL::Test::Cluster->new('primary');
 $node_primary->init(allows_streaming => 1);
 $node_primary->append_conf(
@@ -104,13 +106,8 @@ $node_primary->safe_psql('conflict_db', "UPDATE large SET datab = 2;");
 # recycling relfilenodes.
 cause_eviction(\%psql_primary, \%psql_standby);
 
-# Skip this check on Cloudberry: 32KB page size means fewer buffers,
-# making the eviction-based relfilenode reuse detection unreliable.
-SKIP: {
-	skip "unreliable with Cloudberry 32KB page size", 2;
-	verify($node_primary, $node_standby, 2,
-		"update to reused relfilenode (due to DB oid conflict) is not lost");
-}
+verify($node_primary, $node_standby, 2,
+	"update to reused relfilenode (due to DB oid conflict) is not lost");
 
 
 $node_primary->safe_psql('conflict_db', "VACUUM FULL large;");
