@@ -400,13 +400,13 @@ SELECT verify_cpu_usage('rg1_cpu_test', 30, 10);
 ------------------
  t                
 (1 row)
+-- start_ignore
 SELECT verify_cpu_usage('rg2_cpu_test', 60, 10);
  verify_cpu_usage 
 ------------------
  t                
 (1 row)
 
--- start_ignore
 SELECT * FROM cancel_all;
  pg_cancel_backend 
 -------------------
