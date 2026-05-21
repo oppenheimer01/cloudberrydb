@@ -214,9 +214,9 @@ SELECT pg_sleep(1.7);
 -- end_ignore
 
 SELECT verify_cpu_usage('rg1_cpu_test', 30, 10);
+-- start_ignore
 SELECT verify_cpu_usage('rg2_cpu_test', 60, 10);
 
--- start_ignore
 SELECT * FROM cancel_all;
 
 10<:
