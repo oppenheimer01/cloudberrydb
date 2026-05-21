@@ -46,7 +46,7 @@ REGRESS = init md5 sha1 hmac-md5 hmac-sha1 blowfish rijndael sm4\
 	crypt-des crypt-md5 crypt-blowfish crypt-xdes \
 	pgp-armor pgp-decrypt pgp-encrypt $(CF_PGP_TESTS) \
 	pgp-pubkey-decrypt pgp-pubkey-encrypt pgp-info \
-	setup_fips fips
+	setup_fips 
 
 EXTRA_CLEAN = gen-rtab
 
