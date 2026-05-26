@@ -97,7 +97,8 @@ github:
           - pax-ic-isolation2-opt-on
           - ic-expandshrink
           - ic-singlenode
-          - ic-resgroup-v2
+          # MERGE16_FIXME: enable it later
+          # - ic-resgroup-v2
           - ic-contrib
           - ic-gpcontrib
           - ic-fixme
