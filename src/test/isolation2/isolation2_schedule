@@ -319,7 +319,6 @@ test: check_gxid
 # test if GUC is synchronized from the QD to QEs.
 test: sync_guc
 
-
 # Tests for unique indexes on AO/CO tables (uses fault injector)
 test: ao_unique_index
 test: aocs_unique_index
