@@ -97,7 +97,6 @@ github:
           - pax-ic-isolation2-opt-on
           - ic-expandshrink
           - ic-singlenode
-          - ic-resgroup-v2
           - ic-contrib
           - ic-gpcontrib
           - ic-fixme
