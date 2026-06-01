@@ -2365,6 +2365,9 @@ readNodeBinary(void)
 			case T_AppendRelInfo:
 				return_value = _readAppendRelInfo();
 				break;
+			case T_GroupedVarInfo:
+				return_value = _readGroupedVarInfo();
+				break;
 			case T_GrantStmt:
 				return_value = _readGrantStmt();
 				break;
