@@ -32,8 +32,6 @@ OBJS = \
 	tidbitmap.o \
 	value.o
 
-# readfast.c #includes readfuncs.funcs.c. Same with outfast.c and outfuncs.c
-readfast.o: readfast.c readfuncs.funcs.c
 outfast.o: outfuncs.c outfast.c outfuncs_common.c
 
 include $(top_srcdir)/src/backend/common.mk

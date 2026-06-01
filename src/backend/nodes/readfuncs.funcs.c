@@ -229,7 +229,6 @@ _readGroupingSetId(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AggExprId *
 _readAggExprId(void)
 {
@@ -237,9 +236,7 @@ _readAggExprId(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RowIdExpr *
 _readRowIdExpr(void)
 {
@@ -248,7 +245,6 @@ _readRowIdExpr(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static GroupingFunc *
 _readGroupingFunc(void)
@@ -883,7 +879,6 @@ _readOnConflictExpr(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static DMLActionExpr *
 _readDMLActionExpr(void)
 {
@@ -891,7 +886,6 @@ _readDMLActionExpr(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static TypeName *
 _readTypeName(void)
@@ -940,7 +934,6 @@ _readTypeCast(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CollateClause *
 _readCollateClause(void)
 {
@@ -951,9 +944,7 @@ _readCollateClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RoleSpec *
 _readRoleSpec(void)
 {
@@ -964,7 +955,6 @@ _readRoleSpec(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static FuncCall *
 _readFuncCall(void)
@@ -985,7 +975,6 @@ _readFuncCall(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static A_Star *
 _readA_Star(void)
 {
@@ -993,9 +982,7 @@ _readA_Star(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static A_Indices *
 _readA_Indices(void)
 {
@@ -1006,9 +993,7 @@ _readA_Indices(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static A_Indirection *
 _readA_Indirection(void)
 {
@@ -1018,7 +1003,6 @@ _readA_Indirection(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static A_ArrayExpr *
 _readA_ArrayExpr(void)
@@ -1030,7 +1014,6 @@ _readA_ArrayExpr(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static ResTarget *
 _readResTarget(void)
 {
@@ -1042,9 +1025,7 @@ _readResTarget(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static MultiAssignRef *
 _readMultiAssignRef(void)
 {
@@ -1055,7 +1036,6 @@ _readMultiAssignRef(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static SortBy *
 _readSortBy(void)
@@ -1086,7 +1066,6 @@ _readWindowDef(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static RangeSubselect *
 _readRangeSubselect(void)
 {
@@ -1097,9 +1076,7 @@ _readRangeSubselect(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RangeFunction *
 _readRangeFunction(void)
 {
@@ -1113,9 +1090,7 @@ _readRangeFunction(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RangeTableFunc *
 _readRangeTableFunc(void)
 {
@@ -1130,9 +1105,7 @@ _readRangeTableFunc(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RangeTableFuncCol *
 _readRangeTableFuncCol(void)
 {
@@ -1147,9 +1120,7 @@ _readRangeTableFuncCol(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RangeTableSample *
 _readRangeTableSample(void)
 {
@@ -1162,9 +1133,7 @@ _readRangeTableSample(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static TableLikeClause *
 _readTableLikeClause(void)
 {
@@ -1175,7 +1144,6 @@ _readTableLikeClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static IndexElem *
 _readIndexElem(void)
@@ -1217,7 +1185,6 @@ _readDefElem(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static LockingClause *
 _readLockingClause(void)
 {
@@ -1228,9 +1195,7 @@ _readLockingClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static XmlSerialize *
 _readXmlSerialize(void)
 {
@@ -1243,7 +1208,6 @@ _readXmlSerialize(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static DistributionKeyElem *
 _readDistributionKeyElem(void)
@@ -1429,7 +1393,6 @@ _readWithClause(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static InferClause *
 _readInferClause(void)
 {
@@ -1441,9 +1404,7 @@ _readInferClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static OnConflictClause *
 _readOnConflictClause(void)
 {
@@ -1456,7 +1417,6 @@ _readOnConflictClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CTESearchClause *
 _readCTESearchClause(void)
@@ -1509,7 +1469,6 @@ _readCommonTableExpr(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static MergeWhenClause *
 _readMergeWhenClause(void)
 {
@@ -1523,7 +1482,6 @@ _readMergeWhenClause(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static MergeAction *
 _readMergeAction(void)
@@ -1539,7 +1497,6 @@ _readMergeAction(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static TriggerTransition *
 _readTriggerTransition(void)
 {
@@ -1550,9 +1507,7 @@ _readTriggerTransition(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonOutput *
 _readJsonOutput(void)
 {
@@ -1562,9 +1517,7 @@ _readJsonOutput(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonKeyValue *
 _readJsonKeyValue(void)
 {
@@ -1574,9 +1527,7 @@ _readJsonKeyValue(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonObjectConstructor *
 _readJsonObjectConstructor(void)
 {
@@ -1589,9 +1540,7 @@ _readJsonObjectConstructor(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonArrayConstructor *
 _readJsonArrayConstructor(void)
 {
@@ -1603,9 +1552,7 @@ _readJsonArrayConstructor(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonArrayQueryConstructor *
 _readJsonArrayQueryConstructor(void)
 {
@@ -1618,9 +1565,7 @@ _readJsonArrayQueryConstructor(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonAggConstructor *
 _readJsonAggConstructor(void)
 {
@@ -1633,9 +1578,7 @@ _readJsonAggConstructor(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonObjectAgg *
 _readJsonObjectAgg(void)
 {
@@ -1647,9 +1590,7 @@ _readJsonObjectAgg(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static JsonArrayAgg *
 _readJsonArrayAgg(void)
 {
@@ -1660,9 +1601,7 @@ _readJsonArrayAgg(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RawStmt *
 _readRawStmt(void)
 {
@@ -1673,9 +1612,7 @@ _readRawStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static InsertStmt *
 _readInsertStmt(void)
 {
@@ -1690,9 +1627,7 @@ _readInsertStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DeleteStmt *
 _readDeleteStmt(void)
 {
@@ -1705,9 +1640,7 @@ _readDeleteStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static UpdateStmt *
 _readUpdateStmt(void)
 {
@@ -1721,9 +1654,7 @@ _readUpdateStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static MergeStmt *
 _readMergeStmt(void)
 {
@@ -1736,9 +1667,7 @@ _readMergeStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DistributedBy *
 _readDistributedBy(void)
 {
@@ -1749,9 +1678,7 @@ _readDistributedBy(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static SelectStmt *
 _readSelectStmt(void)
 {
@@ -1781,7 +1708,6 @@ _readSelectStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static SetOperationStmt *
 _readSetOperationStmt(void)
@@ -1808,7 +1734,6 @@ _readReturnStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static PLAssignStmt *
 _readPLAssignStmt(void)
 {
@@ -1821,7 +1746,6 @@ _readPLAssignStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreateSchemaStmt *
 _readCreateSchemaStmt(void)
@@ -1860,7 +1784,6 @@ _readCreateTagStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CompoundUtilityStmt *
 _readCompoundUtilityStmt(void)
 {
@@ -1869,7 +1792,6 @@ _readCompoundUtilityStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static AlterTableStmt *
 _readAlterTableStmt(void)
@@ -1942,7 +1864,6 @@ _readGpAlterPartitionId(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static GpDropPartitionCmd *
 _readGpDropPartitionCmd(void)
 {
@@ -1953,7 +1874,6 @@ _readGpDropPartitionCmd(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static GpAlterPartitionCmd *
 _readGpAlterPartitionCmd(void)
@@ -1977,7 +1897,6 @@ _readGpPartitionRangeItem(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static GpSplitPartitionCmd *
 _readGpSplitPartitionCmd(void)
 {
@@ -1991,9 +1910,7 @@ _readGpSplitPartitionCmd(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterCollationStmt *
 _readAlterCollationStmt(void)
 {
@@ -2002,7 +1919,6 @@ _readAlterCollationStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static AlterDomainStmt *
 _readAlterDomainStmt(void)
@@ -2047,7 +1963,6 @@ _readObjectWithArgs(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AccessPriv *
 _readAccessPriv(void)
 {
@@ -2057,7 +1972,6 @@ _readAccessPriv(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static GrantRoleStmt *
 _readGrantRoleStmt(void)
@@ -2084,7 +1998,6 @@ _readSingleRowErrorDesc(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterDefaultPrivilegesStmt *
 _readAlterDefaultPrivilegesStmt(void)
 {
@@ -2094,9 +2007,7 @@ _readAlterDefaultPrivilegesStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CopyStmt *
 _readCopyStmt(void)
 {
@@ -2114,7 +2025,6 @@ _readCopyStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static VariableSetStmt *
 _readVariableSetStmt(void)
@@ -2128,7 +2038,6 @@ _readVariableSetStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static VariableShowStmt *
 _readVariableShowStmt(void)
 {
@@ -2137,9 +2046,7 @@ _readVariableShowStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateStmt *
 _readCreateStmt(void)
 {
@@ -2173,9 +2080,7 @@ _readCreateStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateForeignStmt *
 _readCreateForeignStmt(void)
 {
@@ -2187,7 +2092,6 @@ _readCreateForeignStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static GpPartDefElem *
 _readGpPartDefElem(void)
@@ -2241,7 +2145,6 @@ _readGpPartitionDefinition(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateTableSpaceStmt *
 _readCreateTableSpaceStmt(void)
 {
@@ -2255,9 +2158,7 @@ _readCreateTableSpaceStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropTableSpaceStmt *
 _readDropTableSpaceStmt(void)
 {
@@ -2267,9 +2168,7 @@ _readDropTableSpaceStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterTableSpaceOptionsStmt *
 _readAlterTableSpaceOptionsStmt(void)
 {
@@ -2282,9 +2181,7 @@ _readAlterTableSpaceOptionsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterTableMoveAllStmt *
 _readAlterTableMoveAllStmt(void)
 {
@@ -2297,7 +2194,6 @@ _readAlterTableMoveAllStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static DropTagStmt *
 _readDropTagStmt(void)
@@ -2309,7 +2205,6 @@ _readDropTagStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateTaskStmt *
 _readCreateTaskStmt(void)
 {
@@ -2322,9 +2217,7 @@ _readCreateTaskStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterTaskStmt *
 _readAlterTaskStmt(void)
 {
@@ -2335,9 +2228,7 @@ _readAlterTaskStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropTaskStmt *
 _readDropTaskStmt(void)
 {
@@ -2347,9 +2238,7 @@ _readDropTaskStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateExtensionStmt *
 _readCreateExtensionStmt(void)
 {
@@ -2361,9 +2250,7 @@ _readCreateExtensionStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterExtensionStmt *
 _readAlterExtensionStmt(void)
 {
@@ -2374,9 +2261,7 @@ _readAlterExtensionStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterExtensionContentsStmt *
 _readAlterExtensionContentsStmt(void)
 {
@@ -2388,9 +2273,7 @@ _readAlterExtensionContentsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateFdwStmt *
 _readCreateFdwStmt(void)
 {
@@ -2401,9 +2284,7 @@ _readCreateFdwStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterFdwStmt *
 _readAlterFdwStmt(void)
 {
@@ -2414,9 +2295,7 @@ _readAlterFdwStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateForeignServerStmt *
 _readCreateForeignServerStmt(void)
 {
@@ -2430,9 +2309,7 @@ _readCreateForeignServerStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterForeignServerStmt *
 _readAlterForeignServerStmt(void)
 {
@@ -2444,9 +2321,7 @@ _readAlterForeignServerStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateStorageServerStmt *
 _readCreateStorageServerStmt(void)
 {
@@ -2457,9 +2332,7 @@ _readCreateStorageServerStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterStorageServerStmt *
 _readAlterStorageServerStmt(void)
 {
@@ -2469,9 +2342,7 @@ _readAlterStorageServerStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropStorageServerStmt *
 _readDropStorageServerStmt(void)
 {
@@ -2481,9 +2352,7 @@ _readDropStorageServerStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateForeignTableStmt *
 _readCreateForeignTableStmt(void)
 {
@@ -2520,9 +2389,7 @@ _readCreateForeignTableStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateUserMappingStmt *
 _readCreateUserMappingStmt(void)
 {
@@ -2534,9 +2401,7 @@ _readCreateUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterUserMappingStmt *
 _readAlterUserMappingStmt(void)
 {
@@ -2547,9 +2412,7 @@ _readAlterUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropUserMappingStmt *
 _readDropUserMappingStmt(void)
 {
@@ -2560,9 +2423,7 @@ _readDropUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateStorageUserMappingStmt *
 _readCreateStorageUserMappingStmt(void)
 {
@@ -2574,9 +2435,7 @@ _readCreateStorageUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterStorageUserMappingStmt *
 _readAlterStorageUserMappingStmt(void)
 {
@@ -2587,9 +2446,7 @@ _readAlterStorageUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropStorageUserMappingStmt *
 _readDropStorageUserMappingStmt(void)
 {
@@ -2600,9 +2457,7 @@ _readDropStorageUserMappingStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static ImportForeignSchemaStmt *
 _readImportForeignSchemaStmt(void)
 {
@@ -2616,9 +2471,7 @@ _readImportForeignSchemaStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AddForeignSegStmt *
 _readAddForeignSegStmt(void)
 {
@@ -2629,7 +2482,6 @@ _readAddForeignSegStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreatePolicyStmt *
 _readCreatePolicyStmt(void)
@@ -2659,7 +2511,6 @@ _readAlterPolicyStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateAmStmt *
 _readCreateAmStmt(void)
 {
@@ -2670,9 +2521,7 @@ _readCreateAmStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateTrigStmt *
 _readCreateTrigStmt(void)
 {
@@ -2696,9 +2545,7 @@ _readCreateTrigStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateEventTrigStmt *
 _readCreateEventTrigStmt(void)
 {
@@ -2710,9 +2557,7 @@ _readCreateEventTrigStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterEventTrigStmt *
 _readAlterEventTrigStmt(void)
 {
@@ -2722,7 +2567,6 @@ _readAlterEventTrigStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreatePLangStmt *
 _readCreatePLangStmt(void)
@@ -2738,7 +2582,6 @@ _readCreatePLangStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateQueueStmt *
 _readCreateQueueStmt(void)
 {
@@ -2748,9 +2591,7 @@ _readCreateQueueStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterQueueStmt *
 _readAlterQueueStmt(void)
 {
@@ -2760,9 +2601,7 @@ _readAlterQueueStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropQueueStmt *
 _readDropQueueStmt(void)
 {
@@ -2771,9 +2610,7 @@ _readDropQueueStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateResourceGroupStmt *
 _readCreateResourceGroupStmt(void)
 {
@@ -2783,9 +2620,7 @@ _readCreateResourceGroupStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropResourceGroupStmt *
 _readDropResourceGroupStmt(void)
 {
@@ -2794,9 +2629,7 @@ _readDropResourceGroupStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterResourceGroupStmt *
 _readAlterResourceGroupStmt(void)
 {
@@ -2806,7 +2639,6 @@ _readAlterResourceGroupStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreateRoleStmt *
 _readCreateRoleStmt(void)
@@ -3008,7 +2840,6 @@ _readAlterOpFamilyStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateDirectoryTableStmt *
 _readCreateDirectoryTableStmt(void)
 {
@@ -3044,9 +2875,7 @@ _readCreateDirectoryTableStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterDirectoryTableStmt *
 _readAlterDirectoryTableStmt(void)
 {
@@ -3057,7 +2886,6 @@ _readAlterDirectoryTableStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static DropStmt *
 _readDropStmt(void)
@@ -3099,7 +2927,6 @@ _readTruncateStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CommentStmt *
 _readCommentStmt(void)
 {
@@ -3110,9 +2937,7 @@ _readCommentStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static SecLabelStmt *
 _readSecLabelStmt(void)
 {
@@ -3124,7 +2949,6 @@ _readSecLabelStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static DeclareCursorStmt *
 _readDeclareCursorStmt(void)
@@ -3137,7 +2961,6 @@ _readDeclareCursorStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static ClosePortalStmt *
 _readClosePortalStmt(void)
 {
@@ -3146,9 +2969,7 @@ _readClosePortalStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static FetchStmt *
 _readFetchStmt(void)
 {
@@ -3160,9 +2981,7 @@ _readFetchStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateStatsStmt *
 _readCreateStatsStmt(void)
 {
@@ -3177,9 +2996,7 @@ _readCreateStatsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static StatsElem *
 _readStatsElem(void)
 {
@@ -3189,9 +3006,7 @@ _readStatsElem(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterStatsStmt *
 _readAlterStatsStmt(void)
 {
@@ -3202,7 +3017,6 @@ _readAlterStatsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreateFunctionStmt *
 _readCreateFunctionStmt(void)
@@ -3242,7 +3056,6 @@ _readAlterFunctionStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static DoStmt *
 _readDoStmt(void)
 {
@@ -3251,9 +3064,7 @@ _readDoStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CallStmt *
 _readCallStmt(void)
 {
@@ -3264,7 +3075,6 @@ _readCallStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static RenameStmt *
 _readRenameStmt(void)
@@ -3283,7 +3093,6 @@ _readRenameStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterObjectDependsStmt *
 _readAlterObjectDependsStmt(void)
 {
@@ -3296,7 +3105,6 @@ _readAlterObjectDependsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static AlterObjectSchemaStmt *
 _readAlterObjectSchemaStmt(void)
@@ -3323,7 +3131,6 @@ _readAlterOwnerStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterOperatorStmt *
 _readAlterOperatorStmt(void)
 {
@@ -3333,7 +3140,6 @@ _readAlterOperatorStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static AlterTypeStmt *
 _readAlterTypeStmt(void)
@@ -3370,7 +3176,6 @@ _readNotifyStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static ListenStmt *
 _readListenStmt(void)
 {
@@ -3379,9 +3184,7 @@ _readListenStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static UnlistenStmt *
 _readUnlistenStmt(void)
 {
@@ -3390,9 +3193,7 @@ _readUnlistenStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static TransactionStmt *
 _readTransactionStmt(void)
 {
@@ -3405,7 +3206,6 @@ _readTransactionStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CompositeTypeStmt *
 _readCompositeTypeStmt(void)
@@ -3427,7 +3227,6 @@ _readCreateEnumStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateRangeStmt *
 _readCreateRangeStmt(void)
 {
@@ -3437,9 +3236,7 @@ _readCreateRangeStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterEnumStmt *
 _readAlterEnumStmt(void)
 {
@@ -3453,7 +3250,6 @@ _readAlterEnumStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static ViewStmt *
 _readViewStmt(void)
@@ -3470,7 +3266,6 @@ _readViewStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static LoadStmt *
 _readLoadStmt(void)
 {
@@ -3479,7 +3274,6 @@ _readLoadStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static CreatedbStmt *
 _readCreatedbStmt(void)
@@ -3492,7 +3286,6 @@ _readCreatedbStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterDatabaseStmt *
 _readAlterDatabaseStmt(void)
 {
@@ -3504,9 +3297,7 @@ _readAlterDatabaseStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterDatabaseRefreshCollStmt *
 _readAlterDatabaseRefreshCollStmt(void)
 {
@@ -3515,9 +3306,7 @@ _readAlterDatabaseRefreshCollStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterDatabaseSetStmt *
 _readAlterDatabaseSetStmt(void)
 {
@@ -3527,7 +3316,6 @@ _readAlterDatabaseSetStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static DropdbStmt *
 _readDropdbStmt(void)
@@ -3582,7 +3370,6 @@ _readVacuumRelation(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static ExplainStmt *
 _readExplainStmt(void)
 {
@@ -3592,9 +3379,7 @@ _readExplainStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateTableAsStmt *
 _readCreateTableAsStmt(void)
 {
@@ -3607,9 +3392,7 @@ _readCreateTableAsStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RefreshMatViewStmt *
 _readRefreshMatViewStmt(void)
 {
@@ -3621,9 +3404,7 @@ _readRefreshMatViewStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CheckPointStmt *
 _readCheckPointStmt(void)
 {
@@ -3631,9 +3412,7 @@ _readCheckPointStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DiscardStmt *
 _readDiscardStmt(void)
 {
@@ -3642,7 +3421,6 @@ _readDiscardStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static LockStmt *
 _readLockStmt(void)
@@ -3734,7 +3512,6 @@ _readCreateTransformStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static PrepareStmt *
 _readPrepareStmt(void)
 {
@@ -3745,9 +3522,7 @@ _readPrepareStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static ExecuteStmt *
 _readExecuteStmt(void)
 {
@@ -3757,9 +3532,7 @@ _readExecuteStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DeallocateStmt *
 _readDeallocateStmt(void)
 {
@@ -3768,9 +3541,7 @@ _readDeallocateStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropOwnedStmt *
 _readDropOwnedStmt(void)
 {
@@ -3780,9 +3551,7 @@ _readDropOwnedStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static ReassignOwnedStmt *
 _readReassignOwnedStmt(void)
 {
@@ -3792,9 +3561,7 @@ _readReassignOwnedStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterTSDictionaryStmt *
 _readAlterTSDictionaryStmt(void)
 {
@@ -3804,9 +3571,7 @@ _readAlterTSDictionaryStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static AlterTSConfigurationStmt *
 _readAlterTSConfigurationStmt(void)
 {
@@ -3821,7 +3586,6 @@ _readAlterTSConfigurationStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static PublicationTable *
 _readPublicationTable(void)
@@ -3907,7 +3671,6 @@ _readDropSubscriptionStmt(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static RetrieveStmt *
 _readRetrieveStmt(void)
 {
@@ -3918,9 +3681,7 @@ _readRetrieveStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static CreateWarehouseStmt *
 _readCreateWarehouseStmt(void)
 {
@@ -3931,9 +3692,7 @@ _readCreateWarehouseStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DropWarehouseStmt *
 _readDropWarehouseStmt(void)
 {
@@ -3942,9 +3701,7 @@ _readDropWarehouseStmt(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static RelAggInfo *
 _readRelAggInfo(void)
 {
@@ -3962,9 +3719,7 @@ _readRelAggInfo(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static DistributionKey *
 _readDistributionKey(void)
 {
@@ -3974,9 +3729,7 @@ _readDistributionKey(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
-#ifndef COMPILING_BINARY_FUNCS
 static PlaceHolderVar *
 _readPlaceHolderVar(void)
 {
@@ -3989,7 +3742,6 @@ _readPlaceHolderVar(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static AppendRelInfo *
 _readAppendRelInfo(void)
@@ -4029,7 +3781,6 @@ _readSegfileMapNode(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 static ExternalScanInfo *
 _readExternalScanInfo(void)
 {
@@ -4046,7 +3797,6 @@ _readExternalScanInfo(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 static NestLoopParam *
 _readNestLoopParam(void)
@@ -4141,10 +3891,6 @@ _readPlanInvalItem(void)
  * These functions work with both text (readfuncs.c) and binary (readfast.c)
  * READ_* macro sets. They are placed here so both readers can share them.
  */
-
-
-
-
 
 
 /*
@@ -4276,10 +4022,7 @@ _readRangeTblFunction(void)
 	READ_NODE_FIELD(funccoltypes);
 	READ_NODE_FIELD(funccoltypmods);
 	READ_NODE_FIELD(funccolcollations);
-	/* funcuserdata is only serialized in binary out/read functions */
-#ifdef COMPILING_BINARY_FUNCS
-	READ_BYTEA_FIELD(funcuserdata);
-#endif
+	/* funcuserdata is only serialized in binary format, skip in text mode */
 	READ_BITMAPSET_FIELD(funcparams);
 
 	READ_DONE();
@@ -4289,7 +4032,6 @@ _readRangeTblFunction(void)
  * Apache Cloudberry additions for serialization support
  * These are currently not used (see outfastc ad readfast.c)
  */
-
 
 
 /*
@@ -4326,9 +4068,7 @@ _readPlannedStmt(void)
 	READ_NODE_FIELD(rowMarks);
 	READ_NODE_FIELD(relationOids);
 	/* invalItems not serialized in binary mode */
-#ifndef COMPILING_BINARY_FUNCS
 	READ_NODE_FIELD(invalItems);
-#endif /* COMPILING_BINARY_FUNCS */
 	READ_NODE_FIELD(paramExecTypes);
 	READ_NODE_FIELD(utilityStmt);
 	READ_LOCATION_FIELD(stmt_location);
@@ -4390,9 +4130,7 @@ ReadCommonPlan(Plan *local_node)
 	READ_BITMAPSET_FIELD(extParam);
 	READ_BITMAPSET_FIELD(allParam);
 
-#ifndef COMPILING_BINARY_FUNCS
 	READ_NODE_FIELD(flow);
-#endif /* COMPILING_BINARY_FUNCS */
 
 	READ_UINT64_FIELD(operatorMemKB);
 }
@@ -4959,7 +4697,6 @@ readForeignScanFields(ForeignScan *local_node)
 }
 
 
-#ifndef COMPILING_BINARY_FUNCS
 /*
  * _readCustomScan
  */
@@ -4988,7 +4725,6 @@ _readCustomScan(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 /*
  * ReadCommonJoin
@@ -5150,7 +4886,6 @@ _readIncrementalSort(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 /*
  * _readGroup
  */
@@ -5168,7 +4903,6 @@ _readGroup(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
 
 /*
  * _readAgg
@@ -5414,15 +5148,6 @@ _readLimit(void)
 }
 
 
-
-
-
-
-
-
-
-
-#ifndef COMPILING_BINARY_FUNCS
 /*
  * _readExtensibleNode
  */
@@ -5452,21 +5177,6 @@ _readExtensibleNode(void)
 
 	READ_DONE();
 }
-#endif /* COMPILING_BINARY_FUNCS */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 static void unwrapStringList(List *list);
