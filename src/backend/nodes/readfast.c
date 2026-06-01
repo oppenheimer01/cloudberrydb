@@ -4298,7 +4298,7 @@ _readQuery(void)
 static DMLActionExpr *
 _readDMLActionExpr(void)
 {
-	READ_LOCALS(DMLActionExpr);
+	READ_LOCALS_NO_FIELDS(DMLActionExpr);
 
 	READ_DONE();
 }
@@ -4578,7 +4578,7 @@ _readAConst(void)
 static A_Star *
 _readA_Star(void)
 {
-	READ_LOCALS(A_Star);
+	READ_LOCALS_NO_FIELDS(A_Star);
 	READ_DONE();
 }
 
@@ -5750,7 +5750,7 @@ _readLockingClause(void)
 static AggExprId *
 _readAggExprId(void)
 {
-	READ_LOCALS(AggExprId);
+	READ_LOCALS_NO_FIELDS(AggExprId);
 	READ_DONE();
 }
 
