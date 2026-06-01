@@ -197,6 +197,98 @@ _copyBitmapset(const Bitmapset *from)
 }
 
 
+static PlannedStmt *
+_copyPlannedStmt(const PlannedStmt *from)
+{
+	PlannedStmt *newnode = makeNode(PlannedStmt);
+
+	COPY_SCALAR_FIELD(commandType);
+	COPY_SCALAR_FIELD(planGen);
+	COPY_SCALAR_FIELD(queryId);
+	COPY_SCALAR_FIELD(hasReturning);
+	COPY_SCALAR_FIELD(hasModifyingCTE);
+	COPY_SCALAR_FIELD(canSetTag);
+	COPY_SCALAR_FIELD(transientPlan);
+	COPY_SCALAR_FIELD(oneoffPlan);
+	COPY_SCALAR_FIELD(simplyUpdatableRel);
+	COPY_SCALAR_FIELD(dependsOnRole);
+	COPY_SCALAR_FIELD(parallelModeNeeded);
+	COPY_SCALAR_FIELD(jitFlags);
+	COPY_NODE_FIELD(planTree);
+	COPY_SCALAR_FIELD(numSlices);
+	newnode->slices = palloc(from->numSlices * sizeof(PlanSlice));
+	for (int i = 0; i < from->numSlices; i++)
+	{
+		COPY_SCALAR_FIELD(slices[i].sliceIndex);
+		COPY_SCALAR_FIELD(slices[i].parentIndex);
+		COPY_SCALAR_FIELD(slices[i].gangType);
+		COPY_SCALAR_FIELD(slices[i].numsegments);
+		COPY_SCALAR_FIELD(slices[i].parallel_workers);
+		COPY_SCALAR_FIELD(slices[i].segindex);
+		COPY_SCALAR_FIELD(slices[i].directDispatch.isDirectDispatch);
+		COPY_NODE_FIELD(slices[i].directDispatch.contentIds);
+	}
+	COPY_NODE_FIELD(rtable);
+	COPY_NODE_FIELD(permInfos);
+	COPY_NODE_FIELD(resultRelations);
+	COPY_NODE_FIELD(appendRelations);
+	COPY_NODE_FIELD(subplans);
+	COPY_POINTER_FIELD(subplan_sliceIds, list_length(from->subplans) * sizeof(int));
+	COPY_BITMAPSET_FIELD(rewindPlanIDs);
+	COPY_NODE_FIELD(rowMarks);
+	COPY_NODE_FIELD(relationOids);
+	COPY_NODE_FIELD(invalItems);
+	COPY_NODE_FIELD(paramExecTypes);
+	COPY_NODE_FIELD(utilityStmt);
+	COPY_LOCATION_FIELD(stmt_location);
+	COPY_SCALAR_FIELD(stmt_len);
+	COPY_NODE_FIELD(intoPolicy);
+	COPY_SCALAR_FIELD(query_mem);
+	COPY_NODE_FIELD(intoClause);
+	COPY_NODE_FIELD(copyIntoClause);
+	COPY_NODE_FIELD(refreshClause);
+	COPY_SCALAR_FIELD(metricsQueryType);
+	COPY_NODE_FIELD(extensionContext);
+
+	return newnode;
+}
+
+
+static ColumnDef *
+_copyColumnDef(const ColumnDef *from)
+{
+	ColumnDef  *newnode = makeNode(ColumnDef);
+
+	COPY_STRING_FIELD(colname);
+	COPY_NODE_FIELD(typeName);
+	COPY_STRING_FIELD(compression);
+	COPY_SCALAR_FIELD(inhcount);
+	COPY_SCALAR_FIELD(is_local);
+	COPY_SCALAR_FIELD(is_not_null);
+	COPY_SCALAR_FIELD(is_from_type);
+	COPY_SCALAR_FIELD(attnum);
+	COPY_SCALAR_FIELD(storage);
+	COPY_STRING_FIELD(storage_name);
+	COPY_NODE_FIELD(raw_default);
+	COPY_NODE_FIELD(cooked_default);
+	COPY_SCALAR_FIELD(hasCookedMissingVal);
+	COPY_SCALAR_FIELD(missingIsNull);
+	if (from->hasCookedMissingVal && !from->missingIsNull)
+		newnode->missingVal = datumCopy(from->missingVal, false, -1);
+	COPY_SCALAR_FIELD(identity);
+	COPY_NODE_FIELD(identitySequence);
+	COPY_SCALAR_FIELD(generated);
+	COPY_NODE_FIELD(collClause);
+	COPY_SCALAR_FIELD(collOid);
+	COPY_NODE_FIELD(constraints);
+	COPY_NODE_FIELD(encoding);
+	COPY_NODE_FIELD(fdwoptions);
+	COPY_LOCATION_FIELD(location);
+
+	return newnode;
+}
+
+
 /*
  * copyObjectImpl -- implementation of copyObject(); see nodes/nodes.h
  *

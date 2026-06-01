@@ -77,7 +77,7 @@ typedef enum DMLAction
  */
 typedef struct PlannedStmt
 {
-	pg_node_attr(no_equal, no_query_jumble)
+	pg_node_attr(no_equal, no_query_jumble, custom_read_write, custom_copy_equal)
 
 	NodeTag		type;
 
@@ -272,7 +272,7 @@ typedef struct PlanSlice
  */
 typedef struct Plan
 {
-	pg_node_attr(abstract, no_equal, no_query_jumble)
+	pg_node_attr(abstract, no_equal, no_query_jumble, custom_read_write)
 
 	NodeTag		type;
 

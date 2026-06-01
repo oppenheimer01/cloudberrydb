@@ -152,6 +152,8 @@ typedef uint8 ParentStmtType;
  */
 typedef struct Query
 {
+	pg_node_attr(custom_read_write)
+
 	NodeTag		type;
 
 	CmdType		commandType;	/* select|insert|update|delete|merge|utility */
@@ -768,6 +770,8 @@ typedef struct RangeTableSample
  */
 typedef struct ColumnDef
 {
+	pg_node_attr(custom_copy_equal, custom_read_write)
+
 	NodeTag		type;
 	char	   *colname;		/* name of column */
 	TypeName   *typeName;		/* type of column */

@@ -863,6 +863,8 @@ typedef struct NamedArgExpr
  */
 typedef struct OpExpr
 {
+	pg_node_attr(custom_read_write)
+
 	Expr		xpr;
 
 	/* PG_OPERATOR OID of the operator */

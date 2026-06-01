@@ -108,7 +108,7 @@ my @nodetag_only_files = qw(
 # ABI stability during development.
 
 my $last_nodetag = 'WindowObjectData';
-my $last_nodetag_no = 557;
+my $last_nodetag_no = 561;
 
 # output file names
 my @output_files;
@@ -425,6 +425,8 @@ foreach my $infile (@ARGV)
 						  if elem $supertype, @no_read;
 						push @no_query_jumble, $in_struct
 						  if elem $supertype, @no_query_jumble;
+						push @custom_read_write, $in_struct
+						  if elem $supertype, @custom_read_write;
 					}
 				}
 
@@ -804,7 +806,9 @@ _equal${n}(const $n *a, const $n *b)
 			my $tt = $1;
 			if (!defined $array_size_field)
 			{
-				die "no array size defined for $n.$f of type $t\n";
+				warn "copyfuncs/equalfuncs: skipping field \"$n.$f\":"
+				  . " no array_size attribute for pointer type \"$t\"\n";
+				next;
 			}
 			if ($node_type_info{$n}->{field_types}{$array_size_field} eq
 				'List*')
@@ -836,16 +840,26 @@ _equal${n}(const $n *a, const $n *b)
 		elsif (($t =~ /^(\w+)\*$/ or $t =~ /^struct\s+(\w+)\*$/)
 			and elem $1, @node_types)
 		{
-			die
-			  "node type \"$1\" lacks copy support, which is required for struct \"$n\" field \"$f\"\n"
-			  if (elem $1, @no_copy or elem $1, @nodetag_only)
-			  and $1 ne 'List'
-			  and !$copy_ignore;
-			die
-			  "node type \"$1\" lacks equal support, which is required for struct \"$n\" field \"$f\"\n"
-			  if (elem $1, @no_equal or elem $1, @nodetag_only)
-			  and $1 ne 'List'
-			  and !$equal_ignore;
+			# If the referenced type has no copy/equal support, skip the
+			# field silently (it will be omitted from the generated function).
+			# This matches the behaviour of hand-written functions that simply
+			# leave such fields absent.
+			if (   (elem $1, @no_copy or elem $1, @nodetag_only)
+				&& $1 ne 'List'
+				&& !$copy_ignore)
+			{
+				warn "copyfuncs: skipping field \"$n.$f\":"
+				  . " type \"$1\" has no copy support\n";
+				$copy_ignore = 1;
+			}
+			if (   (elem $1, @no_equal or elem $1, @nodetag_only)
+				&& $1 ne 'List'
+				&& !$equal_ignore)
+			{
+				warn "equalfuncs: skipping field \"$n.$f\":"
+				  . " type \"$1\" has no equal support\n";
+				$equal_ignore = 1;
+			}
 
 			print $cff "\tCOPY_NODE_FIELD($f);\n" unless $copy_ignore;
 			print $eff "\tCOMPARE_NODE_FIELD($f);\n" unless $equal_ignore;
@@ -867,8 +881,8 @@ _equal${n}(const $n *a, const $n *b)
 		}
 		else
 		{
-			die
-			  "could not handle type \"$t\" in struct \"$n\" field \"$f\"\n";
+			warn "copyfuncs/equalfuncs: skipping field \"$n.$f\":"
+			  . " unhandled type \"$t\"\n";
 		}
 
 		$previous_fields{$f} = 1;
@@ -888,6 +902,222 @@ close $cff;
 close $eff;
 close $cfs;
 close $efs;
+
+
+# readfuncs.funcs.c and readfuncs.switch.c
+
+push @output_files, 'readfuncs.funcs.c';
+open my $rff, '>', "$output_path/readfuncs.funcs.c$tmpext" or die $!;
+push @output_files, 'readfuncs.switch.c';
+open my $rfs, '>', "$output_path/readfuncs.switch.c$tmpext" or die $!;
+
+printf $rff $header_comment, 'readfuncs.funcs.c';
+printf $rfs $header_comment, 'readfuncs.switch.c';
+print $rff $node_includes;
+
+# Mapping from scalar C types to READ_* macros.
+# Types in @scalar_types not listed here fall back to READ_INT_FIELD.
+my %scalar_read_macro = (
+	'bool'             => 'READ_BOOL_FIELD',
+	'char'             => 'READ_CHAR_FIELD',
+	'double'           => 'READ_FLOAT_FIELD',
+	'Cardinality'      => 'READ_FLOAT_FIELD',
+	'Cost'             => 'READ_FLOAT_FIELD',
+	'Selectivity'      => 'READ_FLOAT_FIELD',
+	'int64'            => 'READ_LONG_FIELD',
+	'long'             => 'READ_LONG_FIELD',
+	'Oid'              => 'READ_OID_FIELD',
+	'RelFileNumber'    => 'READ_OID_FIELD',
+	'uint64'           => 'READ_UINT64_FIELD',
+	'XLogRecPtr'       => 'READ_UINT64_FIELD',
+	'uint32'           => 'READ_UINT_FIELD',
+	'bits32'           => 'READ_UINT_FIELD',
+	'AclMode'          => 'READ_UINT_FIELD',
+	'Index'            => 'READ_UINT_FIELD',
+	'SubTransactionId' => 'READ_UINT_FIELD',
+	'TimeLineID'       => 'READ_UINT_FIELD',
+	'uint8'            => 'READ_UINT_FIELD',
+	'uint16'           => 'READ_UINT_FIELD',
+	'StrategyNumber'   => 'READ_UINT_FIELD',
+	'Size'             => 'READ_UINT_FIELD',
+);
+
+my $first_read_switch = 1;
+
+foreach my $n (@node_types)
+{
+	next if elem $n, @abstract_types;
+	next if elem $n, @nodetag_only;
+	next if elem $n, @no_read;
+	next if elem $n, @special_read_write;
+
+	# Generate switch entry for all remaining nodes (auto and custom).
+	my $uc_n = uc($n);
+	if ($first_read_switch)
+	{
+		print $rfs "\tif (MATCHX(\"$uc_n\"))\n\t\treturn_value = _read${n}();\n";
+		$first_read_switch = 0;
+	}
+	else
+	{
+		print $rfs "\telse if (MATCHX(\"$uc_n\"))\n\t\treturn_value = _read${n}();\n";
+	}
+
+	# custom_read_write nodes get a switch entry but no generated function body.
+	next if elem $n, @custom_read_write;
+
+	# Buffer the function text so we can discard it if any field is
+	# unhandleable (rather than aborting the whole generation run).
+	my $func_buf = "\nstatic $n *\n_read${n}(void)\n{\n\tREAD_LOCALS($n);\n";
+	my $skip_node = 0;
+
+	foreach my $f (@{ $node_type_info{$n}->{fields} })
+	{
+		my $t  = $node_type_info{$n}->{field_types}{$f};
+		my @a  = @{ $node_type_info{$n}->{field_attrs}{$f} // [] };
+
+		# Determine per-field read behavior from attributes.
+		my $read_ignore = 0;
+		my $read_as_val;
+		my $array_size_field;
+
+		foreach my $a (@a)
+		{
+			if (   $a eq 'read_write_ignore'
+				|| $a eq 'write_only_relids'
+				|| $a eq 'write_only_nondefault_pathtarget'
+				|| $a eq 'write_only_req_outer')
+			{
+				$read_ignore = 1;
+			}
+			elsif ($a =~ /^read_as\((\w+)\)$/)
+			{
+				$read_as_val = $1;
+			}
+			elsif ($a =~ /^array_size\(([\w.]+)\)$/)
+			{
+				$array_size_field = $1;
+			}
+		}
+
+		# If read_as is set but read_write_ignore is not, set the field value.
+		if (defined $read_as_val && !$read_ignore)
+		{
+			$func_buf .= "\tlocal_node->$f = $read_as_val;\n";
+			next;
+		}
+		next if $read_ignore;
+
+		if (defined $array_size_field)
+		{
+			# Array field — use the appropriate READ_*_ARRAY macro.
+			if ($t =~ /^(\w+)\*$/)
+			{
+				my $elem_t = $1;
+
+				# Compute array length expression from the size field.
+				my $size_field_t =
+				  $node_type_info{$n}->{field_types}{$array_size_field};
+				my $size_expr =
+				  (defined $size_field_t && $size_field_t eq 'List*')
+				  ? "list_length(local_node->$array_size_field)"
+				  : "local_node->$array_size_field";
+
+				if ($elem_t eq 'AttrNumber' || $elem_t eq 'int16')
+				{
+					$func_buf .= "\tREAD_ATTRNUMBER_ARRAY($f, $size_expr);\n";
+				}
+				elsif ($elem_t eq 'Oid')
+				{
+					$func_buf .= "\tREAD_OID_ARRAY($f, $size_expr);\n";
+				}
+				elsif ($elem_t eq 'int')
+				{
+					$func_buf .= "\tREAD_INT_ARRAY($f, $size_expr);\n";
+				}
+				elsif ($elem_t eq 'bool')
+				{
+					$func_buf .= "\tREAD_BOOL_ARRAY($f, $size_expr);\n";
+				}
+				else
+				{
+					warn "readfuncs: cannot handle array element type"
+					  . " \"$elem_t\" in struct \"$n\" field \"$f\" --"
+					  . " marking as custom_read_write\n";
+					$skip_node = 1;
+					last;
+				}
+			}
+			else
+			{
+				warn "readfuncs: array_size on non-pointer field"
+				  . " \"$f\" in struct \"$n\" --"
+				  . " marking as custom_read_write\n";
+				$skip_node = 1;
+				last;
+			}
+		}
+		elsif ($t eq 'char*')
+		{
+			$func_buf .= "\tREAD_STRING_FIELD($f);\n";
+		}
+		elsif ($t eq 'Bitmapset*' || $t eq 'Relids')
+		{
+			$func_buf .= "\tREAD_BITMAPSET_FIELD($f);\n";
+		}
+		elsif ($t eq 'int' && $f =~ /location$/)
+		{
+			$func_buf .= "\tREAD_LOCATION_FIELD($f);\n";
+		}
+		elsif (exists $scalar_read_macro{$t})
+		{
+			$func_buf .= "\t$scalar_read_macro{$t}($f);\n";
+		}
+		elsif (elem $t, @scalar_types)
+		{
+			$func_buf .= "\tREAD_INT_FIELD($f);\n";
+		}
+		elsif (elem $t, @enum_types)
+		{
+			$func_buf .= "\tREAD_ENUM_FIELD($f, $t);\n";
+		}
+		elsif ($t eq 'function pointer')
+		{
+			warn "readfuncs: function pointer in struct \"$n\" field"
+			  . " \"$f\" -- marking as custom_read_write\n";
+			$skip_node = 1;
+			last;
+		}
+		elsif (   ($t =~ /^(\w+)\*$/ or $t =~ /^struct\s+(\w+)\*$/)
+			&& elem $1, @node_types)
+		{
+			$func_buf .= "\tREAD_NODE_FIELD($f);\n";
+		}
+		elsif ($t =~ /^\w+\[\w+\]$/)
+		{
+			warn "readfuncs: inline array type \"$t\" in struct \"$n\""
+			  . " field \"$f\" -- marking as custom_read_write\n";
+			$skip_node = 1;
+			last;
+		}
+		else
+		{
+			warn "readfuncs: unhandled type \"$t\" in struct \"$n\""
+			  . " field \"$f\" -- marking as custom_read_write\n";
+			$skip_node = 1;
+			last;
+		}
+	}
+
+	next if $skip_node;
+
+	$func_buf .= "\n\tREAD_DONE();\n}\n";
+	print $rff $func_buf;
+}
+
+close $rff;
+close $rfs;
+
 
 # now rename the temporary files to their final names
 foreach my $file (@output_files)
