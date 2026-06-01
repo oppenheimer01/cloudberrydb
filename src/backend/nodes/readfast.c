@@ -11,21 +11,13 @@
  * These routines must be exactly the inverse of the routines in
  * outfast.c.
  *
- * For most node types, these routines are identical to the text reader
- * functions, in readfuncs.c. To avoid code duplication and merge hazards
- * (readfast.c is a Cloudberry addon), most read routines borrow the source
- * definition from readfuncs.c, we just compile it with different READ_*
- * macros.
- *
- * The way that works is that readfast.c defines all the necessary macros,
- * as well as COMPILING_BINARY_FUNCS, and then #includes readfuncs.c. For
- * those node types where the binary and text functions are different,
- * the function in readfuncs.c is put in a #ifndef COMPILING_BINARY_FUNCS
- * block, and readfast.c provides the binary version of the function.
+ * For most node types, these routines use the same source definition as the
+ * text reader (readfuncs.c), compiled with different READ_* macros.
+ * Shared read functions live in readfuncs.funcs.c, which is #included here
+ * with COMPILING_BINARY_FUNCS defined so binary READ_* macros are active.
+ * Functions that differ between binary and text representations, or that
+ * only exist in binary format, are defined directly in this file.
  * outfast.c and outfuncs.c have a similar relationship.
- *
- * By this, CDB could link only readfast.o (#includes readfuncs.c) to get all
- * the fast version deserializing functions, outfast.o likewise.
  *
  *-------------------------------------------------------------------------
  */
@@ -231,14 +223,16 @@ static Bitmapset *_readBitmapset(void);
 static const char *read_str_ptr;
 
 /*
- * For most structs, we reuse the definitions from readfuncs.c. See comment
- * in readfuncs.c.
+ * Shared read functions work with both text and binary READ_* macros.
+ * The binary macros defined above are active when this file is included.
+ * Functions that differ between text and binary are defined below as
+ * binary-specific overrides.
  */
 #define COMPILING_BINARY_FUNCS
-#include "readfuncs.c"
+#include "readfuncs.funcs.c"
 
 /*
- * For some structs, we have to provide a read functions because it differs
+ * For some structs, we have to provide a read function because it differs
  * from the text version (or the text version doesn't exist at all).
  */
 
