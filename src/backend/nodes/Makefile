@@ -32,6 +32,4 @@ OBJS = \
 	tidbitmap.o \
 	value.o
 
-outfast.o: outfuncs.c outfast.c outfuncs_common.c
-
 include $(top_srcdir)/src/backend/common.mk
