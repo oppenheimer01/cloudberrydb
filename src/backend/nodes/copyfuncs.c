@@ -96,6 +96,32 @@
  *					 plannodes.h copy functions
  * ****************************************************************
  */
+
+/*
+ * RelAggInfo contains PathTarget* and RelOptInfo* fields which have
+ * no_copy_equal, so we shallow-copy those pointers rather than deep-copying.
+ */
+static RelAggInfo *
+_copyRelAggInfo(const RelAggInfo *from)
+{
+	RelAggInfo *newnode = makeNode(RelAggInfo);
+
+	COPY_BITMAPSET_FIELD(relids);
+	/* PathTarget has no_copy_equal; copy pointer as-is */
+	newnode->target = from->target;
+	newnode->agg_input = from->agg_input;
+	COPY_SCALAR_FIELD(input_rows);
+	COPY_NODE_FIELD(group_clauses);
+	COPY_NODE_FIELD(group_exprs);
+	COPY_NODE_FIELD(agg_exprs);
+	COPY_SCALAR_FIELD(build_from_plain);
+	/* RelOptInfo has no_copy_equal; copy pointer as-is */
+	newnode->rel_grouped = from->rel_grouped;
+	newnode->rel_grouped_non_plain = from->rel_grouped_non_plain;
+
+	return newnode;
+}
+
 #include "copyfuncs.funcs.c"
 
 
