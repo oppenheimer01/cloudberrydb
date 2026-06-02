@@ -968,8 +968,13 @@ foreach my $n (@node_types)
 
 	# Buffer the function text so we can discard it if any field is
 	# unhandleable (rather than aborting the whole generation run).
-	my $func_buf = "\nstatic $n *\n_read${n}(void)\n{\n\tREAD_LOCALS($n);\n";
+	# Use READ_LOCALS_PLACEHOLDER as a sentinel; replace with either
+	# READ_LOCALS or READ_LOCALS_NO_FIELDS depending on whether any
+	# field reads are generated (to avoid unused-variable warnings for
+	# empty structs that have no fields to read).
+	my $func_buf = "\nstatic $n *\n_read${n}(void)\n{\n\tREAD_LOCALS_PLACEHOLDER($n);\n";
 	my $skip_node = 0;
+	my $has_field_reads = 0;
 
 	foreach my $f (@{ $node_type_info{$n}->{fields} })
 	{
@@ -1112,6 +1117,17 @@ foreach my $n (@node_types)
 	next if $skip_node;
 
 	$func_buf .= "\n\tREAD_DONE();\n}\n";
+
+	# Replace the placeholder: use READ_LOCALS_NO_FIELDS if no field reads
+	# were emitted (to avoid -Werror=unused-variable for token/length vars).
+	if ($func_buf =~ /\tREAD_LOCALS_PLACEHOLDER\($n\);\n\n\tREAD_DONE\(\);\n\}/)
+	{
+		$func_buf =~ s/\tREAD_LOCALS_PLACEHOLDER\($n\);/\tREAD_LOCALS_NO_FIELDS($n);/;
+	}
+	else
+	{
+		$func_buf =~ s/\tREAD_LOCALS_PLACEHOLDER\($n\);/\tREAD_LOCALS($n);/;
+	}
 	print $rff $func_buf;
 }
 

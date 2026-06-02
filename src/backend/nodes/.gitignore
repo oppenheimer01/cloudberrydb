@@ -1,1 +1,5 @@
 /node-support-stamp
+/copyfuncs.funcs.c
+/copyfuncs.switch.c
+/readfuncs.funcs.c
+/readfuncs.switch.c
