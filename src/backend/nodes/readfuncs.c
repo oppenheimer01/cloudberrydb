@@ -575,9 +575,6 @@ _readAExpr(void)
 
 #include "readfuncs.funcs.c"
 #ifndef COMPILING_BINARY_FUNCS
-	return (Node *) return_value;
-}
-
 
 /*
  * readDatum
