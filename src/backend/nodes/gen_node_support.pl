@@ -1163,7 +1163,7 @@ my %scalar_write_macro = (
 	'XLogRecPtr'       => 'WRITE_UINT64_FIELD',
 	'uint32'           => 'WRITE_UINT_FIELD',
 	'bits32'           => 'WRITE_UINT_FIELD',
-	'AclMode'          => 'WRITE_UINT_FIELD',
+	'AclMode'          => 'WRITE_UINT64_FIELD',
 	'Index'            => 'WRITE_UINT_FIELD',
 	'SubTransactionId' => 'WRITE_UINT_FIELD',
 	'TimeLineID'       => 'WRITE_UINT_FIELD',
@@ -1286,6 +1286,13 @@ foreach my $n (@node_types)
 		elsif ($t eq 'int' && $f =~ /location$/)
 		{
 			$func_buf .= "\tWRITE_LOCATION_FIELD($f);\n";
+		}
+		elsif ($t eq 'QualCost')
+		{
+			# QualCost is a plain struct {Cost startup; Cost per_tuple;}
+			# written as two separate float fields using dotted field names.
+			$func_buf .= "\tWRITE_FLOAT_FIELD($f.startup);\n";
+			$func_buf .= "\tWRITE_FLOAT_FIELD($f.per_tuple);\n";
 		}
 		elsif (exists $scalar_write_macro{$t})
 		{
