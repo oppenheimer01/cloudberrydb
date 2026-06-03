@@ -3,3 +3,5 @@
 /copyfuncs.switch.c
 /readfuncs.funcs.c
 /readfuncs.switch.c
+/outfuncs.funcs.c
+/outfuncs.switch.c

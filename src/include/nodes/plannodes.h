@@ -339,8 +339,8 @@ typedef struct Plan
 	 * Field flow has the locus info only in the top Plan nodes,
 	 * other nodes couldn't be set that.
 	 */
-	uint8	locustype;
-	int 			parallel; /* parallel workers of this plan if there was */
+	uint8	locustype pg_node_attr(read_write_ignore);
+	int 			parallel pg_node_attr(read_write_ignore); /* parallel workers of this plan if there was */
 
 	/**
 	 * How much memory (in KB) should be used to execute this plan node?
