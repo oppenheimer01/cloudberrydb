@@ -496,6 +496,14 @@ _outJoinPlanInfo(StringInfo str, const Join *node)
 
 
 static void
+_outPlan(StringInfo str, const Plan *node)
+{
+	WRITE_NODE_TYPE("PLAN");
+
+	_outPlanInfo(str, (const Plan *) node);
+}
+
+static void
 _outResult(StringInfo str, const Result *node)
 {
 	WRITE_NODE_TYPE("RESULT");
@@ -647,6 +655,14 @@ _outGatherMerge(StringInfo str, const GatherMerge *node)
 	WRITE_OID_ARRAY(collations, node->numCols);
 	WRITE_BOOL_ARRAY(nullsFirst, node->numCols);
 	WRITE_BITMAPSET_FIELD(initParam);
+}
+
+static void
+_outScan(StringInfo str, const Scan *node)
+{
+	WRITE_NODE_TYPE("SCAN");
+
+	_outScanInfo(str, node);
 }
 
 static void
@@ -934,6 +950,14 @@ _outCustomScan(StringInfo str, const CustomScan *node)
 	/* CustomName is a key to lookup CustomScanMethods */
 	appendStringInfoString(str, " :methods ");
 	outToken(str, node->methods->CustomName);
+}
+
+static void
+_outJoin(StringInfo str, const Join *node)
+{
+	WRITE_NODE_TYPE("JOIN");
+
+	_outJoinPlanInfo(str, (const Join *) node);
 }
 
 static void
@@ -2061,6 +2085,54 @@ _outExtensibleNode(StringInfo str, const ExtensibleNode *node)
  *
  *****************************************************************************/
 
+/*
+ * print the fields shared by all nodes that inherit from CreateStmt
+ */
+static void
+_outCreateStmtInfo(StringInfo str, const CreateStmt *node)
+{
+	WRITE_NODE_FIELD(relation);
+	WRITE_NODE_FIELD(tableElts);
+	WRITE_NODE_FIELD(inhRelations);
+	WRITE_NODE_FIELD(partspec);
+	WRITE_NODE_FIELD(partbound);
+	WRITE_NODE_FIELD(ofTypename);
+	WRITE_NODE_FIELD(constraints);
+	WRITE_NODE_FIELD(options);
+	WRITE_ENUM_FIELD(oncommit, OnCommitAction);
+	WRITE_STRING_FIELD(tablespacename);
+	WRITE_STRING_FIELD(accessMethod);
+	WRITE_BOOL_FIELD(if_not_exists);
+	WRITE_ENUM_FIELD(origin, CreateStmtOrigin);
+
+	WRITE_NODE_FIELD(distributedBy);
+	WRITE_NODE_FIELD(partitionBy);
+	WRITE_CHAR_FIELD(relKind);
+	WRITE_OID_FIELD(ownerid);
+	WRITE_BOOL_FIELD(buildAoBlkdir);
+	WRITE_NODE_FIELD(attr_encodings);
+	WRITE_BOOL_FIELD(isCtas);
+	WRITE_NODE_FIELD(intoQuery);
+	WRITE_NODE_FIELD(intoPolicy);
+
+	WRITE_NODE_FIELD(part_idx_oids);
+	WRITE_NODE_FIELD(part_idx_names);
+	WRITE_NODE_FIELD(tags);
+
+	Assert(node->relKind != 0);
+	Assert(node->oncommit <= ONCOMMIT_DROP);
+}
+
+static void
+_outCreateDirectoryTableStmt(StringInfo str, const CreateDirectoryTableStmt *node)
+{
+	WRITE_NODE_TYPE("CREATEDIRECTORYTABLESTMT");
+
+	_outCreateStmtInfo(str, (const CreateStmt *) node);
+	WRITE_STRING_FIELD(tablespacename);
+	WRITE_STRING_FIELD(location);
+}
+
 static void
 _outIndexStmt(StringInfo str, const IndexStmt *node)
 {
@@ -3104,6 +3176,29 @@ _outNewColumnValue(StringInfo str, const NewColumnValue *node)
 }
 
 
+/*
+ * print the fields shared by all nodes that inherit from DropStmt
+ */
+static void
+_outDropStmtInfo(StringInfo str, const DropStmt *node)
+{
+	WRITE_NODE_FIELD(objects);
+	WRITE_ENUM_FIELD(removeType, ObjectType);
+	WRITE_ENUM_FIELD(behavior, DropBehavior);
+	WRITE_BOOL_FIELD(missing_ok);
+	WRITE_BOOL_FIELD(concurrent);
+	WRITE_BOOL_FIELD(isdynamic);
+}
+
+static void
+_outDropDirectoryTableStmt(StringInfo str, const DropDirectoryTableStmt *node)
+{
+	WRITE_NODE_TYPE("DROPDIRECTORYTABLESTMT");
+
+	_outDropStmtInfo(str, (const DropStmt *) node);
+	WRITE_BOOL_FIELD(with_content);
+}
+
 static void
 _outCdbProcess(StringInfo str, const CdbProcess *node)
 {
@@ -3240,6 +3335,17 @@ outNode(StringInfo str, const void *obj)
 		switch (nodeTag(obj))
 		{
 			#include "outfuncs.switch.c"
+
+			/* Abstract plan node types (marked abstract, so not in generated switch) */
+			case T_Plan:
+				_outPlan(str, obj);
+				break;
+			case T_Scan:
+				_outScan(str, obj);
+				break;
+			case T_Join:
+				_outJoin(str, obj);
+				break;
 
 			/* GPDB-specific node types not covered by the generated switch */
 			case T_QueryDispatchDesc:

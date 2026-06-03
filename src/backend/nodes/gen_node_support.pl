@@ -128,6 +128,8 @@ my @no_query_jumble;
 my @no_read;
 # node types we don't want read/write support for
 my @no_read_write;
+# node types with hand-written outfuncs only (copyfuncs/readfuncs still generated)
+my @custom_write;
 # node types that have handmade read/write support
 my @special_read_write;
 # node types we don't want any support functions for, just node tags
@@ -326,6 +328,10 @@ foreach my $infile (@ARGV)
 						{
 							push @custom_read_write, $in_struct;
 						}
+						elsif ($attr eq 'custom_write')
+						{
+							push @custom_write, $in_struct;
+						}
 						elsif ($attr eq 'custom_query_jumble')
 						{
 							push @custom_query_jumble, $in_struct;
@@ -427,6 +433,8 @@ foreach my $infile (@ARGV)
 						  if elem $supertype, @no_query_jumble;
 						push @custom_read_write, $in_struct
 						  if elem $supertype, @custom_read_write;
+						push @custom_write, $in_struct
+						  if elem $supertype, @custom_write;
 					}
 				}
 
@@ -1183,8 +1191,10 @@ foreach my $n (@node_types)
 	my $uc_n = uc($n);
 	print $ofs "\tcase T_${n}:\n\t\t_out${n}(str, obj);\n\t\tbreak;\n";
 
-	# custom_read_write nodes get a switch entry but no generated function body.
+	# custom_read_write and custom_write nodes get a switch entry but no
+	# generated function body (hand-written implementations are provided).
 	next if elem $n, @custom_read_write;
+	next if elem $n, @custom_write;
 
 	# Buffer the function text so we can discard it if any field is
 	# unhandleable (rather than aborting the whole generation run).

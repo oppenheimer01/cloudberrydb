@@ -3777,6 +3777,8 @@ typedef struct AlterOpFamilyStmt
  */
 typedef struct CreateDirectoryTableStmt
 {
+	pg_node_attr(custom_write)
+
 	CreateStmt	base;
 	char	   *tablespacename;
 	char       *location;   /* dtlocation for pg_directory_table */
@@ -3816,6 +3818,8 @@ typedef struct DropStmt
 
 typedef struct DropDirectoryTableStmt
 {
+	pg_node_attr(custom_write)
+
 	DropStmt	base;
 	bool		with_content;	/* whether drop directory table file */
 } DropDirectoryTableStmt;
