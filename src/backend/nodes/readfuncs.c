@@ -2568,7 +2568,7 @@ parseNodeString(void)
 		return_value = _readConvertRowtypeExpr();
 	else if (MATCH("COLLATE", 7))
 		return_value = _readCollateExpr();
-	else if (MATCH("CASE", 4))
+	else if (MATCH("CASEEXPR", 8))
 		return_value = _readCaseExpr();
 	else if (MATCH("WHEN", 4))
 		return_value = _readCaseWhen();
@@ -3254,7 +3254,7 @@ parseNodeString(void)
 		return_value = _readVariableShowStmt();
 	else
 	{
-        ereport(ERROR,
+        ereport(PANIC,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("This operation involves an internal data item "
 						"of a type called \"%.*s\" which is not "

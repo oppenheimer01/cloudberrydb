@@ -57,6 +57,8 @@ $(NODE_SUPPORT_OUTPUT): node-support-stamp
 copyfuncs.o: copyfuncs.funcs.c copyfuncs.switch.c
 readfuncs.o: readfuncs.funcs.c
 outfuncs.o: outfuncs.funcs.c outfuncs.switch.c
+readfast.o: readfuncs.funcs.c
+outfast.o: outfuncs.funcs.c outfuncs.switch.c
 
 CLEANFILES = node-support-stamp $(NODE_SUPPORT_OUTPUT)
 
