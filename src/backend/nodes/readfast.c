@@ -2244,54 +2244,6 @@ _readExtensibleNode(void)
  */
 #include "nodes/plannodes.h"
 
-static void
-_readCreateStmt_common(CreateStmt *local_node)
-{
-	READ_NODE_FIELD(relation);
-	READ_NODE_FIELD(tableElts);
-	READ_NODE_FIELD(inhRelations);
-	READ_NODE_FIELD(partspec);
-	READ_NODE_FIELD(partbound);
-	READ_NODE_FIELD(ofTypename);
-	READ_NODE_FIELD(constraints);
-	READ_NODE_FIELD(options);
-	READ_ENUM_FIELD(oncommit,OnCommitAction);
-	READ_STRING_FIELD(tablespacename);
-	READ_STRING_FIELD(accessMethod);
-	READ_BOOL_FIELD(if_not_exists);
-	READ_ENUM_FIELD(origin, CreateStmtOrigin);
-
-	READ_NODE_FIELD(distributedBy);
-	READ_NODE_FIELD(partitionBy);
-	READ_CHAR_FIELD(relKind);
-	READ_OID_FIELD(ownerid);
-	READ_BOOL_FIELD(buildAoBlkdir);
-	READ_NODE_FIELD(attr_encodings);
-	READ_BOOL_FIELD(isCtas);
-	READ_NODE_FIELD(intoQuery);
-	READ_NODE_FIELD(intoPolicy);
-
-	READ_NODE_FIELD(part_idx_oids);
-	READ_NODE_FIELD(part_idx_names);
-	READ_NODE_FIELD(tags);
-
-	/*
-	 * Some extra checks to make sure we didn't get lost
-	 * during serialization/deserialization
-	 */
-	Assert(local_node->relKind == RELKIND_RELATION ||
-		   local_node->relKind == RELKIND_PARTITIONED_TABLE ||
-		   local_node->relKind == RELKIND_INDEX ||
-		   local_node->relKind == RELKIND_SEQUENCE ||
-		   local_node->relKind == RELKIND_TOASTVALUE ||
-		   local_node->relKind == RELKIND_VIEW ||
-		   local_node->relKind == RELKIND_COMPOSITE_TYPE ||
-		   local_node->relKind == RELKIND_FOREIGN_TABLE ||
-		   local_node->relKind == RELKIND_MATVIEW ||
-		   local_node->relKind == RELKIND_DIRECTORY_TABLE ||
-		   IsAppendonlyMetadataRelkind(local_node->relKind));
-	Assert(local_node->oncommit <= ONCOMMIT_DROP);
-}
 
 static QueryDispatchDesc *
 _readQueryDispatchDesc(void)
@@ -3775,6 +3727,176 @@ readNodeBinary(void)
 			case T_PlaceHolderVar:
 				return_value = _readPlaceHolderVar();
 				break;
+
+			/* Range/FROM-clause nodes */
+			case T_RangeSubselect:
+				return_value = _readRangeSubselect();
+				break;
+			case T_RangeFunction:
+				return_value = _readRangeFunction();
+				break;
+			case T_RangeTableFunc:
+				return_value = _readRangeTableFunc();
+				break;
+			case T_RangeTableFuncCol:
+				return_value = _readRangeTableFuncCol();
+				break;
+			case T_RangeTableSample:
+				return_value = _readRangeTableSample();
+				break;
+			case T_TableLikeClause:
+				return_value = _readTableLikeClause();
+				break;
+			case T_XmlSerialize:
+				return_value = _readXmlSerialize();
+				break;
+
+			/* DML clause nodes */
+			case T_InferClause:
+				return_value = _readInferClause();
+				break;
+			case T_OnConflictClause:
+				return_value = _readOnConflictClause();
+				break;
+			case T_MergeWhenClause:
+				return_value = _readMergeWhenClause();
+				break;
+
+			/* JSON nodes */
+			case T_JsonOutput:
+				return_value = _readJsonOutput();
+				break;
+			case T_JsonKeyValue:
+				return_value = _readJsonKeyValue();
+				break;
+			case T_JsonObjectConstructor:
+				return_value = _readJsonObjectConstructor();
+				break;
+			case T_JsonArrayConstructor:
+				return_value = _readJsonArrayConstructor();
+				break;
+			case T_JsonArrayQueryConstructor:
+				return_value = _readJsonArrayQueryConstructor();
+				break;
+			case T_JsonAggConstructor:
+				return_value = _readJsonAggConstructor();
+				break;
+			case T_JsonObjectAgg:
+				return_value = _readJsonObjectAgg();
+				break;
+			case T_JsonArrayAgg:
+				return_value = _readJsonArrayAgg();
+				break;
+
+			/* Statement nodes */
+			case T_RawStmt:
+				return_value = _readRawStmt();
+				break;
+			case T_MergeStmt:
+				return_value = _readMergeStmt();
+				break;
+			case T_PLAssignStmt:
+				return_value = _readPLAssignStmt();
+				break;
+			case T_CompoundUtilityStmt:
+				return_value = _readCompoundUtilityStmt();
+				break;
+			case T_AlterCollationStmt:
+				return_value = _readAlterCollationStmt();
+				break;
+			case T_VariableShowStmt:
+				return_value = _readVariableShowStmt();
+				break;
+			case T_CreateForeignStmt:
+				return_value = _readCreateForeignStmt();
+				break;
+			case T_CreateEventTrigStmt:
+				return_value = _readCreateEventTrigStmt();
+				break;
+			case T_AlterEventTrigStmt:
+				return_value = _readAlterEventTrigStmt();
+				break;
+			case T_SecLabelStmt:
+				return_value = _readSecLabelStmt();
+				break;
+			case T_ClosePortalStmt:
+				return_value = _readClosePortalStmt();
+				break;
+			case T_FetchStmt:
+				return_value = _readFetchStmt();
+				break;
+			case T_AlterStatsStmt:
+				return_value = _readAlterStatsStmt();
+				break;
+			case T_DoStmt:
+				return_value = _readDoStmt();
+				break;
+			case T_CallStmt:
+				return_value = _readCallStmt();
+				break;
+			case T_AlterOperatorStmt:
+				return_value = _readAlterOperatorStmt();
+				break;
+			case T_ListenStmt:
+				return_value = _readListenStmt();
+				break;
+			case T_UnlistenStmt:
+				return_value = _readUnlistenStmt();
+				break;
+			case T_TransactionStmt:
+				return_value = _readTransactionStmt();
+				break;
+			case T_LoadStmt:
+				return_value = _readLoadStmt();
+				break;
+			case T_AlterDatabaseRefreshCollStmt:
+				return_value = _readAlterDatabaseRefreshCollStmt();
+				break;
+			case T_AlterDatabaseSetStmt:
+				return_value = _readAlterDatabaseSetStmt();
+				break;
+			case T_ExplainStmt:
+				return_value = _readExplainStmt();
+				break;
+			case T_CreateTableAsStmt:
+				return_value = _readCreateTableAsStmt();
+				break;
+			case T_RefreshMatViewStmt:
+				return_value = _readRefreshMatViewStmt();
+				break;
+			case T_CheckPointStmt:
+				return_value = _readCheckPointStmt();
+				break;
+			case T_DiscardStmt:
+				return_value = _readDiscardStmt();
+				break;
+			case T_PrepareStmt:
+				return_value = _readPrepareStmt();
+				break;
+			case T_ExecuteStmt:
+				return_value = _readExecuteStmt();
+				break;
+			case T_DeallocateStmt:
+				return_value = _readDeallocateStmt();
+				break;
+
+			/* GPDB-specific nodes */
+			case T_RetrieveStmt:
+				return_value = _readRetrieveStmt();
+				break;
+			case T_CreateWarehouseStmt:
+				return_value = _readCreateWarehouseStmt();
+				break;
+			case T_DropWarehouseStmt:
+				return_value = _readDropWarehouseStmt();
+				break;
+			case T_RelAggInfo:
+				return_value = _readRelAggInfo();
+				break;
+			case T_DistributionKey:
+				return_value = _readDistributionKey();
+				break;
+
 			default:
 				return_value = NULL; /* keep the compiler silent */
 				elog(ERROR, "could not deserialize unrecognized node type: %d",
