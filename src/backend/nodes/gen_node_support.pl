@@ -963,12 +963,12 @@ foreach my $n (@node_types)
 	my $uc_n = uc($n);
 	if ($first_read_switch)
 	{
-		print $rfs "\tif (MATCHX(\"$uc_n\"))\n\t\treturn_value = _read${n}();\n";
+		print $rfs "\tif (MATCHX(\"$uc_n\"))\n\t\treturn_value = ($n *) _read${n}();\n";
 		$first_read_switch = 0;
 	}
 	else
 	{
-		print $rfs "\telse if (MATCHX(\"$uc_n\"))\n\t\treturn_value = _read${n}();\n";
+		print $rfs "\telse if (MATCHX(\"$uc_n\"))\n\t\treturn_value = ($n *) _read${n}();\n";
 	}
 
 	# custom_read_write nodes get a switch entry but no generated function body.
