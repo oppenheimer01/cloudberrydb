@@ -1173,9 +1173,17 @@ my %scalar_write_macro = (
 # Generate outfuncs-style funcs+switch files into the given file handles.
 # Used for both outfuncs.funcs.c/outfuncs.switch.c and
 # outfast.funcs.c/outfast.switch.c.
+#
+# $switch_all controls switch entry emission:
+#   1 (outfuncs): emit a switch entry for every non-abstract, non-nodetag-only,
+#     non-special_read_write node, including custom_read_write nodes whose
+#     implementations are hand-written in the including file.
+#   0 (outfast): emit a switch entry only for nodes whose body is successfully
+#     auto-generated, so that nodes without implementations (path nodes,
+#     planner internals, parse-only nodes) are silently omitted.
 sub generate_outfuncs_files
 {
-	my ($funcs_fh, $switch_fh, $label) = @_;
+	my ($funcs_fh, $switch_fh, $label, $switch_all) = @_;
 
 	foreach my $n (@node_types)
 	{
@@ -1183,12 +1191,16 @@ sub generate_outfuncs_files
 		next if elem $n, @nodetag_only;
 		next if elem $n, @special_read_write;
 
-		# Generate switch entry for all remaining nodes (auto and custom).
 		my $uc_n = uc($n);
-		print $switch_fh "\tcase T_${n}:\n\t\t_out${n}(str, obj);\n\t\tbreak;\n";
 
-		# custom_read_write and custom_write nodes get a switch entry but no
-		# generated function body (hand-written implementations are provided).
+		# When $switch_all is set, emit the switch entry now so that
+		# custom_read_write nodes (whose hand-written bodies live in the
+		# including .c file) are still reachable.
+		print $switch_fh "\tcase T_${n}:\n\t\t_out${n}(str, obj);\n\t\tbreak;\n"
+		  if $switch_all;
+
+		# custom_read_write and custom_write nodes: hand-written implementations
+		# are expected in the including file; skip auto-generation.
 		next if elem $n, @custom_read_write;
 		next if elem $n, @custom_write;
 
@@ -1344,6 +1356,11 @@ sub generate_outfuncs_files
 
 		$func_buf .= "}\n";
 		print $funcs_fh $func_buf;
+
+		# When $switch_all is not set, emit the switch entry only after we
+		# have confirmed that a function body was successfully generated.
+		print $switch_fh "\tcase T_${n}:\n\t\t_out${n}(str, obj);\n\t\tbreak;\n"
+		  unless $switch_all;
 	}
 }
 
@@ -1359,7 +1376,7 @@ printf $off $header_comment, 'outfuncs.funcs.c';
 printf $ofs $header_comment, 'outfuncs.switch.c';
 print $off $node_includes;
 
-generate_outfuncs_files($off, $ofs, 'outfuncs');
+generate_outfuncs_files($off, $ofs, 'outfuncs', 1);
 
 close $off;
 close $ofs;
@@ -1376,7 +1393,7 @@ printf $ofa $header_comment, 'outfast.funcs.c';
 printf $oas $header_comment, 'outfast.switch.c';
 print $ofa $node_includes;
 
-generate_outfuncs_files($ofa, $oas, 'outfast');
+generate_outfuncs_files($ofa, $oas, 'outfast', 0);
 
 close $ofa;
 close $oas;
