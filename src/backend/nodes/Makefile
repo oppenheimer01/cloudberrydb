@@ -44,7 +44,8 @@ NODE_SUPPORT_STAMPS = node-support-stamp
 NODE_SUPPORT_OUTPUT = \
 	copyfuncs.funcs.c copyfuncs.switch.c \
 	readfuncs.funcs.c readfuncs.switch.c \
-	outfuncs.funcs.c outfuncs.switch.c
+	outfuncs.funcs.c outfuncs.switch.c \
+	outfast.funcs.c outfast.switch.c
 
 node-support-stamp: $(NODE_SUPPORT_INPUT) $(srcdir)/gen_node_support.pl
 	$(PERL) $(srcdir)/gen_node_support.pl --outdir $(CURDIR) $(NODE_SUPPORT_INPUT)
@@ -58,7 +59,7 @@ copyfuncs.o: copyfuncs.funcs.c copyfuncs.switch.c
 readfuncs.o: readfuncs.funcs.c
 outfuncs.o: outfuncs.funcs.c outfuncs.switch.c
 readfast.o: readfuncs.funcs.c
-outfast.o: outfuncs.funcs.c outfuncs.switch.c
+outfast.o: outfast.funcs.c outfast.switch.c
 
 CLEANFILES = node-support-stamp $(NODE_SUPPORT_OUTPUT)
 

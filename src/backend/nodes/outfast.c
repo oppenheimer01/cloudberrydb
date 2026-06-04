@@ -19,10 +19,10 @@
  *     By design, the only user of these routines is the function
  *     serializeNode in cdbsrlz.c.  Other callers beware.
  *
- *    Most _out* functions are auto-generated and shared with outfuncs.c
- *    via the included outfuncs.funcs.c file. Only custom/hand-written
- *    functions for plan nodes, GPDB-specific nodes, and nodes requiring
- *    special binary serialization are defined directly in this file.
+ *    Most _out* functions are auto-generated into outfast.funcs.c by
+ *    gen_node_support.pl.  Only custom/hand-written functions for plan
+ *    nodes, GPDB-specific nodes, and nodes requiring special binary
+ *    serialization are defined directly in this file.
  *
  * 	  Rather than serialize to a (somewhat human-readable) string, these
  *    routines create a binary serialization via a simple depth-first walk
@@ -2289,7 +2289,7 @@ _outCustomScan(StringInfo str, const CustomScan *node)
  * auto-generated node types using the binary WRITE_* macros.
  */
 
-#include "outfuncs.funcs.c"
+#include "outfast.funcs.c"
 
 static void
 _outNode(StringInfo str, void *obj)
@@ -2317,7 +2317,7 @@ _outNode(StringInfo str, void *obj)
 	{
 		switch (nodeTag(obj))
 		{
-			#include "outfuncs.switch.c"
+			#include "outfast.switch.c"
 
 			/* Abstract plan node types (marked abstract, so not in generated switch) */
 			case T_Plan:
