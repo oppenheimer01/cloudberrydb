@@ -2330,7 +2330,243 @@ _outNode(StringInfo str, void *obj)
 				_outJoin(str, obj);
 				break;
 
-			/* GPDB-specific node types not covered by the generated switch */
+			/* Plan nodes with hand-written binary implementations */
+			case T_PlannedStmt:
+				_outPlannedStmt(str, obj);
+				break;
+			case T_Result:
+				_outResult(str, obj);
+				break;
+			case T_ProjectSet:
+				_outProjectSet(str, obj);
+				break;
+			case T_ModifyTable:
+				_outModifyTable(str, obj);
+				break;
+			case T_Append:
+				_outAppend(str, obj);
+				break;
+			case T_MergeAppend:
+				_outMergeAppend(str, obj);
+				break;
+			case T_RecursiveUnion:
+				_outRecursiveUnion(str, obj);
+				break;
+			case T_BitmapAnd:
+				_outBitmapAnd(str, obj);
+				break;
+			case T_BitmapOr:
+				_outBitmapOr(str, obj);
+				break;
+			case T_Gather:
+				_outGather(str, obj);
+				break;
+			case T_GatherMerge:
+				_outGatherMerge(str, obj);
+				break;
+			case T_SeqScan:
+				_outSeqScan(str, obj);
+				break;
+			case T_DynamicSeqScan:
+				_outDynamicSeqScan(str, obj);
+				break;
+			case T_SampleScan:
+				_outSampleScan(str, obj);
+				break;
+			case T_IndexScan:
+				_outIndexScan(str, obj);
+				break;
+			case T_IndexOnlyScan:
+				_outIndexOnlyScan(str, obj);
+				break;
+			case T_DynamicIndexScan:
+				_outDynamicIndexScan(str, obj);
+				break;
+			case T_DynamicIndexOnlyScan:
+				_outDynamicIndexOnlyScan(str, obj);
+				break;
+			case T_BitmapIndexScan:
+				_outBitmapIndexScan(str, obj);
+				break;
+			case T_DynamicBitmapIndexScan:
+				_outDynamicBitmapIndexScan(str, obj);
+				break;
+			case T_BitmapHeapScan:
+				_outBitmapHeapScan(str, obj);
+				break;
+			case T_DynamicBitmapHeapScan:
+				_outDynamicBitmapHeapScan(str, obj);
+				break;
+			case T_TidScan:
+				_outTidScan(str, obj);
+				break;
+			case T_TidRangeScan:
+				_outTidRangeScan(str, obj);
+				break;
+			case T_SubqueryScan:
+				_outSubqueryScan(str, obj);
+				break;
+			case T_FunctionScan:
+				_outFunctionScan(str, obj);
+				break;
+			case T_TableFuncScan:
+				_outTableFuncScan(str, obj);
+				break;
+			case T_ValuesScan:
+				_outValuesScan(str, obj);
+				break;
+			case T_CteScan:
+				_outCteScan(str, obj);
+				break;
+			case T_NamedTuplestoreScan:
+				_outNamedTuplestoreScan(str, obj);
+				break;
+			case T_WorkTableScan:
+				_outWorkTableScan(str, obj);
+				break;
+			case T_ForeignScan:
+				_outForeignScan(str, obj);
+				break;
+			case T_DynamicForeignScan:
+				_outDynamicForeignScan(str, obj);
+				break;
+			case T_CustomScan:
+				_outCustomScan(str, obj);
+				break;
+			case T_NestLoop:
+				_outNestLoop(str, obj);
+				break;
+			case T_MergeJoin:
+				_outMergeJoin(str, obj);
+				break;
+			case T_HashJoin:
+				_outHashJoin(str, obj);
+				break;
+			case T_Agg:
+				_outAgg(str, obj);
+				break;
+			case T_WindowAgg:
+				_outWindowAgg(str, obj);
+				break;
+			case T_WindowHashAgg:
+				_outWindowHashAgg(str, obj);
+				break;
+			case T_Group:
+				_outGroup(str, obj);
+				break;
+			case T_Material:
+				_outMaterial(str, obj);
+				break;
+			case T_Memoize:
+				_outMemoize(str, obj);
+				break;
+			case T_Sort:
+				_outSort(str, obj);
+				break;
+			case T_IncrementalSort:
+				_outIncrementalSort(str, obj);
+				break;
+			case T_Unique:
+				_outUnique(str, obj);
+				break;
+			case T_Hash:
+				_outHash(str, obj);
+				break;
+			case T_SetOp:
+				_outSetOp(str, obj);
+				break;
+			case T_LockRows:
+				_outLockRows(str, obj);
+				break;
+			case T_RuntimeFilter:
+				_outRuntimeFilter(str, obj);
+				break;
+			case T_Limit:
+				_outLimit(str, obj);
+				break;
+
+			/* GPDB-specific plan nodes */
+			case T_Sequence:
+				_outSequence(str, obj);
+				break;
+			case T_TupleSplit:
+				_outTupleSplit(str, obj);
+				break;
+			case T_TableFunctionScan:
+				_outTableFunctionScan(str, obj);
+				break;
+			case T_ShareInputScan:
+				_outShareInputScan(str, obj);
+				break;
+			case T_Motion:
+				_outMotion(str, obj);
+				break;
+			case T_SplitUpdate:
+				_outSplitUpdate(str, obj);
+				break;
+			case T_SplitMerge:
+				_outSplitMerge(str, obj);
+				break;
+			case T_AssertOp:
+				_outAssertOp(str, obj);
+				break;
+			case T_PartitionSelector:
+				_outPartitionSelector(str, obj);
+				break;
+
+			/* Expression nodes with hand-written binary implementations */
+			case T_Const:
+				_outConst(str, obj);
+				break;
+			case T_OpExpr:
+				_outOpExpr(str, obj);
+				break;
+			case T_BoolExpr:
+				_outBoolExpr(str, obj);
+				break;
+			case T_Query:
+				_outQuery(str, obj);
+				break;
+			case T_A_Expr:
+				_outAExpr(str, obj);
+				break;
+			case T_A_Const:
+				_outAConst(str, obj);
+				break;
+			case T_ExtensibleNode:
+				_outExtensibleNode(str, obj);
+				break;
+
+			/* DDL / utility nodes with hand-written binary implementations */
+			case T_IndexStmt:
+				_outIndexStmt(str, obj);
+				break;
+			case T_ColumnDef:
+				_outColumnDef(str, obj);
+				break;
+			case T_RangeTblEntry:
+				_outRangeTblEntry(str, obj);
+				break;
+			case T_RangeTblFunction:
+				_outRangeTblFunction(str, obj);
+				break;
+			case T_Constraint:
+				_outConstraint(str, obj);
+				break;
+			case T_CreateExternalStmt:
+				_outCreateExternalStmt(str, obj);
+				break;
+			case T_CreateDirectoryTableStmt:
+				_outCreateDirectoryTableStmt(str, obj);
+				break;
+			case T_DropDirectoryTableStmt:
+				_outDropDirectoryTableStmt(str, obj);
+				break;
+			case T_AddForeignSegStmt:
+				_outAddForeignSegstmt(str, obj);
+				break;
+
+			/* GPDB inter-segment dispatch nodes */
 			case T_QueryDispatchDesc:
 				_outQueryDispatchDesc(str, obj);
 				break;
