@@ -56,7 +56,7 @@ $(NODE_SUPPORT_OUTPUT): node-support-stamp
 
 # Make sure node files are generated before compiling
 copyfuncs.o: copyfuncs.funcs.c copyfuncs.switch.c
-readfuncs.o: readfuncs.funcs.c
+readfuncs.o: readfuncs.funcs.c readfuncs.switch.c
 outfuncs.o: outfuncs.funcs.c outfuncs.switch.c
 readfast.o: readfuncs.funcs.c
 outfast.o: outfast.funcs.c outfast.switch.c
