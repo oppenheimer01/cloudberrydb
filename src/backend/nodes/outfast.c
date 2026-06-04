@@ -2254,15 +2254,6 @@ _outCookedConstraint(StringInfo str, CookedConstraint *node)
 	WRITE_BOOL_FIELD(is_no_inherit);
 }
 
-static void
-_outAddForeignSegstmt(StringInfo str, AddForeignSegStmt *node)
-{
-	WRITE_NODE_TYPE("ADDFOREIGNSEGSTMT");
-
-	WRITE_STRING_FIELD(servername);
-	WRITE_STRING_FIELD(tablename);
-	WRITE_NODE_FIELD(options);
-}
 
 static void
 _outCustomScan(StringInfo str, const CustomScan *node)
@@ -2562,10 +2553,6 @@ _outNode(StringInfo str, void *obj)
 			case T_DropDirectoryTableStmt:
 				_outDropDirectoryTableStmt(str, obj);
 				break;
-			case T_AddForeignSegStmt:
-				_outAddForeignSegstmt(str, obj);
-				break;
-
 			/* GPDB inter-segment dispatch nodes */
 			case T_QueryDispatchDesc:
 				_outQueryDispatchDesc(str, obj);
