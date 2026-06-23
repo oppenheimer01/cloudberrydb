@@ -3,7 +3,11 @@
  * queryjumble.h
  *	  Query normalization and fingerprinting.
  *
+<<<<<<< HEAD:src/include/utils/queryjumble.h
  * Portions Copyright (c) 1996-2021, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch:src/include/nodes/queryjumble.h
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -25,6 +29,12 @@ typedef struct LocationLen
 {
 	int			location;		/* start offset in query text */
 	int			length;			/* length in bytes, or -1 to ignore */
+
+	/*
+	 * Indicates that this location represents the beginning or end of a run
+	 * of squashed constants.
+	 */
+	bool		squashed;
 } LocationLen;
 
 /*
@@ -50,6 +60,18 @@ typedef struct JumbleState
 
 	/* highest Param id we've seen, in order to start normalization correctly */
 	int			highest_extern_param_id;
+
+	/*
+	 * Count of the number of NULL nodes seen since last appending a value.
+	 * These are flushed out to the jumble buffer before subsequent appends
+	 * and before performing the final jumble hash.
+	 */
+	unsigned int pending_nulls;
+
+#ifdef USE_ASSERT_CHECKING
+	/* The total number of bytes added to the jumble buffer */
+	Size		total_jumble_len;
+#endif
 } JumbleState;
 
 /* Values for the compute_query_id GUC */
@@ -58,7 +80,7 @@ enum ComputeQueryIdType
 	COMPUTE_QUERY_ID_OFF,
 	COMPUTE_QUERY_ID_ON,
 	COMPUTE_QUERY_ID_AUTO,
-	COMPUTE_QUERY_ID_REGRESS
+	COMPUTE_QUERY_ID_REGRESS,
 };
 
 /* GUC parameters */

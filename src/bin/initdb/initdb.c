@@ -38,7 +38,7 @@
  *
  * This code is released under the terms of the PostgreSQL License.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/initdb/initdb.c
@@ -61,14 +61,14 @@
 #include <time.h>
 
 #ifdef HAVE_SHM_OPEN
-#include "sys/mman.h"
+#include <sys/mman.h>
 #endif
 
 #include "access/xlog_internal.h"
 #include "catalog/pg_authid_d.h"
-#include "catalog/pg_class_d.h" /* pgrminclude ignore */
+#include "catalog/pg_class_d.h"
 #include "catalog/pg_collation_d.h"
-#include "catalog/pg_database_d.h"	/* pgrminclude ignore */
+#include "catalog/pg_database_d.h"
 #include "common/file_perm.h"
 #include "common/file_utils.h"
 #include "common/kmgr_utils.h"
@@ -77,6 +77,7 @@
 #include "common/restricted_token.h"
 #include "common/string.h"
 #include "common/username.h"
+#include "fe_utils/option_utils.h"
 #include "fe_utils/string_utils.h"
 #include "getopt_long.h"
 #include "mb/pg_wchar.h"
@@ -105,7 +106,7 @@ static const char *const auth_methods_host[] = {
 	"sspi",
 #endif
 #ifdef USE_PAM
-	"pam", "pam ",
+	"pam",
 #endif
 #ifdef USE_BSD_AUTH
 	"bsd",
@@ -121,7 +122,7 @@ static const char *const auth_methods_host[] = {
 static const char *const auth_methods_local[] = {
 	"trust", "reject", "scram-sha-256", "md5", "password", "peer", "radius",
 #ifdef USE_PAM
-	"pam", "pam ",
+	"pam",
 #endif
 #ifdef USE_BSD_AUTH
 	"bsd",
@@ -148,7 +149,9 @@ static char *lc_numeric = NULL;
 static char *lc_time = NULL;
 static char *lc_messages = NULL;
 static char locale_provider = COLLPROVIDER_LIBC;
-static char *icu_locale = NULL;
+static bool builtin_locale_specified = false;
+static char *datlocale = NULL;
+static bool icu_locale_specified = false;
 static char *icu_rules = NULL;
 static const char *default_text_search_config = NULL;
 static char *username = NULL;
@@ -168,12 +171,18 @@ static bool pass_terminal_fd = false;
 static char *term_fd_opt = NULL;
 static int file_encryption_method = DISABLED_ENCRYPTION_METHOD;
 static bool show_setting = false;
-static bool data_checksums = false;
+static bool data_checksums = true;
 static char *xlog_dir = NULL;
+<<<<<<< HEAD
 static char *str_wal_segment_size_mb = NULL;
 static int	wal_segment_size_mb;
 static char *cluster_key_cmd = NULL;
 static char *old_key_datadir = NULL;
+=======
+static int	wal_segment_size_mb = (DEFAULT_XLOG_SEG_SIZE) / (1024 * 1024);
+static DataDirSyncMethod sync_method = DATA_DIR_SYNC_METHOD_FSYNC;
+static bool sync_data_files = true;
+>>>>>>> REL_18_BETA1_branch
 
 
 /* internal vars */
@@ -207,8 +216,14 @@ static int	output_errno = 0;
 static char *pgdata_native;
 
 /* defaults */
+<<<<<<< HEAD
 static int	n_connections = 0;
 static int	n_buffers = 0;
+=======
+static int	n_connections = 10;
+static int	n_av_slots = 16;
+static int	n_buffers = 50;
+>>>>>>> REL_18_BETA1_branch
 static const char *dynamic_shared_memory_type = NULL;
 static const char *default_timezone = NULL;
 
@@ -232,8 +247,13 @@ static bool authwarning = false;
  * but here it is more convenient to pass it as an environment variable
  * (no quoting to worry about).
  */
+<<<<<<< HEAD
 static const char *boot_options = "-F -c log_checkpoints=false";
 static const char *backend_options = "--single -F -O -j -c gp_role=utility -c search_path=pg_catalog -c exit_on_error=true -c log_checkpoints=false";
+=======
+static const char *const boot_options = "-F -c log_checkpoints=false";
+static const char *const backend_options = "--single -F -O -j -c search_path=pg_catalog -c exit_on_error=true -c log_checkpoints=false";
+>>>>>>> REL_18_BETA1_branch
 
 /* Additional switches to pass to backend (either boot or standalone) */
 static char *extra_options = "";
@@ -241,6 +261,7 @@ static char *extra_options = "";
 static const char *const subdirs[] = {
 	"global",
 	"pg_wal/archive_status",
+	"pg_wal/summaries",
 	"pg_commit_ts",
 	"pg_cryptokeys",
 	"pg_dynshmem",
@@ -288,7 +309,8 @@ static void check_input(char *path);
 static void write_version_file(const char *extrapath);
 static void set_null_conf(const char *);
 static void test_config_settings(void);
-static bool test_specific_config_settings(int test_conns, int test_buffs);
+static bool test_specific_config_settings(int test_conns, int test_av_slots,
+										  int test_buffs);
 static void setup_config(void);
 static void bootstrap_template1(void);
 static void setup_auth(FILE *cmdfd);
@@ -332,16 +354,16 @@ void		initialize_data_directory(void);
 /*
  * macros for running pipes to postgres
  */
-#define PG_CMD_DECL		char cmd[MAXPGPATH]; FILE *cmdfd
+#define PG_CMD_DECL		FILE *cmdfd
 
-#define PG_CMD_OPEN \
+#define PG_CMD_OPEN(cmd) \
 do { \
 	cmdfd = popen_check(cmd, "w"); \
 	if (cmdfd == NULL) \
 		exit(1); /* message already printed by popen_check */ \
 } while (0)
 
-#define PG_CMD_CLOSE \
+#define PG_CMD_CLOSE() \
 do { \
 	if (pclose_check(cmdfd)) \
 		exit(1); /* message already printed by pclose_check */ \
@@ -900,6 +922,8 @@ static const struct tsearch_config_match tsearch_config_languages[] =
 	{"english", "POSIX"},
 	{"english", "en"},
 	{"english", "English"},
+	{"estonian", "et"},
+	{"estonian", "Estonian"},
 	{"finnish", "fi"},
 	{"finnish", "Finnish"},
 	{"french", "fr"},
@@ -1137,6 +1161,17 @@ test_config_settings(void)
 	 */
 #define MIN_BUFS_FOR_CONNS(nconns)	((nconns) * 10)
 
+	/*
+	 * This macro defines the default value of autovacuum_worker_slots we want
+	 * for a given max_connections value.  Note that it has been carefully
+	 * crafted to provide specific values for the associated values in
+	 * trial_conns.  We want it to return autovacuum_worker_slots's initial
+	 * default value (16) for the maximum value in trial_conns[] (100), while
+	 * it mustn't return less than the default value of autovacuum_max_workers
+	 * (3) for the minimum value in trial_conns[].
+	 */
+#define AV_SLOTS_FOR_CONNS(nconns)	((nconns) / 6)
+
 	static const int trial_conns[] = {
 		200, 100, 50, 40, 30, 20, 10
 	};
@@ -1164,22 +1199,27 @@ test_config_settings(void)
 
 	/*
 	 * Probe for max_connections before shared_buffers, since it is subject to
-	 * more constraints than shared_buffers.
+	 * more constraints than shared_buffers.  We also choose the default
+	 * autovacuum_worker_slots here.
 	 */
-	printf(_("selecting default max_connections ... "));
+	printf(_("selecting default \"max_connections\" ... "));
 	fflush(stdout);
 
 	for (i = 0; i < connslen; i++)
 	{
 		test_conns = trial_conns[i];
+<<<<<<< HEAD
 		if (n_connections > 0)
 			test_conns = n_connections;
 
+=======
+		n_av_slots = AV_SLOTS_FOR_CONNS(test_conns);
+>>>>>>> REL_18_BETA1_branch
 		test_buffs = MIN_BUFS_FOR_CONNS(test_conns);
 		if (n_buffers > 0)
 			test_buffs = n_buffers;
 
-		if (test_specific_config_settings(test_conns, test_buffs))
+		if (test_specific_config_settings(test_conns, n_av_slots, test_buffs))
 		{
 			n_connections = test_conns;
 			ok_buffers = test_buffs;
@@ -1193,7 +1233,7 @@ test_config_settings(void)
 	}
 	printf("%d\n", n_connections);
 
-	printf(_("selecting default shared_buffers ... "));
+	printf(_("selecting default \"shared_buffers\" ... "));
 	fflush(stdout);
 
 	for (i = 0; i < bufslen && n_buffers <= 0; i++)
@@ -1206,9 +1246,13 @@ test_config_settings(void)
 			break;
 		}
 
+<<<<<<< HEAD
 		if (test_specific_config_settings(n_connections, test_buffs))
 		{
 			n_buffers = test_buffs;
+=======
+		if (test_specific_config_settings(n_connections, n_av_slots, test_buffs))
+>>>>>>> REL_18_BETA1_branch
 			break;
 		}
 	}
@@ -1233,43 +1277,56 @@ test_config_settings(void)
  * Test a specific combination of configuration settings.
  */
 static bool
-test_specific_config_settings(int test_conns, int test_buffs)
+test_specific_config_settings(int test_conns, int test_av_slots, int test_buffs)
 {
-	PQExpBuffer cmd = createPQExpBuffer();
+	PQExpBufferData cmd;
 	_stringlist *gnames,
 			   *gvalues;
 	int			status;
 
+	initPQExpBuffer(&cmd);
+
 	/* Set up the test postmaster invocation */
+<<<<<<< HEAD
 	printfPQExpBuffer(cmd,
 					  "\"%s\" --check %s %s %s"
+=======
+	printfPQExpBuffer(&cmd,
+					  "\"%s\" --check %s %s "
+>>>>>>> REL_18_BETA1_branch
 					  "-c max_connections=%d "
+					  "-c autovacuum_worker_slots=%d "
 					  "-c shared_buffers=%d "
 					  "-c dynamic_shared_memory_type=%s "
 					  "-D %s",
 					  backend_exec, boot_options, extra_options,
+<<<<<<< HEAD
 					  term_fd_opt ? term_fd_opt : "",
 					  test_conns, test_buffs,
 					  dynamic_shared_memory_type,
 					  pg_data);
+=======
+					  test_conns, test_av_slots, test_buffs,
+					  dynamic_shared_memory_type);
+>>>>>>> REL_18_BETA1_branch
 
 	/* Add any user-given setting overrides */
 	for (gnames = extra_guc_names, gvalues = extra_guc_values;
 		 gnames != NULL;		/* assume lists have the same length */
 		 gnames = gnames->next, gvalues = gvalues->next)
 	{
-		appendPQExpBuffer(cmd, " -c %s=", gnames->str);
-		appendShellString(cmd, gvalues->str);
+		appendPQExpBuffer(&cmd, " -c %s=", gnames->str);
+		appendShellString(&cmd, gvalues->str);
 	}
 
-	appendPQExpBuffer(cmd,
+	appendPQExpBuffer(&cmd,
 					  " < \"%s\" > \"%s\" 2>&1",
 					  DEVNULL, DEVNULL);
 
 	fflush(NULL);
-	status = system(cmd->data);
+	status = system(cmd.data);
 
-	destroyPQExpBuffer(cmd);
+	termPQExpBuffer(&cmd);
 
 	return (status == 0);
 }
@@ -1312,6 +1369,10 @@ setup_config(void)
 
 	snprintf(repltok, sizeof(repltok), "%d", n_connections);
 	conflines = replace_guc_value(conflines, "max_connections",
+								  repltok, false);
+
+	snprintf(repltok, sizeof(repltok), "%d", n_av_slots);
+	conflines = replace_guc_value(conflines, "autovacuum_worker_slots",
 								  repltok, false);
 
 	if ((n_buffers * (BLCKSZ / 1024)) % 1024 == 0)
@@ -1404,11 +1465,6 @@ setup_config(void)
 			 DEFAULT_CHECKPOINT_FLUSH_AFTER * (BLCKSZ / 1024));
 	conflines = replace_guc_value(conflines, "checkpoint_flush_after",
 								  repltok, true);
-#endif
-
-#ifndef USE_PREFETCH
-	conflines = replace_guc_value(conflines, "effective_io_concurrency",
-								  "0", true);
 #endif
 
 #ifdef WIN32
@@ -1575,6 +1631,7 @@ static void
 bootstrap_template1(void)
 {
 	PG_CMD_DECL;
+	PQExpBufferData cmd;
 	char	  **line;
 	char	  **bki_lines;
 	char		headerline[MAXPGPATH];
@@ -1624,8 +1681,8 @@ bootstrap_template1(void)
 	bki_lines = replace_token(bki_lines, "LC_CTYPE",
 							  escape_quotes_bki(lc_ctype));
 
-	bki_lines = replace_token(bki_lines, "ICU_LOCALE",
-							  icu_locale ? escape_quotes_bki(icu_locale) : "_null_");
+	bki_lines = replace_token(bki_lines, "DATLOCALE",
+							  datlocale ? escape_quotes_bki(datlocale) : "_null_");
 
 	bki_lines = replace_token(bki_lines, "ICU_RULES",
 							  icu_rules ? escape_quotes_bki(icu_rules) : "_null_");
@@ -1636,6 +1693,7 @@ bootstrap_template1(void)
 	/* Also ensure backend isn't confused by this environment var: */
 	unsetenv("PGCLIENTENCODING");
 
+<<<<<<< HEAD
 	snprintf(cmd, sizeof(cmd),
 			 "\"%s\" --boot -X %u %s %s %s %s %s %s %s %s %s",
 			 backend_exec,
@@ -1649,9 +1707,19 @@ bootstrap_template1(void)
 			 extra_options,
 			 term_fd_opt ? term_fd_opt : "",
 			 debug ? "-d 5" : "");
+=======
+	initPQExpBuffer(&cmd);
+
+	printfPQExpBuffer(&cmd, "\"%s\" --boot %s %s", backend_exec, boot_options, extra_options);
+	appendPQExpBuffer(&cmd, " -X %d", wal_segment_size_mb * (1024 * 1024));
+	if (data_checksums)
+		appendPQExpBufferStr(&cmd, " -k");
+	if (debug)
+		appendPQExpBufferStr(&cmd, " -d 5");
+>>>>>>> REL_18_BETA1_branch
 
 
-	PG_CMD_OPEN;
+	PG_CMD_OPEN(cmd.data);
 
 	for (line = bki_lines; *line != NULL; line++)
 	{
@@ -1659,8 +1727,9 @@ bootstrap_template1(void)
 		free(*line);
 	}
 
-	PG_CMD_CLOSE;
+	PG_CMD_CLOSE();
 
+	termPQExpBuffer(&cmd);
 	free(bki_lines);
 
 	check_ok();
@@ -2610,7 +2679,7 @@ setlocales(void)
 {
 	char	   *canonname;
 
-	/* set empty lc_* and iculocale values to locale config if set */
+	/* set empty lc_* and datlocale values to locale config if set */
 
 	if (locale)
 	{
@@ -2626,8 +2695,8 @@ setlocales(void)
 			lc_monetary = locale;
 		if (!lc_messages)
 			lc_messages = locale;
-		if (!icu_locale && locale_provider == COLLPROVIDER_ICU)
-			icu_locale = locale;
+		if (!datlocale && locale_provider != COLLPROVIDER_LIBC)
+			datlocale = locale;
 	}
 
 	/*
@@ -2653,22 +2722,37 @@ setlocales(void)
 	lc_messages = canonname;
 #endif
 
-	if (locale_provider == COLLPROVIDER_ICU)
+	if (locale_provider != COLLPROVIDER_LIBC && datlocale == NULL)
+		pg_fatal("locale must be specified if provider is %s",
+				 collprovider_name(locale_provider));
+
+	if (locale_provider == COLLPROVIDER_BUILTIN)
+	{
+		if (strcmp(datlocale, "C") == 0)
+			canonname = "C";
+		else if (strcmp(datlocale, "C.UTF-8") == 0 ||
+				 strcmp(datlocale, "C.UTF8") == 0)
+			canonname = "C.UTF-8";
+		else if (strcmp(datlocale, "PG_UNICODE_FAST") == 0)
+			canonname = "PG_UNICODE_FAST";
+		else
+			pg_fatal("invalid locale name \"%s\" for builtin provider",
+					 datlocale);
+
+		datlocale = canonname;
+	}
+	else if (locale_provider == COLLPROVIDER_ICU)
 	{
 		char	   *langtag;
 
-		/* acquire default locale from the environment, if not specified */
-		if (icu_locale == NULL)
-			pg_fatal("ICU locale must be specified");
-
 		/* canonicalize to a language tag */
-		langtag = icu_language_tag(icu_locale);
+		langtag = icu_language_tag(datlocale);
 		printf(_("Using language tag \"%s\" for ICU locale \"%s\".\n"),
-			   langtag, icu_locale);
-		pg_free(icu_locale);
-		icu_locale = langtag;
+			   langtag, datlocale);
+		pg_free(datlocale);
+		datlocale = langtag;
 
-		icu_validate_locale(icu_locale);
+		icu_validate_locale(datlocale);
 
 		/*
 		 * In supported builds, the ICU locale ID will be opened during
@@ -2771,8 +2855,11 @@ usage(const char *progname)
 			 "                            set default locale in the respective category for\n"
 			 "                            new databases (default taken from environment)\n"));
 	printf(_("      --no-locale           equivalent to --locale=C\n"));
-	printf(_("      --locale-provider={libc|icu}\n"
+	printf(_("      --builtin-locale=LOCALE\n"
+			 "                            set builtin locale name for new databases\n"));
+	printf(_("      --locale-provider={builtin|libc|icu}\n"
 			 "                            set default locale provider for new databases\n"));
+	printf(_("      --no-data-checksums   do not use data page checksums\n"));
 	printf(_("      --pwfile=FILE         read password for the new superuser from file\n"));
 	printf(_("  -T, --text-search-config=CFG\n"
 			 "                            default text search configuration\n"));
@@ -2796,11 +2883,18 @@ usage(const char *progname)
 	printf(_("  -L DIRECTORY              where to find the input files\n"));
 	printf(_("  -n, --no-clean            do not clean up after errors\n"));
 	printf(_("  -N, --no-sync             do not wait for changes to be written safely to disk\n"));
+<<<<<<< HEAD
 	printf(_("  -R, --authprompt          prompt for a passphrase or PIN\n"));
 	printf(_("      --no-instructions     do not print instructions for next steps\n"));
 	printf(_("  -s, --show                show internal settings\n"));
 	printf(_("  -u, --copy-encryption-keys=DATADIR\n"
 			 "                            copy the file encryption key from another cluster\n"));
+=======
+	printf(_("      --no-sync-data-files  do not sync files within database directories\n"));
+	printf(_("      --no-instructions     do not print instructions for next steps\n"));
+	printf(_("  -s, --show                show internal settings, then exit\n"));
+	printf(_("      --sync-method=METHOD  set method for syncing files to disk\n"));
+>>>>>>> REL_18_BETA1_branch
 	printf(_("  -S, --sync-only           only sync database files to disk, then exit\n"));
 	printf(_("\nOther options:\n"));
 	printf(_("  -V, --version             output version information, then exit\n"));
@@ -2831,10 +2925,6 @@ check_authmethod_valid(const char *authmethod, const char *const *valid_methods,
 	{
 		if (strcmp(authmethod, *p) == 0)
 			return;
-		/* with space = param */
-		if (strchr(authmethod, ' '))
-			if (strncmp(authmethod, *p, (authmethod - strchr(authmethod, ' '))) == 0)
-				return;
 	}
 
 	pg_fatal("invalid authentication method \"%s\" for \"%s\" connections",
@@ -2940,14 +3030,14 @@ setup_locale_encoding(void)
 		strcmp(lc_ctype, lc_numeric) == 0 &&
 		strcmp(lc_ctype, lc_monetary) == 0 &&
 		strcmp(lc_ctype, lc_messages) == 0 &&
-		(!icu_locale || strcmp(lc_ctype, icu_locale) == 0))
+		(!datlocale || strcmp(lc_ctype, datlocale) == 0))
 		printf(_("The database cluster will be initialized with locale \"%s\".\n"), lc_ctype);
 	else
 	{
 		printf(_("The database cluster will be initialized with this locale configuration:\n"));
-		printf(_("  provider:    %s\n"), collprovider_name(locale_provider));
-		if (icu_locale)
-			printf(_("  ICU locale:  %s\n"), icu_locale);
+		printf(_("  locale provider:   %s\n"), collprovider_name(locale_provider));
+		if (locale_provider != COLLPROVIDER_LIBC)
+			printf(_("  default collation: %s\n"), datlocale);
 		printf(_("  LC_COLLATE:  %s\n"
 				 "  LC_CTYPE:    %s\n"
 				 "  LC_MESSAGES: %s\n"
@@ -3020,6 +3110,15 @@ setup_locale_encoding(void)
 	if (!check_locale_encoding(lc_ctype, encodingid) ||
 		!check_locale_encoding(lc_collate, encodingid))
 		exit(1);				/* check_locale_encoding printed the error */
+
+	if (locale_provider == COLLPROVIDER_BUILTIN)
+	{
+		if ((strcmp(datlocale, "C.UTF-8") == 0 ||
+			 strcmp(datlocale, "PG_UNICODE_FAST") == 0) &&
+			encodingid != PG_UTF8)
+			pg_fatal("builtin provider locale \"%s\" requires encoding \"%s\"",
+					 datlocale, "UTF-8");
+	}
 
 	if (locale_provider == COLLPROVIDER_ICU &&
 		!check_icu_locale_encoding(encodingid))
@@ -3120,27 +3219,18 @@ setup_text_search(void)
 void
 setup_signals(void)
 {
-	/* some of these are not valid on Windows */
-#ifdef SIGHUP
-	pqsignal(SIGHUP, trapsig);
-#endif
-#ifdef SIGINT
 	pqsignal(SIGINT, trapsig);
-#endif
-#ifdef SIGQUIT
-	pqsignal(SIGQUIT, trapsig);
-#endif
-#ifdef SIGTERM
 	pqsignal(SIGTERM, trapsig);
-#endif
+
+	/* the following are not valid on Windows */
+#ifndef WIN32
+	pqsignal(SIGHUP, trapsig);
+	pqsignal(SIGQUIT, trapsig);
 
 	/* Ignore SIGPIPE when writing to backend, so we can clean up */
-#ifdef SIGPIPE
 	pqsignal(SIGPIPE, SIG_IGN);
-#endif
 
 	/* Prevent SIGSYS so we can probe for kernel calls that might not work */
-#ifdef SIGSYS
 	pqsignal(SIGSYS, SIG_IGN);
 #endif
 }
@@ -3304,6 +3394,7 @@ void
 initialize_data_directory(void)
 {
 	PG_CMD_DECL;
+	PQExpBufferData cmd;
 	int			i;
 
 	setup_signals();
@@ -3385,13 +3476,19 @@ initialize_data_directory(void)
 	fputs(_("performing post-bootstrap initialization ... "), stdout);
 	fflush(stdout);
 
+<<<<<<< HEAD
 	snprintf(cmd, sizeof(cmd),
 			 "\"%s\" %s %s %s template1 >%s",
 			 backend_exec, backend_options, extra_options,
 			 term_fd_opt ? term_fd_opt : "",
 			 DEVNULL);
+=======
+	initPQExpBuffer(&cmd);
+	printfPQExpBuffer(&cmd, "\"%s\" %s %s template1 >%s",
+					  backend_exec, backend_options, extra_options, DEVNULL);
+>>>>>>> REL_18_BETA1_branch
 
-	PG_CMD_OPEN;
+	PG_CMD_OPEN(cmd.data);
 
 	setup_auth(cmdfd);
 
@@ -3439,6 +3536,7 @@ initialize_data_directory(void)
 
 	make_postgres(cmdfd);
 
+<<<<<<< HEAD
 	/*
 	 * vacuum template1 to remove the dead tuples. otherwise, some mismatch error 
 	 * will be reported in gp_replica_check.
@@ -3446,6 +3544,10 @@ initialize_data_directory(void)
 	vacuum_db(cmdfd);
 
 	PG_CMD_CLOSE;
+=======
+	PG_CMD_CLOSE();
+	termPQExpBuffer(&cmd);
+>>>>>>> REL_18_BETA1_branch
 
 	check_ok();
 }
@@ -3492,10 +3594,19 @@ main(int argc, char *argv[])
 		{"allow-group-access", no_argument, NULL, 'g'},
 		{"discard-caches", no_argument, NULL, 14},
 		{"locale-provider", required_argument, NULL, 15},
+<<<<<<< HEAD
 		{"icu-locale", required_argument, NULL, 16},
 		{"icu-rules", required_argument, NULL, 17},
 		{"cluster-key-command", required_argument, NULL, 'C'},
 		{"copy-encryption-keys", required_argument, NULL, 'u'},
+=======
+		{"builtin-locale", required_argument, NULL, 16},
+		{"icu-locale", required_argument, NULL, 17},
+		{"icu-rules", required_argument, NULL, 18},
+		{"sync-method", required_argument, NULL, 19},
+		{"no-data-checksums", no_argument, NULL, 20},
+		{"no-sync-data-files", no_argument, NULL, 21},
+>>>>>>> REL_18_BETA1_branch
 		{NULL, 0, NULL, 0}
 	};
 
@@ -3691,7 +3802,8 @@ main(int argc, char *argv[])
 				n_buffers = parse_long(optarg, true, "shared_buffers");
 				break;
 			case 12:
-				str_wal_segment_size_mb = pg_strdup(optarg);
+				if (!option_parse_int(optarg, "--wal-segsize", 1, 1024, &wal_segment_size_mb))
+					exit(1);
 				break;
 			case 13:
 				noinstructions = true;
@@ -3705,7 +3817,9 @@ main(int argc, char *argv[])
 										 "-c debug_discard_caches=1");
 				break;
 			case 15:
-				if (strcmp(optarg, "icu") == 0)
+				if (strcmp(optarg, "builtin") == 0)
+					locale_provider = COLLPROVIDER_BUILTIN;
+				else if (strcmp(optarg, "icu") == 0)
 					locale_provider = COLLPROVIDER_ICU;
 				else if (strcmp(optarg, "libc") == 0)
 					locale_provider = COLLPROVIDER_LIBC;
@@ -3713,10 +3827,25 @@ main(int argc, char *argv[])
 					pg_fatal("unrecognized locale provider: %s", optarg);
 				break;
 			case 16:
-				icu_locale = pg_strdup(optarg);
+				datlocale = pg_strdup(optarg);
+				builtin_locale_specified = true;
 				break;
 			case 17:
+				datlocale = pg_strdup(optarg);
+				icu_locale_specified = true;
+				break;
+			case 18:
 				icu_rules = pg_strdup(optarg);
+				break;
+			case 19:
+				if (!parse_sync_method(optarg, &sync_method))
+					exit(1);
+				break;
+			case 20:
+				data_checksums = false;
+				break;
+			case 21:
+				sync_data_files = false;
 				break;
 			default:
 				/* getopt_long already emitted a complaint */
@@ -3744,7 +3873,11 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (icu_locale && locale_provider != COLLPROVIDER_ICU)
+	if (builtin_locale_specified && locale_provider != COLLPROVIDER_BUILTIN)
+		pg_fatal("%s cannot be specified unless locale provider \"%s\" is chosen",
+				 "--builtin-locale", "builtin");
+
+	if (icu_locale_specified && locale_provider != COLLPROVIDER_ICU)
 		pg_fatal("%s cannot be specified unless locale provider \"%s\" is chosen",
 				 "--icu-locale", "icu");
 
@@ -3754,7 +3887,7 @@ main(int argc, char *argv[])
 
 	atexit(cleanup_directories_atexit);
 
-	/* If we only need to fsync, just do it and exit */
+	/* If we only need to sync, just do it and exit */
 	if (sync_only)
 	{
 		setup_pgdata();
@@ -3765,7 +3898,7 @@ main(int argc, char *argv[])
 
 		fputs(_("syncing data to disk ... "), stdout);
 		fflush(stdout);
-		fsync_pgdata(pg_data, PG_VERSION_NUM);
+		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method, sync_data_files);
 		check_ok();
 		return 0;
 	}
@@ -3810,6 +3943,7 @@ main(int argc, char *argv[])
 
 	check_need_password(authmethodlocal, authmethodhost);
 
+<<<<<<< HEAD
 	/* set wal segment size */
 	if (str_wal_segment_size_mb == NULL)
 		wal_segment_size_mb = (DEFAULT_XLOG_SEG_SIZE) / (1024 * 1024);
@@ -3826,6 +3960,10 @@ main(int argc, char *argv[])
 		if (!IsValidWalSegSize(wal_segment_size_mb * 1024 * 1024))
 			pg_fatal("argument of --wal-segsize must be a power of two between 1 and 1024");
 	}
+=======
+	if (!IsValidWalSegSize(wal_segment_size_mb * 1024 * 1024))
+		pg_fatal("argument of %s must be a power of two between 1 and 1024", "--wal-segsize");
+>>>>>>> REL_18_BETA1_branch
 
 	get_restricted_token();
 
@@ -3876,7 +4014,7 @@ main(int argc, char *argv[])
 	{
 		fputs(_("syncing data to disk ... "), stdout);
 		fflush(stdout);
-		fsync_pgdata(pg_data, PG_VERSION_NUM);
+		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method, sync_data_files);
 		check_ok();
 	}
 	else

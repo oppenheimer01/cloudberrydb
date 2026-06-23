@@ -8,7 +8,7 @@
  *
  * This code is released under the terms of the PostgreSQL License.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/test/regress/pg_regress_main.c
@@ -18,6 +18,7 @@
 
 #include "postgres_fe.h"
 
+#include "lib/stringinfo.h"
 #include "pg_regress.h"
 
 #include <sys/stat.h>
@@ -36,9 +37,14 @@ psql_start_test(const char *testname,
 	PID_TYPE	pid;
 	char		infile[MAXPGPATH];
 	char		outfile[MAXPGPATH];
+<<<<<<< HEAD
 	char		expectfile[MAXPGPATH] = "";
 	char		psql_cmd[MAXPGPATH * 4];
 	size_t		offset = 0;
+=======
+	char		expectfile[MAXPGPATH];
+	StringInfoData psql_cmd;
+>>>>>>> REL_18_BETA1_branch
 	char	   *appnameenv;
 	char		use_utility_mode = 0;
 	char	   *lastslash;
@@ -96,21 +102,16 @@ psql_start_test(const char *testname,
 	add_stringlist_item(resultfiles, outfile);
 	add_stringlist_item(expectfiles, expectfile);
 
+	initStringInfo(&psql_cmd);
+
 	if (launcher)
-	{
-		offset += snprintf(psql_cmd + offset, sizeof(psql_cmd) - offset,
-						   "%s ", launcher);
-		if (offset >= sizeof(psql_cmd))
-		{
-			fprintf(stderr, _("command too long\n"));
-			exit(2);
-		}
-	}
+		appendStringInfo(&psql_cmd, "%s ", launcher);
 
 	/*
 	 * Use HIDE_TABLEAM to hide different AMs to allow to use regression tests
 	 * against different AMs without unnecessary differences.
 	 */
+<<<<<<< HEAD
 	/* GPDB:
 	 * We need to pass multiple input files (prehook and infile) to psql,
 	 * to do this a simple way is to execute it like this:
@@ -157,12 +158,22 @@ psql_start_test(const char *testname,
 		fprintf(stderr, _("command too long\n"));
 		exit(2);
 	}
+=======
+	appendStringInfo(&psql_cmd,
+					 "\"%s%spsql\" -X -a -q -d \"%s\" %s < \"%s\" > \"%s\" 2>&1",
+					 bindir ? bindir : "",
+					 bindir ? "/" : "",
+					 dblist->str,
+					 "-v HIDE_TABLEAM=on -v HIDE_TOAST_COMPRESSION=on",
+					 infile,
+					 outfile);
+>>>>>>> REL_18_BETA1_branch
 
 	appnameenv = psprintf("pg_regress/%s", testname);
 	setenv("PGAPPNAME", appnameenv, 1);
 	free(appnameenv);
 
-	pid = spawn_process(psql_cmd);
+	pid = spawn_process(psql_cmd.data);
 
 	if (pid == INVALID_PID)
 	{
@@ -172,6 +183,8 @@ psql_start_test(const char *testname,
 	}
 
 	unsetenv("PGAPPNAME");
+
+	pfree(psql_cmd.data);
 
 	return pid;
 }

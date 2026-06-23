@@ -3,7 +3,7 @@
  * array_typanalyze.c
  *	  Functions for gathering statistics from array columns
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,8 +17,8 @@
 #include "access/detoast.h"
 #include "commands/vacuum.h"
 #include "utils/array.h"
-#include "utils/builtins.h"
 #include "utils/datum.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/typcache.h"
 
@@ -263,7 +263,7 @@ compute_array_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 	 * the number of individual elements tracked in pg_statistic ought to be
 	 * more than the number of values for a simple scalar column.
 	 */
-	num_mcelem = stats->attr->attstattarget * 10;
+	num_mcelem = stats->attstattarget * 10;
 
 	/*
 	 * We set bucket width equal to num_mcelem / 0.007 as per the comment
@@ -314,7 +314,7 @@ compute_array_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		int			distinct_count;
 		bool		count_item_found;
 
-		vacuum_delay_point();
+		vacuum_delay_point(true);
 
 		value = fetchfunc(stats, array_no, &isnull);
 		if (isnull)
@@ -575,7 +575,7 @@ compute_array_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		count_items_count = hash_get_num_entries(count_tab);
 		if (count_items_count > 0)
 		{
-			int			num_hist = stats->attr->attstattarget;
+			int			num_hist = stats->attstattarget;
 			DECountItem **sorted_count_items;
 			int			j;
 			int			delta;

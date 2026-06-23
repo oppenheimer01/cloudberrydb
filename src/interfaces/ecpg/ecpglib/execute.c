@@ -279,7 +279,7 @@ ecpg_is_type_an_array(int type, const struct statement *stmt, const struct varia
 			isarray = ECPG_ARRAY_NONE;
 		else
 		{
-			isarray = (atol((char *) PQgetvalue(query, 0, 0)) == -1) ? ECPG_ARRAY_ARRAY : ECPG_ARRAY_VECTOR;
+			isarray = (atoi(PQgetvalue(query, 0, 0)) == -1) ? ECPG_ARRAY_ARRAY : ECPG_ARRAY_VECTOR;
 			if (ecpg_dynamic_type(type) == SQL3_CHARACTER ||
 				ecpg_dynamic_type(type) == SQL3_CHARACTER_VARYING)
 			{
@@ -1962,9 +1962,7 @@ ecpg_do_prologue(int lineno, const int compat, const int force_indicator,
 		return false;
 	}
 
-#ifdef ENABLE_THREAD_SAFETY
 	ecpg_pthreads_init();
-#endif
 
 	con = ecpg_get_connection(connection_name);
 
@@ -1980,9 +1978,7 @@ ecpg_do_prologue(int lineno, const int compat, const int force_indicator,
 	 * Make sure we do NOT honor the locale for numeric input/output since the
 	 * database wants the standard decimal point.  If available, use
 	 * uselocale() for this because it's thread-safe.  Windows doesn't have
-	 * that, but it usually does have _configthreadlocale().  In some versions
-	 * of MinGW, _configthreadlocale() exists but always returns -1 --- so
-	 * treat that situation as if the function doesn't exist.
+	 * that, but it does have _configthreadlocale().
 	 */
 #ifdef HAVE_USELOCALE
 
@@ -1998,8 +1994,13 @@ ecpg_do_prologue(int lineno, const int compat, const int force_indicator,
 		return false;
 	}
 #else
-#ifdef HAVE__CONFIGTHREADLOCALE
+#ifdef WIN32
 	stmt->oldthreadlocale = _configthreadlocale(_ENABLE_PER_THREAD_LOCALE);
+	if (stmt->oldthreadlocale == -1)
+	{
+		ecpg_do_epilogue(stmt);
+		return false;
+	}
 #endif
 	stmt->oldlocale = ecpg_strdup(SETLOCALE(LC_NUMERIC, NULL), lineno);
 	if (stmt->oldlocale == NULL)
@@ -2221,6 +2222,7 @@ ecpg_do_epilogue(struct statement *stmt)
 		uselocale(stmt->oldlocale);
 #else
 	if (stmt->oldlocale)
+<<<<<<< HEAD
 		SETLOCALE(LC_NUMERIC, stmt->oldlocale);
 #ifdef HAVE__CONFIGTHREADLOCALE
 
@@ -2231,7 +2233,14 @@ ecpg_do_epilogue(struct statement *stmt)
 	 */
 	if (stmt->oldthreadlocale != -1)
 		(void) _configthreadlocale(stmt->oldthreadlocale);
+=======
+	{
+		setlocale(LC_NUMERIC, stmt->oldlocale);
+#ifdef WIN32
+		_configthreadlocale(stmt->oldthreadlocale);
+>>>>>>> REL_18_BETA1_branch
 #endif
+	}
 #endif
 
 	free_statement(stmt);

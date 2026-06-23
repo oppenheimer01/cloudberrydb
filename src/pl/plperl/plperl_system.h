@@ -8,7 +8,11 @@
  * declarations should be put here.  However, we do include some stuff
  * that is meant to prevent conflicts between our code and Perl.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1995, Regents of the University of California
  *
  * src/pl/plperl/plperl_system.h
@@ -72,6 +76,7 @@
 #endif
 
 /*
+<<<<<<< HEAD
  * Regarding bool, both PostgreSQL and Perl might use stdbool.h or not,
  * depending on configuration.  If both agree, things are relatively harmless.
  * If not, things get tricky.  If PostgreSQL does but Perl does not, define
@@ -82,14 +87,25 @@
 #ifdef PG_USE_STDBOOL
 #define HAS_BOOL 1
 #endif
+=======
+ * Define HAS_BOOL here so that Perl does not redefine bool.  We included
+ * <stdbool.h> in c.h.
+ */
+#define HAS_BOOL 1
+>>>>>>> REL_18_BETA1_branch
 
 /*
  * Get the basic Perl API.  We use PERL_NO_GET_CONTEXT mode so that our code
  * can compile against MULTIPLICITY Perl builds without including XSUB.h.
  */
 #define PERL_NO_GET_CONTEXT
+<<<<<<< HEAD
 #include "EXTERN.h"
 #include "perl.h"
+=======
+#include <EXTERN.h>
+#include <perl.h>
+>>>>>>> REL_18_BETA1_branch
 
 /*
  * We want to include XSUB.h only within .xs files, because on some platforms
@@ -109,6 +125,10 @@
 #undef fstat
 #undef kill
 #undef listen
+<<<<<<< HEAD
+=======
+#undef lseek
+>>>>>>> REL_18_BETA1_branch
 #undef lstat
 #undef mkdir
 #undef open
@@ -122,7 +142,11 @@
 #undef unlink
 #endif
 
+<<<<<<< HEAD
 #include "XSUB.h"
+=======
+#include <XSUB.h>
+>>>>>>> REL_18_BETA1_branch
 #endif
 
 /* put back our *printf macros ... this must match src/include/port.h */
@@ -180,6 +204,7 @@
 /* perl version and platform portability */
 #include "ppport.h"
 
+<<<<<<< HEAD
 /*
  * perl might have included stdbool.h.  If we also did that earlier (see c.h),
  * then that's fine.  If not, we probably rejected it for some reason.  In
@@ -193,6 +218,8 @@
 #endif
 #endif
 
+=======
+>>>>>>> REL_18_BETA1_branch
 /* supply HeUTF8 if it's missing - ppport.h doesn't supply it, unfortunately */
 #ifndef HeUTF8
 #define HeUTF8(he)			   ((HeKLEN(he) == HEf_SVKEY) ?			   \

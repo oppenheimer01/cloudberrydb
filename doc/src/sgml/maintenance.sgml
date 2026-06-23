@@ -496,9 +496,25 @@
     When that happens, <command>VACUUM</command> will eventually need to perform an
     <firstterm>aggressive vacuum</firstterm>, which will freeze all eligible unfrozen
     XID and MXID values, including those from all-visible but not all-frozen pages.
-    In practice most tables require periodic aggressive vacuuming.
+   </para>
+
+   <para>
+    If a table is building up a backlog of all-visible but not all-frozen
+    pages, a normal vacuum may choose to scan skippable pages in an effort to
+    freeze them. Doing so decreases the number of pages the next aggressive
+    vacuum must scan. These are referred to as <firstterm>eagerly
+    scanned</firstterm> pages. Eager scanning can be tuned to attempt to freeze
+    more all-visible pages by increasing <xref
+    linkend="guc-vacuum-max-eager-freeze-failure-rate"/>. Even if eager
+    scanning has kept the number of all-visible but not all-frozen pages to a
+    minimum, most tables still require periodic aggressive vacuuming. However,
+    any pages successfully eager frozen may be skipped during an aggressive
+    vacuum, so eager freezing may minimize the overhead of aggressive vacuums.
+   </para>
+
+   <para>
     <xref linkend="guc-vacuum-freeze-table-age"/>
-    controls when <command>VACUUM</command> does that: all-visible but not all-frozen
+    controls when a table is aggressively vacuumed. All all-visible but not all-frozen
     pages are scanned if the number of transactions that have passed since the
     last such scan is greater than <varname>vacuum_freeze_table_age</varname> minus
     <varname>vacuum_freeze_min_age</varname>. Setting
@@ -626,10 +642,12 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
    </tip>
 
    <para>
-    <command>VACUUM</command> normally only scans pages that have been modified
-    since the last vacuum, but <structfield>relfrozenxid</structfield> can only be
-    advanced when every page of the table
-    that might contain unfrozen XIDs is scanned.  This happens when
+    While <command>VACUUM</command> scans mostly pages that have been
+    modified since the last vacuum, it may also eagerly scan some
+    all-visible but not all-frozen pages in an attempt to freeze them, but
+    the <structfield>relfrozenxid</structfield> will only be advanced when
+    every page of the table that might contain unfrozen XIDs is scanned.
+    This happens when
     <structfield>relfrozenxid</structfield> is more than
     <varname>vacuum_freeze_table_age</varname> transactions old, when
     <command>VACUUM</command>'s <literal>FREEZE</literal> option is used, or when all
@@ -656,7 +674,7 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
 
 <programlisting>
 WARNING:  database "mydb" must be vacuumed within 39985967 transactions
-HINT:  To avoid a database shutdown, execute a database-wide VACUUM in that database.
+HINT:  To avoid XID assignment failures, execute a database-wide VACUUM in that database.
 </programlisting>
 
     (A manual <command>VACUUM</command> should fix the problem, as suggested by the
@@ -667,16 +685,22 @@ HINT:  To avoid a database shutdown, execute a database-wide VACUUM in that data
     there are fewer than three million transactions left until wraparound:
 
 <programlisting>
-ERROR:  database is not accepting commands to avoid wraparound data loss in database "mydb"
-HINT:  Stop the postmaster and vacuum that database in single-user mode.
+ERROR:  database is not accepting commands that assign new XIDs to avoid wraparound data loss in database "mydb"
+HINT:  Execute a database-wide VACUUM in that database.
 </programlisting>
 
     In this condition any transactions already in progress can continue,
     but only read-only transactions can be started. Operations that
     modify database records or truncate relations will fail.
     The <command>VACUUM</command> command can still be run normally.
+<<<<<<< HEAD
     Contrary to what the hint states, it is not necessary or desirable to stop the
     postmaster or enter single user-mode in order to restore normal operation.
+=======
+    Note that, contrary to what was sometimes recommended in earlier releases,
+    it is not necessary or desirable to stop the postmaster or enter single
+    user-mode in order to restore normal operation.
+>>>>>>> REL_18_BETA1_branch
     Instead, follow these steps:
 
     <orderedlist>
@@ -802,7 +826,11 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     <para>
      Similar to the XID case, if autovacuum fails to clear old MXIDs from a table, the
      system will begin to emit warning messages when the database's oldest MXIDs reach forty
+<<<<<<< HEAD
      million transactions from the wraparound point.  And, just as an the XID case, if these
+=======
+     million transactions from the wraparound point.  And, just as in the XID case, if these
+>>>>>>> REL_18_BETA1_branch
      warnings are ignored, the system will refuse to generate new MXIDs once there are fewer
      than three million left until wraparound.
     </para>
@@ -895,9 +923,11 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     <command>VACUUM</command> exceeds the <quote>vacuum threshold</quote>, the
     table is vacuumed.  The vacuum threshold is defined as:
 <programlisting>
-vacuum threshold = vacuum base threshold + vacuum scale factor * number of tuples
+vacuum threshold = Minimum(vacuum max threshold, vacuum base threshold + vacuum scale factor * number of tuples)
 </programlisting>
-    where the vacuum base threshold is
+    where the vacuum max threshold is
+    <xref linkend="guc-autovacuum-vacuum-max-threshold"/>,
+    the vacuum base threshold is
     <xref linkend="guc-autovacuum-vacuum-threshold"/>,
     the vacuum scale factor is
     <xref linkend="guc-autovacuum-vacuum-scale-factor"/>,
@@ -924,14 +954,12 @@ vacuum insert threshold = vacuum base insert threshold + vacuum insert scale fac
     <xref linkend="reloption-autovacuum-freeze-min-age"/> as this may allow
     tuples to be frozen by earlier vacuums.  The number of obsolete tuples and
     the number of inserted tuples are obtained from the cumulative statistics system;
-    it is a semi-accurate count updated by each <command>UPDATE</command>,
-    <command>DELETE</command> and <command>INSERT</command> operation.  (It is
-    only semi-accurate because some information might be lost under heavy
-    load.)  If the <structfield>relfrozenxid</structfield> value of the table
+    it is an eventually-consistent count updated by each <command>UPDATE</command>,
+    <command>DELETE</command> and <command>INSERT</command> operation.
+    If the <structfield>relfrozenxid</structfield> value of the table
     is more than <varname>vacuum_freeze_table_age</varname> transactions old,
     an aggressive vacuum is performed to freeze old tuples and advance
-    <structfield>relfrozenxid</structfield>; otherwise, only pages that have been modified
-    since the last vacuum are scanned.
+    <structfield>relfrozenxid</structfield>.
    </para>
 
    <para>

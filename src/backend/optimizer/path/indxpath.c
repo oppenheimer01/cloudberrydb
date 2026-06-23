@@ -4,9 +4,13 @@
  *	  Routines to determine which indexes are usable for scanning a
  *	  given relation, and create Paths accordingly.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -22,6 +26,7 @@
 #include "access/stratnum.h"
 #include "access/sysattr.h"
 #include "catalog/pg_am.h"
+#include "catalog/pg_amop.h"
 #include "catalog/pg_operator.h"
 #include "catalog/pg_opfamily.h"
 #include "catalog/pg_proc.h"
@@ -56,7 +61,7 @@ typedef enum
 {
 	ST_INDEXSCAN,				/* must support amgettuple */
 	ST_BITMAPSCAN,				/* must support amgetbitmap */
-	ST_ANYSCAN					/* either is okay */
+	ST_ANYSCAN,					/* either is okay */
 } ScanTypeControl;
 
 /* Data structure for collecting qual clauses that match an index */
@@ -117,8 +122,7 @@ static List *build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 							   IndexOptInfo *index, IndexClauseSet *clauses,
 							   bool useful_predicate,
 							   ScanTypeControl scantype,
-							   bool *skip_nonnative_saop,
-							   bool *skip_lower_saop);
+							   bool *skip_nonnative_saop);
 static List *build_paths_for_OR(PlannerInfo *root, RelOptInfo *rel,
 								List *clauses, List *other_clauses);
 static List *generate_bitmap_or_paths(PlannerInfo *root, RelOptInfo *rel,
@@ -189,6 +193,10 @@ static IndexClause *match_rowcompare_to_indexcol(PlannerInfo *root,
 												 RestrictInfo *rinfo,
 												 int indexcol,
 												 IndexOptInfo *index);
+static IndexClause *match_orclause_to_indexcol(PlannerInfo *root,
+											   RestrictInfo *rinfo,
+											   int indexcol,
+											   IndexOptInfo *index);
 static IndexClause *expand_indexqual_rowcompare(PlannerInfo *root,
 												RestrictInfo *rinfo,
 												int indexcol,
@@ -717,8 +725,6 @@ eclass_already_used(EquivalenceClass *parent_ec, Relids oldrelids,
  * index AM supports them natively, we should just include them in simple
  * index paths.  If not, we should exclude them while building simple index
  * paths, and then make a separate attempt to include them in bitmap paths.
- * Furthermore, we should consider excluding lower-order ScalarArrayOpExpr
- * quals so as to create ordered paths.
  */
 static void
 get_index_paths(PlannerInfo *root, RelOptInfo *rel,
@@ -727,37 +733,17 @@ get_index_paths(PlannerInfo *root, RelOptInfo *rel,
 {
 	List	   *indexpaths;
 	bool		skip_nonnative_saop = false;
-	bool		skip_lower_saop = false;
 	ListCell   *lc;
 
 	/*
 	 * Build simple index paths using the clauses.  Allow ScalarArrayOpExpr
-	 * clauses only if the index AM supports them natively, and skip any such
-	 * clauses for index columns after the first (so that we produce ordered
-	 * paths if possible).
+	 * clauses only if the index AM supports them natively.
 	 */
 	indexpaths = build_index_paths(root, rel,
 								   index, clauses,
 								   index->predOK,
 								   ST_ANYSCAN,
-								   &skip_nonnative_saop,
-								   &skip_lower_saop);
-
-	/*
-	 * If we skipped any lower-order ScalarArrayOpExprs on an index with an AM
-	 * that supports them, then try again including those clauses.  This will
-	 * produce paths with more selectivity but no ordering.
-	 */
-	if (skip_lower_saop)
-	{
-		indexpaths = list_concat(indexpaths,
-								 build_index_paths(root, rel,
-												   index, clauses,
-												   index->predOK,
-												   ST_ANYSCAN,
-												   &skip_nonnative_saop,
-												   NULL));
-	}
+								   &skip_nonnative_saop);
 
 	/*
 	 * Submit all the ones that can form plain IndexScan plans to add_path. (A
@@ -826,7 +812,6 @@ get_index_paths(PlannerInfo *root, RelOptInfo *rel,
 									   index, clauses,
 									   false,
 									   ST_BITMAPSCAN,
-									   NULL,
 									   NULL);
 		*bitindexpaths = list_concat(*bitindexpaths, indexpaths);
 	}
@@ -859,27 +844,19 @@ get_index_paths(PlannerInfo *root, RelOptInfo *rel,
  * to true if we found any such clauses (caller must initialize the variable
  * to false).  If it's NULL, we do not ignore ScalarArrayOpExpr clauses.
  *
- * If skip_lower_saop is non-NULL, we ignore ScalarArrayOpExpr clauses for
- * non-first index columns, and we set *skip_lower_saop to true if we found
- * any such clauses (caller must initialize the variable to false).  If it's
- * NULL, we do not ignore non-first ScalarArrayOpExpr clauses, but they will
- * result in considering the scan's output to be unordered.
- *
  * 'rel' is the index's heap relation
  * 'index' is the index for which we want to generate paths
  * 'clauses' is the collection of indexable clauses (IndexClause nodes)
  * 'useful_predicate' indicates whether the index has a useful predicate
  * 'scantype' indicates whether we need plain or bitmap scan support
  * 'skip_nonnative_saop' indicates whether to accept SAOP if index AM doesn't
- * 'skip_lower_saop' indicates whether to accept non-first-column SAOP
  */
 static List *
 build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 				  IndexOptInfo *index, IndexClauseSet *clauses,
 				  bool useful_predicate,
 				  ScanTypeControl scantype,
-				  bool *skip_nonnative_saop,
-				  bool *skip_lower_saop)
+				  bool *skip_nonnative_saop)
 {
 	List	   *result = NIL;
 	IndexPath  *ipath;
@@ -890,11 +867,12 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	List	   *orderbyclausecols;
 	List	   *index_pathkeys;
 	List	   *useful_pathkeys;
-	bool		found_lower_saop_clause;
 	bool		pathkeys_possibly_useful;
 	bool		index_is_ordered;
 	bool		index_only_scan;
 	int			indexcol;
+
+	Assert(skip_nonnative_saop != NULL || scantype == ST_BITMAPSCAN);
 
 	/*
 	 * Check that index supports the desired scan type(s)
@@ -922,19 +900,11 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	 * on by btree and possibly other places.)  The list can be empty, if the
 	 * index AM allows that.
 	 *
-	 * found_lower_saop_clause is set true if we accept a ScalarArrayOpExpr
-	 * index clause for a non-first index column.  This prevents us from
-	 * assuming that the scan result is ordered.  (Actually, the result is
-	 * still ordered if there are equality constraints for all earlier
-	 * columns, but it seems too expensive and non-modular for this code to be
-	 * aware of that refinement.)
-	 *
 	 * We also build a Relids set showing which outer rels are required by the
 	 * selected clauses.  Any lateral_relids are included in that, but not
 	 * otherwise accounted for.
 	 */
 	index_clauses = NIL;
-	found_lower_saop_clause = false;
 	outer_relids = bms_copy(rel->lateral_relids);
 	for (indexcol = 0; indexcol < index->nkeycolumns; indexcol++)
 	{
@@ -945,30 +915,18 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 			IndexClause *iclause = (IndexClause *) lfirst(lc);
 			RestrictInfo *rinfo = iclause->rinfo;
 
-			/* We might need to omit ScalarArrayOpExpr clauses */
-			if (IsA(rinfo->clause, ScalarArrayOpExpr))
+			if (skip_nonnative_saop && !index->amsearcharray &&
+				IsA(rinfo->clause, ScalarArrayOpExpr))
 			{
-				if (!index->amsearcharray)
-				{
-					if (skip_nonnative_saop)
-					{
-						/* Ignore because not supported by index */
-						*skip_nonnative_saop = true;
-						continue;
-					}
-					/* Caller had better intend this only for bitmap scan */
-					Assert(scantype == ST_BITMAPSCAN);
-				}
-				if (indexcol > 0)
-				{
-					if (skip_lower_saop)
-					{
-						/* Caller doesn't want to lose index ordering */
-						*skip_lower_saop = true;
-						continue;
-					}
-					found_lower_saop_clause = true;
-				}
+				/*
+				 * Caller asked us to generate IndexPaths that omit any
+				 * ScalarArrayOpExpr clauses when the underlying index AM
+				 * lacks native support.
+				 *
+				 * We must omit this clause (and tell caller about it).
+				 */
+				*skip_nonnative_saop = true;
+				continue;
 			}
 
 			/* OK to include this clause */
@@ -998,11 +956,9 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	/*
 	 * 2. Compute pathkeys describing index's ordering, if any, then see how
 	 * many of them are actually useful for this query.  This is not relevant
-	 * if we are only trying to build bitmap indexscans, nor if we have to
-	 * assume the scan is unordered.
+	 * if we are only trying to build bitmap indexscans.
 	 */
 	pathkeys_possibly_useful = (scantype != ST_BITMAPSCAN &&
-								!found_lower_saop_clause &&
 								has_useful_pathkeys(root, rel));
 	index_is_ordered = (index->sortopfamily != NULL);
 	if (index_is_ordered && pathkeys_possibly_useful)
@@ -1017,14 +973,20 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	}
 	else if (index->amcanorderbyop && pathkeys_possibly_useful)
 	{
-		/* see if we can generate ordering operators for query_pathkeys */
+		/*
+		 * See if we can generate ordering operators for query_pathkeys or at
+		 * least some prefix thereof.  Matching to just a prefix of the
+		 * query_pathkeys will allow an incremental sort to be considered on
+		 * the index's partially sorted results.
+		 */
 		match_pathkeys_to_index(index, root->query_pathkeys,
 								&orderbyclauses,
 								&orderbyclausecols);
-		if (orderbyclauses)
+		if (list_length(root->query_pathkeys) == list_length(orderbyclauses))
 			useful_pathkeys = root->query_pathkeys;
 		else
-			useful_pathkeys = NIL;
+			useful_pathkeys = list_copy_head(root->query_pathkeys,
+											 list_length(orderbyclauses));
 	}
 	else
 	{
@@ -1249,13 +1211,455 @@ build_paths_for_OR(PlannerInfo *root, RelOptInfo *rel,
 									   index, &clauseset,
 									   useful_predicate,
 									   ST_BITMAPSCAN,
-									   NULL,
 									   NULL);
 		result = list_concat(result, indexpaths);
 	}
 
 	return result;
 }
+
+/*
+ * Utility structure used to group similar OR-clause arguments in
+ * group_similar_or_args().  It represents information about the OR-clause
+ * argument and its matching index key.
+ */
+typedef struct
+{
+	int			indexnum;		/* index of the matching index, or -1 if no
+								 * matching index */
+	int			colnum;			/* index of the matching column, or -1 if no
+								 * matching index */
+	Oid			opno;			/* OID of the OpClause operator, or InvalidOid
+								 * if not an OpExpr */
+	Oid			inputcollid;	/* OID of the OpClause input collation */
+	int			argindex;		/* index of the clause in the list of
+								 * arguments */
+	int			groupindex;		/* value of argindex for the fist clause in
+								 * the group of similar clauses */
+} OrArgIndexMatch;
+
+/*
+ * Comparison function for OrArgIndexMatch which provides sort order placing
+ * similar OR-clause arguments together.
+ */
+static int
+or_arg_index_match_cmp(const void *a, const void *b)
+{
+	const OrArgIndexMatch *match_a = (const OrArgIndexMatch *) a;
+	const OrArgIndexMatch *match_b = (const OrArgIndexMatch *) b;
+
+	if (match_a->indexnum < match_b->indexnum)
+		return -1;
+	else if (match_a->indexnum > match_b->indexnum)
+		return 1;
+
+	if (match_a->colnum < match_b->colnum)
+		return -1;
+	else if (match_a->colnum > match_b->colnum)
+		return 1;
+
+	if (match_a->opno < match_b->opno)
+		return -1;
+	else if (match_a->opno > match_b->opno)
+		return 1;
+
+	if (match_a->inputcollid < match_b->inputcollid)
+		return -1;
+	else if (match_a->inputcollid > match_b->inputcollid)
+		return 1;
+
+	if (match_a->argindex < match_b->argindex)
+		return -1;
+	else if (match_a->argindex > match_b->argindex)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * Another comparison function for OrArgIndexMatch.  It sorts groups together
+ * using groupindex.  The group items are then sorted by argindex.
+ */
+static int
+or_arg_index_match_cmp_group(const void *a, const void *b)
+{
+	const OrArgIndexMatch *match_a = (const OrArgIndexMatch *) a;
+	const OrArgIndexMatch *match_b = (const OrArgIndexMatch *) b;
+
+	if (match_a->groupindex < match_b->groupindex)
+		return -1;
+	else if (match_a->groupindex > match_b->groupindex)
+		return 1;
+
+	if (match_a->argindex < match_b->argindex)
+		return -1;
+	else if (match_a->argindex > match_b->argindex)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * group_similar_or_args
+ *		Transform incoming OR-restrictinfo into a list of sub-restrictinfos,
+ *		each of them containing a subset of similar OR-clause arguments from
+ *		the source rinfo.
+ *
+ * Similar OR-clause arguments are of the form "indexkey op constant" having
+ * the same indexkey, operator, and collation.  Constant may comprise either
+ * Const or Param.  It may be employed later, during the
+ * match_clause_to_indexcol() to transform the whole OR-sub-rinfo to an SAOP
+ * clause.
+ *
+ * Returns the processed list of OR-clause arguments.
+ */
+static List *
+group_similar_or_args(PlannerInfo *root, RelOptInfo *rel, RestrictInfo *rinfo)
+{
+	int			n;
+	int			i;
+	int			group_start;
+	OrArgIndexMatch *matches;
+	bool		matched = false;
+	ListCell   *lc;
+	ListCell   *lc2;
+	List	   *orargs;
+	List	   *result = NIL;
+	Index		relid = rel->relid;
+
+	Assert(IsA(rinfo->orclause, BoolExpr));
+	orargs = ((BoolExpr *) rinfo->orclause)->args;
+	n = list_length(orargs);
+
+	/*
+	 * To avoid N^2 behavior, take utility pass along the list of OR-clause
+	 * arguments.  For each argument, fill the OrArgIndexMatch structure,
+	 * which will be used to sort these arguments at the next step.
+	 */
+	i = -1;
+	matches = (OrArgIndexMatch *) palloc(sizeof(OrArgIndexMatch) * n);
+	foreach(lc, orargs)
+	{
+		Node	   *arg = lfirst(lc);
+		RestrictInfo *argrinfo;
+		OpExpr	   *clause;
+		Oid			opno;
+		Node	   *leftop,
+				   *rightop;
+		Node	   *nonConstExpr;
+		int			indexnum;
+		int			colnum;
+
+		i++;
+		matches[i].argindex = i;
+		matches[i].groupindex = i;
+		matches[i].indexnum = -1;
+		matches[i].colnum = -1;
+		matches[i].opno = InvalidOid;
+		matches[i].inputcollid = InvalidOid;
+
+		if (!IsA(arg, RestrictInfo))
+			continue;
+
+		argrinfo = castNode(RestrictInfo, arg);
+
+		/* Only operator clauses can match  */
+		if (!IsA(argrinfo->clause, OpExpr))
+			continue;
+
+		clause = (OpExpr *) argrinfo->clause;
+		opno = clause->opno;
+
+		/* Only binary operators can match  */
+		if (list_length(clause->args) != 2)
+			continue;
+
+		/*
+		 * Ignore any RelabelType node above the operands.  This is needed to
+		 * be able to apply indexscanning in binary-compatible-operator cases.
+		 * Note: we can assume there is at most one RelabelType node;
+		 * eval_const_expressions() will have simplified if more than one.
+		 */
+		leftop = get_leftop(clause);
+		if (IsA(leftop, RelabelType))
+			leftop = (Node *) ((RelabelType *) leftop)->arg;
+
+		rightop = get_rightop(clause);
+		if (IsA(rightop, RelabelType))
+			rightop = (Node *) ((RelabelType *) rightop)->arg;
+
+		/*
+		 * Check for clauses of the form: (indexkey operator constant) or
+		 * (constant operator indexkey).  But we don't know a particular index
+		 * yet.  Therefore, we try to distinguish the potential index key and
+		 * constant first, then search for a matching index key among all
+		 * indexes.
+		 */
+		if (bms_is_member(relid, argrinfo->right_relids) &&
+			!bms_is_member(relid, argrinfo->left_relids) &&
+			!contain_volatile_functions(leftop))
+		{
+			opno = get_commutator(opno);
+
+			if (!OidIsValid(opno))
+			{
+				/* commutator doesn't exist, we can't reverse the order */
+				continue;
+			}
+			nonConstExpr = rightop;
+		}
+		else if (bms_is_member(relid, argrinfo->left_relids) &&
+				 !bms_is_member(relid, argrinfo->right_relids) &&
+				 !contain_volatile_functions(rightop))
+		{
+			nonConstExpr = leftop;
+		}
+		else
+		{
+			continue;
+		}
+
+		/*
+		 * Match non-constant part to the index key.  It's possible that a
+		 * single non-constant part matches multiple index keys.  It's OK, we
+		 * just stop with first matching index key.  Given that this choice is
+		 * determined the same for every clause, we will group similar clauses
+		 * together anyway.
+		 */
+		indexnum = 0;
+		foreach(lc2, rel->indexlist)
+		{
+			IndexOptInfo *index = (IndexOptInfo *) lfirst(lc2);
+
+			/*
+			 * Ignore index if it doesn't support bitmap scans or SAOP
+			 * clauses.
+			 */
+			if (!index->amhasgetbitmap || !index->amsearcharray)
+				continue;
+
+			for (colnum = 0; colnum < index->nkeycolumns; colnum++)
+			{
+				if (match_index_to_operand(nonConstExpr, colnum, index))
+				{
+					matches[i].indexnum = indexnum;
+					matches[i].colnum = colnum;
+					matches[i].opno = opno;
+					matches[i].inputcollid = clause->inputcollid;
+					matched = true;
+					break;
+				}
+			}
+
+			/*
+			 * Stop looping through the indexes, if we managed to match
+			 * nonConstExpr to any index column.
+			 */
+			if (matches[i].indexnum >= 0)
+				break;
+			indexnum++;
+		}
+	}
+
+	/*
+	 * Fast-path check: if no clause is matching to the index column, we can
+	 * just give up at this stage and return the clause list as-is.
+	 */
+	if (!matched)
+	{
+		pfree(matches);
+		return orargs;
+	}
+
+	/*
+	 * Sort clauses to make similar clauses go together.  But at the same
+	 * time, we would like to change the order of clauses as little as
+	 * possible.  To do so, we reorder each group of similar clauses so that
+	 * the first item of the group stays in place, and all the other items are
+	 * moved after it.  So, if there are no similar clauses, the order of
+	 * clauses stays the same.  When there are some groups, required
+	 * reordering happens while the rest of the clauses remain in their
+	 * places.  That is achieved by assigning a 'groupindex' to each clause:
+	 * the number of the first item in the group in the original clause list.
+	 */
+	qsort(matches, n, sizeof(OrArgIndexMatch), or_arg_index_match_cmp);
+
+	/* Assign groupindex to the sorted clauses */
+	for (i = 1; i < n; i++)
+	{
+		/*
+		 * When two clauses are similar and should belong to the same group,
+		 * copy the 'groupindex' from the previous clause.  Given we are
+		 * considering clauses in direct order, all the clauses would have a
+		 * 'groupindex' equal to the 'groupindex' of the first clause in the
+		 * group.
+		 */
+		if (matches[i].indexnum == matches[i - 1].indexnum &&
+			matches[i].colnum == matches[i - 1].colnum &&
+			matches[i].opno == matches[i - 1].opno &&
+			matches[i].inputcollid == matches[i - 1].inputcollid &&
+			matches[i].indexnum != -1)
+			matches[i].groupindex = matches[i - 1].groupindex;
+	}
+
+	/* Re-sort clauses first by groupindex then by argindex */
+	qsort(matches, n, sizeof(OrArgIndexMatch), or_arg_index_match_cmp_group);
+
+	/*
+	 * Group similar clauses into single sub-restrictinfo. Side effect: the
+	 * resulting list of restrictions will be sorted by indexnum and colnum.
+	 */
+	group_start = 0;
+	for (i = 1; i <= n; i++)
+	{
+		/* Check if it's a group boundary */
+		if (group_start >= 0 &&
+			(i == n ||
+			 matches[i].indexnum != matches[group_start].indexnum ||
+			 matches[i].colnum != matches[group_start].colnum ||
+			 matches[i].opno != matches[group_start].opno ||
+			 matches[i].inputcollid != matches[group_start].inputcollid ||
+			 matches[i].indexnum == -1))
+		{
+			/*
+			 * One clause in group: add it "as is" to the upper-level OR.
+			 */
+			if (i - group_start == 1)
+			{
+				result = lappend(result,
+								 list_nth(orargs,
+										  matches[group_start].argindex));
+			}
+			else
+			{
+				/*
+				 * Two or more clauses in a group: create a nested OR.
+				 */
+				List	   *args = NIL;
+				List	   *rargs = NIL;
+				RestrictInfo *subrinfo;
+				int			j;
+
+				Assert(i - group_start >= 2);
+
+				/* Construct the list of nested OR arguments */
+				for (j = group_start; j < i; j++)
+				{
+					Node	   *arg = list_nth(orargs, matches[j].argindex);
+
+					rargs = lappend(rargs, arg);
+					if (IsA(arg, RestrictInfo))
+						args = lappend(args, ((RestrictInfo *) arg)->clause);
+					else
+						args = lappend(args, arg);
+				}
+
+				/* Construct the nested OR and wrap it with RestrictInfo */
+				subrinfo = make_plain_restrictinfo(root,
+												   make_orclause(args),
+												   make_orclause(rargs),
+												   rinfo->is_pushed_down,
+												   rinfo->has_clone,
+												   rinfo->is_clone,
+												   rinfo->pseudoconstant,
+												   rinfo->security_level,
+												   rinfo->required_relids,
+												   rinfo->incompatible_relids,
+												   rinfo->outer_relids);
+				result = lappend(result, subrinfo);
+			}
+
+			group_start = i;
+		}
+	}
+	pfree(matches);
+	return result;
+}
+
+/*
+ * make_bitmap_paths_for_or_group
+ *		Generate bitmap paths for a group of similar OR-clause arguments
+ *		produced by group_similar_or_args().
+ *
+ * This function considers two cases: (1) matching a group of clauses to
+ * the index as a whole, and (2) matching the individual clauses one-by-one.
+ * (1) typically comprises an optimal solution.  If not, (2) typically
+ * comprises fair alternative.
+ *
+ * Ideally, we could consider all arbitrary splits of arguments into
+ * subgroups, but that could lead to unacceptable computational complexity.
+ * This is why we only consider two cases of above.
+ */
+static List *
+make_bitmap_paths_for_or_group(PlannerInfo *root, RelOptInfo *rel,
+							   RestrictInfo *ri, List *other_clauses)
+{
+	List	   *jointlist = NIL;
+	List	   *splitlist = NIL;
+	ListCell   *lc;
+	List	   *orargs;
+	List	   *args = ((BoolExpr *) ri->orclause)->args;
+	Cost		jointcost = 0.0,
+				splitcost = 0.0;
+	Path	   *bitmapqual;
+	List	   *indlist;
+
+	/*
+	 * First, try to match the whole group to the one index.
+	 */
+	orargs = list_make1(ri);
+	indlist = build_paths_for_OR(root, rel,
+								 orargs,
+								 other_clauses);
+	if (indlist != NIL)
+	{
+		bitmapqual = choose_bitmap_and(root, rel, indlist);
+		jointcost = bitmapqual->total_cost;
+		jointlist = list_make1(bitmapqual);
+	}
+
+	/*
+	 * If we manage to find a bitmap scan, which uses the group of OR-clause
+	 * arguments as a whole, we can skip matching OR-clause arguments
+	 * one-by-one as long as there are no other clauses, which can bring more
+	 * efficiency to one-by-one case.
+	 */
+	if (jointlist != NIL && other_clauses == NIL)
+		return jointlist;
+
+	/*
+	 * Also try to match all containing clauses one-by-one.
+	 */
+	foreach(lc, args)
+	{
+		orargs = list_make1(lfirst(lc));
+
+		indlist = build_paths_for_OR(root, rel,
+									 orargs,
+									 other_clauses);
+
+		if (indlist == NIL)
+		{
+			splitlist = NIL;
+			break;
+		}
+
+		bitmapqual = choose_bitmap_and(root, rel, indlist);
+		splitcost += bitmapqual->total_cost;
+		splitlist = lappend(splitlist, bitmapqual);
+	}
+
+	/*
+	 * Pick the best option.
+	 */
+	if (splitlist == NIL)
+		return jointlist;
+	else if (jointlist == NIL)
+		return splitlist;
+	else
+		return (jointcost < splitcost) ? jointlist : splitlist;
+}
+
 
 /*
  * generate_bitmap_or_paths
@@ -1287,6 +1691,8 @@ generate_bitmap_or_paths(PlannerInfo *root, RelOptInfo *rel,
 		List	   *pathlist;
 		Path	   *bitmapqual;
 		ListCell   *j;
+		List	   *groupedArgs;
+		List	   *inner_other_clauses = NIL;
 
 		/* Ignore RestrictInfos that aren't ORs */
 		if (!restriction_is_or_clause(rinfo))
@@ -1297,7 +1703,29 @@ generate_bitmap_or_paths(PlannerInfo *root, RelOptInfo *rel,
 		 * the OR, else we can't use it.
 		 */
 		pathlist = NIL;
-		foreach(j, ((BoolExpr *) rinfo->orclause)->args)
+
+		/*
+		 * Group the similar OR-clause arguments into dedicated RestrictInfos,
+		 * because each of those RestrictInfos has a chance to match the index
+		 * as a whole.
+		 */
+		groupedArgs = group_similar_or_args(root, rel, rinfo);
+
+		if (groupedArgs != ((BoolExpr *) rinfo->orclause)->args)
+		{
+			/*
+			 * Some parts of the rinfo were probably grouped.  In this case,
+			 * we have a set of sub-rinfos that together are an exact
+			 * duplicate of rinfo.  Thus, we need to remove the rinfo from
+			 * other clauses. match_clauses_to_index detects duplicated
+			 * iclauses by comparing pointers to original rinfos that would be
+			 * different.  So, we must delete rinfo to avoid de-facto
+			 * duplicated clauses in the index clauses list.
+			 */
+			inner_other_clauses = list_delete(list_copy(all_clauses), rinfo);
+		}
+
+		foreach(j, groupedArgs)
 		{
 			Node	   *orarg = (Node *) lfirst(j);
 			List	   *indlist;
@@ -1317,12 +1745,34 @@ generate_bitmap_or_paths(PlannerInfo *root, RelOptInfo *rel,
 															   andargs,
 															   all_clauses));
 			}
+			else if (restriction_is_or_clause(castNode(RestrictInfo, orarg)))
+			{
+				RestrictInfo *ri = castNode(RestrictInfo, orarg);
+
+				/*
+				 * Generate bitmap paths for the group of similar OR-clause
+				 * arguments.
+				 */
+				indlist = make_bitmap_paths_for_or_group(root,
+														 rel, ri,
+														 inner_other_clauses);
+
+				if (indlist == NIL)
+				{
+					pathlist = NIL;
+					break;
+				}
+				else
+				{
+					pathlist = list_concat(pathlist, indlist);
+					continue;
+				}
+			}
 			else
 			{
 				RestrictInfo *ri = castNode(RestrictInfo, orarg);
 				List	   *orargs;
 
-				Assert(!restriction_is_or_clause(ri));
 				orargs = list_make1(ri);
 
 				indlist = build_paths_for_OR(root, rel,
@@ -1347,6 +1797,9 @@ generate_bitmap_or_paths(PlannerInfo *root, RelOptInfo *rel,
 			bitmapqual = choose_bitmap_and(root, rel, indlist);
 			pathlist = lappend(pathlist, bitmapqual);
 		}
+
+		if (inner_other_clauses != NIL)
+			list_free(inner_other_clauses);
 
 		/*
 		 * If we have a match for every arm, then turn them into a
@@ -2069,6 +2522,7 @@ match_restriction_clauses_to_index(PlannerInfo *root,
  *	  Identify join clauses for the rel that match the index.
  *	  Matching clauses are added to *clauseset.
  *	  Also, add any potentially usable join OR clauses to *joinorclauses.
+ *	  They also might be processed by match_clause_to_index() as a whole.
  */
 static void
 match_join_clauses_to_index(PlannerInfo *root,
@@ -2087,11 +2541,15 @@ match_join_clauses_to_index(PlannerInfo *root,
 		if (!join_clause_is_movable_to(rinfo, rel))
 			continue;
 
-		/* Potentially usable, so see if it matches the index or is an OR */
+		/*
+		 * Potentially usable, so see if it matches the index or is an OR. Use
+		 * list_append_unique_ptr() here to avoid possible duplicates when
+		 * processing the same clauses with different indexes.
+		 */
 		if (restriction_is_or_clause(rinfo))
-			*joinorclauses = lappend(*joinorclauses, rinfo);
-		else
-			match_clause_to_index(root, rinfo, index, clauseset);
+			*joinorclauses = list_append_unique_ptr(*joinorclauses, rinfo);
+
+		match_clause_to_index(root, rinfo, index, clauseset);
 	}
 }
 
@@ -2121,7 +2579,7 @@ match_eclass_clauses_to_index(PlannerInfo *root, IndexOptInfo *index,
 		clauses = generate_implied_equalities_for_column(root,
 														 index->rel,
 														 ec_member_matches_indexcol,
-														 (void *) &arg,
+														 &arg,
 														 index->rel->lateral_referencers);
 
 		/*
@@ -2281,6 +2739,10 @@ match_clause_to_index(PlannerInfo *root,
  *	  It is also possible to match ScalarArrayOpExpr clauses to indexes, when
  *	  the clause is of the form "indexkey op ANY (arrayconst)".
  *
+ *	  It is also possible to match a list of OR clauses if it might be
+ *	  transformed into a single ScalarArrayOpExpr clause.  On success,
+ *	  the returning index clause will contain a transformed clause.
+ *
  *	  For boolean indexes, it is also possible to match the clause directly
  *	  to the indexkey; or perhaps the clause is (NOT indexkey).
  *
@@ -2298,8 +2760,9 @@ match_clause_to_index(PlannerInfo *root,
  * Returns an IndexClause if the clause can be used with this index key,
  * or NULL if not.
  *
- * NOTE:  returns NULL if clause is an OR or AND clause; it is the
- * responsibility of higher-level routines to cope with those.
+ * NOTE:  This routine always returns NULL if the clause is an AND clause.
+ * Higher-level routines deal with OR and AND clauses. OR clause can be
+ * matched as a whole by match_orclause_to_indexcol() though.
  */
 static IndexClause *
 match_clause_to_indexcol(PlannerInfo *root,
@@ -2330,9 +2793,9 @@ match_clause_to_indexcol(PlannerInfo *root,
 	}
 
 	/*
-	 * Clause must be an opclause, funcclause, ScalarArrayOpExpr, or
-	 * RowCompareExpr.  Or, if the index supports it, we can handle IS
-	 * NULL/NOT NULL clauses.
+	 * Clause must be an opclause, funcclause, ScalarArrayOpExpr,
+	 * RowCompareExpr, or OR-clause that could be converted to SAOP.  Or, if
+	 * the index supports it, we can handle IS NULL/NOT NULL clauses.
 	 */
 	if (IsA(clause, OpExpr))
 	{
@@ -2349,6 +2812,10 @@ match_clause_to_indexcol(PlannerInfo *root,
 	else if (IsA(clause, RowCompareExpr))
 	{
 		return match_rowcompare_to_indexcol(root, rinfo, indexcol, index);
+	}
+	else if (restriction_is_or_clause(rinfo))
+	{
+		return match_orclause_to_indexcol(root, rinfo, indexcol, index);
 	}
 	else if (index->amsearchnulls && IsA(clause, NullTest))
 	{
@@ -2874,6 +3341,216 @@ match_rowcompare_to_indexcol(PlannerInfo *root,
 }
 
 /*
+ * match_orclause_to_indexcol()
+ *	  Handles the OR-expr case for match_clause_to_indexcol() in the case
+ *	  when it could be transformed to ScalarArrayOpExpr.
+ *
+ * In this routine, we attempt to transform a list of OR-clause args into a
+ * single SAOP expression matching the target index column.  On success,
+ * return an IndexClause, containing the transformed expression or NULL,
+ * if failed.
+ */
+static IndexClause *
+match_orclause_to_indexcol(PlannerInfo *root,
+						   RestrictInfo *rinfo,
+						   int indexcol,
+						   IndexOptInfo *index)
+{
+	ListCell   *lc;
+	BoolExpr   *orclause = (BoolExpr *) rinfo->orclause;
+	Node	   *indexExpr = NULL;
+	List	   *consts = NIL;
+	ScalarArrayOpExpr *saopexpr = NULL;
+	Oid			matchOpno = InvalidOid;
+	IndexClause *iclause;
+	Oid			consttype = InvalidOid;
+	Oid			arraytype = InvalidOid;
+	Oid			inputcollid = InvalidOid;
+	bool		firstTime = true;
+	bool		haveNonConst = false;
+	Index		indexRelid = index->rel->relid;
+
+	Assert(IsA(orclause, BoolExpr));
+	Assert(orclause->boolop == OR_EXPR);
+
+	/* Ignore index if it doesn't support SAOP clauses */
+	if (!index->amsearcharray)
+		return NULL;
+
+	/*
+	 * Try to convert a list of OR-clauses to a single SAOP expression. Each
+	 * OR entry must be in the form: (indexkey operator constant) or (constant
+	 * operator indexkey).  Operators of all the entries must match.  To be
+	 * effective, give up on the first non-matching entry.  Exit is
+	 * implemented as a break from the loop, which is catched afterwards.
+	 */
+	foreach(lc, orclause->args)
+	{
+		RestrictInfo *subRinfo;
+		OpExpr	   *subClause;
+		Oid			opno;
+		Node	   *leftop,
+				   *rightop;
+		Node	   *constExpr;
+
+		if (!IsA(lfirst(lc), RestrictInfo))
+			break;
+
+		subRinfo = (RestrictInfo *) lfirst(lc);
+
+		/* Only operator clauses can match  */
+		if (!IsA(subRinfo->clause, OpExpr))
+			break;
+
+		subClause = (OpExpr *) subRinfo->clause;
+		opno = subClause->opno;
+
+		/* Only binary operators can match  */
+		if (list_length(subClause->args) != 2)
+			break;
+
+		/*
+		 * The parameters below must match between sub-rinfo and its parent as
+		 * make_restrictinfo() fills them with the same values, and further
+		 * modifications are also the same for the whole subtree.  However,
+		 * still make a sanity check.
+		 */
+		Assert(subRinfo->is_pushed_down == rinfo->is_pushed_down);
+		Assert(subRinfo->is_clone == rinfo->is_clone);
+		Assert(subRinfo->security_level == rinfo->security_level);
+		Assert(bms_equal(subRinfo->incompatible_relids, rinfo->incompatible_relids));
+		Assert(bms_equal(subRinfo->outer_relids, rinfo->outer_relids));
+
+		/*
+		 * Also, check that required_relids in sub-rinfo is subset of parent's
+		 * required_relids.
+		 */
+		Assert(bms_is_subset(subRinfo->required_relids, rinfo->required_relids));
+
+		/* Only the operator returning a boolean suit the transformation. */
+		if (get_op_rettype(opno) != BOOLOID)
+			break;
+
+		/*
+		 * Check for clauses of the form: (indexkey operator constant) or
+		 * (constant operator indexkey).  See match_clause_to_indexcol's notes
+		 * about const-ness.
+		 */
+		leftop = (Node *) linitial(subClause->args);
+		rightop = (Node *) lsecond(subClause->args);
+		if (match_index_to_operand(leftop, indexcol, index) &&
+			!bms_is_member(indexRelid, subRinfo->right_relids) &&
+			!contain_volatile_functions(rightop))
+		{
+			indexExpr = leftop;
+			constExpr = rightop;
+		}
+		else if (match_index_to_operand(rightop, indexcol, index) &&
+				 !bms_is_member(indexRelid, subRinfo->left_relids) &&
+				 !contain_volatile_functions(leftop))
+		{
+			opno = get_commutator(opno);
+			if (!OidIsValid(opno))
+			{
+				/* commutator doesn't exist, we can't reverse the order */
+				break;
+			}
+			indexExpr = rightop;
+			constExpr = leftop;
+		}
+		else
+		{
+			break;
+		}
+
+		/*
+		 * Ignore any RelabelType node above the operands.  This is needed to
+		 * be able to apply indexscanning in binary-compatible-operator cases.
+		 * Note: we can assume there is at most one RelabelType node;
+		 * eval_const_expressions() will have simplified if more than one.
+		 */
+		if (IsA(constExpr, RelabelType))
+			constExpr = (Node *) ((RelabelType *) constExpr)->arg;
+		if (IsA(indexExpr, RelabelType))
+			indexExpr = (Node *) ((RelabelType *) indexExpr)->arg;
+
+		/* Forbid transformation for composite types, records. */
+		if (type_is_rowtype(exprType(constExpr)) ||
+			type_is_rowtype(exprType(indexExpr)))
+			break;
+
+		/*
+		 * Save information about the operator, type, and collation for the
+		 * first matching qual.  Then, check that subsequent quals match the
+		 * first.
+		 */
+		if (firstTime)
+		{
+			matchOpno = opno;
+			consttype = exprType(constExpr);
+			arraytype = get_array_type(consttype);
+			inputcollid = subClause->inputcollid;
+
+			/*
+			 * Check that the operator is presented in the opfamily and that
+			 * the expression collation matches the index collation.  Also,
+			 * there must be an array type to construct an array later.
+			 */
+			if (!IndexCollMatchesExprColl(index->indexcollations[indexcol], inputcollid) ||
+				!op_in_opfamily(matchOpno, index->opfamily[indexcol]) ||
+				!OidIsValid(arraytype))
+				break;
+			firstTime = false;
+		}
+		else
+		{
+			if (opno != matchOpno ||
+				inputcollid != subClause->inputcollid ||
+				consttype != exprType(constExpr))
+				break;
+		}
+
+		/*
+		 * Check if our list of constants in match_clause_to_indexcol's
+		 * understanding of const-ness have something other than Const.
+		 */
+		if (!IsA(constExpr, Const))
+			haveNonConst = true;
+		consts = lappend(consts, constExpr);
+	}
+
+	/*
+	 * Catch the break from the loop above.  Normally, a foreach() loop ends
+	 * up with a NULL list cell.  A non-NULL list cell indicates a break from
+	 * the foreach() loop.  Free the consts list and return NULL then.
+	 */
+	if (lc != NULL)
+	{
+		list_free(consts);
+		return NULL;
+	}
+
+	saopexpr = make_SAOP_expr(matchOpno, indexExpr, consttype, inputcollid,
+							  inputcollid, consts, haveNonConst);
+
+	/*
+	 * Finally, build an IndexClause based on the SAOP node.  Use
+	 * make_simple_restrictinfo() to get RestrictInfo with clean selectivity
+	 * estimations, because they may differ from the estimation made for an OR
+	 * clause.  Although it is not a lossy expression, keep the original rinfo
+	 * in iclause->rinfo as prescribed.
+	 */
+	iclause = makeNode(IndexClause);
+	iclause->rinfo = rinfo;
+	iclause->indexquals = list_make1(make_simple_restrictinfo(root,
+															  &saopexpr->xpr));
+	iclause->lossy = false;
+	iclause->indexcol = indexcol;
+	iclause->indexcols = NIL;
+	return iclause;
+}
+
+/*
  * expand_indexqual_rowcompare --- expand a single indexqual condition
  *		that is a RowCompareExpr
  *
@@ -3068,7 +3745,7 @@ expand_indexqual_rowcompare(PlannerInfo *root,
 		{
 			RowCompareExpr *rc = makeNode(RowCompareExpr);
 
-			rc->rctype = (RowCompareType) op_strategy;
+			rc->cmptype = (CompareType) op_strategy;
 			rc->opnos = new_ops;
 			rc->opfamilies = list_copy_head(clause->opfamilies,
 											matching_cols);
@@ -3105,24 +3782,24 @@ expand_indexqual_rowcompare(PlannerInfo *root,
 
 /*
  * match_pathkeys_to_index
- *		Test whether an index can produce output ordered according to the
- *		given pathkeys using "ordering operators".
+ *		For the given 'index' and 'pathkeys', output a list of suitable ORDER
+ *		BY expressions, each of the form "indexedcol operator pseudoconstant",
+ *		along with an integer list of the index column numbers (zero based)
+ *		that each clause would be used with.
  *
- * If it can, return a list of suitable ORDER BY expressions, each of the form
- * "indexedcol operator pseudoconstant", along with an integer list of the
- * index column numbers (zero based) that each clause would be used with.
- * NIL lists are returned if the ordering is not achievable this way.
- *
- * On success, the result list is ordered by pathkeys, and in fact is
- * one-to-one with the requested pathkeys.
+ * This attempts to find an ORDER BY and index column number for all items in
+ * the pathkey list, however, if we're unable to match any given pathkey to an
+ * index column, we return just the ones matched by the function so far.  This
+ * allows callers who are interested in partial matches to get them.  Callers
+ * can determine a partial match vs a full match by checking the outputted
+ * list lengths.  A full match will have one item in the output lists for each
+ * item in the given 'pathkeys' list.
  */
 static void
 match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 						List **orderby_clauses_p,
 						List **clause_columns_p)
 {
-	List	   *orderby_clauses = NIL;
-	List	   *clause_columns = NIL;
 	ListCell   *lc1;
 
 	*orderby_clauses_p = NIL;	/* set default results */
@@ -3136,16 +3813,12 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 	{
 		PathKey    *pathkey = (PathKey *) lfirst(lc1);
 		bool		found = false;
-		ListCell   *lc2;
+		EquivalenceMemberIterator it;
+		EquivalenceMember *member;
 
-		/*
-		 * Note: for any failure to match, we just return NIL immediately.
-		 * There is no value in matching just some of the pathkeys.
-		 */
 
 		/* Pathkey must request default sort order for the target opfamily */
-		if (pathkey->pk_strategy != BTLessStrategyNumber ||
-			pathkey->pk_nulls_first)
+		if (pathkey->pk_cmptype != COMPARE_LT || pathkey->pk_nulls_first)
 			return;
 
 		/* If eclass is volatile, no hope of using an indexscan */
@@ -3160,9 +3833,10 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 		 * be considered to match more than one pathkey list, which is OK
 		 * here.  See also get_eclass_for_sort_expr.)
 		 */
-		foreach(lc2, pathkey->pk_eclass->ec_members)
+		setup_eclass_member_iterator(&it, pathkey->pk_eclass,
+									 index->rel->relids);
+		while ((member = eclass_member_iterator_next(&it)) != NULL)
 		{
-			EquivalenceMember *member = (EquivalenceMember *) lfirst(lc2);
 			int			indexcol;
 
 			/* No possibility of match if it references other relations */
@@ -3187,8 +3861,8 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 												   pathkey->pk_opfamily);
 				if (expr)
 				{
-					orderby_clauses = lappend(orderby_clauses, expr);
-					clause_columns = lappend_int(clause_columns, indexcol);
+					*orderby_clauses_p = lappend(*orderby_clauses_p, expr);
+					*clause_columns_p = lappend_int(*clause_columns_p, indexcol);
 					found = true;
 					break;
 				}
@@ -3198,12 +3872,13 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 				break;
 		}
 
-		if (!found)				/* fail if no match for this pathkey */
+		/*
+		 * Return the matches found so far when this pathkey couldn't be
+		 * matched to the index.
+		 */
+		if (!found)
 			return;
 	}
-
-	*orderby_clauses_p = orderby_clauses;	/* success! */
-	*clause_columns_p = clause_columns;
 }
 
 /*
@@ -3546,6 +4221,22 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 							  List *restrictlist,
 							  List *exprlist, List *oprlist)
 {
+	return relation_has_unique_index_ext(root, rel, restrictlist,
+										 exprlist, oprlist, NULL);
+}
+
+/*
+ * relation_has_unique_index_ext
+ *	  Same as relation_has_unique_index_for(), but supports extra_clauses
+ *	  parameter.  If extra_clauses isn't NULL, return baserestrictinfo clauses
+ *	  which were used to derive uniqueness.
+ */
+bool
+relation_has_unique_index_ext(PlannerInfo *root, RelOptInfo *rel,
+							  List *restrictlist,
+							  List *exprlist, List *oprlist,
+							  List **extra_clauses)
+{
 	ListCell   *ic;
 
 	Assert(list_length(exprlist) == list_length(oprlist));
@@ -3600,6 +4291,7 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 	{
 		IndexOptInfo *ind = (IndexOptInfo *) lfirst(ic);
 		int			c;
+		List	   *exprs = NIL;
 
 		/*
 		 * If the index is not unique, or not immediately enforced, or if it's
@@ -3651,6 +4343,24 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 				if (match_index_to_operand(rexpr, c, ind))
 				{
 					matched = true; /* column is unique */
+
+					if (bms_membership(rinfo->clause_relids) == BMS_SINGLETON)
+					{
+						MemoryContext oldMemCtx =
+							MemoryContextSwitchTo(root->planner_cxt);
+
+						/*
+						 * Add filter clause into a list allowing caller to
+						 * know if uniqueness have made not only by join
+						 * clauses.
+						 */
+						Assert(bms_is_empty(rinfo->left_relids) ||
+							   bms_is_empty(rinfo->right_relids));
+						if (extra_clauses)
+							exprs = lappend(exprs, rinfo);
+						MemoryContextSwitchTo(oldMemCtx);
+					}
+
 					break;
 				}
 			}
@@ -3693,7 +4403,11 @@ relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 
 		/* Matched all key columns of this index? */
 		if (c == ind->nkeycolumns)
+		{
+			if (extra_clauses)
+				*extra_clauses = exprs;
 			return true;
+		}
 	}
 
 	return false;

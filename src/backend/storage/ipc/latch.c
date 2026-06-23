@@ -3,27 +3,12 @@
  * latch.c
  *	  Routines for inter-process latches
  *
- * The poll() implementation uses the so-called self-pipe trick to overcome the
- * race condition involved with poll() and setting a global flag in the signal
- * handler. When a latch is set and the current process is waiting for it, the
- * signal handler wakes up the poll() in WaitLatch by writing a byte to a pipe.
- * A signal by itself doesn't interrupt poll() on all platforms, and even on
- * platforms where it does, a signal that arrives just before the poll() call
- * does not prevent poll() from entering sleep. An incoming byte on a pipe
- * however reliably interrupts the sleep, and causes poll() to return
- * immediately even if the signal arrives before poll() begins.
+ * The latch interface is a reliable replacement for the common pattern of
+ * using pg_usleep() or select() to wait until a signal arrives, where the
+ * signal handler sets a flag variable.  See latch.h for more information
+ * on how to use them.
  *
- * The epoll() implementation overcomes the race with a different technique: it
- * keeps SIGURG blocked and consumes from a signalfd() descriptor instead.  We
- * don't need to register a signal handler or create our own self-pipe.  We
- * assume that any system that has Linux epoll() also has Linux signalfd().
- *
- * The kqueue() implementation waits for SIGURG with EVFILT_SIGNAL.
- *
- * The Windows implementation uses Windows events that are inherited by all
- * postmaster child processes. There's no need for the self-pipe trick there.
- *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -33,289 +18,18 @@
  */
 #include "postgres.h"
 
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
-#include <unistd.h>
-#ifdef HAVE_SYS_EPOLL_H
-#include <sys/epoll.h>
-#endif
-#ifdef HAVE_SYS_EVENT_H
-#include <sys/event.h>
-#endif
-#ifdef HAVE_SYS_SIGNALFD_H
-#include <sys/signalfd.h>
-#endif
-#ifdef HAVE_POLL_H
-#include <poll.h>
-#endif
-
-#include "libpq/pqsignal.h"
 #include "miscadmin.h"
-#include "pgstat.h"
 #include "port/atomics.h"
-#include "portability/instr_time.h"
-#include "postmaster/postmaster.h"
-#include "storage/fd.h"
-#include "storage/ipc.h"
 #include "storage/latch.h"
-#include "storage/pmsignal.h"
-#include "storage/shmem.h"
-#include "utils/memutils.h"
-
-/*
- * Select the fd readiness primitive to use. Normally the "most modern"
- * primitive supported by the OS will be used, but for testing it can be
- * useful to manually specify the used primitive.  If desired, just add a
- * define somewhere before this block.
- */
-#if defined(WAIT_USE_EPOLL) || defined(WAIT_USE_POLL) || \
-	defined(WAIT_USE_KQUEUE) || defined(WAIT_USE_WIN32)
-/* don't overwrite manual choice */
-#elif defined(HAVE_SYS_EPOLL_H)
-#define WAIT_USE_EPOLL
-#elif defined(HAVE_KQUEUE)
-#define WAIT_USE_KQUEUE
-#elif defined(HAVE_POLL)
-#define WAIT_USE_POLL
-#elif WIN32
-#define WAIT_USE_WIN32
-#else
-#error "no wait set implementation available"
-#endif
-
-/*
- * By default, we use a self-pipe with poll() and a signalfd with epoll(), if
- * available.  We avoid signalfd on illumos for now based on problem reports.
- * For testing the choice can also be manually specified.
- */
-#if defined(WAIT_USE_POLL) || defined(WAIT_USE_EPOLL)
-#if defined(WAIT_USE_SELF_PIPE) || defined(WAIT_USE_SIGNALFD)
-/* don't overwrite manual choice */
-#elif defined(WAIT_USE_EPOLL) && defined(HAVE_SYS_SIGNALFD_H) && \
-	!defined(__illumos__)
-#define WAIT_USE_SIGNALFD
-#else
-#define WAIT_USE_SELF_PIPE
-#endif
-#endif
-
-/* typedef in latch.h */
-struct WaitEventSet
-{
-	int			nevents;		/* number of registered events */
-	int			nevents_space;	/* maximum number of events in this set */
-
-	/*
-	 * Array, of nevents_space length, storing the definition of events this
-	 * set is waiting for.
-	 */
-	WaitEvent  *events;
-
-	/*
-	 * If WL_LATCH_SET is specified in any wait event, latch is a pointer to
-	 * said latch, and latch_pos the offset in the ->events array. This is
-	 * useful because we check the state of the latch before performing doing
-	 * syscalls related to waiting.
-	 */
-	Latch	   *latch;
-	int			latch_pos;
-
-	/*
-	 * WL_EXIT_ON_PM_DEATH is converted to WL_POSTMASTER_DEATH, but this flag
-	 * is set so that we'll exit immediately if postmaster death is detected,
-	 * instead of returning.
-	 */
-	bool		exit_on_postmaster_death;
-
-#if defined(WAIT_USE_EPOLL)
-	int			epoll_fd;
-	/* epoll_wait returns events in a user provided arrays, allocate once */
-	struct epoll_event *epoll_ret_events;
-#elif defined(WAIT_USE_KQUEUE)
-	int			kqueue_fd;
-	/* kevent returns events in a user provided arrays, allocate once */
-	struct kevent *kqueue_ret_events;
-	bool		report_postmaster_not_running;
-#elif defined(WAIT_USE_POLL)
-	/* poll expects events to be waited on every poll() call, prepare once */
-	struct pollfd *pollfds;
-#elif defined(WAIT_USE_WIN32)
-
-	/*
-	 * Array of windows events. The first element always contains
-	 * pgwin32_signal_event, so the remaining elements are offset by one (i.e.
-	 * event->pos + 1).
-	 */
-	HANDLE	   *handles;
-#endif
-};
+#include "storage/waiteventset.h"
+#include "utils/resowner.h"
 
 /* A common WaitEventSet used to implement WaitLatch() */
 static WaitEventSet *LatchWaitSet;
 
-/* The position of the latch in LatchWaitSet. */
+/* The positions of the latch and PM death events in LatchWaitSet */
 #define LatchWaitSetLatchPos 0
-
-#ifndef WIN32
-/* Are we currently in WaitLatch? The signal handler would like to know. */
-static volatile sig_atomic_t waiting = false;
-#endif
-
-#ifdef WAIT_USE_SIGNALFD
-/* On Linux, we'll receive SIGURG via a signalfd file descriptor. */
-static int	signal_fd = -1;
-#endif
-
-#ifdef WAIT_USE_SELF_PIPE
-/* Read and write ends of the self-pipe */
-static int	selfpipe_readfd = -1;
-static int	selfpipe_writefd = -1;
-
-/* Process owning the self-pipe --- needed for checking purposes */
-static int	selfpipe_owner_pid = 0;
-
-/* Private function prototypes */
-static void latch_sigurg_handler(SIGNAL_ARGS);
-static void sendSelfPipeByte(void);
-#endif
-
-#if defined(WAIT_USE_SELF_PIPE) || defined(WAIT_USE_SIGNALFD)
-static void drain(void);
-#endif
-
-#if defined(WAIT_USE_EPOLL)
-static void WaitEventAdjustEpoll(WaitEventSet *set, WaitEvent *event, int action);
-#elif defined(WAIT_USE_KQUEUE)
-static void WaitEventAdjustKqueue(WaitEventSet *set, WaitEvent *event, int old_events);
-#elif defined(WAIT_USE_POLL)
-static void WaitEventAdjustPoll(WaitEventSet *set, WaitEvent *event);
-#elif defined(WAIT_USE_WIN32)
-static void WaitEventAdjustWin32(WaitEventSet *set, WaitEvent *event);
-#endif
-
-static inline int WaitEventSetWaitBlock(WaitEventSet *set, int cur_timeout,
-										WaitEvent *occurred_events, int nevents);
-
-/*
- * Initialize the process-local latch infrastructure.
- *
- * This must be called once during startup of any process that can wait on
- * latches, before it issues any InitLatch() or OwnLatch() calls.
- */
-void
-InitializeLatchSupport(void)
-{
-#if defined(WAIT_USE_SELF_PIPE)
-	int			pipefd[2];
-
-	if (IsUnderPostmaster)
-	{
-		/*
-		 * We might have inherited connections to a self-pipe created by the
-		 * postmaster.  It's critical that child processes create their own
-		 * self-pipes, of course, and we really want them to close the
-		 * inherited FDs for safety's sake.
-		 */
-		if (selfpipe_owner_pid != 0)
-		{
-			/* Assert we go through here but once in a child process */
-			Assert(selfpipe_owner_pid != MyProcPid);
-			/* Release postmaster's pipe FDs; ignore any error */
-			(void) close(selfpipe_readfd);
-			(void) close(selfpipe_writefd);
-			/* Clean up, just for safety's sake; we'll set these below */
-			selfpipe_readfd = selfpipe_writefd = -1;
-			selfpipe_owner_pid = 0;
-			/* Keep fd.c's accounting straight */
-			ReleaseExternalFD();
-			ReleaseExternalFD();
-		}
-		else
-		{
-			/*
-			 * Postmaster didn't create a self-pipe ... or else we're in an
-			 * EXEC_BACKEND build, in which case it doesn't matter since the
-			 * postmaster's pipe FDs were closed by the action of FD_CLOEXEC.
-			 * fd.c won't have state to clean up, either.
-			 */
-			Assert(selfpipe_readfd == -1);
-		}
-	}
-	else
-	{
-		/* In postmaster or standalone backend, assert we do this but once */
-		Assert(selfpipe_readfd == -1);
-		Assert(selfpipe_owner_pid == 0);
-	}
-
-	/*
-	 * Set up the self-pipe that allows a signal handler to wake up the
-	 * poll()/epoll_wait() in WaitLatch. Make the write-end non-blocking, so
-	 * that SetLatch won't block if the event has already been set many times
-	 * filling the kernel buffer. Make the read-end non-blocking too, so that
-	 * we can easily clear the pipe by reading until EAGAIN or EWOULDBLOCK.
-	 * Also, make both FDs close-on-exec, since we surely do not want any
-	 * child processes messing with them.
-	 */
-	if (pipe(pipefd) < 0)
-		elog(FATAL, "pipe() failed: %m");
-	if (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) == -1)
-		elog(FATAL, "fcntl(F_SETFL) failed on read-end of self-pipe: %m");
-	if (fcntl(pipefd[1], F_SETFL, O_NONBLOCK) == -1)
-		elog(FATAL, "fcntl(F_SETFL) failed on write-end of self-pipe: %m");
-	if (fcntl(pipefd[0], F_SETFD, FD_CLOEXEC) == -1)
-		elog(FATAL, "fcntl(F_SETFD) failed on read-end of self-pipe: %m");
-	if (fcntl(pipefd[1], F_SETFD, FD_CLOEXEC) == -1)
-		elog(FATAL, "fcntl(F_SETFD) failed on write-end of self-pipe: %m");
-
-	selfpipe_readfd = pipefd[0];
-	selfpipe_writefd = pipefd[1];
-	selfpipe_owner_pid = MyProcPid;
-
-	/* Tell fd.c about these two long-lived FDs */
-	ReserveExternalFD();
-	ReserveExternalFD();
-
-	pqsignal(SIGURG, latch_sigurg_handler);
-#endif
-
-#ifdef WAIT_USE_SIGNALFD
-	sigset_t	signalfd_mask;
-
-	if (IsUnderPostmaster)
-	{
-		/*
-		 * It would probably be safe to re-use the inherited signalfd since
-		 * signalfds only see the current process's pending signals, but it
-		 * seems less surprising to close it and create our own.
-		 */
-		if (signal_fd != -1)
-		{
-			/* Release postmaster's signal FD; ignore any error */
-			(void) close(signal_fd);
-			signal_fd = -1;
-			ReleaseExternalFD();
-		}
-	}
-
-	/* Block SIGURG, because we'll receive it through a signalfd. */
-	sigaddset(&UnBlockSig, SIGURG);
-
-	/* Set up the signalfd to receive SIGURG notifications. */
-	sigemptyset(&signalfd_mask);
-	sigaddset(&signalfd_mask, SIGURG);
-	signal_fd = signalfd(-1, &signalfd_mask, SFD_NONBLOCK | SFD_CLOEXEC);
-	if (signal_fd < 0)
-		elog(FATAL, "signalfd() failed");
-	ReserveExternalFD();
-#endif
-
-#ifdef WAIT_USE_KQUEUE
-	/* Ignore SIGURG, because we'll receive it via kqueue. */
-	pqsignal(SIGURG, SIG_IGN);
-#endif
-}
+#define LatchWaitSetPostmasterDeathPos 1
 
 void
 InitializeLatchWaitSet(void)
@@ -325,41 +39,21 @@ InitializeLatchWaitSet(void)
 	Assert(LatchWaitSet == NULL);
 
 	/* Set up the WaitEventSet used by WaitLatch(). */
-	LatchWaitSet = CreateWaitEventSet(TopMemoryContext, 2);
+	LatchWaitSet = CreateWaitEventSet(NULL, 2);
 	latch_pos = AddWaitEventToSet(LatchWaitSet, WL_LATCH_SET, PGINVALID_SOCKET,
 								  MyLatch, NULL);
-	if (IsUnderPostmaster)
-		AddWaitEventToSet(LatchWaitSet, WL_EXIT_ON_PM_DEATH,
-						  PGINVALID_SOCKET, NULL, NULL);
-
 	Assert(latch_pos == LatchWaitSetLatchPos);
-}
 
-void
-ShutdownLatchSupport(void)
-{
-#if defined(WAIT_USE_POLL)
-	pqsignal(SIGURG, SIG_IGN);
-#endif
-
-	if (LatchWaitSet)
+	/*
+	 * WaitLatch will modify this to WL_EXIT_ON_PM_DEATH or
+	 * WL_POSTMASTER_DEATH on each call.
+	 */
+	if (IsUnderPostmaster)
 	{
-		FreeWaitEventSet(LatchWaitSet);
-		LatchWaitSet = NULL;
+		latch_pos = AddWaitEventToSet(LatchWaitSet, WL_EXIT_ON_PM_DEATH,
+									  PGINVALID_SOCKET, NULL, NULL);
+		Assert(latch_pos == LatchWaitSetPostmasterDeathPos);
 	}
-
-#if defined(WAIT_USE_SELF_PIPE)
-	close(selfpipe_readfd);
-	close(selfpipe_writefd);
-	selfpipe_readfd = -1;
-	selfpipe_writefd = -1;
-	selfpipe_owner_pid = InvalidPid;
-#endif
-
-#if defined(WAIT_USE_SIGNALFD)
-	close(signal_fd);
-	signal_fd = -1;
-#endif
 }
 
 /*
@@ -373,13 +67,7 @@ InitLatch(Latch *latch)
 	latch->owner_pid = MyProcPid;
 	latch->is_shared = false;
 
-#if defined(WAIT_USE_SELF_PIPE)
-	/* Assert InitializeLatchSupport has been called in this process */
-	Assert(selfpipe_readfd >= 0 && selfpipe_owner_pid == MyProcPid);
-#elif defined(WAIT_USE_SIGNALFD)
-	/* Assert InitializeLatchSupport has been called in this process */
-	Assert(signal_fd >= 0);
-#elif defined(WAIT_USE_WIN32)
+#ifdef WIN32
 	latch->event = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (latch->event == NULL)
 		elog(ERROR, "CreateEvent failed: error code %lu", GetLastError());
@@ -442,14 +130,6 @@ OwnLatch(Latch *latch)
 	/* Sanity checks */
 	Assert(latch->is_shared);
 
-#if defined(WAIT_USE_SELF_PIPE)
-	/* Assert InitializeLatchSupport has been called in this process */
-	Assert(selfpipe_readfd >= 0 && selfpipe_owner_pid == MyProcPid);
-#elif defined(WAIT_USE_SIGNALFD)
-	/* Assert InitializeLatchSupport has been called in this process */
-	Assert(signal_fd >= 0);
-#endif
-
 	owner_pid = latch->owner_pid;
 	if (owner_pid != 0)
 		elog(PANIC, "latch already owned by PID %d", owner_pid);
@@ -507,8 +187,9 @@ WaitLatch(Latch *latch, int wakeEvents, long timeout,
 	if (!(wakeEvents & WL_LATCH_SET))
 		latch = NULL;
 	ModifyWaitEvent(LatchWaitSet, LatchWaitSetLatchPos, WL_LATCH_SET, latch);
-	LatchWaitSet->exit_on_postmaster_death =
-		((wakeEvents & WL_EXIT_ON_PM_DEATH) != 0);
+	ModifyWaitEvent(LatchWaitSet, LatchWaitSetPostmasterDeathPos,
+					(wakeEvents & (WL_EXIT_ON_PM_DEATH | WL_POSTMASTER_DEATH)),
+					NULL);
 
 	if (WaitEventSetWait(LatchWaitSet,
 						 (wakeEvents & WL_TIMEOUT) ? timeout : -1,
@@ -543,7 +224,7 @@ WaitLatchOrSocket(Latch *latch, int wakeEvents, pgsocket sock,
 	int			ret = 0;
 	int			rc;
 	WaitEvent	event;
-	WaitEventSet *set = CreateWaitEventSet(CurrentMemoryContext, 3);
+	WaitEventSet *set = CreateWaitEventSet(CurrentResourceOwner, 3);
 
 	PG_TRY();
 	{
@@ -663,17 +344,9 @@ SetLatch(Latch *latch)
 	if (owner_pid == 0)
 		return;
 	else if (owner_pid == MyProcPid)
-	{
-#if defined(WAIT_USE_SELF_PIPE)
-		if (waiting)
-			sendSelfPipeByte();
-#else
-		if (waiting)
-			kill(MyProcPid, SIGURG);
-#endif
-	}
+		WakeupMyProc();
 	else
-		kill(owner_pid, SIGURG);
+		WakeupOtherProc(owner_pid);
 
 #else
 
@@ -718,6 +391,7 @@ ResetLatch(Latch *latch)
 	 */
 	pg_memory_barrier();
 }
+<<<<<<< HEAD
 
 /*
  * Create a WaitEventSet with space for nevents different events to wait for.
@@ -2389,3 +2063,5 @@ drain(void)
 }
 
 #endif
+=======
+>>>>>>> REL_18_BETA1_branch

@@ -3,9 +3,13 @@
  * nodeHashjoin.c
  *	  Routines to handle hash join nodes
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -173,11 +177,16 @@
 #include "executor/nodeHashjoin.h"
 #include "executor/nodeRuntimeFilter.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "pgstat.h"
 #include "utils/guc.h"
 #include "utils/fmgroids.h"
 #include "utils/memutils.h"
+=======
+#include "utils/lsyscache.h"
+>>>>>>> REL_18_BETA1_branch
 #include "utils/sharedtuplestore.h"
+#include "utils/wait_event.h"
 
 #include "cdb/cdbvars.h"
 #include "miscadmin.h"			/* work_mem */
@@ -400,6 +409,7 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
 				 * whoever gets here first will create the hash table and any
 				 * later arrivals will merely attach to it.
 				 */
+<<<<<<< HEAD
 				hashtable = ExecHashTableCreate(hashNode,
 												node,
 												node->hj_HashOperators,
@@ -410,6 +420,9 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
 				 */
 												HJ_FILL_INNER(node) || hashNode->hs_keepnull,
 												PlanStateOperatorMemKB((PlanState *) hashNode));
+=======
+				hashtable = ExecHashTableCreate(hashNode);
+>>>>>>> REL_18_BETA1_branch
 				node->hj_HashTable = hashtable;
 
 				/*
@@ -689,6 +702,14 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
 				}
 
 				/*
+				 * In a right-semijoin, we only need the first match for each
+				 * inner tuple.
+				 */
+				if (node->js.jointype == JOIN_RIGHT_SEMI &&
+					HeapTupleHeaderHasMatch(HJTUPLE_MINTUPLE(node->hj_CurTuple)))
+					continue;
+
+				/*
 				 * We've got a match, but still need to test non-hashed quals.
 				 * ExecScanHashBucket already set up all the state needed to
 				 * call ExecQual.
@@ -704,10 +725,10 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
 				{
 					node->hj_MatchedOuter = true;
 
-
 					/*
-					 * This is really only needed if HJ_FILL_INNER(node), but
-					 * we'll avoid the branch and just set it always.
+					 * This is really only needed if HJ_FILL_INNER(node) or if
+					 * we are in a right-semijoin, but we'll avoid the branch
+					 * and just set it always.
 					 */
 					if (!HeapTupleHeaderHasMatch(HJTUPLE_MINTUPLE(node->hj_CurTuple)))
 						HeapTupleHeaderSetMatch(HJTUPLE_MINTUPLE(node->hj_CurTuple));
@@ -1024,6 +1045,7 @@ ExecInitHashJoin(HashJoin *node, EState *estate, int eflags)
 	{
 		case JOIN_INNER:
 		case JOIN_SEMI:
+		case JOIN_RIGHT_SEMI:
 			break;
 		case JOIN_LEFT:
 		case JOIN_ANTI:
@@ -1056,9 +1078,96 @@ ExecInitHashJoin(HashJoin *node, EState *estate, int eflags)
 	 */
 	{
 		HashState  *hashstate = (HashState *) innerPlanState(hjstate);
+		Hash	   *hash = (Hash *) hashstate->ps.plan;
 		TupleTableSlot *slot = hashstate->ps.ps_ResultTupleSlot;
+		Oid		   *outer_hashfuncid;
+		Oid		   *inner_hashfuncid;
+		bool	   *hash_strict;
+		ListCell   *lc;
+		int			nkeys;
+
 
 		hjstate->hj_HashTupleSlot = slot;
+
+		/*
+		 * Build ExprStates to obtain hash values for either side of the join.
+		 * This must be done here as ExecBuildHash32Expr needs to know how to
+		 * handle NULL inputs and the required handling of that depends on the
+		 * jointype.  We don't know the join type in ExecInitHash() and we
+		 * must build the ExprStates before ExecHashTableCreate() so we
+		 * properly attribute any SubPlans that exist in the hash expressions
+		 * to the correct PlanState.
+		 */
+		nkeys = list_length(node->hashoperators);
+
+		outer_hashfuncid = palloc_array(Oid, nkeys);
+		inner_hashfuncid = palloc_array(Oid, nkeys);
+		hash_strict = palloc_array(bool, nkeys);
+
+		/*
+		 * Determine the hash function for each side of the join for the given
+		 * hash operator.
+		 */
+		foreach(lc, node->hashoperators)
+		{
+			Oid			hashop = lfirst_oid(lc);
+			int			i = foreach_current_index(lc);
+
+			if (!get_op_hash_functions(hashop,
+									   &outer_hashfuncid[i],
+									   &inner_hashfuncid[i]))
+				elog(ERROR,
+					 "could not find hash function for hash operator %u",
+					 hashop);
+			hash_strict[i] = op_strict(hashop);
+		}
+
+		/*
+		 * Build an ExprState to generate the hash value for the expressions
+		 * on the outer of the join.  This ExprState must finish generating
+		 * the hash value when HJ_FILL_OUTER() is true.  Otherwise,
+		 * ExecBuildHash32Expr will set up the ExprState to abort early if it
+		 * finds a NULL.  In these cases, we don't need to store these tuples
+		 * in the hash table as the jointype does not require it.
+		 */
+		hjstate->hj_OuterHash =
+			ExecBuildHash32Expr(hjstate->js.ps.ps_ResultTupleDesc,
+								hjstate->js.ps.resultops,
+								outer_hashfuncid,
+								node->hashcollations,
+								node->hashkeys,
+								hash_strict,
+								&hjstate->js.ps,
+								0,
+								HJ_FILL_OUTER(hjstate));
+
+		/* As above, but for the inner side of the join */
+		hashstate->hash_expr =
+			ExecBuildHash32Expr(hashstate->ps.ps_ResultTupleDesc,
+								hashstate->ps.resultops,
+								inner_hashfuncid,
+								node->hashcollations,
+								hash->hashkeys,
+								hash_strict,
+								&hashstate->ps,
+								0,
+								HJ_FILL_INNER(hjstate));
+
+		/*
+		 * Set up the skew table hash function while we have a record of the
+		 * first key's hash function Oid.
+		 */
+		if (OidIsValid(hash->skewTable))
+		{
+			hashstate->skew_hashfunction = palloc0(sizeof(FmgrInfo));
+			hashstate->skew_collation = linitial_oid(node->hashcollations);
+			fmgr_info(outer_hashfuncid[0], hashstate->skew_hashfunction);
+		}
+
+		/* no need to keep these */
+		pfree(outer_hashfuncid);
+		pfree(inner_hashfuncid);
+		pfree(hash_strict);
 	}
 
 	/*
@@ -1091,11 +1200,6 @@ ExecInitHashJoin(HashJoin *node, EState *estate, int eflags)
 	hjstate->hj_CurBucketNo = 0;
 	hjstate->hj_CurSkewBucketNo = INVALID_SKEW_BUCKET_NO;
 	hjstate->hj_CurTuple = NULL;
-
-	hjstate->hj_OuterHashKeys = ExecInitExprList(node->hashkeys,
-												 (PlanState *) hjstate);
-	hjstate->hj_HashOperators = node->hashoperators;
-	hjstate->hj_Collations = node->hashcollations;
 
 	hjstate->hj_JoinState = HJ_BUILD_HASHTABLE;
 	hjstate->hj_MatchedOuter = false;
@@ -1146,18 +1250,6 @@ ExecEndHashJoin(HashJoinState *node)
 	}
 
 	/*
-	 * Free the exprcontext
-	 */
-	ExecFreeExprContext(&node->js.ps);
-
-	/*
-	 * clean out the tuple table
-	 */
-	ExecClearTuple(node->js.ps.ps_ResultTupleSlot);
-	ExecClearTuple(node->hj_OuterTupleSlot);
-	ExecClearTuple(node->hj_HashTupleSlot);
-
-	/*
 	 * clean up subtrees
 	 */
 	ExecEndNode(outerPlanState(node));
@@ -1202,12 +1294,15 @@ ExecHashJoinOuterGetTuple(PlanState *outerNode,
 
 		while (!TupIsNull(slot))
 		{
+			bool		isnull;
+
 			/*
 			 * We have to compute the tuple's hash value.
 			 */
 			econtext = hjstate->js.ps.ps_ExprContext;
 			econtext->ecxt_outertuple = slot;
 
+<<<<<<< HEAD
 			bool hashkeys_null = false;
 			bool keep_nulls = HJ_FILL_OUTER(hjstate) ||
 					hjstate->hj_nonequijoin;
@@ -1217,6 +1312,15 @@ ExecHashJoinOuterGetTuple(PlanState *outerNode,
 									 keep_nulls,
 									 hashvalue,
 									 &hashkeys_null))
+=======
+			ResetExprContext(econtext);
+
+			*hashvalue = DatumGetUInt32(ExecEvalExprSwitchContext(hjstate->hj_OuterHash,
+																  econtext,
+																  &isnull));
+
+			if (!isnull)
+>>>>>>> REL_18_BETA1_branch
 			{
 				/* remember outer relation is not empty for possible rescan */
 				hjstate->hj_OuterNotEmpty = true;
@@ -1297,6 +1401,8 @@ ExecParallelHashJoinOuterGetTuple(PlanState *outerNode,
 
 		while (!TupIsNull(slot))
 		{
+			bool		isnull;
+
 			ExprContext *econtext = hjstate->js.ps.ps_ExprContext;
 			bool		hashkeys_null = false;
 			bool		keep_nulls;
@@ -1305,6 +1411,7 @@ ExecParallelHashJoinOuterGetTuple(PlanState *outerNode,
 				hjstate->hj_nonequijoin;
 
 			econtext->ecxt_outertuple = slot;
+<<<<<<< HEAD
 			if (ExecHashGetHashValue(hashState,
 									 hashtable, econtext,
 									 hjstate->hj_OuterHashKeys,
@@ -1312,6 +1419,16 @@ ExecParallelHashJoinOuterGetTuple(PlanState *outerNode,
 									 keep_nulls,
 									 hashvalue,
 									 &hashkeys_null))
+=======
+
+			ResetExprContext(econtext);
+
+			*hashvalue = DatumGetUInt32(ExecEvalExprSwitchContext(hjstate->hj_OuterHash,
+																  econtext,
+																  &isnull));
+
+			if (!isnull)
+>>>>>>> REL_18_BETA1_branch
 				return slot;
 
 			/*
@@ -1671,7 +1788,7 @@ ExecParallelHashJoinNewBatch(HashJoinState *hjstate)
  * The data recorded in the file for each tuple is its hash value,
  * then the tuple in MinimalTuple format.
  *
- * fileptr points to a batch file in one of the the hashtable arrays.
+ * fileptr points to a batch file in one of the hashtable arrays.
  *
  * The batch files (and their buffers) are allocated in the spill context
  * created for the hashtable.
@@ -1792,10 +1909,11 @@ ExecReScanHashJoin(HashJoinState *node)
 			/*
 			 * Okay to reuse the hash table; needn't rescan inner, either.
 			 *
-			 * However, if it's a right/right-anti/full join, we'd better
-			 * reset the inner-tuple match flags contained in the table.
+			 * However, if it's a right/right-anti/right-semi/full join, we'd
+			 * better reset the inner-tuple match flags contained in the
+			 * table.
 			 */
-			if (HJ_FILL_INNER(node))
+			if (HJ_FILL_INNER(node) || node->js.jointype == JOIN_RIGHT_SEMI)
 				ExecHashTableResetMatchFlags(node->hj_HashTable);
 
 			/*
@@ -2111,11 +2229,14 @@ ExecParallelHashJoinPartitionOuter(HashJoinState *hjstate)
 	/* Execute outer plan, writing all tuples to shared tuplestores. */
 	for (;;)
 	{
+		bool		isnull;
+
 		slot = ExecProcNode(outerState);
 		if (TupIsNull(slot))
 			break;
 		econtext->ecxt_outertuple = slot;
 
+<<<<<<< HEAD
 		bool		hashkeys_null = false;
 		bool		keep_nulls = HJ_FILL_OUTER(hjstate) ||
 			hjstate->hj_nonequijoin;
@@ -2125,6 +2246,15 @@ ExecParallelHashJoinPartitionOuter(HashJoinState *hjstate)
 								 keep_nulls,
 								 &hashvalue,
 								 &hashkeys_null))
+=======
+		ResetExprContext(econtext);
+
+		hashvalue = DatumGetUInt32(ExecEvalExprSwitchContext(hjstate->hj_OuterHash,
+															 econtext,
+															 &isnull));
+
+		if (!isnull)
+>>>>>>> REL_18_BETA1_branch
 		{
 			int			batchno;
 			int			bucketno;

@@ -15,7 +15,7 @@ declare
     ln text;
 begin
     for ln in
-        execute format('explain (analyze, costs off, summary off, timing off) %s',
+        execute format('explain (analyze, costs off, summary off, timing off, buffers off) %s',
             query)
     loop
         if hide_hitmiss = true then
@@ -27,9 +27,15 @@ begin
         ln := regexp_replace(ln, 'Evictions: 0', 'Evictions: Zero');
         ln := regexp_replace(ln, 'Evictions: \d+', 'Evictions: N');
         ln := regexp_replace(ln, 'Memory Usage: \d+', 'Memory Usage: N');
+<<<<<<< HEAD
         ln := regexp_replace(ln, 'Memory: \d+', 'Memory: N');
 	ln := regexp_replace(ln, 'Heap Fetches: \d+', 'Heap Fetches: N');
 	ln := regexp_replace(ln, 'loops=\d+', 'loops=N');
+=======
+        ln := regexp_replace(ln, 'Heap Fetches: \d+', 'Heap Fetches: N');
+        ln := regexp_replace(ln, 'loops=\d+', 'loops=N');
+        ln := regexp_replace(ln, 'Index Searches: \d+', 'Index Searches: N');
+>>>>>>> REL_18_BETA1_branch
         return next ln;
     end loop;
 end;
@@ -64,6 +70,50 @@ LATERAL (SELECT t2.unique1 FROM tenk1 t2
          WHERE t1.twenty = t2.unique1 OFFSET 0) t2
 WHERE t1.unique1 < 1000;
 
+<<<<<<< HEAD
+=======
+-- Try with LATERAL joins
+SELECT explain_memoize('
+SELECT COUNT(*),AVG(t2.t1two) FROM tenk1 t1 LEFT JOIN
+LATERAL (
+    SELECT t1.two as t1two, * FROM tenk1 t2 WHERE t2.unique1 < 4 OFFSET 0
+) t2
+ON t1.two = t2.two
+WHERE t1.unique1 < 10;', false);
+
+-- And check we get the expected results.
+SELECT COUNT(*),AVG(t2.t1two) FROM tenk1 t1 LEFT JOIN
+LATERAL (
+    SELECT t1.two as t1two, * FROM tenk1 t2 WHERE t2.unique1 < 4 OFFSET 0
+) t2
+ON t1.two = t2.two
+WHERE t1.unique1 < 10;
+
+-- Try with LATERAL references within PlaceHolderVars
+SELECT explain_memoize('
+SELECT COUNT(*), AVG(t1.twenty) FROM tenk1 t1 LEFT JOIN
+LATERAL (SELECT t1.two+1 AS c1, t2.unique1 AS c2 FROM tenk1 t2) s ON TRUE
+WHERE s.c1 = s.c2 AND t1.unique1 < 1000;', false);
+
+-- And check we get the expected results.
+SELECT COUNT(*), AVG(t1.twenty) FROM tenk1 t1 LEFT JOIN
+LATERAL (SELECT t1.two+1 AS c1, t2.unique1 AS c2 FROM tenk1 t2) s ON TRUE
+WHERE s.c1 = s.c2 AND t1.unique1 < 1000;
+
+-- Ensure we do not omit the cache keys from PlaceHolderVars
+SELECT explain_memoize('
+SELECT COUNT(*), AVG(t1.twenty) FROM tenk1 t1 LEFT JOIN
+LATERAL (SELECT t1.twenty AS c1, t2.unique1 AS c2, t2.two FROM tenk1 t2) s
+ON t1.two = s.two
+WHERE s.c1 = s.c2 AND t1.unique1 < 1000;', false);
+
+-- And check we get the expected results.
+SELECT COUNT(*), AVG(t1.twenty) FROM tenk1 t1 LEFT JOIN
+LATERAL (SELECT t1.twenty AS c1, t2.unique1 AS c2, t2.two FROM tenk1 t2) s
+ON t1.two = s.two
+WHERE s.c1 = s.c2 AND t1.unique1 < 1000;
+
+>>>>>>> REL_18_BETA1_branch
 SET enable_mergejoin TO off;
 
 -- Test for varlena datatype with expr evaluation

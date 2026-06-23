@@ -88,7 +88,11 @@ gettoken_query(QPRS_STATE *state, int32 *val, int32 *lenval, char **strval, uint
 					*lenval = charlen;
 					*flag = 0;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(state->buf))
+=======
+				else if (!isspace((unsigned char) *state->buf))
+>>>>>>> REL_18_BETA1_branch
 					ereturn(state->escontext, ERR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
 							 errmsg("operand syntax error")));
@@ -451,7 +455,7 @@ ltxtq_in(PG_FUNCTION_ARGS)
 {
 	ltxtquery  *res;
 
-	if ((res = queryin((char *) PG_GETARG_POINTER(0), fcinfo->context)) == NULL)
+	if ((res = queryin(PG_GETARG_POINTER(0), fcinfo->context)) == NULL)
 		PG_RETURN_NULL();
 	PG_RETURN_POINTER(res);
 }

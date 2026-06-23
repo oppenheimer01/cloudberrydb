@@ -25,9 +25,13 @@
  * rewriter's work is more concerned with SQL semantics.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -49,6 +53,7 @@
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 
+<<<<<<< HEAD
 #include "catalog/gp_distribution_policy.h"     /* CDB: POLICYTYPE_PARTITIONED */
 #include "catalog/pg_inherits.h"
 #include "optimizer/plancat.h"
@@ -62,6 +67,10 @@ static List *supplement_simply_updatable_targetlist(PlannerInfo *root,
 
 List *expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel, Index split_update_result_relation);
 
+=======
+static List *expand_insert_targetlist(PlannerInfo *root, List *tlist,
+									  Relation rel);
+>>>>>>> REL_18_BETA1_branch
 
 
 /*
@@ -117,7 +126,11 @@ preprocess_targetlist(PlannerInfo *root)
 	 */
 	tlist = parse->targetList;
 	if (command_type == CMD_INSERT)
+<<<<<<< HEAD
 		tlist = expand_insert_targetlist(root, tlist, target_relation, 0);
+=======
+		tlist = expand_insert_targetlist(root, tlist, target_relation);
+>>>>>>> REL_18_BETA1_branch
 	else if (command_type == CMD_UPDATE)
 	{
 		/*
@@ -221,6 +234,7 @@ preprocess_targetlist(PlannerInfo *root)
 	if (command_type == CMD_MERGE)
 	{
 		ListCell   *l;
+		List	   *vars;
 
 		/*
 		 * For MERGE, handle targetlist of each MergeAction separately. Give
@@ -231,14 +245,17 @@ preprocess_targetlist(PlannerInfo *root)
 		foreach(l, parse->mergeActionList)
 		{
 			MergeAction *action = (MergeAction *) lfirst(l);
-			List	   *vars;
 			ListCell   *l2;
 
 			if (action->commandType == CMD_INSERT)
 				action->targetList = expand_insert_targetlist(root,
 															  action->targetList,
+<<<<<<< HEAD
 															  target_relation,
 															  0);
+=======
+															  target_relation);
+>>>>>>> REL_18_BETA1_branch
 			else if (action->commandType == CMD_UPDATE)
 				action->updateColnos =
 					extract_update_targetlist_colnos(action->targetList, false);
@@ -271,6 +288,30 @@ preprocess_targetlist(PlannerInfo *root)
 				tlist = lappend(tlist, tle);
 			}
 			list_free(vars);
+		}
+
+		/*
+		 * Add resjunk entries for any Vars and PlaceHolderVars used in the
+		 * join condition that belong to relations other than the target.  We
+		 * don't expect to see any aggregates or window functions here.
+		 */
+		vars = pull_var_clause(parse->mergeJoinCondition,
+							   PVC_INCLUDE_PLACEHOLDERS);
+		foreach(l, vars)
+		{
+			Var		   *var = (Var *) lfirst(l);
+			TargetEntry *tle;
+
+			if (IsA(var, Var) && var->varno == result_relation)
+				continue;		/* don't need it */
+
+			if (tlist_member((Expr *) var, tlist))
+				continue;		/* already got it */
+
+			tle = makeTargetEntry((Expr *) var,
+								  list_length(tlist) + 1,
+								  NULL, true);
+			tlist = lappend(tlist, tle);
 		}
 	}
 
@@ -445,8 +486,13 @@ extract_update_targetlist_colnos(List *tlist, bool reorder_resno)
  * Once upon a time we also did more or less this with UPDATE targetlists,
  * but now this code is only applied to INSERT targetlists.
  */
+<<<<<<< HEAD
 List *
 expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel, Index split_update_result_relation)
+=======
+static List *
+expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
+>>>>>>> REL_18_BETA1_branch
 {
 	List	   *new_tlist = NIL;
 	ListCell   *tlist_item;
@@ -519,6 +565,7 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel, Index spl
 											  true, /* isnull */
 											  true /* byval */ );
 			}
+<<<<<<< HEAD
 			else
 			{
 				if (split_update_result_relation)
@@ -560,6 +607,34 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel, Index spl
 							new_expr = eval_const_expressions(root, new_expr);
 					}
 				}
+=======
+			else if (att_tup->attgenerated)
+			{
+				/* Generated column, insert a NULL of the base type */
+				Oid			baseTypeId = att_tup->atttypid;
+				int32		baseTypeMod = att_tup->atttypmod;
+
+				baseTypeId = getBaseTypeAndTypmod(baseTypeId, &baseTypeMod);
+				new_expr = (Node *) makeConst(baseTypeId,
+											  baseTypeMod,
+											  att_tup->attcollation,
+											  att_tup->attlen,
+											  (Datum) 0,
+											  true, /* isnull */
+											  att_tup->attbyval);
+			}
+			else
+			{
+				/* Normal column, insert a NULL of the column datatype */
+				new_expr = coerce_null_to_domain(att_tup->atttypid,
+												 att_tup->atttypmod,
+												 att_tup->attcollation,
+												 att_tup->attlen,
+												 att_tup->attbyval);
+				/* Must run expression preprocessing on any non-const nodes */
+				if (!IsA(new_expr, Const))
+					new_expr = eval_const_expressions(root, new_expr);
+>>>>>>> REL_18_BETA1_branch
 			}
 
 			new_tle = makeTargetEntry((Expr *) new_expr,

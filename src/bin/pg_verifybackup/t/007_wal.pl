@@ -1,10 +1,10 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test pg_verifybackup's WAL verification.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -14,7 +14,17 @@ my $primary = PostgreSQL::Test::Cluster->new('primary');
 $primary->init(allows_streaming => 1);
 $primary->start;
 my $backup_path = $primary->backup_dir . '/test_wal';
+<<<<<<< HEAD
 $primary->command_ok([ 'pg_basebackup', '-D', $backup_path, '--target-gp-dbid', '123', '--no-sync', '-cfast' ],
+=======
+$primary->command_ok(
+	[
+		'pg_basebackup',
+		'--pgdata' => $backup_path,
+		'--no-sync',
+		'--checkpoint' => 'fast'
+	],
+>>>>>>> REL_18_BETA1_branch
 	"base backup ok");
 
 # Rename pg_wal.
@@ -29,13 +39,17 @@ command_fails_like(
 	'missing pg_wal causes failure');
 
 # Should work if we skip WAL verification.
-command_ok(
-	[ 'pg_verifybackup', '-n', $backup_path ],
+command_ok([ 'pg_verifybackup', '--no-parse-wal', $backup_path ],
 	'missing pg_wal OK if not verifying WAL');
 
 # Should also work if we specify the correct WAL location.
-command_ok([ 'pg_verifybackup', '-w', $relocated_pg_wal, $backup_path ],
-	'-w can be used to specify WAL directory');
+command_ok(
+	[
+		'pg_verifybackup',
+		'--wal-directory' => $relocated_pg_wal,
+		$backup_path
+	],
+	'--wal-directory can be used to specify WAL directory');
 
 # Move directory back to original location.
 rename($relocated_pg_wal, $original_pg_wal) || die "rename pg_wal back: $!";
@@ -68,7 +82,17 @@ $primary->safe_psql('postgres', 'SELECT pg_switch_wal()');
 my $backup_path2 = $primary->backup_dir . '/test_tli';
 # The base backup run below does a checkpoint, that removes the first segment
 # of the current timeline.
+<<<<<<< HEAD
 $primary->command_ok([ 'pg_basebackup', '-D', $backup_path2, '--target-gp-dbid', '123', '--no-sync', '-cfast' ],
+=======
+$primary->command_ok(
+	[
+		'pg_basebackup',
+		'--pgdata' => $backup_path2,
+		'--no-sync',
+		'--checkpoint' => 'fast'
+	],
+>>>>>>> REL_18_BETA1_branch
 	"base backup 2 ok");
 command_ok(
 	[ 'pg_verifybackup', $backup_path2 ],

@@ -5,7 +5,7 @@
  *
  * All the actual insertion logic is in spgdoinsert.c.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -18,14 +18,12 @@
 
 #include "access/genam.h"
 #include "access/spgist_private.h"
-#include "access/spgxlog.h"
 #include "access/tableam.h"
-#include "access/xlog.h"
 #include "access/xloginsert.h"
-#include "catalog/index.h"
 #include "miscadmin.h"
+#include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
-#include "storage/smgr.h"
+#include "storage/bulk_write.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
@@ -124,7 +122,7 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 											  ALLOCSET_DEFAULT_SIZES);
 
 	reltuples = table_index_build_scan(heap, index, indexInfo, true, true,
-									   spgistBuildCallback, (void *) &buildstate,
+									   spgistBuildCallback, &buildstate,
 									   NULL);
 
 	MemoryContextDelete(buildstate.tmpCtx);
@@ -155,6 +153,7 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 void
 spgbuildempty(Relation index)
 {
+<<<<<<< HEAD
 	Buffer		metabuffer,
 				rootbuffer,
 				nullbuffer;
@@ -197,6 +196,29 @@ spgbuildempty(Relation index)
 	UnlockReleaseBuffer(metabuffer);
 	UnlockReleaseBuffer(rootbuffer);
 	UnlockReleaseBuffer(nullbuffer);
+=======
+	BulkWriteState *bulkstate;
+	BulkWriteBuffer buf;
+
+	bulkstate = smgr_bulk_start_rel(index, INIT_FORKNUM);
+
+	/* Construct metapage. */
+	buf = smgr_bulk_get_buf(bulkstate);
+	SpGistInitMetapage((Page) buf);
+	smgr_bulk_write(bulkstate, SPGIST_METAPAGE_BLKNO, buf, true);
+
+	/* Likewise for the root page. */
+	buf = smgr_bulk_get_buf(bulkstate);
+	SpGistInitPage((Page) buf, SPGIST_LEAF);
+	smgr_bulk_write(bulkstate, SPGIST_ROOT_BLKNO, buf, true);
+
+	/* Likewise for the null-tuples root page. */
+	buf = smgr_bulk_get_buf(bulkstate);
+	SpGistInitPage((Page) buf, SPGIST_LEAF | SPGIST_NULLS);
+	smgr_bulk_write(bulkstate, SPGIST_NULL_BLKNO, buf, true);
+
+	smgr_bulk_finish(bulkstate);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*

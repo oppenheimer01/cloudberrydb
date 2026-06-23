@@ -38,7 +38,7 @@ enum PGP_S2K_TYPE
 {
 	PGP_S2K_SIMPLE = 0,
 	PGP_S2K_SALTED = 1,
-	PGP_S2K_ISALTED = 3
+	PGP_S2K_ISALTED = 3,
 };
 
 enum PGP_PKT_TYPE
@@ -60,7 +60,7 @@ enum PGP_PKT_TYPE
 	PGP_PKT_USER_ATTR = 17,
 	PGP_PKT_SYMENCRYPTED_DATA_MDC = 18,
 	PGP_PKT_MDC = 19,
-	PGP_PKT_PRIV_61 = 61		/* occurs in gpg secring */
+	PGP_PKT_PRIV_61 = 61,		/* occurs in gpg secring */
 };
 
 enum PGP_PUB_ALGO_TYPE
@@ -69,7 +69,7 @@ enum PGP_PUB_ALGO_TYPE
 	PGP_PUB_RSA_ENCRYPT = 2,
 	PGP_PUB_RSA_SIGN = 3,
 	PGP_PUB_ELG_ENCRYPT = 16,
-	PGP_PUB_DSA_SIGN = 17
+	PGP_PUB_DSA_SIGN = 17,
 };
 
 enum PGP_SYMENC_TYPE
@@ -85,8 +85,11 @@ enum PGP_SYMENC_TYPE
 	PGP_SYM_AES_192 = 8,
 	PGP_SYM_AES_256 = 9,
 	PGP_SYM_TWOFISH = 10,
+<<<<<<< HEAD
 	PGP_SYM_SM4_ECB = 11,
 	PGP_SYM_SM4_CBC = 12
+=======
+>>>>>>> REL_18_BETA1_branch
 };
 
 enum PGP_COMPR_TYPE
@@ -94,7 +97,7 @@ enum PGP_COMPR_TYPE
 	PGP_COMPR_NONE = 0,			/* must */
 	PGP_COMPR_ZIP = 1,			/* should */
 	PGP_COMPR_ZLIB = 2,
-	PGP_COMPR_BZIP2 = 3
+	PGP_COMPR_BZIP2 = 3,
 };
 
 enum PGP_DIGEST_TYPE
@@ -109,7 +112,10 @@ enum PGP_DIGEST_TYPE
 	PGP_DIGEST_SHA256 = 8,
 	PGP_DIGEST_SHA384 = 9,
 	PGP_DIGEST_SHA512 = 10,
+<<<<<<< HEAD
 	PGP_DIGEST_SM3 = 11
+=======
+>>>>>>> REL_18_BETA1_branch
 };
 
 #define PGP_MAX_KEY    (256/8)

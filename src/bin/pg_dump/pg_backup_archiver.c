@@ -30,10 +30,12 @@
 #include <io.h>
 #endif
 
+#include "catalog/pg_class_d.h"
 #include "common/string.h"
 #include "compress_io.h"
 #include "dumputils.h"
 #include "fe_utils/string_utils.h"
+#include "lib/binaryheap.h"
 #include "lib/stringinfo.h"
 #include "libpq/libpq-fs.h"
 #include "parallel.h"
@@ -46,31 +48,22 @@
 #define GP_TEXT_DUMP_HEADER "--\n-- Apache Cloudberry database dump\n--\n\n"
 #define GP_TEXT_DUMPALL_HEADER "--\n-- Apache Cloudberry cluster dump\n--\n\n"
 
-/*
- * State for tracking TocEntrys that are ready to process during a parallel
- * restore.  (This used to be a list, and we still call it that, though now
- * it's really an array so that we can apply qsort to it.)
- *
- * tes[] is sized large enough that we can't overrun it.
- * The valid entries are indexed first_te .. last_te inclusive.
- * We periodically sort the array to bring larger-by-dataLength entries to
- * the front; "sorted" is true if the valid entries are known sorted.
- */
-typedef struct _parallelReadyList
-{
-	TocEntry  **tes;			/* Ready-to-dump TocEntrys */
-	int			first_te;		/* index of first valid entry in tes[] */
-	int			last_te;		/* index of last valid entry in tes[] */
-	bool		sorted;			/* are valid entries currently sorted? */
-} ParallelReadyList;
-
+#define TOC_PREFIX_NONE		""
+#define TOC_PREFIX_DATA		"Data for "
+#define TOC_PREFIX_STATS	"Statistics for "
 
 static ArchiveHandle *_allocAH(const char *FileSpec, const ArchiveFormat fmt,
 							   const pg_compress_specification compression_spec,
 							   bool dosync, ArchiveMode mode,
-							   SetupWorkerPtrType setupWorkerPtr);
+							   SetupWorkerPtrType setupWorkerPtr,
+							   DataDirSyncMethod sync_method);
 static void _getObjectDescription(PQExpBuffer buf, const TocEntry *te);
+<<<<<<< HEAD
 static void _printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData);
+=======
+static void _printTocEntry(ArchiveHandle *AH, TocEntry *te, const char *pfx);
+static char *sanitize_line(const char *str, bool want_hyphen);
+>>>>>>> REL_18_BETA1_branch
 static void _doSetFixedOutputState(ArchiveHandle *AH);
 static void _doSetSessionAuth(ArchiveHandle *AH, const char *user);
 static void _reconnectToDB(ArchiveHandle *AH, const char *dbname);
@@ -79,6 +72,8 @@ static void _becomeOwner(ArchiveHandle *AH, TocEntry *te);
 static void _selectOutputSchema(ArchiveHandle *AH, const char *schemaName);
 static void _selectTablespace(ArchiveHandle *AH, const char *tablespace);
 static void _selectTableAccessMethod(ArchiveHandle *AH, const char *tableam);
+static void _printTableAccessMethodNoStorage(ArchiveHandle *AH,
+											 TocEntry *te);
 static void processEncodingEntry(ArchiveHandle *AH, TocEntry *te);
 static void processStdStringsEntry(ArchiveHandle *AH, TocEntry *te);
 static void processSearchPathEntry(ArchiveHandle *AH, TocEntry *te);
@@ -96,7 +91,7 @@ static int	RestoringToDB(ArchiveHandle *AH);
 static void dump_lo_buf(ArchiveHandle *AH);
 static void dumpTimestamp(ArchiveHandle *AH, const char *msg, time_t tim);
 static void SetOutput(ArchiveHandle *AH, const char *filename,
-					  const pg_compress_specification compression_spec);
+					  const pg_compress_specification compression_spec, bool append_data);
 static CompressFileHandle *SaveOutput(ArchiveHandle *AH);
 static void RestoreOutput(ArchiveHandle *AH, CompressFileHandle *savedOutput);
 
@@ -111,16 +106,12 @@ static void restore_toc_entries_postfork(ArchiveHandle *AH,
 static void pending_list_header_init(TocEntry *l);
 static void pending_list_append(TocEntry *l, TocEntry *te);
 static void pending_list_remove(TocEntry *te);
-static void ready_list_init(ParallelReadyList *ready_list, int tocCount);
-static void ready_list_free(ParallelReadyList *ready_list);
-static void ready_list_insert(ParallelReadyList *ready_list, TocEntry *te);
-static void ready_list_remove(ParallelReadyList *ready_list, int i);
-static void ready_list_sort(ParallelReadyList *ready_list);
-static int	TocEntrySizeCompare(const void *p1, const void *p2);
-static void move_to_ready_list(TocEntry *pending_list,
-							   ParallelReadyList *ready_list,
+static int	TocEntrySizeCompareQsort(const void *p1, const void *p2);
+static int	TocEntrySizeCompareBinaryheap(void *p1, void *p2, void *arg);
+static void move_to_ready_heap(TocEntry *pending_list,
+							   binaryheap *ready_heap,
 							   RestorePass pass);
-static TocEntry *pop_next_work_item(ParallelReadyList *ready_list,
+static TocEntry *pop_next_work_item(binaryheap *ready_heap,
 									ParallelState *pstate);
 static void mark_dump_job_done(ArchiveHandle *AH,
 							   TocEntry *te,
@@ -135,7 +126,7 @@ static bool has_lock_conflicts(TocEntry *te1, TocEntry *te2);
 static void repoint_table_dependencies(ArchiveHandle *AH);
 static void identify_locking_dependencies(ArchiveHandle *AH, TocEntry *te);
 static void reduce_dependencies(ArchiveHandle *AH, TocEntry *te,
-								ParallelReadyList *ready_list);
+								binaryheap *ready_heap);
 static void mark_create_done(ArchiveHandle *AH, TocEntry *te);
 static void inhibit_data_for_failed_table(ArchiveHandle *AH, TocEntry *te);
 
@@ -165,6 +156,9 @@ InitDumpOptions(DumpOptions *opts)
 	opts->include_everything = true;
 	opts->cparams.promptPassword = TRI_DEFAULT;
 	opts->dumpSections = DUMP_UNSECTIONED;
+	opts->dumpSchema = true;
+	opts->dumpData = true;
+	opts->dumpStatistics = true;
 }
 
 /*
@@ -183,11 +177,12 @@ dumpOptionsFromRestoreOptions(RestoreOptions *ropt)
 	dopt->cparams.username = ropt->cparams.username ? pg_strdup(ropt->cparams.username) : NULL;
 	dopt->cparams.promptPassword = ropt->cparams.promptPassword;
 	dopt->outputClean = ropt->dropSchema;
-	dopt->dataOnly = ropt->dataOnly;
-	dopt->schemaOnly = ropt->schemaOnly;
+	dopt->dumpData = ropt->dumpData;
+	dopt->dumpSchema = ropt->dumpSchema;
+	dopt->dumpSections = ropt->dumpSections;
+	dopt->dumpStatistics = ropt->dumpStatistics;
 	dopt->if_exists = ropt->if_exists;
 	dopt->column_inserts = ropt->column_inserts;
-	dopt->dumpSections = ropt->dumpSections;
 	dopt->aclsSkip = ropt->aclsSkip;
 	dopt->outputSuperuser = ropt->superuser;
 	dopt->outputCreateDB = ropt->createDB;
@@ -199,6 +194,7 @@ dumpOptionsFromRestoreOptions(RestoreOptions *ropt)
 	dopt->disable_dollar_quoting = ropt->disable_dollar_quoting;
 	dopt->dump_inserts = ropt->dump_inserts;
 	dopt->no_comments = ropt->no_comments;
+	dopt->no_policies = ropt->no_policies;
 	dopt->no_publications = ropt->no_publications;
 	dopt->no_security_labels = ropt->no_security_labels;
 	dopt->no_subscriptions = ropt->no_subscriptions;
@@ -240,11 +236,12 @@ Archive *
 CreateArchive(const char *FileSpec, const ArchiveFormat fmt,
 			  const pg_compress_specification compression_spec,
 			  bool dosync, ArchiveMode mode,
-			  SetupWorkerPtrType setupDumpWorker)
+			  SetupWorkerPtrType setupDumpWorker,
+			  DataDirSyncMethod sync_method)
 
 {
 	ArchiveHandle *AH = _allocAH(FileSpec, fmt, compression_spec,
-								 dosync, mode, setupDumpWorker);
+								 dosync, mode, setupDumpWorker, sync_method);
 
 	return (Archive *) AH;
 }
@@ -259,7 +256,8 @@ OpenArchive(const char *FileSpec, const ArchiveFormat fmt)
 
 	compression_spec.algorithm = PG_COMPRESSION_NONE;
 	AH = _allocAH(FileSpec, fmt, compression_spec, true,
-				  archModeRead, setupRestoreWorker);
+				  archModeRead, setupRestoreWorker,
+				  DATA_DIR_SYNC_METHOD_FSYNC);
 
 	return (Archive *) AH;
 }
@@ -346,9 +344,14 @@ ProcessArchiveRestoreOptions(Archive *AHX)
 		StrictNamesCheck(ropt);
 }
 
-/* Public */
+/*
+ * RestoreArchive
+ *
+ * If append_data is set, then append data into file as we are restoring dump
+ * of multiple databases which was taken by pg_dumpall.
+ */
 void
-RestoreArchive(Archive *AHX)
+RestoreArchive(Archive *AHX, bool append_data)
 {
 	ArchiveHandle *AH = (ArchiveHandle *) AHX;
 	RestoreOptions *ropt = AH->public.ropt;
@@ -423,7 +426,11 @@ RestoreArchive(Archive *AHX)
 		AHX->minRemoteVersion = 0;
 		AHX->maxRemoteVersion = 9999999;
 
+<<<<<<< HEAD
 		ConnectDatabase(AHX, &ropt->cparams, false, ropt->binary_upgrade);
+=======
+		ConnectDatabaseAhx(AHX, &ropt->cparams, false);
+>>>>>>> REL_18_BETA1_branch
 
 		/*
 		 * If we're talking to the DB directly, don't send comments since they
@@ -433,30 +440,30 @@ RestoreArchive(Archive *AHX)
 	}
 
 	/*
-	 * Work out if we have an implied data-only restore. This can happen if
-	 * the dump was data only or if the user has used a toc list to exclude
+	 * Work out if we have an implied schema-less restore. This can happen if
+	 * the dump excluded the schema or the user has used a toc list to exclude
 	 * all of the schema data. All we do is look for schema entries - if none
-	 * are found then we set the dataOnly flag.
+	 * are found then we unset the dumpSchema flag.
 	 *
 	 * We could scan for wanted TABLE entries, but that is not the same as
-	 * dataOnly. At this stage, it seems unnecessary (6-Mar-2001).
+	 * data-only. At this stage, it seems unnecessary (6-Mar-2001).
 	 */
-	if (!ropt->dataOnly)
+	if (ropt->dumpSchema)
 	{
-		int			impliedDataOnly = 1;
+		bool		no_schema_found = true;
 
 		for (te = AH->toc->next; te != AH->toc; te = te->next)
 		{
 			if ((te->reqs & REQ_SCHEMA) != 0)
-			{					/* It's schema, and it's wanted */
-				impliedDataOnly = 0;
+			{
+				no_schema_found = false;
 				break;
 			}
 		}
-		if (impliedDataOnly)
+		if (no_schema_found)
 		{
-			ropt->dataOnly = impliedDataOnly;
-			pg_log_info("implied data-only restore");
+			ropt->dumpSchema = false;
+			pg_log_info("implied no-schema restore");
 		}
 	}
 
@@ -465,7 +472,7 @@ RestoreArchive(Archive *AHX)
 	 */
 	sav = SaveOutput(AH);
 	if (ropt->filename || ropt->compression_spec.algorithm != PG_COMPRESSION_NONE)
-		SetOutput(AH, ropt->filename, ropt->compression_spec);
+		SetOutput(AH, ropt->filename, ropt->compression_spec, append_data);
 
 	ahprintf(AH, "--\n-- Apache Cloudberry database dump\n--\n\n");
 
@@ -543,7 +550,28 @@ RestoreArchive(Archive *AHX)
 			/* Otherwise, drop anything that's selected and has a dropStmt */
 			if (((te->reqs & (REQ_SCHEMA | REQ_DATA)) != 0) && te->dropStmt)
 			{
+				bool		not_allowed_in_txn = false;
+
 				pg_log_info("dropping %s %s", te->desc, te->tag);
+
+				/*
+				 * In --transaction-size mode, we have to temporarily exit our
+				 * transaction block to drop objects that can't be dropped
+				 * within a transaction.
+				 */
+				if (ropt->txn_size > 0)
+				{
+					if (strcmp(te->desc, "DATABASE") == 0 ||
+						strcmp(te->desc, "DATABASE PROPERTIES") == 0)
+					{
+						not_allowed_in_txn = true;
+						if (AH->connection)
+							CommitTransaction(AHX);
+						else
+							ahprintf(AH, "COMMIT;\n");
+					}
+				}
+
 				/* Select owner and schema as necessary */
 				_becomeOwner(AH, te);
 				_selectOutputSchema(AH, te->namespace);
@@ -553,7 +581,20 @@ RestoreArchive(Archive *AHX)
 				 * don't necessarily emit it verbatim; at this point we add an
 				 * appropriate IF EXISTS clause, if the user requested it.
 				 */
-				if (*te->dropStmt != '\0')
+				if (strcmp(te->desc, "BLOB METADATA") == 0)
+				{
+					/* We must generate the per-blob commands */
+					if (ropt->if_exists)
+						IssueCommandPerBlob(AH, te,
+											"SELECT pg_catalog.lo_unlink(oid) "
+											"FROM pg_catalog.pg_largeobject_metadata "
+											"WHERE oid = '", "'");
+					else
+						IssueCommandPerBlob(AH, te,
+											"SELECT pg_catalog.lo_unlink('",
+											"')");
+				}
+				else if (*te->dropStmt != '\0')
 				{
 					if (!ropt->if_exists ||
 						strncmp(te->dropStmt, "--", 2) == 0)
@@ -569,12 +610,12 @@ RestoreArchive(Archive *AHX)
 					{
 						/*
 						 * Inject an appropriate spelling of "if exists".  For
-						 * large objects, we have a separate routine that
+						 * old-style large objects, we have a routine that
 						 * knows how to do it, without depending on
 						 * te->dropStmt; use that.  For other objects we need
 						 * to parse the command.
 						 */
-						if (strncmp(te->desc, "BLOB", 4) == 0)
+						if (strcmp(te->desc, "BLOB") == 0)
 						{
 							DropLOIfExists(AH, te->catalogId.oid);
 						}
@@ -656,6 +697,33 @@ RestoreArchive(Archive *AHX)
 						}
 					}
 				}
+
+				/*
+				 * In --transaction-size mode, re-establish the transaction
+				 * block if needed; otherwise, commit after every N drops.
+				 */
+				if (ropt->txn_size > 0)
+				{
+					if (not_allowed_in_txn)
+					{
+						if (AH->connection)
+							StartTransaction(AHX);
+						else
+							ahprintf(AH, "BEGIN;\n");
+						AH->txnCount = 0;
+					}
+					else if (++AH->txnCount >= ropt->txn_size)
+					{
+						if (AH->connection)
+						{
+							CommitTransaction(AHX);
+							StartTransaction(AHX);
+						}
+						else
+							ahprintf(AH, "COMMIT;\nBEGIN;\n");
+						AH->txnCount = 0;
+					}
+				}
 			}
 		}
 
@@ -714,7 +782,7 @@ RestoreArchive(Archive *AHX)
 
 		for (te = AH->toc->next; te != AH->toc; te = te->next)
 		{
-			if ((te->reqs & (REQ_SCHEMA | REQ_DATA)) == 0)
+			if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) == 0)
 				continue;		/* ignore if not to be dumped at all */
 
 			switch (_tocEntryRestorePass(te))
@@ -735,7 +803,7 @@ RestoreArchive(Archive *AHX)
 		{
 			for (te = AH->toc->next; te != AH->toc; te = te->next)
 			{
-				if ((te->reqs & (REQ_SCHEMA | REQ_DATA)) != 0 &&
+				if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) != 0 &&
 					_tocEntryRestorePass(te) == RESTORE_PASS_ACL)
 					(void) restore_toc_entry(AH, te, false);
 			}
@@ -745,14 +813,18 @@ RestoreArchive(Archive *AHX)
 		{
 			for (te = AH->toc->next; te != AH->toc; te = te->next)
 			{
-				if ((te->reqs & (REQ_SCHEMA | REQ_DATA)) != 0 &&
+				if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) != 0 &&
 					_tocEntryRestorePass(te) == RESTORE_PASS_POST_ACL)
 					(void) restore_toc_entry(AH, te, false);
 			}
 		}
 	}
 
-	if (ropt->single_txn)
+	/*
+	 * Close out any persistent transaction we may have.  While these two
+	 * cases are started in different places, we can end both cases here.
+	 */
+	if (ropt->single_txn || ropt->txn_size > 0)
 	{
 		if (AH->connection)
 			CommitTransaction(AHX);
@@ -805,7 +877,7 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 	/* Dump any relevant dump warnings to stderr */
 	if (!ropt->suppressDumpWarnings && strcmp(te->desc, "WARNING") == 0)
 	{
-		if (!ropt->dataOnly && te->defn != NULL && strlen(te->defn) != 0)
+		if (ropt->dumpSchema && te->defn != NULL && strlen(te->defn) != 0)
 			pg_log_warning("warning from original dump file: %s", te->defn);
 		else if (te->copyStmt != NULL && strlen(te->copyStmt) != 0)
 			pg_log_warning("warning from original dump file: %s", te->copyStmt);
@@ -821,6 +893,25 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 	 */
 	if ((reqs & REQ_SCHEMA) != 0)
 	{
+		bool		object_is_db = false;
+
+		/*
+		 * In --transaction-size mode, must exit our transaction block to
+		 * create a database or set its properties.
+		 */
+		if (strcmp(te->desc, "DATABASE") == 0 ||
+			strcmp(te->desc, "DATABASE PROPERTIES") == 0)
+		{
+			object_is_db = true;
+			if (ropt->txn_size > 0)
+			{
+				if (AH->connection)
+					CommitTransaction(&AH->public);
+				else
+					ahprintf(AH, "COMMIT;\n\n");
+			}
+		}
+
 		/* Show namespace in log message if available */
 		if (te->namespace)
 			pg_log_info("creating %s \"%s.%s\"",
@@ -829,7 +920,7 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 			pg_log_info("creating %s \"%s\"",
 						te->desc, te->tag);
 
-		_printTocEntry(AH, te, false);
+		_printTocEntry(AH, te, TOC_PREFIX_NONE);
 		defnDumped = true;
 
 		if (strcmp(te->desc, "TABLE") == 0 ||
@@ -873,10 +964,10 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 		/*
 		 * If we created a DB, connect to it.  Also, if we changed DB
 		 * properties, reconnect to ensure that relevant GUC settings are
-		 * applied to our session.
+		 * applied to our session.  (That also restarts the transaction block
+		 * in --transaction-size mode.)
 		 */
-		if (strcmp(te->desc, "DATABASE") == 0 ||
-			strcmp(te->desc, "DATABASE PROPERTIES") == 0)
+		if (object_is_db)
 		{
 			pg_log_info("connecting to new database \"%s\"", te->tag);
 			_reconnectToDB(AH, te->tag);
@@ -900,7 +991,7 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 			 */
 			if (AH->PrintTocDataPtr != NULL)
 			{
-				_printTocEntry(AH, te, true);
+				_printTocEntry(AH, te, TOC_PREFIX_DATA);
 
 				if (strcmp(te->desc, "BLOBS") == 0 ||
 					strcmp(te->desc, "BLOB COMMENTS") == 0)
@@ -998,7 +1089,32 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 		{
 			/* If we haven't already dumped the defn part, do so now */
 			pg_log_info("executing %s %s", te->desc, te->tag);
-			_printTocEntry(AH, te, false);
+			_printTocEntry(AH, te, TOC_PREFIX_NONE);
+		}
+	}
+
+	/*
+	 * If it has a statistics component that we want, then process that
+	 */
+	if ((reqs & REQ_STATS) != 0)
+		_printTocEntry(AH, te, TOC_PREFIX_STATS);
+
+	/*
+	 * If we emitted anything for this TOC entry, that counts as one action
+	 * against the transaction-size limit.  Commit if it's time to.
+	 */
+	if ((reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) != 0 && ropt->txn_size > 0)
+	{
+		if (++AH->txnCount >= ropt->txn_size)
+		{
+			if (AH->connection)
+			{
+				CommitTransaction(&AH->public);
+				StartTransaction(&AH->public);
+			}
+			else
+				ahprintf(AH, "COMMIT;\nBEGIN;\n\n");
+			AH->txnCount = 0;
 		}
 	}
 
@@ -1025,6 +1141,9 @@ NewRestoreOptions(void)
 	opts->dumpSections = DUMP_UNSECTIONED;
 	opts->compression_spec.algorithm = PG_COMPRESSION_NONE;
 	opts->compression_spec.level = 0;
+	opts->dumpSchema = true;
+	opts->dumpData = true;
+	opts->dumpStatistics = true;
 
 	/* GPDB_92_MERGE_FIXEME: do we need the following two lines? */
 	opts->suppressDumpWarnings = false;
@@ -1039,7 +1158,7 @@ _disableTriggersIfNecessary(ArchiveHandle *AH, TocEntry *te)
 	RestoreOptions *ropt = AH->public.ropt;
 
 	/* This hack is only needed in a data-only restore */
-	if (!ropt->dataOnly || !ropt->disable_triggers)
+	if (ropt->dumpSchema || !ropt->disable_triggers)
 		return;
 
 	pg_log_info("disabling triggers for %s", te->tag);
@@ -1067,7 +1186,7 @@ _enableTriggersIfNecessary(ArchiveHandle *AH, TocEntry *te)
 	RestoreOptions *ropt = AH->public.ropt;
 
 	/* This hack is only needed in a data-only restore */
-	if (!ropt->dataOnly || !ropt->disable_triggers)
+	if (ropt->dumpSchema || !ropt->disable_triggers)
 		return;
 
 	pg_log_info("enabling triggers for %s", te->tag);
@@ -1207,6 +1326,7 @@ ArchiveEntry(Archive *AHX, CatalogId catalogId, DumpId dumpId,
 	newToc->namespace = opts->namespace ? pg_strdup(opts->namespace) : NULL;
 	newToc->tablespace = opts->tablespace ? pg_strdup(opts->tablespace) : NULL;
 	newToc->tableam = opts->tableam ? pg_strdup(opts->tableam) : NULL;
+	newToc->relkind = opts->relkind;
 	newToc->owner = opts->owner ? pg_strdup(opts->owner) : NULL;
 	newToc->desc = pg_strdup(opts->description);
 	newToc->defn = opts->createStmt ? pg_strdup(opts->createStmt) : NULL;
@@ -1228,6 +1348,9 @@ ArchiveEntry(Archive *AHX, CatalogId catalogId, DumpId dumpId,
 	newToc->dataDumper = opts->dumpFn;
 	newToc->dataDumperArg = opts->dumpArg;
 	newToc->hadDumper = opts->dumpFn ? true : false;
+
+	newToc->defnDumper = opts->defnFn;
+	newToc->defnDumperArg = opts->defnArg;
 
 	newToc->formatData = NULL;
 	newToc->dataLength = 0;
@@ -1256,7 +1379,7 @@ PrintTOCSummary(Archive *AHX)
 
 	sav = SaveOutput(AH);
 	if (ropt->filename)
-		SetOutput(AH, ropt->filename, out_compression_spec);
+		SetOutput(AH, ropt->filename, out_compression_spec, false);
 
 	if (strftime(stamp_str, sizeof(stamp_str), PGDUMP_STRFTIME_FMT,
 				 localtime(&AH->createDate)) == 0)
@@ -1306,7 +1429,11 @@ PrintTOCSummary(Archive *AHX)
 		te->reqs = _tocEntryRequired(te, curSection, AH);
 		/* Now, should we print it? */
 		if (ropt->verbose ||
+<<<<<<< HEAD
 			(te->reqs & (REQ_SCHEMA | REQ_DATA)) != 0)
+=======
+			(te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) != 0)
+>>>>>>> REL_18_BETA1_branch
 		{
 			char	   *sanitized_name;
 			char	   *sanitized_schema;
@@ -1381,14 +1508,19 @@ EndLO(Archive *AHX, Oid oid)
  **********/
 
 /*
- * Called by a format handler before any LOs are restored
+ * Called by a format handler before a group of LOs is restored
  */
 void
 StartRestoreLOs(ArchiveHandle *AH)
 {
 	RestoreOptions *ropt = AH->public.ropt;
 
-	if (!ropt->single_txn)
+	/*
+	 * LOs must be restored within a transaction block, since we need the LO
+	 * handle to stay open while we write it.  Establish a transaction unless
+	 * there's one being used globally.
+	 */
+	if (!(ropt->single_txn || ropt->txn_size > 0))
 	{
 		if (AH->connection)
 			StartTransaction(&AH->public);
@@ -1400,14 +1532,14 @@ StartRestoreLOs(ArchiveHandle *AH)
 }
 
 /*
- * Called by a format handler after all LOs are restored
+ * Called by a format handler after a group of LOs is restored
  */
 void
 EndRestoreLOs(ArchiveHandle *AH)
 {
 	RestoreOptions *ropt = AH->public.ropt;
 
-	if (!ropt->single_txn)
+	if (!(ropt->single_txn || ropt->txn_size > 0))
 	{
 		if (AH->connection)
 			CommitTransaction(&AH->public);
@@ -1434,6 +1566,12 @@ StartRestoreLO(ArchiveHandle *AH, Oid oid, bool drop)
 	AH->loCount++;
 
 	/* Initialize the LO Buffer */
+	if (AH->lo_buf == NULL)
+	{
+		/* First time through (in this process) so allocate the buffer */
+		AH->lo_buf_size = LOBBUFSIZE;
+		AH->lo_buf = pg_malloc(LOBBUFSIZE);
+	}
 	AH->lo_buf_used = 0;
 
 	pg_log_info("restoring large object with OID %u", oid);
@@ -1624,7 +1762,8 @@ archprintf(Archive *AH, const char *fmt,...)
 
 static void
 SetOutput(ArchiveHandle *AH, const char *filename,
-		  const pg_compress_specification compression_spec)
+		  const pg_compress_specification compression_spec,
+		  bool append_data)
 {
 	CompressFileHandle *CFH;
 	const char *mode;
@@ -1644,7 +1783,7 @@ SetOutput(ArchiveHandle *AH, const char *filename,
 	else
 		fn = fileno(stdout);
 
-	if (AH->mode == archModeAppend)
+	if (append_data || AH->mode == archModeAppend)
 		mode = PG_BINARY_A;
 	else
 		mode = PG_BINARY_W;
@@ -1788,7 +1927,7 @@ ahwrite(const void *ptr, size_t size, size_t nmemb, ArchiveHandle *AH)
 			size_t		avail = AH->lo_buf_size - AH->lo_buf_used;
 
 			memcpy((char *) AH->lo_buf + AH->lo_buf_used, ptr, avail);
-			ptr = (const void *) ((const char *) ptr + avail);
+			ptr = (const char *) ptr + avail;
 			remaining -= avail;
 			AH->lo_buf_used += avail;
 			dump_lo_buf(AH);
@@ -2148,7 +2287,7 @@ ReadStr(ArchiveHandle *AH)
 	else
 	{
 		buf = (char *) pg_malloc(l + 1);
-		AH->ReadBufPtr(AH, (void *) buf, l);
+		AH->ReadBufPtr(AH, buf, l);
 
 		buf[l] = '\0';
 	}
@@ -2316,7 +2455,7 @@ static ArchiveHandle *
 _allocAH(const char *FileSpec, const ArchiveFormat fmt,
 		 const pg_compress_specification compression_spec,
 		 bool dosync, ArchiveMode mode,
-		 SetupWorkerPtrType setupWorkerPtr)
+		 SetupWorkerPtrType setupWorkerPtr, DataDirSyncMethod sync_method)
 {
 	ArchiveHandle *AH;
 	CompressFileHandle *CFH;
@@ -2370,6 +2509,7 @@ _allocAH(const char *FileSpec, const ArchiveFormat fmt,
 	AH->mode = mode;
 	AH->compression_spec = compression_spec;
 	AH->dosync = dosync;
+	AH->sync_method = sync_method;
 
 	memset(&(AH->sqlparse), 0, sizeof(AH->sqlparse));
 
@@ -2422,7 +2562,7 @@ _allocAH(const char *FileSpec, const ArchiveFormat fmt,
 			break;
 
 		default:
-			pg_fatal("unrecognized file format \"%d\"", fmt);
+			pg_fatal("unrecognized file format \"%d\"", AH->format);
 	}
 
 	return AH;
@@ -2463,7 +2603,7 @@ WriteDataChunks(ArchiveHandle *AH, ParallelState *pstate)
 		}
 
 		if (ntes > 1)
-			qsort(tes, ntes, sizeof(TocEntry *), TocEntrySizeCompare);
+			qsort(tes, ntes, sizeof(TocEntry *), TocEntrySizeCompareQsort);
 
 		for (int i = 0; i < ntes; i++)
 			DispatchJobForTocEntry(AH, pstate, tes[i], ACT_DUMP,
@@ -2557,7 +2697,7 @@ WriteToc(ArchiveHandle *AH)
 	tocCount = 0;
 	for (te = AH->toc->next; te != AH->toc; te = te->next)
 	{
-		if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_SPECIAL)) != 0)
+		if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS | REQ_SPECIAL)) != 0)
 			tocCount++;
 	}
 
@@ -2567,7 +2707,7 @@ WriteToc(ArchiveHandle *AH)
 
 	for (te = AH->toc->next; te != AH->toc; te = te->next)
 	{
-		if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_SPECIAL)) == 0)
+		if ((te->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS | REQ_SPECIAL)) == 0)
 			continue;
 
 		WriteInt(AH, te->dumpId);
@@ -2582,12 +2722,51 @@ WriteToc(ArchiveHandle *AH)
 		WriteStr(AH, te->tag);
 		WriteStr(AH, te->desc);
 		WriteInt(AH, te->section);
-		WriteStr(AH, te->defn);
+
+		if (te->defnLen)
+		{
+			/*
+			 * defnLen should only be set for custom format's second call to
+			 * WriteToc(), which rewrites the TOC in place to update data
+			 * offsets.  Instead of calling the defnDumper a second time
+			 * (which could involve re-executing queries), just skip writing
+			 * the entry.  While regenerating the definition should
+			 * theoretically produce the same result as before, it's expensive
+			 * and feels risky.
+			 *
+			 * The custom format only calls WriteToc() a second time if
+			 * fseeko() is usable (see _CloseArchive() in pg_backup_custom.c),
+			 * so we can safely use it without checking.  For other formats,
+			 * we fail because one of our assumptions must no longer hold
+			 * true.
+			 *
+			 * XXX This is a layering violation, but the alternative is an
+			 * awkward and complicated callback infrastructure for this
+			 * special case.  This might be worth revisiting in the future.
+			 */
+			if (AH->format != archCustom)
+				pg_fatal("unexpected TOC entry in WriteToc(): %d %s %s",
+						 te->dumpId, te->desc, te->tag);
+
+			if (fseeko(AH->FH, te->defnLen, SEEK_CUR != 0))
+				pg_fatal("error during file seek: %m");
+		}
+		else if (te->defnDumper)
+		{
+			char	   *defn = te->defnDumper((Archive *) AH, te->defnDumperArg, te);
+
+			te->defnLen = WriteStr(AH, defn);
+			pg_free(defn);
+		}
+		else
+			WriteStr(AH, te->defn);
+
 		WriteStr(AH, te->dropStmt);
 		WriteStr(AH, te->copyStmt);
 		WriteStr(AH, te->namespace);
 		WriteStr(AH, te->tablespace);
 		WriteStr(AH, te->tableam);
+		WriteInt(AH, te->relkind);
 		WriteStr(AH, te->owner);
 		WriteStr(AH, "false");
 
@@ -2692,6 +2871,9 @@ ReadToc(ArchiveHandle *AH)
 
 		if (AH->version >= K_VERS_1_14)
 			te->tableam = ReadStr(AH);
+
+		if (AH->version >= K_VERS_1_16)
+			te->relkind = ReadInt(AH);
 
 		te->owner = ReadStr(AH);
 		is_supported = true;
@@ -2875,8 +3057,9 @@ StrictNamesCheck(RestoreOptions *ropt)
  * Determine whether we want to restore this TOC entry.
  *
  * Returns 0 if entry should be skipped, or some combination of the
- * REQ_SCHEMA and REQ_DATA bits if we want to restore schema and/or data
- * portions of this TOC entry, or REQ_SPECIAL if it's a special entry.
+ * REQ_SCHEMA, REQ_DATA, and REQ_STATS bits if we want to restore schema, data
+ * and/or statistics portions of this TOC entry, or REQ_SPECIAL if it's a
+ * special entry.
  */
 static int
 _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
@@ -2889,6 +3072,14 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 		strcmp(te->desc, "STDSTRINGS") == 0 ||
 		strcmp(te->desc, "SEARCHPATH") == 0)
 		return REQ_SPECIAL;
+
+	if (strcmp(te->desc, "STATISTICS DATA") == 0)
+	{
+		if (!ropt->dumpStatistics)
+			return 0;
+
+		res = REQ_STATS;
+	}
 
 	/*
 	 * DATABASE and DATABASE PROPERTIES also have a special rule: they are
@@ -2914,6 +3105,12 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 
 	/* If it's a comment, maybe ignore it */
 	if (ropt->no_comments && strcmp(te->desc, "COMMENT") == 0)
+		return 0;
+
+	/* If it's a policy, maybe ignore it */
+	if (ropt->no_policies &&
+		(strcmp(te->desc, "POLICY") == 0 ||
+		 strcmp(te->desc, "ROW SECURITY") == 0))
 		return 0;
 
 	/*
@@ -2963,6 +3160,7 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 	 */
 	if (strcmp(te->desc, "ACL") == 0 ||
 		strcmp(te->desc, "COMMENT") == 0 ||
+		strcmp(te->desc, "STATISTICS DATA") == 0 ||
 		strcmp(te->desc, "SECURITY LABEL") == 0)
 	{
 		/* Database properties react to createDB, not selectivity options. */
@@ -3081,6 +3279,7 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 		}
 	}
 
+
 	/*
 	 * Determine whether the TOC entry contains schema and/or data components,
 	 * and mask off inapplicable REQ bits.  If it had a dataDumper, assume
@@ -3091,19 +3290,20 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 	{
 		/*
 		 * Special Case: If 'SEQUENCE SET' or anything to do with LOs, then it
-		 * is considered a data entry.  We don't need to check for the BLOBS
-		 * entry or old-style BLOB COMMENTS, because they will have hadDumper
-		 * = true ... but we do need to check new-style BLOB ACLs, comments,
+		 * is considered a data entry.  We don't need to check for BLOBS or
+		 * old-style BLOB COMMENTS entries, because they will have hadDumper =
+		 * true ... but we do need to check new-style BLOB ACLs, comments,
 		 * etc.
 		 */
 		if (strcmp(te->desc, "SEQUENCE SET") == 0 ||
 			strcmp(te->desc, "BLOB") == 0 ||
+			strcmp(te->desc, "BLOB METADATA") == 0 ||
 			(strcmp(te->desc, "ACL") == 0 &&
-			 strncmp(te->tag, "LARGE OBJECT ", 13) == 0) ||
+			 strncmp(te->tag, "LARGE OBJECT", 12) == 0) ||
 			(strcmp(te->desc, "COMMENT") == 0 &&
-			 strncmp(te->tag, "LARGE OBJECT ", 13) == 0) ||
+			 strncmp(te->tag, "LARGE OBJECT", 12) == 0) ||
 			(strcmp(te->desc, "SECURITY LABEL") == 0 &&
-			 strncmp(te->tag, "LARGE OBJECT ", 13) == 0))
+			 strncmp(te->tag, "LARGE OBJECT", 12) == 0))
 			res = res & REQ_DATA;
 		else
 			res = res & ~REQ_DATA;
@@ -3124,13 +3324,13 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 	if ((strcmp(te->desc, "<Init>") == 0) && (strcmp(te->tag, "Max OID") == 0))
 		return 0;
 
-	/* Mask it if we only want schema */
-	if (ropt->schemaOnly)
+	/* Mask it if we don't want data */
+	if (!ropt->dumpData)
 	{
 		/*
-		 * The sequence_data option overrides schemaOnly for SEQUENCE SET.
+		 * The sequence_data option overrides dumpData for SEQUENCE SET.
 		 *
-		 * In binary-upgrade mode, even with schemaOnly set, we do not mask
+		 * In binary-upgrade mode, even with dumpData unset, we do not mask
 		 * out large objects.  (Only large object definitions, comments and
 		 * other metadata should be generated in binary-upgrade mode, not the
 		 * actual data, but that need not concern us here.)
@@ -3138,18 +3338,19 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 		if (!(ropt->sequence_data && strcmp(te->desc, "SEQUENCE SET") == 0) &&
 			!(ropt->binary_upgrade &&
 			  (strcmp(te->desc, "BLOB") == 0 ||
+			   strcmp(te->desc, "BLOB METADATA") == 0 ||
 			   (strcmp(te->desc, "ACL") == 0 &&
-				strncmp(te->tag, "LARGE OBJECT ", 13) == 0) ||
+				strncmp(te->tag, "LARGE OBJECT", 12) == 0) ||
 			   (strcmp(te->desc, "COMMENT") == 0 &&
-				strncmp(te->tag, "LARGE OBJECT ", 13) == 0) ||
+				strncmp(te->tag, "LARGE OBJECT", 12) == 0) ||
 			   (strcmp(te->desc, "SECURITY LABEL") == 0 &&
-				strncmp(te->tag, "LARGE OBJECT ", 13) == 0))))
-			res = res & REQ_SCHEMA;
+				strncmp(te->tag, "LARGE OBJECT", 12) == 0))))
+			res = res & (REQ_SCHEMA | REQ_STATS);
 	}
 
-	/* Mask it if we only want data */
-	if (ropt->dataOnly)
-		res = res & REQ_DATA;
+	/* Mask it if we don't want schema */
+	if (!ropt->dumpSchema)
+		res = res & (REQ_DATA | REQ_STATS);
 
 	return res;
 }
@@ -3179,6 +3380,19 @@ _tocEntryRestorePass(TocEntry *te)
 	 */
 	if (strcmp(te->desc, "COMMENT") == 0 &&
 		strncmp(te->tag, "EVENT TRIGGER ", 14) == 0)
+		return RESTORE_PASS_POST_ACL;
+
+	/*
+	 * If statistics data is dependent on materialized view data, it must be
+	 * deferred to RESTORE_PASS_POST_ACL.  Those entries are already marked as
+	 * SECTION_POST_DATA, and some other stats entries (e.g., index stats)
+	 * will also be marked as SECTION_POST_DATA.  Additionally, our lookahead
+	 * code in fetchAttributeStats() assumes that we dump all statistics data
+	 * entries in TOC order.  To ensure this assumption holds, we move all
+	 * statistics data entries in SECTION_POST_DATA to RESTORE_PASS_POST_ACL.
+	 */
+	if (strcmp(te->desc, "STATISTICS DATA") == 0 &&
+		te->section == SECTION_POST_DATA)
 		return RESTORE_PASS_POST_ACL;
 
 	/* All else can be handled in the main pass. */
@@ -3228,6 +3442,7 @@ _doSetFixedOutputState(ArchiveHandle *AH)
 	ahprintf(AH, "SET statement_timeout = 0;\n");
 	ahprintf(AH, "SET lock_timeout = 0;\n");
 	ahprintf(AH, "SET idle_in_transaction_session_timeout = 0;\n");
+	ahprintf(AH, "SET transaction_timeout = 0;\n");
 
 	/* Select the correct character set encoding */
 	ahprintf(AH, "SET client_encoding = '%s';\n",
@@ -3261,6 +3476,19 @@ _doSetFixedOutputState(ArchiveHandle *AH)
 		ahprintf(AH, "SET row_security = on;\n");
 	else
 		ahprintf(AH, "SET row_security = off;\n");
+
+	/*
+	 * In --transaction-size mode, we should always be in a transaction when
+	 * we begin to restore objects.
+	 */
+	if (ropt && ropt->txn_size > 0)
+	{
+		if (AH->connection)
+			StartTransaction(&AH->public);
+		else
+			ahprintf(AH, "\nBEGIN;\n");
+		AH->txnCount = 0;
+	}
 
 	ahprintf(AH, "\n");
 }
@@ -3436,7 +3664,7 @@ _selectOutputSchema(ArchiveHandle *AH, const char *schemaName)
 
 		if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 			warn_or_exit_horribly(AH,
-								  "could not set search_path to \"%s\": %s",
+								  "could not set \"search_path\" to \"%s\": %s",
 								  schemaName, PQerrorMessage(AH->connection));
 
 		PQclear(res);
@@ -3497,7 +3725,7 @@ _selectTablespace(ArchiveHandle *AH, const char *tablespace)
 
 		if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 			warn_or_exit_horribly(AH,
-								  "could not set default_tablespace to %s: %s",
+								  "could not set \"default_tablespace\" to %s: %s",
 								  fmtId(want), PQerrorMessage(AH->connection));
 
 		PQclear(res);
@@ -3546,7 +3774,7 @@ _selectTableAccessMethod(ArchiveHandle *AH, const char *tableam)
 
 		if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 			warn_or_exit_horribly(AH,
-								  "could not set default_table_access_method: %s",
+								  "could not set \"default_table_access_method\": %s",
 								  PQerrorMessage(AH->connection));
 
 		PQclear(res);
@@ -3559,6 +3787,51 @@ _selectTableAccessMethod(ArchiveHandle *AH, const char *tableam)
 	if (AH->currTableAm)
 		free(AH->currTableAm);
 	AH->currTableAm = pg_strdup(want);
+}
+
+/*
+ * Set the proper default table access method for a table without storage.
+ * Currently, this is required only for partitioned tables with a table AM.
+ */
+static void
+_printTableAccessMethodNoStorage(ArchiveHandle *AH, TocEntry *te)
+{
+	RestoreOptions *ropt = AH->public.ropt;
+	const char *tableam = te->tableam;
+	PQExpBuffer cmd;
+
+	/* do nothing in --no-table-access-method mode */
+	if (ropt->noTableAm)
+		return;
+
+	if (!tableam)
+		return;
+
+	Assert(te->relkind == RELKIND_PARTITIONED_TABLE);
+
+	cmd = createPQExpBuffer();
+
+	appendPQExpBufferStr(cmd, "ALTER TABLE ");
+	appendPQExpBuffer(cmd, "%s ", fmtQualifiedId(te->namespace, te->tag));
+	appendPQExpBuffer(cmd, "SET ACCESS METHOD %s;",
+					  fmtId(tableam));
+
+	if (RestoringToDB(AH))
+	{
+		PGresult   *res;
+
+		res = PQexec(AH->connection, cmd->data);
+
+		if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
+			warn_or_exit_horribly(AH,
+								  "could not alter table access method: %s",
+								  PQerrorMessage(AH->connection));
+		PQclear(res);
+	}
+	else
+		ahprintf(AH, "%s\n\n", cmd->data);
+
+	destroyPQExpBuffer(cmd);
 }
 
 /*
@@ -3666,28 +3939,28 @@ _getObjectDescription(PQExpBuffer buf, const TocEntry *te)
  * will remain at default, until the matching ACL TOC entry is restored.
  */
 static void
-_printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData)
+_printTocEntry(ArchiveHandle *AH, TocEntry *te, const char *pfx)
 {
 	RestoreOptions *ropt = AH->public.ropt;
 
-	/* Select owner, schema, tablespace and default AM as necessary */
+	/*
+	 * Select owner, schema, tablespace and default AM as necessary. The
+	 * default access method for partitioned tables is handled after
+	 * generating the object definition, as it requires an ALTER command
+	 * rather than SET.
+	 */
 	_becomeOwner(AH, te);
 	_selectOutputSchema(AH, te->namespace);
 	_selectTablespace(AH, te->tablespace);
-	_selectTableAccessMethod(AH, te->tableam);
+	if (te->relkind != RELKIND_PARTITIONED_TABLE)
+		_selectTableAccessMethod(AH, te->tableam);
 
 	/* Emit header comment for item */
 	if (!AH->noTocComments)
 	{
-		const char *pfx;
 		char	   *sanitized_name;
 		char	   *sanitized_schema;
 		char	   *sanitized_owner;
-
-		if (isData)
-			pfx = "Data for ";
-		else
-			pfx = "";
 
 		ahprintf(AH, "--\n");
 		if (AH->public.verbose)
@@ -3733,22 +4006,99 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData)
 	}
 
 	/*
-	 * Actually print the definition.
+	 * Actually print the definition.  Normally we can just print the defn
+	 * string if any, but we have four special cases:
 	 *
-	 * Really crude hack for suppressing AUTHORIZATION clause that old pg_dump
+	 * 1. A crude hack for suppressing AUTHORIZATION clause that old pg_dump
 	 * versions put into CREATE SCHEMA.  Don't mutate the variant for schema
 	 * "public" that is a comment.  We have to do this when --no-owner mode is
 	 * selected.  This is ugly, but I see no other good way ...
+	 *
+	 * 2. BLOB METADATA entries need special processing since their defn
+	 * strings are just lists of OIDs, not complete SQL commands.
+	 *
+	 * 3. ACL LARGE OBJECTS entries need special processing because they
+	 * contain only one copy of the ACL GRANT/REVOKE commands, which we must
+	 * apply to each large object listed in the associated BLOB METADATA.
+	 *
+	 * 4. Entries with a defnDumper need to call it to generate the
+	 * definition.  This is primarily intended to provide a way to save memory
+	 * for objects that would otherwise need a lot of it (e.g., statistics
+	 * data).
 	 */
 	if (ropt->noOwner &&
 		strcmp(te->desc, "SCHEMA") == 0 && strncmp(te->defn, "--", 2) != 0)
 	{
 		ahprintf(AH, "CREATE SCHEMA %s;\n\n\n", fmtId(te->tag));
 	}
-	else
+	else if (strcmp(te->desc, "BLOB METADATA") == 0)
 	{
-		if (te->defn && strlen(te->defn) > 0)
-			ahprintf(AH, "%s\n\n", te->defn);
+		IssueCommandPerBlob(AH, te, "SELECT pg_catalog.lo_create('", "')");
+	}
+	else if (strcmp(te->desc, "ACL") == 0 &&
+			 strncmp(te->tag, "LARGE OBJECTS", 13) == 0)
+	{
+		IssueACLPerBlob(AH, te);
+	}
+	else if (te->defnLen && AH->format != archTar)
+	{
+		/*
+		 * If defnLen is set, the defnDumper has already been called for this
+		 * TOC entry.  We don't normally expect a defnDumper to be called for
+		 * a TOC entry a second time in _printTocEntry(), but there's an
+		 * exception.  The tar format first calls WriteToc(), which scans the
+		 * entire TOC, and then it later calls RestoreArchive() to generate
+		 * restore.sql, which scans the TOC again.  There doesn't appear to be
+		 * a good way to prevent a second defnDumper call in this case without
+		 * storing the definition in memory, which defeats the purpose.  This
+		 * second defnDumper invocation should generate the same output as the
+		 * first, but even if it doesn't, the worst-case scenario is that
+		 * restore.sql might have different statistics data than the archive.
+		 *
+		 * In all other cases, encountering a TOC entry a second time in
+		 * _printTocEntry() is unexpected, so we fail because one of our
+		 * assumptions must no longer hold true.
+		 *
+		 * XXX This is a layering violation, but the alternative is an awkward
+		 * and complicated callback infrastructure for this special case. This
+		 * might be worth revisiting in the future.
+		 */
+		pg_fatal("unexpected TOC entry in _printTocEntry(): %d %s %s",
+				 te->dumpId, te->desc, te->tag);
+	}
+	else if (te->defnDumper)
+	{
+		char	   *defn = te->defnDumper((Archive *) AH, te->defnDumperArg, te);
+
+		te->defnLen = ahprintf(AH, "%s\n\n", defn);
+		pg_free(defn);
+	}
+	else if (te->defn && strlen(te->defn) > 0)
+	{
+		ahprintf(AH, "%s\n\n", te->defn);
+
+		/*
+		 * If the defn string contains multiple SQL commands, txn_size mode
+		 * should count it as N actions not one.  But rather than build a full
+		 * SQL parser, approximate this by counting semicolons.  One case
+		 * where that tends to be badly fooled is function definitions, so
+		 * ignore them.  (restore_toc_entry will count one action anyway.)
+		 */
+		if (ropt->txn_size > 0 &&
+			strcmp(te->desc, "FUNCTION") != 0 &&
+			strcmp(te->desc, "PROCEDURE") != 0)
+		{
+			const char *p = te->defn;
+			int			nsemis = 0;
+
+			while ((p = strchr(p, ';')) != NULL)
+			{
+				nsemis++;
+				p++;
+			}
+			if (nsemis > 1)
+				AH->txnCount += nsemis - 1;
+		}
 	}
 
 	/*
@@ -3765,19 +4115,39 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData)
 		te->owner && strlen(te->owner) > 0 &&
 		te->dropStmt && strlen(te->dropStmt) > 0)
 	{
-		PQExpBufferData temp;
+		if (strcmp(te->desc, "BLOB METADATA") == 0)
+		{
+			/* BLOB METADATA needs special code to handle multiple LOs */
+			char	   *cmdEnd = psprintf(" OWNER TO %s", fmtId(te->owner));
 
-		initPQExpBuffer(&temp);
-		_getObjectDescription(&temp, te);
+			IssueCommandPerBlob(AH, te, "ALTER LARGE OBJECT ", cmdEnd);
+			pg_free(cmdEnd);
+		}
+		else
+		{
+			/* For all other cases, we can use _getObjectDescription */
+			PQExpBufferData temp;
 
-		/*
-		 * If _getObjectDescription() didn't fill the buffer, then there is no
-		 * owner.
-		 */
-		if (temp.data[0])
-			ahprintf(AH, "ALTER %s OWNER TO %s;\n\n", temp.data, fmtId(te->owner));
-		termPQExpBuffer(&temp);
+			initPQExpBuffer(&temp);
+			_getObjectDescription(&temp, te);
+
+			/*
+			 * If _getObjectDescription() didn't fill the buffer, then there
+			 * is no owner.
+			 */
+			if (temp.data[0])
+				ahprintf(AH, "ALTER %s OWNER TO %s;\n\n",
+						 temp.data, fmtId(te->owner));
+			termPQExpBuffer(&temp);
+		}
 	}
+
+	/*
+	 * Select a partitioned table's default AM, once the table definition has
+	 * been generated.
+	 */
+	if (te->relkind == RELKIND_PARTITIONED_TABLE)
+		_printTableAccessMethodNoStorage(AH, te);
 
 	/*
 	 * If it's an ACL entry, it might contain SET SESSION AUTHORIZATION
@@ -4072,7 +4442,7 @@ restore_toc_entries_prefork(ArchiveHandle *AH, TocEntry *pending_list)
 
 			(void) restore_toc_entry(AH, next_work_item, false);
 
-			/* Reduce dependencies, but don't move anything to ready_list */
+			/* Reduce dependencies, but don't move anything to ready_heap */
 			reduce_dependencies(AH, next_work_item, NULL);
 		}
 		else
@@ -4081,6 +4451,14 @@ restore_toc_entries_prefork(ArchiveHandle *AH, TocEntry *pending_list)
 			pending_list_append(pending_list, next_work_item);
 		}
 	}
+
+	/*
+	 * In --transaction-size mode, we must commit the open transaction before
+	 * dropping the database connection.  This also ensures that child workers
+	 * can see the objects we've created so far.
+	 */
+	if (AH->public.ropt->txn_size > 0)
+		CommitTransaction(&AH->public);
 
 	/*
 	 * Now close parent connection in prep for parallel steps.  We do this
@@ -4115,24 +4493,26 @@ static void
 restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 							 TocEntry *pending_list)
 {
-	ParallelReadyList ready_list;
+	binaryheap *ready_heap;
 	TocEntry   *next_work_item;
 
 	pg_log_debug("entering restore_toc_entries_parallel");
 
-	/* Set up ready_list with enough room for all known TocEntrys */
-	ready_list_init(&ready_list, AH->tocCount);
+	/* Set up ready_heap with enough room for all known TocEntrys */
+	ready_heap = binaryheap_allocate(AH->tocCount,
+									 TocEntrySizeCompareBinaryheap,
+									 NULL);
 
 	/*
 	 * The pending_list contains all items that we need to restore.  Move all
-	 * items that are available to process immediately into the ready_list.
+	 * items that are available to process immediately into the ready_heap.
 	 * After this setup, the pending list is everything that needs to be done
-	 * but is blocked by one or more dependencies, while the ready list
+	 * but is blocked by one or more dependencies, while the ready heap
 	 * contains items that have no remaining dependencies and are OK to
 	 * process in the current restore pass.
 	 */
 	AH->restorePass = RESTORE_PASS_MAIN;
-	move_to_ready_list(pending_list, &ready_list, AH->restorePass);
+	move_to_ready_heap(pending_list, ready_heap, AH->restorePass);
 
 	/*
 	 * main parent loop
@@ -4146,17 +4526,17 @@ restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 	for (;;)
 	{
 		/* Look for an item ready to be dispatched to a worker */
-		next_work_item = pop_next_work_item(&ready_list, pstate);
+		next_work_item = pop_next_work_item(ready_heap, pstate);
 		if (next_work_item != NULL)
 		{
 			/* If not to be restored, don't waste time launching a worker */
-			if ((next_work_item->reqs & (REQ_SCHEMA | REQ_DATA)) == 0)
+			if ((next_work_item->reqs & (REQ_SCHEMA | REQ_DATA | REQ_STATS)) == 0)
 			{
 				pg_log_info("skipping item %d %s %s",
 							next_work_item->dumpId,
 							next_work_item->desc, next_work_item->tag);
 				/* Update its dependencies as though we'd completed it */
-				reduce_dependencies(AH, next_work_item, &ready_list);
+				reduce_dependencies(AH, next_work_item, ready_heap);
 				/* Loop around to see if anything else can be dispatched */
 				continue;
 			}
@@ -4167,7 +4547,7 @@ restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 
 			/* Dispatch to some worker */
 			DispatchJobForTocEntry(AH, pstate, next_work_item, ACT_RESTORE,
-								   mark_restore_job_done, &ready_list);
+								   mark_restore_job_done, ready_heap);
 		}
 		else if (IsEveryWorkerIdle(pstate))
 		{
@@ -4181,7 +4561,7 @@ restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 			/* Advance to next restore pass */
 			AH->restorePass++;
 			/* That probably allows some stuff to be made ready */
-			move_to_ready_list(pending_list, &ready_list, AH->restorePass);
+			move_to_ready_heap(pending_list, ready_heap, AH->restorePass);
 			/* Loop around to see if anything's now ready */
 			continue;
 		}
@@ -4226,10 +4606,10 @@ restore_toc_entries_parallel(ArchiveHandle *AH, ParallelState *pstate,
 					   next_work_item ? WFW_ONE_IDLE : WFW_GOT_STATUS);
 	}
 
-	/* There should now be nothing in ready_list. */
-	Assert(ready_list.first_te > ready_list.last_te);
+	/* There should now be nothing in ready_heap. */
+	Assert(binaryheap_empty(ready_heap));
 
-	ready_list_free(&ready_list);
+	binaryheap_free(ready_heap);
 
 	pg_log_info("finished main parallel loop");
 }
@@ -4254,7 +4634,11 @@ restore_toc_entries_postfork(ArchiveHandle *AH, TocEntry *pending_list)
 	/*
 	 * Now reconnect the single parent connection.
 	 */
+<<<<<<< HEAD
 	ConnectDatabase((Archive *) AH, &ropt->cparams, true, ropt->binary_upgrade);
+=======
+	ConnectDatabaseAhx((Archive *) AH, &ropt->cparams, true);
+>>>>>>> REL_18_BETA1_branch
 
 	/* re-establish fixed state */
 	_doSetFixedOutputState(AH);
@@ -4329,80 +4713,9 @@ pending_list_remove(TocEntry *te)
 }
 
 
-/*
- * Initialize the ready_list with enough room for up to tocCount entries.
- */
-static void
-ready_list_init(ParallelReadyList *ready_list, int tocCount)
-{
-	ready_list->tes = (TocEntry **)
-		pg_malloc(tocCount * sizeof(TocEntry *));
-	ready_list->first_te = 0;
-	ready_list->last_te = -1;
-	ready_list->sorted = false;
-}
-
-/*
- * Free storage for a ready_list.
- */
-static void
-ready_list_free(ParallelReadyList *ready_list)
-{
-	pg_free(ready_list->tes);
-}
-
-/* Add te to the ready_list */
-static void
-ready_list_insert(ParallelReadyList *ready_list, TocEntry *te)
-{
-	ready_list->tes[++ready_list->last_te] = te;
-	/* List is (probably) not sorted anymore. */
-	ready_list->sorted = false;
-}
-
-/* Remove the i'th entry in the ready_list */
-static void
-ready_list_remove(ParallelReadyList *ready_list, int i)
-{
-	int			f = ready_list->first_te;
-
-	Assert(i >= f && i <= ready_list->last_te);
-
-	/*
-	 * In the typical case where the item to be removed is the first ready
-	 * entry, we need only increment first_te to remove it.  Otherwise, move
-	 * the entries before it to compact the list.  (This preserves sortedness,
-	 * if any.)  We could alternatively move the entries after i, but there
-	 * are typically many more of those.
-	 */
-	if (i > f)
-	{
-		TocEntry  **first_te_ptr = &ready_list->tes[f];
-
-		memmove(first_te_ptr + 1, first_te_ptr, (i - f) * sizeof(TocEntry *));
-	}
-	ready_list->first_te++;
-}
-
-/* Sort the ready_list into the desired order */
-static void
-ready_list_sort(ParallelReadyList *ready_list)
-{
-	if (!ready_list->sorted)
-	{
-		int			n = ready_list->last_te - ready_list->first_te + 1;
-
-		if (n > 1)
-			qsort(ready_list->tes + ready_list->first_te, n,
-				  sizeof(TocEntry *),
-				  TocEntrySizeCompare);
-		ready_list->sorted = true;
-	}
-}
-
 /* qsort comparator for sorting TocEntries by dataLength */
 static int
-TocEntrySizeCompare(const void *p1, const void *p2)
+TocEntrySizeCompareQsort(const void *p1, const void *p2)
 {
 	const TocEntry *te1 = *(const TocEntry *const *) p1;
 	const TocEntry *te2 = *(const TocEntry *const *) p2;
@@ -4422,17 +4735,25 @@ TocEntrySizeCompare(const void *p1, const void *p2)
 	return 0;
 }
 
+/* binaryheap comparator for sorting TocEntries by dataLength */
+static int
+TocEntrySizeCompareBinaryheap(void *p1, void *p2, void *arg)
+{
+	/* return opposite of qsort comparator for max-heap */
+	return -TocEntrySizeCompareQsort(&p1, &p2);
+}
+
 
 /*
- * Move all immediately-ready items from pending_list to ready_list.
+ * Move all immediately-ready items from pending_list to ready_heap.
  *
  * Items are considered ready if they have no remaining dependencies and
  * they belong in the current restore pass.  (See also reduce_dependencies,
  * which applies the same logic one-at-a-time.)
  */
 static void
-move_to_ready_list(TocEntry *pending_list,
-				   ParallelReadyList *ready_list,
+move_to_ready_heap(TocEntry *pending_list,
+				   binaryheap *ready_heap,
 				   RestorePass pass)
 {
 	TocEntry   *te;
@@ -4448,38 +4769,38 @@ move_to_ready_list(TocEntry *pending_list,
 		{
 			/* Remove it from pending_list ... */
 			pending_list_remove(te);
-			/* ... and add to ready_list */
-			ready_list_insert(ready_list, te);
+			/* ... and add to ready_heap */
+			binaryheap_add(ready_heap, te);
 		}
 	}
 }
 
 /*
  * Find the next work item (if any) that is capable of being run now,
- * and remove it from the ready_list.
+ * and remove it from the ready_heap.
  *
  * Returns the item, or NULL if nothing is runnable.
  *
  * To qualify, the item must have no remaining dependencies
  * and no requirements for locks that are incompatible with
- * items currently running.  Items in the ready_list are known to have
+ * items currently running.  Items in the ready_heap are known to have
  * no remaining dependencies, but we have to check for lock conflicts.
  */
 static TocEntry *
-pop_next_work_item(ParallelReadyList *ready_list,
+pop_next_work_item(binaryheap *ready_heap,
 				   ParallelState *pstate)
 {
 	/*
-	 * Sort the ready_list so that we'll tackle larger jobs first.
+	 * Search the ready_heap until we find a suitable item.  Note that we do a
+	 * sequential scan through the heap nodes, so even though we will first
+	 * try to choose the highest-priority item, we might end up picking
+	 * something with a much lower priority.  However, we expect that we will
+	 * typically be able to pick one of the first few items, which should
+	 * usually have a relatively high priority.
 	 */
-	ready_list_sort(ready_list);
-
-	/*
-	 * Search the ready_list until we find a suitable item.
-	 */
-	for (int i = ready_list->first_te; i <= ready_list->last_te; i++)
+	for (int i = 0; i < binaryheap_size(ready_heap); i++)
 	{
-		TocEntry   *te = ready_list->tes[i];
+		TocEntry   *te = (TocEntry *) binaryheap_get_node(ready_heap, i);
 		bool		conflicts = false;
 
 		/*
@@ -4505,7 +4826,7 @@ pop_next_work_item(ParallelReadyList *ready_list,
 			continue;
 
 		/* passed all tests, so this item can run */
-		ready_list_remove(ready_list, i);
+		binaryheap_remove_node(ready_heap, i);
 		return te;
 	}
 
@@ -4551,7 +4872,7 @@ mark_restore_job_done(ArchiveHandle *AH,
 					  int status,
 					  void *callback_data)
 {
-	ParallelReadyList *ready_list = (ParallelReadyList *) callback_data;
+	binaryheap *ready_heap = (binaryheap *) callback_data;
 
 	pg_log_info("finished item %d %s %s",
 				te->dumpId, te->desc, te->tag);
@@ -4569,7 +4890,7 @@ mark_restore_job_done(ArchiveHandle *AH,
 		pg_fatal("worker process failed: exit code %d",
 				 status);
 
-	reduce_dependencies(AH, te, ready_list);
+	reduce_dependencies(AH, te, ready_heap);
 }
 
 
@@ -4812,11 +5133,11 @@ identify_locking_dependencies(ArchiveHandle *AH, TocEntry *te)
 /*
  * Remove the specified TOC entry from the depCounts of items that depend on
  * it, thereby possibly making them ready-to-run.  Any pending item that
- * becomes ready should be moved to the ready_list, if that's provided.
+ * becomes ready should be moved to the ready_heap, if that's provided.
  */
 static void
 reduce_dependencies(ArchiveHandle *AH, TocEntry *te,
-					ParallelReadyList *ready_list)
+					binaryheap *ready_heap)
 {
 	int			i;
 
@@ -4834,18 +5155,18 @@ reduce_dependencies(ArchiveHandle *AH, TocEntry *te,
 		 * the current restore pass, and it is currently a member of the
 		 * pending list (that check is needed to prevent double restore in
 		 * some cases where a list-file forces out-of-order restoring).
-		 * However, if ready_list == NULL then caller doesn't want any list
+		 * However, if ready_heap == NULL then caller doesn't want any list
 		 * memberships changed.
 		 */
 		if (otherte->depCount == 0 &&
 			_tocEntryRestorePass(otherte) == AH->restorePass &&
 			otherte->pending_prev != NULL &&
-			ready_list != NULL)
+			ready_heap != NULL)
 		{
 			/* Remove it from pending list ... */
 			pending_list_remove(otherte);
-			/* ... and add to ready_list */
-			ready_list_insert(ready_list, otherte);
+			/* ... and add to ready_heap */
+			binaryheap_add(ready_heap, otherte);
 		}
 	}
 }
@@ -4898,6 +5219,10 @@ CloneArchive(ArchiveHandle *AH)
 	clone = (ArchiveHandle *) pg_malloc(sizeof(ArchiveHandle));
 	memcpy(clone, AH, sizeof(ArchiveHandle));
 
+	/* Likewise flat-copy the RestoreOptions, so we can alter them locally */
+	clone->public.ropt = (RestoreOptions *) pg_malloc(sizeof(RestoreOptions));
+	memcpy(clone->public.ropt, AH->public.ropt, sizeof(RestoreOptions));
+
 	/* Handle format-independent fields */
 	memset(&(clone->sqlparse), 0, sizeof(clone->sqlparse));
 
@@ -4916,11 +5241,25 @@ CloneArchive(ArchiveHandle *AH)
 	/* clone has its own error count, too */
 	clone->public.n_errors = 0;
 
+	/* clones should not share lo_buf */
+	clone->lo_buf = NULL;
+
+	/*
+	 * Clone connections disregard --transaction-size; they must commit after
+	 * each command so that the results are immediately visible to other
+	 * workers.
+	 */
+	clone->public.ropt->txn_size = 0;
+
 	/*
 	 * Connect our new clone object to the database, using the same connection
 	 * parameters used for the original connection.
 	 */
+<<<<<<< HEAD
 	ConnectDatabase((Archive *) clone, &clone->public.ropt->cparams, true, clone->public.ropt->binary_upgrade);
+=======
+	ConnectDatabaseAhx((Archive *) clone, &clone->public.ropt->cparams, true);
+>>>>>>> REL_18_BETA1_branch
 
 	/* re-establish fixed state */
 	if (AH->mode == archModeRead)

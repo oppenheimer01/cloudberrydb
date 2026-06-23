@@ -80,6 +80,17 @@ ALTER TABLE has_volatile ADD col2 int DEFAULT 1;
 ALTER TABLE has_volatile ADD col3 timestamptz DEFAULT current_timestamp;
 ALTER TABLE has_volatile ADD col4 int DEFAULT (random() * 10000)::int;
 
+-- virtual generated columns don't need a rewrite
+ALTER TABLE has_volatile ADD col5 int GENERATED ALWAYS AS (tableoid::int + col2) VIRTUAL;
+ALTER TABLE has_volatile ALTER COLUMN col5 TYPE float8;
+ALTER TABLE has_volatile ALTER COLUMN col5 TYPE numeric;
+ALTER TABLE has_volatile ALTER COLUMN col5 TYPE numeric;
+-- here, we do need a rewrite
+ALTER TABLE has_volatile ALTER COLUMN col1 SET DATA TYPE float8,
+  ADD COLUMN col6 float8 GENERATED ALWAYS AS (col1 * 4) VIRTUAL;
+-- stored generated columns need a rewrite
+ALTER TABLE has_volatile ADD col7 int GENERATED ALWAYS AS (55) stored;
+
 
 
 -- Test a large sample of different datatypes
@@ -257,7 +268,11 @@ DROP TABLE T;
 
 -- Test domains with default value for table rewrite.
 CREATE DOMAIN domain1 AS int DEFAULT 11;  -- constant
+<<<<<<< HEAD
 CREATE DOMAIN domain2 AS int DEFAULT 10 + (random() * 10)::int;  -- volatile
+=======
+CREATE DOMAIN domain2 AS int DEFAULT random(min=>10, max=>100);  -- volatile
+>>>>>>> REL_18_BETA1_branch
 CREATE DOMAIN domain3 AS text DEFAULT foo(4);  -- stable
 CREATE DOMAIN domain4 AS text[]
   DEFAULT ('{"This", "is", "' || foo(4) || '","the", "real", "world"}')::TEXT[];
@@ -324,11 +339,17 @@ CREATE FUNCTION foolme(timestamptz DEFAULT clock_timestamp())
   IMMUTABLE AS 'select $1' LANGUAGE sql;
 ALTER TABLE T ADD COLUMN c3 timestamptz DEFAULT foolme();
 
+<<<<<<< HEAD
 -- start_ignore
 SELECT attname, atthasmissing, attmissingval FROM pg_attribute
   WHERE attrelid = 't'::regclass AND attnum > 0
   ORDER BY attnum;
 -- end_ignore
+=======
+SELECT attname, atthasmissing, attmissingval FROM pg_attribute
+  WHERE attrelid = 't'::regclass AND attnum > 0
+  ORDER BY attnum;
+>>>>>>> REL_18_BETA1_branch
 
 DROP TABLE T;
 DROP FUNCTION foolme(timestamptz);

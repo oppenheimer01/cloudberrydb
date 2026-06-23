@@ -3,8 +3,12 @@
  * fd.c
  *	  Virtual file descriptor code.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -95,15 +99,19 @@
 #include "common/pg_prng.h"
 #include "miscadmin.h"
 #include "pgstat.h"
-#include "portability/mem.h"
 #include "postmaster/startup.h"
+#include "storage/aio.h"
 #include "storage/fd.h"
 #include "storage/ipc.h"
 #include "utils/guc.h"
 #include "utils/guc_hooks.h"
+<<<<<<< HEAD
 #include "utils/resowner_private.h"
 #include "utils/workfile_mgr.h"
 #include "utils/faultinjector.h"
+=======
+#include "utils/resowner.h"
+>>>>>>> REL_18_BETA1_branch
 #include "utils/varlena.h"
 
 /* Define PG_FLUSH_DATA_WORKS if we have an implementation for pg_flush_data */
@@ -166,7 +174,7 @@ int			max_safe_fds = FD_MINFREE;	/* default if not changed */
 bool		data_sync_retry = false;
 
 /* How SyncDataDirectory() should do its job. */
-int			recovery_init_sync_method = RECOVERY_INIT_SYNC_METHOD_FSYNC;
+int			recovery_init_sync_method = DATA_DIR_SYNC_METHOD_FSYNC;
 
 /* Which kinds of files should be opened with PG_O_DIRECT. */
 int			io_direct_flags;
@@ -259,7 +267,7 @@ typedef enum
 	AllocateDescFile,
 	AllocateDescPipe,
 	AllocateDescDir,
-	AllocateDescRawFD
+	AllocateDescRawFD,
 } AllocateDescKind;
 
 typedef struct
@@ -365,6 +373,31 @@ static void unlink_if_exists_fname(const char *fname, bool isdir, int elevel);
 static int	fsync_parent_path(const char *fname, int elevel);
 
 
+/* ResourceOwner callbacks to hold virtual file descriptors */
+static void ResOwnerReleaseFile(Datum res);
+static char *ResOwnerPrintFile(Datum res);
+
+static const ResourceOwnerDesc file_resowner_desc =
+{
+	.name = "File",
+	.release_phase = RESOURCE_RELEASE_AFTER_LOCKS,
+	.release_priority = RELEASE_PRIO_FILES,
+	.ReleaseResource = ResOwnerReleaseFile,
+	.DebugPrint = ResOwnerPrintFile
+};
+
+/* Convenience wrappers over ResourceOwnerRemember/Forget */
+static inline void
+ResourceOwnerRememberFile(ResourceOwner owner, File file)
+{
+	ResourceOwnerRemember(owner, Int32GetDatum(file), &file_resowner_desc);
+}
+static inline void
+ResourceOwnerForgetFile(ResourceOwner owner, File file)
+{
+	ResourceOwnerForget(owner, Int32GetDatum(file), &file_resowner_desc);
+}
+
 /*
  * pg_fsync --- do fsync with or without writethrough
  */
@@ -409,9 +442,9 @@ pg_fsync(int fd)
 	errno = 0;
 #endif
 
-	/* #if is to skip the sync_method test if there's no need for it */
-#if defined(HAVE_FSYNC_WRITETHROUGH) && !defined(FSYNC_WRITETHROUGH_IS_FSYNC)
-	if (sync_method == SYNC_METHOD_FSYNC_WRITETHROUGH)
+	/* #if is to skip the wal_sync_method test if there's no need for it */
+#if defined(HAVE_FSYNC_WRITETHROUGH)
+	if (wal_sync_method == WAL_SYNC_METHOD_FSYNC_WRITETHROUGH)
 		return pg_fsync_writethrough(fd);
 	else
 #endif
@@ -448,9 +481,7 @@ pg_fsync_writethrough(int fd)
 {
 	if (enableFsync)
 	{
-#ifdef WIN32
-		return _commit(fd);
-#elif defined(F_FULLFSYNC)
+#if defined(F_FULLFSYNC)
 		return (fcntl(fd, F_FULLFSYNC, 0) == -1) ? -1 : 0;
 #else
 		errno = ENOSYS;
@@ -479,6 +510,29 @@ retry:
 		goto retry;
 
 	return rc;
+}
+
+/*
+ * pg_file_exists -- check that a file exists.
+ *
+ * This requires an absolute path to the file.  Returns true if the file is
+ * not a directory, false otherwise.
+ */
+bool
+pg_file_exists(const char *name)
+{
+	struct stat st;
+
+	Assert(name != NULL);
+
+	if (stat(name, &st) == 0)
+		return !S_ISDIR(st.st_mode);
+	else if (!(errno == ENOENT || errno == ENOTDIR || errno == EACCES))
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not access file \"%s\": %m", name)));
+
+	return false;
 }
 
 /*
@@ -960,7 +1014,7 @@ InitFileAccess(void)
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory")));
 
-	MemSet((char *) &(VfdCache[0]), 0, sizeof(Vfd));
+	MemSet(&(VfdCache[0]), 0, sizeof(Vfd));
 	VfdCache->fd = VFD_CLOSED;
 
 	SizeVfdCache = 1;
@@ -1097,16 +1151,17 @@ set_max_safe_fds(void)
 
 	/*----------
 	 * We want to set max_safe_fds to
-	 *			MIN(usable_fds, max_files_per_process - already_open)
+	 *			MIN(usable_fds, max_files_per_process)
 	 * less the slop factor for files that are opened without consulting
-	 * fd.c.  This ensures that we won't exceed either max_files_per_process
-	 * or the experimentally-determined EMFILE limit.
+	 * fd.c.  This ensures that we won't allow to open more than
+	 * max_files_per_process, or the experimentally-determined EMFILE limit,
+	 * additional files.
 	 *----------
 	 */
 	count_usable_fds(max_files_per_process,
 					 &usable_fds, &already_open);
 
-	max_safe_fds = Min(usable_fds, max_files_per_process - already_open);
+	max_safe_fds = Min(usable_fds, max_files_per_process);
 
 	/*
 	 * Take off the FDs reserved for system() etc.
@@ -1120,9 +1175,10 @@ set_max_safe_fds(void)
 		ereport(FATAL,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("insufficient file descriptors available to start server process"),
-				 errdetail("System allows %d, server needs at least %d.",
+				 errdetail("System allows %d, server needs at least %d, %d files are already open.",
 						   max_safe_fds + NUM_RESERVED_FDS,
-						   FD_MINFREE + NUM_RESERVED_FDS)));
+						   FD_MINFREE + NUM_RESERVED_FDS,
+						   already_open)));
 
 	elog(DEBUG2, "max_safe_fds = %d, usable_fds = %d, already_open = %d",
 		 max_safe_fds, usable_fds, already_open);
@@ -1344,6 +1400,8 @@ LruDelete(File file)
 
 	vfdP = &VfdCache[file];
 
+	pgaio_closing_fd(vfdP->fd);
+
 	/*
 	 * Close the file.  We aren't expecting this to fail; if it does, better
 	 * to leak the FD than to mess up our internal state.
@@ -1497,7 +1555,7 @@ AllocateVfd(void)
 		 */
 		for (i = SizeVfdCache; i < newCacheSize; i++)
 		{
-			MemSet((char *) &(VfdCache[i]), 0, sizeof(Vfd));
+			MemSet(&(VfdCache[i]), 0, sizeof(Vfd));
 			VfdCache[i].nextFree = i + 1;
 			VfdCache[i].fd = VFD_CLOSED;
 		}
@@ -1592,7 +1650,7 @@ ReportTemporaryFileUsage(const char *path, off_t size)
 
 /*
  * Called to register a temporary file for automatic close.
- * ResourceOwnerEnlargeFiles(CurrentResourceOwner) must have been called
+ * ResourceOwnerEnlarge(CurrentResourceOwner) must have been called
  * before the file was opened.
  */
 static void
@@ -1787,7 +1845,7 @@ OpenTemporaryFile(bool interXact, const char *filePrefix)
 	 * open it, if we'll be registering it below.
 	 */
 	if (!interXact)
-		ResourceOwnerEnlargeFiles(CurrentResourceOwner);
+		ResourceOwnerEnlarge(CurrentResourceOwner);
 
 	/*
 	 * If some temp tablespace(s) have been given to us, try to use the next
@@ -1853,8 +1911,14 @@ TempTablespacePath(char *path, Oid tablespace)
 	else
 	{
 		/* All other tablespaces are accessed via symlinks */
+<<<<<<< HEAD
 		snprintf(path, MAXPGPATH, "pg_tblspc/%u/%s/%s",
 				 tablespace, GP_TABLESPACE_VERSION_DIRECTORY, PG_TEMP_FILES_DIR);
+=======
+		snprintf(path, MAXPGPATH, "%s/%u/%s/%s",
+				 PG_TBLSPC_DIR, tablespace, TABLESPACE_VERSION_DIRECTORY,
+				 PG_TEMP_FILES_DIR);
+>>>>>>> REL_18_BETA1_branch
 	}
 }
 
@@ -1950,7 +2014,7 @@ PathNameCreateTemporaryFile(const char *path, bool error_on_failure)
 
 	Assert(temporary_files_allowed);	/* check temp file access is up */
 
-	ResourceOwnerEnlargeFiles(CurrentResourceOwner);
+	ResourceOwnerEnlarge(CurrentResourceOwner);
 
 	/*
 	 * Open the file.  Note: we don't use O_EXCL, in case there is an orphaned
@@ -1990,7 +2054,7 @@ PathNameOpenTemporaryFile(const char *path, int mode)
 
 	Assert(temporary_files_allowed);	/* check temp file access is up */
 
-	ResourceOwnerEnlargeFiles(CurrentResourceOwner);
+	ResourceOwnerEnlarge(CurrentResourceOwner);
 
 	file = PathNameOpenFile(path, mode | PG_BINARY);
 
@@ -2074,6 +2138,8 @@ FileClose(File file)
 
 	if (!FileIsNotOpen(file))
 	{
+		pgaio_closing_fd(vfdP->fd);
+
 		/* close the file */
 		if (gp_retry_close(vfdP->fd))
 		{
@@ -2158,40 +2224,63 @@ FileClose(File file)
 /*
  * FilePrefetch - initiate asynchronous read of a given range of the file.
  *
- * Currently the only implementation of this function is using posix_fadvise
- * which is the simplest standardized interface that accomplishes this.
- * We could add an implementation using libaio in the future; but note that
- * this API is inappropriate for libaio, which wants to have a buffer provided
- * to read into.
+ * Returns 0 on success, otherwise an errno error code (like posix_fadvise()).
+ *
+ * posix_fadvise() is the simplest standardized interface that accomplishes
+ * this.
  */
 int
 FilePrefetch(File file, off_t offset, off_t amount, uint32 wait_event_info)
 {
-#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
-	int			returnCode;
-
 	Assert(FileIsValid(file));
 
 	DO_DB(elog(LOG, "FilePrefetch: %d (%s) " INT64_FORMAT " " INT64_FORMAT,
 			   file, VfdCache[file].fileName,
 			   (int64) offset, (int64) amount));
 
-	returnCode = FileAccess(file);
-	if (returnCode < 0)
-		return returnCode;
+#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
+	{
+		int			returnCode;
+
+		returnCode = FileAccess(file);
+		if (returnCode < 0)
+			return returnCode;
 
 retry:
-	pgstat_report_wait_start(wait_event_info);
-	returnCode = posix_fadvise(VfdCache[file].fd, offset, amount,
-							   POSIX_FADV_WILLNEED);
-	pgstat_report_wait_end();
+		pgstat_report_wait_start(wait_event_info);
+		returnCode = posix_fadvise(VfdCache[file].fd, offset, amount,
+								   POSIX_FADV_WILLNEED);
+		pgstat_report_wait_end();
 
-	if (returnCode == EINTR)
-		goto retry;
+		if (returnCode == EINTR)
+			goto retry;
 
-	return returnCode;
+		return returnCode;
+	}
+#elif defined(__darwin__)
+	{
+		struct radvisory
+		{
+			off_t		ra_offset;	/* offset into the file */
+			int			ra_count;	/* size of the read     */
+		}			ra;
+		int			returnCode;
+
+		returnCode = FileAccess(file);
+		if (returnCode < 0)
+			return returnCode;
+
+		ra.ra_offset = offset;
+		ra.ra_count = amount;
+		pgstat_report_wait_start(wait_event_info);
+		returnCode = fcntl(VfdCache[file].fd, F_RDADVISE, &ra);
+		pgstat_report_wait_end();
+		if (returnCode != -1)
+			return 0;
+		else
+			return errno;
+	}
 #else
-	Assert(FileIsValid(file));
 	return 0;
 #endif
 }
@@ -2222,19 +2311,19 @@ FileWriteback(File file, off_t offset, off_t nbytes, uint32 wait_event_info)
 	pgstat_report_wait_end();
 }
 
-int
-FileRead(File file, void *buffer, size_t amount, off_t offset,
-		 uint32 wait_event_info)
+ssize_t
+FileReadV(File file, const struct iovec *iov, int iovcnt, off_t offset,
+		  uint32 wait_event_info)
 {
-	int			returnCode;
+	ssize_t		returnCode;
 	Vfd		   *vfdP;
 
 	Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileRead: %d (%s) " INT64_FORMAT " %zu %p",
+	DO_DB(elog(LOG, "FileReadV: %d (%s) " INT64_FORMAT " %d",
 			   file, VfdCache[file].fileName,
 			   (int64) offset,
-			   amount, buffer));
+			   iovcnt));
 
 	returnCode = FileAccess(file);
 	if (returnCode < 0)
@@ -2244,7 +2333,7 @@ FileRead(File file, void *buffer, size_t amount, off_t offset,
 
 retry:
 	pgstat_report_wait_start(wait_event_info);
-	returnCode = pg_pread(vfdP->fd, buffer, amount, offset);
+	returnCode = pg_preadv(vfdP->fd, iov, iovcnt, offset);
 	pgstat_report_wait_end();
 
 	if (returnCode < 0)
@@ -2279,18 +2368,44 @@ retry:
 }
 
 int
-FileWrite(File file, const void *buffer, size_t amount, off_t offset,
-		  uint32 wait_event_info)
+FileStartReadV(PgAioHandle *ioh, File file,
+			   int iovcnt, off_t offset,
+			   uint32 wait_event_info)
 {
 	int			returnCode;
 	Vfd		   *vfdP;
 
 	Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileWrite: %d (%s) " INT64_FORMAT " %zu %p",
+	DO_DB(elog(LOG, "FileStartReadV: %d (%s) " INT64_FORMAT " %d",
 			   file, VfdCache[file].fileName,
 			   (int64) offset,
-			   amount, buffer));
+			   iovcnt));
+
+	returnCode = FileAccess(file);
+	if (returnCode < 0)
+		return returnCode;
+
+	vfdP = &VfdCache[file];
+
+	pgaio_io_start_readv(ioh, vfdP->fd, iovcnt, offset);
+
+	return 0;
+}
+
+ssize_t
+FileWriteV(File file, const struct iovec *iov, int iovcnt, off_t offset,
+		   uint32 wait_event_info)
+{
+	ssize_t		returnCode;
+	Vfd		   *vfdP;
+
+	Assert(FileIsValid(file));
+
+	DO_DB(elog(LOG, "FileWriteV: %d (%s) " INT64_FORMAT " %d",
+			   file, VfdCache[file].fileName,
+			   (int64) offset,
+			   iovcnt));
 
 	returnCode = FileAccess(file);
 	if (returnCode < 0)
@@ -2308,7 +2423,10 @@ FileWrite(File file, const void *buffer, size_t amount, off_t offset,
 	 */
 	if (temp_file_limit >= 0 && (vfdP->fdstate & FD_TEMP_FILE_LIMIT))
 	{
-		off_t		past_write = offset + amount;
+		off_t		past_write = offset;
+
+		for (int i = 0; i < iovcnt; ++i)
+			past_write += iov[i].iov_len;
 
 		if (past_write > vfdP->fileSize)
 		{
@@ -2318,7 +2436,7 @@ FileWrite(File file, const void *buffer, size_t amount, off_t offset,
 			if (newTotal > (uint64) temp_file_limit * (uint64) 1024)
 				ereport(ERROR,
 						(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
-						 errmsg("temporary file size exceeds temp_file_limit (%dkB)",
+						 errmsg("temporary file size exceeds \"temp_file_limit\" (%dkB)",
 								temp_file_limit)));
 		}
 	}
@@ -2341,23 +2459,27 @@ FileWrite(File file, const void *buffer, size_t amount, off_t offset,
 	}
 
 retry:
-	errno = 0;
 	pgstat_report_wait_start(wait_event_info);
-	returnCode = pg_pwrite(VfdCache[file].fd, buffer, amount, offset);
+	returnCode = pg_pwritev(vfdP->fd, iov, iovcnt, offset);
 	pgstat_report_wait_end();
-
-	/* if write didn't set errno, assume problem is no disk space */
-	if (returnCode != amount && errno == 0)
-		errno = ENOSPC;
 
 	if (returnCode >= 0)
 	{
+		/*
+		 * Some callers expect short writes to set errno, and traditionally we
+		 * have assumed that they imply disk space shortage.  We don't want to
+		 * waste CPU cycles adding up the total size here, so we'll just set
+		 * it for all successful writes in case such a caller determines that
+		 * the write was short and ereports "%m".
+		 */
+		errno = ENOSPC;
+
 		/*
 		 * Maintain fileSize and temporary_files_size if it's a temp file.
 		 */
 		if (vfdP->fdstate & FD_TEMP_FILE_LIMIT)
 		{
-			off_t		past_write = offset + amount;
+			off_t		past_write = offset + returnCode;
 
 			if (past_write > vfdP->fileSize)
 			{
@@ -2369,7 +2491,7 @@ retry:
 	else
 	{
 		/*
-		 * See comments in FileRead()
+		 * See comments in FileReadV()
 		 */
 #ifdef WIN32
 		DWORD		error = GetLastError();
@@ -2604,6 +2726,12 @@ FilePathName(File file)
 int
 FileGetRawDesc(File file)
 {
+	int			returnCode;
+
+	returnCode = FileAccess(file);
+	if (returnCode < 0)
+		return returnCode;
+
 	Assert(FileIsValid(file));
 	return VfdCache[file].fd;
 }
@@ -2898,6 +3026,7 @@ FreeDesc(AllocateDesc *desc)
 			result = closedir(desc->desc.dir);
 			break;
 		case AllocateDescRawFD:
+			pgaio_closing_fd(desc->desc.fd);
 			result = close(desc->desc.fd);
 			break;
 		default:
@@ -2966,6 +3095,8 @@ CloseTransientFile(int fd)
 
 	/* Only get here if someone passes us a file not in allocatedDescs */
 	elog(WARNING, "fd passed to CloseTransientFile was not obtained from OpenTransientFile");
+
+	pgaio_closing_fd(fd);
 
 	return close(fd);
 }
@@ -3428,7 +3559,11 @@ CleanupTempFiles(bool isCommit, bool isProcExit)
 void
 RemovePgTempFiles(void)
 {
+<<<<<<< HEAD
 	char		temp_path[MAXPGPATH + 11 + MAX_DBID_STRING_LENGTH + 1 + sizeof(GP_TABLESPACE_VERSION_DIRECTORY) + sizeof(PG_TEMP_FILES_DIR)];
+=======
+	char		temp_path[MAXPGPATH + sizeof(PG_TBLSPC_DIR) + sizeof(TABLESPACE_VERSION_DIRECTORY) + sizeof(PG_TEMP_FILES_DIR)];
+>>>>>>> REL_18_BETA1_branch
 	DIR		   *spc_dir;
 	struct dirent *spc_de;
 
@@ -3442,20 +3577,30 @@ RemovePgTempFiles(void)
 	/*
 	 * Cycle through temp directories for all non-default tablespaces.
 	 */
-	spc_dir = AllocateDir("pg_tblspc");
+	spc_dir = AllocateDir(PG_TBLSPC_DIR);
 
-	while ((spc_de = ReadDirExtended(spc_dir, "pg_tblspc", LOG)) != NULL)
+	while ((spc_de = ReadDirExtended(spc_dir, PG_TBLSPC_DIR, LOG)) != NULL)
 	{
 		if (strcmp(spc_de->d_name, ".") == 0 ||
 			strcmp(spc_de->d_name, "..") == 0)
 			continue;
 
+<<<<<<< HEAD
 		snprintf(temp_path, sizeof(temp_path), "pg_tblspc/%s/%s/%s",
 				 spc_de->d_name, GP_TABLESPACE_VERSION_DIRECTORY, PG_TEMP_FILES_DIR);
 		RemovePgTempFilesInDir(temp_path, true, false);
 
 		snprintf(temp_path, sizeof(temp_path), "pg_tblspc/%s/%s",
 				 spc_de->d_name, GP_TABLESPACE_VERSION_DIRECTORY);
+=======
+		snprintf(temp_path, sizeof(temp_path), "%s/%s/%s/%s",
+				 PG_TBLSPC_DIR, spc_de->d_name, TABLESPACE_VERSION_DIRECTORY,
+				 PG_TEMP_FILES_DIR);
+		RemovePgTempFilesInDir(temp_path, true, false);
+
+		snprintf(temp_path, sizeof(temp_path), "%s/%s/%s",
+				 PG_TBLSPC_DIR, spc_de->d_name, TABLESPACE_VERSION_DIRECTORY);
+>>>>>>> REL_18_BETA1_branch
 		RemovePgTempRelationFiles(temp_path);
 	}
 
@@ -3750,7 +3895,7 @@ SyncDataDirectory(void)
 	}
 
 #ifdef HAVE_SYNCFS
-	if (recovery_init_sync_method == RECOVERY_INIT_SYNC_METHOD_SYNCFS)
+	if (recovery_init_sync_method == DATA_DIR_SYNC_METHOD_SYNCFS)
 	{
 		DIR		   *dir;
 		struct dirent *de;
@@ -3769,15 +3914,15 @@ SyncDataDirectory(void)
 		/* Sync the top level pgdata directory. */
 		do_syncfs(".");
 		/* If any tablespaces are configured, sync each of those. */
-		dir = AllocateDir("pg_tblspc");
-		while ((de = ReadDirExtended(dir, "pg_tblspc", LOG)))
+		dir = AllocateDir(PG_TBLSPC_DIR);
+		while ((de = ReadDirExtended(dir, PG_TBLSPC_DIR, LOG)))
 		{
 			char		path[MAXPGPATH];
 
 			if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
 				continue;
 
-			snprintf(path, MAXPGPATH, "pg_tblspc/%s", de->d_name);
+			snprintf(path, MAXPGPATH, "%s/%s", PG_TBLSPC_DIR, de->d_name);
 			do_syncfs(path);
 		}
 		FreeDir(dir);
@@ -3800,7 +3945,7 @@ SyncDataDirectory(void)
 	walkdir(".", pre_sync_fname, false, DEBUG1);
 	if (xlog_is_symlink)
 		walkdir("pg_wal", pre_sync_fname, false, DEBUG1);
-	walkdir("pg_tblspc", pre_sync_fname, true, DEBUG1);
+	walkdir(PG_TBLSPC_DIR, pre_sync_fname, true, DEBUG1);
 #endif
 
 	/* Prepare to report progress syncing the data directory via fsync. */
@@ -3818,7 +3963,7 @@ SyncDataDirectory(void)
 	walkdir(".", datadir_fsync_fname, false, LOG);
 	if (xlog_is_symlink)
 		walkdir("pg_wal", datadir_fsync_fname, false, LOG);
-	walkdir("pg_tblspc", datadir_fsync_fname, true, LOG);
+	walkdir(PG_TBLSPC_DIR, datadir_fsync_fname, true, LOG);
 }
 
 /*
@@ -4152,7 +4297,8 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 #if PG_O_DIRECT == 0
 	if (strcmp(*newval, "") != 0)
 	{
-		GUC_check_errdetail("debug_io_direct is not supported on this platform.");
+		GUC_check_errdetail("\"%s\" is not supported on this platform.",
+							"debug_io_direct");
 		result = false;
 	}
 	flags = 0;
@@ -4166,7 +4312,7 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 
 	if (!SplitGUCList(rawstring, ',', &elemlist))
 	{
-		GUC_check_errdetail("invalid list syntax in parameter \"%s\"",
+		GUC_check_errdetail("Invalid list syntax in parameter \"%s\".",
 							"debug_io_direct");
 		pfree(rawstring);
 		list_free(elemlist);
@@ -4186,7 +4332,7 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 			flags |= IO_DIRECT_WAL_INIT;
 		else
 		{
-			GUC_check_errdetail("invalid option \"%s\"", item);
+			GUC_check_errdetail("Invalid option \"%s\".", item);
 			result = false;
 			break;
 		}
@@ -4199,14 +4345,16 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 #if XLOG_BLCKSZ < PG_IO_ALIGN_SIZE
 	if (result && (flags & (IO_DIRECT_WAL | IO_DIRECT_WAL_INIT)))
 	{
-		GUC_check_errdetail("debug_io_direct is not supported for WAL because XLOG_BLCKSZ is too small");
+		GUC_check_errdetail("\"%s\" is not supported for WAL because %s is too small.",
+							"debug_io_direct", "XLOG_BLCKSZ");
 		result = false;
 	}
 #endif
 #if BLCKSZ < PG_IO_ALIGN_SIZE
 	if (result && (flags & IO_DIRECT_DATA))
 	{
-		GUC_check_errdetail("debug_io_direct is not supported for data because BLCKSZ is too small");
+		GUC_check_errdetail("\"%s\" is not supported for data because %s is too small.",
+							"debug_io_direct", "BLCKSZ");
 		result = false;
 	}
 #endif
@@ -4219,13 +4367,23 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 		return result;
 
 	/* Save the flags in *extra, for use by assign_debug_io_direct */
+<<<<<<< HEAD
 	*extra = guc_malloc(ERROR, sizeof(int));
+=======
+	*extra = guc_malloc(LOG, sizeof(int));
+	if (!*extra)
+		return false;
+>>>>>>> REL_18_BETA1_branch
 	*((int *) *extra) = flags;
 
 	return result;
 }
 
+<<<<<<< HEAD
 extern void
+=======
+void
+>>>>>>> REL_18_BETA1_branch
 assign_debug_io_direct(const char *newval, void *extra)
 {
 	int		   *flags = (int *) extra;
@@ -4233,10 +4391,33 @@ assign_debug_io_direct(const char *newval, void *extra)
 	io_direct_flags = *flags;
 }
 
+<<<<<<< HEAD
 void FileSetTempfile(File file, bool isTemp)
 {
 	if (isTemp)
 		VfdCache[file].fdstate |= FD_DELETE_AT_CLOSE;
 	else
 		VfdCache[file].fdstate &= ~FD_DELETE_AT_CLOSE;
+=======
+/* ResourceOwner callbacks */
+
+static void
+ResOwnerReleaseFile(Datum res)
+{
+	File		file = (File) DatumGetInt32(res);
+	Vfd		   *vfdP;
+
+	Assert(FileIsValid(file));
+
+	vfdP = &VfdCache[file];
+	vfdP->resowner = NULL;
+
+	FileClose(file);
+}
+
+static char *
+ResOwnerPrintFile(Datum res)
+{
+	return psprintf("File %d", DatumGetInt32(res));
+>>>>>>> REL_18_BETA1_branch
 }

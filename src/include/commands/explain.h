@@ -3,7 +3,7 @@
  * explain.h
  *	  prototypes for explain.c
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California
  *
  * src/include/commands/explain.h
@@ -14,9 +14,9 @@
 #define EXPLAIN_H
 
 #include "executor/executor.h"
-#include "lib/stringinfo.h"
 #include "parser/parse_node.h"
 
+<<<<<<< HEAD
 typedef enum ExplainFormat
 {
 	EXPLAIN_FORMAT_TEXT,
@@ -72,16 +72,36 @@ typedef struct ExplainState
 	/* state related to the current plan node */
 	ExplainWorkersState *workers_state; /* needed if parallel plan */
 } ExplainState;
+=======
+struct ExplainState;			/* defined in explain_state.h */
+>>>>>>> REL_18_BETA1_branch
 
 /* Hook for plugins to get control in ExplainOneQuery() */
 typedef void (*ExplainOneQuery_hook_type) (Query *query,
 										   int cursorOptions,
 										   IntoClause *into,
-										   ExplainState *es,
+										   struct ExplainState *es,
 										   const char *queryString,
 										   ParamListInfo params,
 										   QueryEnvironment *queryEnv);
 extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
+
+/* Hook for EXPLAIN plugins to print extra information for each plan */
+typedef void (*explain_per_plan_hook_type) (PlannedStmt *plannedstmt,
+											IntoClause *into,
+											struct ExplainState *es,
+											const char *queryString,
+											ParamListInfo params,
+											QueryEnvironment *queryEnv);
+extern PGDLLIMPORT explain_per_plan_hook_type explain_per_plan_hook;
+
+/* Hook for EXPLAIN plugins to print extra fields on individual plan nodes */
+typedef void (*explain_per_node_hook_type) (PlanState *planstate,
+											List *ancestors,
+											const char *relationship,
+											const char *plan_name,
+											struct ExplainState *es);
+extern PGDLLIMPORT explain_per_node_hook_type explain_per_node_hook;
 
 /* Hook for plugins to get control in explain_get_index_name() */
 typedef const char *(*explain_get_index_name_hook_type) (Oid indexId);
@@ -90,55 +110,45 @@ extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
 
 extern void ExplainQuery(ParseState *pstate, ExplainStmt *stmt,
 						 ParamListInfo params, DestReceiver *dest);
-
-extern ExplainState *NewExplainState(void);
+extern void standard_ExplainOneQuery(Query *query, int cursorOptions,
+									 IntoClause *into, struct ExplainState *es,
+									 const char *queryString, ParamListInfo params,
+									 QueryEnvironment *queryEnv);
 
 extern TupleDesc ExplainResultDesc(ExplainStmt *stmt);
 
 extern void ExplainOneUtility(Node *utilityStmt, IntoClause *into,
-							  ExplainState *es, const char *queryString,
-							  ParamListInfo params, QueryEnvironment *queryEnv);
+							  struct ExplainState *es, ParseState *pstate,
+							  ParamListInfo params);
 
-extern void ExplainOnePlan(PlannedStmt *plannedstmt, IntoClause *into,
-						   ExplainState *es, const char *queryString,
+extern void ExplainOnePlan(PlannedStmt *plannedstmt, CachedPlan *cplan,
+						   CachedPlanSource *plansource, int query_index,
+						   IntoClause *into, struct ExplainState *es,
+						   const char *queryString,
 						   ParamListInfo params, QueryEnvironment *queryEnv,
 						   const instr_time *planduration,
 						   const BufferUsage *bufusage,
+<<<<<<< HEAD
 						   int cursorOptions);
 
 extern void ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc);
 extern void ExplainPrintTriggers(ExplainState *es, QueryDesc *queryDesc);
 extern void ExplainParallelRetrieveCursor(ExplainState *es, QueryDesc* queryDesc);
 extern void ExplainPrintSliceTable(ExplainState *es, QueryDesc *queryDesc);
+=======
+						   const MemoryContextCounters *mem_counters);
 
-extern void ExplainPrintJITSummary(ExplainState *es, QueryDesc *queryDesc);
+extern void ExplainPrintPlan(struct ExplainState *es, QueryDesc *queryDesc);
+extern void ExplainPrintTriggers(struct ExplainState *es,
+								 QueryDesc *queryDesc);
+>>>>>>> REL_18_BETA1_branch
 
-extern void ExplainQueryText(ExplainState *es, QueryDesc *queryDesc);
-extern void ExplainQueryParameters(ExplainState *es, ParamListInfo params, int maxlen);
+extern void ExplainPrintJITSummary(struct ExplainState *es,
+								   QueryDesc *queryDesc);
 
-extern void ExplainBeginOutput(ExplainState *es);
-extern void ExplainEndOutput(ExplainState *es);
-extern void ExplainSeparatePlans(ExplainState *es);
-
-extern void ExplainPropertyList(const char *qlabel, List *data,
-								ExplainState *es);
-extern void ExplainPropertyListNested(const char *qlabel, List *data,
-									  ExplainState *es);
-extern void ExplainPropertyText(const char *qlabel, const char *value,
-								ExplainState *es);
-extern void ExplainPropertyInteger(const char *qlabel, const char *unit,
-								   int64 value, ExplainState *es);
-extern void ExplainPropertyUInteger(const char *qlabel, const char *unit,
-									uint64 value, ExplainState *es);
-extern void ExplainPropertyFloat(const char *qlabel, const char *unit,
-								 double value, int ndigits, ExplainState *es);
-extern void ExplainPropertyBool(const char *qlabel, bool value,
-								ExplainState *es);
-
-extern void ExplainOpenGroup(const char *objtype, const char *labelname,
-							 bool labeled, ExplainState *es);
-extern void ExplainCloseGroup(const char *objtype, const char *labelname,
-							  bool labeled, ExplainState *es);
+extern void ExplainQueryText(struct ExplainState *es, QueryDesc *queryDesc);
+extern void ExplainQueryParameters(struct ExplainState *es,
+								   ParamListInfo params, int maxlen);
 
 extern void ExplainPrintExecStatsEnd(ExplainState *es, QueryDesc *queryDesc);
 

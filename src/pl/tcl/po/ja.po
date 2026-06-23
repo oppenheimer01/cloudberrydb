@@ -1,14 +1,19 @@
 # Japanese message translation file for pltcl
-# Copyright (C) 2022 PostgreSQL Global Development Group
+# Copyright (C) 2022-2024 PostgreSQL Global Development Group
 # This file is distributed under the same license as the pg_archivecleanup (PostgreSQL) package.
 # KOIZUMI Satoru <koizumistr@minos.ocn.ne.jp>, 2015.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: pltcl (PostgreSQL 16)\n"
+"Project-Id-Version: pltcl (PostgreSQL 18)\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2024-06-06 10:47+0900\n"
 "PO-Revision-Date: 2024-06-06 16:13+0900\n"
+=======
+"POT-Creation-Date: 2024-07-08 10:16+0900\n"
+"PO-Revision-Date: 2025-03-31 16:27+0900\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Kyotaro Horiguchi <horikyota.ntt@gmail.com>\n"
 "Language-Team: Japan PostgreSQL Users Group <jpug-doc@ml.postgresql.jp>\n"
 "Language: ja\n"
@@ -18,6 +23,7 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Poedit 1.8.13\n"
 
+<<<<<<< HEAD
 #: pltcl.c:462
 msgid "PL/Tcl function to call once when pltcl is first used."
 msgstr "pltcl が最初に使用される際に一度だけ呼び出される PL/Tcl 関数。"
@@ -27,96 +33,175 @@ msgid "PL/TclU function to call once when pltclu is first used."
 msgstr "pltclu が最初に使用される際に一度だけ呼び出される PL/TclU 関数。"
 
 #: pltcl.c:636
+=======
+#: pltcl.c:464
+msgid "PL/Tcl function to call once when pltcl is first used."
+msgstr "pltcl が最初に使用される際に一度だけ呼び出される PL/Tcl 関数。"
+
+#: pltcl.c:471
+msgid "PL/TclU function to call once when pltclu is first used."
+msgstr "pltclu が最初に使用される際に一度だけ呼び出される PL/TclU 関数。"
+
+#: pltcl.c:638
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "function \"%s\" is in the wrong language"
 msgstr "関数\"%s\"は言語が異なります"
 
+<<<<<<< HEAD
 #: pltcl.c:647
+=======
+#: pltcl.c:649
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "function \"%s\" must not be SECURITY DEFINER"
 msgstr "関数\"%s\"はSECURITY DEFINERであってはなりません"
 
 #. translator: %s is "pltcl.start_proc" or "pltclu.start_proc"
+<<<<<<< HEAD
 #: pltcl.c:681
+=======
+#: pltcl.c:683
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "processing %s parameter"
 msgstr "%sパラメーターを処理しています"
 
+<<<<<<< HEAD
 #: pltcl.c:834
+=======
+#: pltcl.c:836
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "set-valued function called in context that cannot accept a set"
 msgstr "このコンテキストでは、集合値の関数は集合を受け付けられません"
 
+<<<<<<< HEAD
 #: pltcl.c:839
+=======
+#: pltcl.c:841
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "materialize mode required, but it is not allowed in this context"
 msgstr "マテリアライズモードが必要ですが、現在のコンテクストで禁止されています"
 
+<<<<<<< HEAD
 #: pltcl.c:1012
+=======
+#: pltcl.c:1014
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "function returning record called in context that cannot accept type record"
 msgstr "レコード型を受け付けられないコンテキストでレコードを返す関数が呼び出されました"
 
+<<<<<<< HEAD
 #: pltcl.c:1031
+=======
+#: pltcl.c:1033
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse function return value: %s"
 msgstr "関数の戻り値をパースできませんでした: %s"
 
+<<<<<<< HEAD
 #: pltcl.c:1298
+=======
+#: pltcl.c:1300
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse trigger return value: %s"
 msgstr "トリガの戻り値をパースできませんでした: %s"
 
+<<<<<<< HEAD
 #: pltcl.c:1383 pltcl.c:1810
+=======
+#: pltcl.c:1401 pltcl.c:1895
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s"
 msgstr "%s"
 
+<<<<<<< HEAD
 #: pltcl.c:1384
+=======
+#: pltcl.c:1402
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "%s\n"
-"in PL/Tcl function \"%s\""
+"in PL/Tcl function %s"
 msgstr ""
 "%s\n"
-"PL/Tcl 関数 \"%s\""
+"PL/Tcl 関数 %s 内"
 
+<<<<<<< HEAD
 #: pltcl.c:1547
+=======
+#: pltcl.c:1630
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "trigger functions can only be called as triggers"
 msgstr "トリガー関数はトリガーとしてのみコールできます"
 
+<<<<<<< HEAD
 #: pltcl.c:1551
+=======
+#: pltcl.c:1634
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "PL/Tcl functions cannot return type %s"
 msgstr "PL/Tcl 関数は%s型の戻り値を返せません"
 
+<<<<<<< HEAD
 #: pltcl.c:1590
+=======
+#: pltcl.c:1673
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "PL/Tcl functions cannot accept type %s"
 msgstr "PL/Tcl 関数は%s型を受け付けません"
 
+<<<<<<< HEAD
 #: pltcl.c:1702
+=======
+#: pltcl.c:1785
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create internal procedure \"%s\": %s"
 msgstr "内部プロシージャ\"%s\"を作成できませんでした: %s"
 
+<<<<<<< HEAD
 #: pltcl.c:3206
+=======
+#: pltcl.c:3292
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list must have even number of elements"
 msgstr "列名/値のリストの要素は偶数個でなければなりません"
 
+<<<<<<< HEAD
 #: pltcl.c:3224
+=======
+#: pltcl.c:3310
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list contains nonexistent column name \"%s\""
 msgstr "列名/値のリストの中に、存在しない列名\"%s\"が含まれています"
 
+<<<<<<< HEAD
 #: pltcl.c:3231
+=======
+#: pltcl.c:3317
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set system attribute \"%s\""
 msgstr "システム属性\"%s\"は設定できません"
 
+<<<<<<< HEAD
 #: pltcl.c:3237
+=======
+#: pltcl.c:3323
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set generated column \"%s\""
 msgstr "生成列\"%s\"を変更できません"

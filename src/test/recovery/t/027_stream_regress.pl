@@ -1,6 +1,9 @@
+
+# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+
 # Run the standard regression tests with streaming replication
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -111,21 +114,37 @@ $node_primary->wait_for_replay_catchup($node_standby_1);
 # Perform a logical dump of primary and standby, and check that they match
 command_ok(
 	[
+<<<<<<< HEAD
 		'pg_dumpall', '-f', $outputdir . '/primary.dump',
 		'--restrict-key=test',
 		'--no-sync', '-p', $node_primary->port,
 		'--no-unlogged-table-data'    # if unlogged, standby has schema only
+=======
+		'pg_dumpall',
+		'--file' => $outputdir . '/primary.dump',
+		'--no-sync', '--no-statistics',
+		'--port' => $node_primary->port,
+		'--no-unlogged-table-data',    # if unlogged, standby has schema only
+>>>>>>> REL_18_BETA1_branch
 	],
 	'dump primary server');
 command_ok(
 	[
+<<<<<<< HEAD
 		'pg_dumpall', '-f', $outputdir . '/standby.dump',
 		'--restrict-key=test',
 		'--no-sync', '-p', $node_standby_1->port
+=======
+		'pg_dumpall',
+		'--file' => $outputdir . '/standby.dump',
+		'--no-sync', '--no-statistics',
+		'--port' => $node_standby_1->port,
+>>>>>>> REL_18_BETA1_branch
 	],
 	'dump standby server');
-command_ok(
-	[ 'diff', $outputdir . '/primary.dump', $outputdir . '/standby.dump' ],
+compare_files(
+	$outputdir . '/primary.dump',
+	$outputdir . '/standby.dump',
 	'compare primary and standby dumps');
 
 # Likewise for the catalogs of the regression database, after disabling
@@ -136,6 +155,7 @@ $node_primary->wait_for_replay_catchup($node_standby_1);
 command_ok(
 	[
 		'pg_dump',
+<<<<<<< HEAD
 		('--schema', 'pg_catalog'),
 		('-f', $outputdir . '/catalogs_primary.dump'),
 		'--no-sync',
@@ -143,11 +163,20 @@ command_ok(
 		('-p', $node_primary->port),
 		'--no-unlogged-table-data',
 		'regression'
+=======
+		'--schema' => 'pg_catalog',
+		'--file' => $outputdir . '/catalogs_primary.dump',
+		'--no-sync',
+		'--port', $node_primary->port,
+		'--no-unlogged-table-data',
+		'regression',
+>>>>>>> REL_18_BETA1_branch
 	],
 	'dump catalogs of primary server');
 command_ok(
 	[
 		'pg_dump',
+<<<<<<< HEAD
 		('--schema', 'pg_catalog'),
 		('-f', $outputdir . '/catalogs_standby.dump'),
 		'--no-sync',
@@ -162,6 +191,18 @@ command_ok(
 		$outputdir . '/catalogs_primary.dump',
 		$outputdir . '/catalogs_standby.dump'
 	],
+=======
+		'--schema' => 'pg_catalog',
+		'--file' => $outputdir . '/catalogs_standby.dump',
+		'--no-sync',
+		'--port' => $node_standby_1->port,
+		'regression',
+	],
+	'dump catalogs of standby server');
+compare_files(
+	$outputdir . '/catalogs_primary.dump',
+	$outputdir . '/catalogs_standby.dump',
+>>>>>>> REL_18_BETA1_branch
 	'compare primary and standby catalog dumps');
 
 # Check some data from pg_stat_statements.

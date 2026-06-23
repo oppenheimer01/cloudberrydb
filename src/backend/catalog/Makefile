@@ -2,7 +2,7 @@
 #
 # Makefile for backend/catalog
 #
-# Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+# Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/backend/catalog/Makefile
@@ -66,6 +66,7 @@ CATALOG_JSON:= $(addprefix $(top_srcdir)/gpMgmt/bin/gppylib/data/, $(addsuffix .
 
 include $(top_srcdir)/src/backend/common.mk
 
+<<<<<<< HEAD
 # Note: the order of this list determines the order in which the catalog
 # header files are assembled into postgres.bki.  BKI_BOOTSTRAP catalogs
 # must appear first, and pg_statistic before pg_statistic_ext_data, and
@@ -201,6 +202,10 @@ install-data: bki-stamp installdirs
 ifeq ($(USE_INTERNAL_FTS_FOUND), false)
 	$(INSTALL_DATA) $(srcdir)/external_fts.sql '$(DESTDIR)$(datadir)/external_fts.sql'
 endif
+=======
+.PHONY: install-data
+install-data: installdirs
+>>>>>>> REL_18_BETA1_branch
 	$(INSTALL_DATA) $(srcdir)/system_functions.sql '$(DESTDIR)$(datadir)/system_functions.sql'
 	$(INSTALL_DATA) $(srcdir)/system_views.sql '$(DESTDIR)$(datadir)/system_views.sql'
 	$(INSTALL_DATA) $(srcdir)/$(GP_SYSVIEW_SQL) '$(DESTDIR)$(datadir)/$(GP_SYSVIEW_SQL)'
@@ -216,6 +221,7 @@ installdirs:
 
 .PHONY: uninstall-data
 uninstall-data:
+<<<<<<< HEAD
 	rm -f $(addprefix '$(DESTDIR)$(datadir)'/, postgres.bki system_constraints.sql system_functions.sql system_views.sql system_views_gp_summary.sql information_schema.sql cdb_init.d/cdb_schema.sql cdb_init.d/gp_toolkit.sql sql_features.txt fix-CVE-2024-4317.sql)
 ifeq ($(USE_INTERNAL_FTS_FOUND), false)
 	rm -f $(addprefix '$(DESTDIR)$(datadir)'/, external_fts.sql)
@@ -226,3 +232,6 @@ clean:
 
 maintainer-clean: clean
 	rm -f bki-stamp postgres.bki system_constraints.sql $(GENERATED_HEADERS) $(GP_SYSVIEW_SQL)
+=======
+	rm -f $(addprefix '$(DESTDIR)$(datadir)'/, system_functions.sql system_views.sql information_schema.sql sql_features.txt)
+>>>>>>> REL_18_BETA1_branch

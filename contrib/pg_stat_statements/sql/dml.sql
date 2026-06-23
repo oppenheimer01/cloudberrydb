@@ -46,7 +46,7 @@ SELECT * FROM pgss_dml_tab ORDER BY a;
 SELECT * FROM pgss_dml_tab WHERE a IN (1, 2, 3, 4, 5);
 
 SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
-SELECT pg_stat_statements_reset();
+SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- MERGE
 MERGE INTO pgss_dml_tab USING pgss_dml_tab st ON (st.a = pgss_dml_tab.a AND st.a >= 4)
@@ -77,7 +77,11 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 -- check that [temp] table relation extensions are tracked as writes
 CREATE TABLE pgss_extend_tab (a int, b text);
 CREATE TEMP TABLE pgss_extend_temp_tab (a int, b text);
+<<<<<<< HEAD
 SELECT pg_stat_statements_reset();
+=======
+SELECT pg_stat_statements_reset() IS NOT NULL AS t;
+>>>>>>> REL_18_BETA1_branch
 INSERT INTO pgss_extend_tab (a, b) SELECT generate_series(1, 1000), 'something';
 INSERT INTO pgss_extend_temp_tab (a, b) SELECT generate_series(1, 1000), 'something';
 WITH sizes AS (
@@ -92,4 +96,8 @@ SELECT
     SUM(shared_blks_dirtied) >= (SELECT rel_size FROM sizes) AS dirtied_ok
 FROM pg_stat_statements;
 
+<<<<<<< HEAD
 SELECT pg_stat_statements_reset();
+=======
+SELECT pg_stat_statements_reset() IS NOT NULL AS t;
+>>>>>>> REL_18_BETA1_branch

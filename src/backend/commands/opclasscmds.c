@@ -4,7 +4,7 @@
  *
  *	  Routines for opclass (and opfamily) manipulation commands
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -22,7 +22,6 @@
 #include "access/hash.h"
 #include "access/htup_details.h"
 #include "access/nbtree.h"
-#include "access/sysattr.h"
 #include "access/table.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
@@ -40,13 +39,13 @@
 #include "catalog/pg_opfamily.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
-#include "commands/alter.h"
 #include "commands/defrem.h"
 #include "commands/event_trigger.h"
 #include "miscadmin.h"
 #include "parser/parse_func.h"
 #include "parser/parse_oper.h"
 #include "parser/parse_type.h"
+#include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/lsyscache.h"
@@ -1283,25 +1282,29 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 	}
 
 	/*
-	 * btree comparison procs must be 2-arg procs returning int4.  btree
-	 * sortsupport procs must take internal and return void.  btree in_range
-	 * procs must be 5-arg procs returning bool.  btree equalimage procs must
-	 * take 1 arg and return bool.  hash support proc 1 must be a 1-arg proc
-	 * returning int4, while proc 2 must be a 2-arg proc returning int8.
-	 * Otherwise we don't know.
+	 * Ordering comparison procs must be 2-arg procs returning int4.  Ordering
+	 * sortsupport procs must take internal and return void.  Ordering
+	 * in_range procs must be 5-arg procs returning bool.  Ordering equalimage
+	 * procs must take 1 arg and return bool.  Hashing support proc 1 must be
+	 * a 1-arg proc returning int4, while proc 2 must be a 2-arg proc
+	 * returning int8. Otherwise we don't know.
 	 */
+<<<<<<< HEAD
 	else if (IsIndexAccessMethod(amoid, BTREE_AM_OID))
+=======
+	else if (GetIndexAmRoutineByAmId(amoid, false)->amcanorder)
+>>>>>>> REL_18_BETA1_branch
 	{
 		if (member->number == BTORDER_PROC)
 		{
 			if (procform->pronargs != 2)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree comparison functions must have two arguments")));
+						 errmsg("ordering comparison functions must have two arguments")));
 			if (procform->prorettype != INT4OID)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree comparison functions must return integer")));
+						 errmsg("ordering comparison functions must return integer")));
 
 			/*
 			 * If lefttype/righttype isn't specified, use the proc's input
@@ -1318,11 +1321,11 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 				procform->proargtypes.values[0] != INTERNALOID)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree sort support functions must accept type \"internal\"")));
+						 errmsg("ordering sort support functions must accept type \"internal\"")));
 			if (procform->prorettype != VOIDOID)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree sort support functions must return void")));
+						 errmsg("ordering sort support functions must return void")));
 
 			/*
 			 * Can't infer lefttype/righttype from proc, so use default rule
@@ -1333,11 +1336,11 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 			if (procform->pronargs != 5)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree in_range functions must have five arguments")));
+						 errmsg("ordering in_range functions must have five arguments")));
 			if (procform->prorettype != BOOLOID)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree in_range functions must return boolean")));
+						 errmsg("ordering in_range functions must return boolean")));
 
 			/*
 			 * If lefttype/righttype isn't specified, use the proc's input
@@ -1353,11 +1356,11 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 			if (procform->pronargs != 1)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree equal image functions must have one argument")));
+						 errmsg("ordering equal image functions must have one argument")));
 			if (procform->prorettype != BOOLOID)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree equal image functions must return boolean")));
+						 errmsg("ordering equal image functions must return boolean")));
 
 			/*
 			 * pg_amproc functions are indexed by (lefttype, righttype), but
@@ -1370,10 +1373,39 @@ assignProcTypes(OpFamilyMember *member, Oid amoid, Oid typeoid,
 			if (member->lefttype != member->righttype)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("btree equal image functions must not be cross-type")));
+						 errmsg("ordering equal image functions must not be cross-type")));
+		}
+		else if (member->number == BTSKIPSUPPORT_PROC)
+		{
+			if (procform->pronargs != 1 ||
+				procform->proargtypes.values[0] != INTERNALOID)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+						 errmsg("btree skip support functions must accept type \"internal\"")));
+			if (procform->prorettype != VOIDOID)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+						 errmsg("btree skip support functions must return void")));
+
+			/*
+			 * pg_amproc functions are indexed by (lefttype, righttype), but a
+			 * skip support function doesn't make sense in cross-type
+			 * scenarios.  The same opclass opcintype OID is always used for
+			 * lefttype and righttype.  Providing a cross-type routine isn't
+			 * sensible.  Reject cross-type ALTER OPERATOR FAMILY ...  ADD
+			 * FUNCTION 6 statements here.
+			 */
+			if (member->lefttype != member->righttype)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+						 errmsg("btree skip support functions must not be cross-type")));
 		}
 	}
+<<<<<<< HEAD
 	else if (IsIndexAccessMethod(amoid, HASH_AM_OID))
+=======
+	else if (GetIndexAmRoutineByAmId(amoid, false)->amcanhash)
+>>>>>>> REL_18_BETA1_branch
 	{
 		if (member->number == HASHSTANDARD_PROC)
 		{

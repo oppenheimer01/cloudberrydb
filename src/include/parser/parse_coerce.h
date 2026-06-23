@@ -4,7 +4,7 @@
  *	Routines for type coercion.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/parser/parse_coerce.h
@@ -27,7 +27,7 @@ typedef enum CoercionPathType
 	COERCION_PATH_FUNC,			/* apply the specified coercion function */
 	COERCION_PATH_RELABELTYPE,	/* binary-compatible cast, no function */
 	COERCION_PATH_ARRAYCOERCE,	/* need an ArrayCoerceExpr node */
-	COERCION_PATH_COERCEVIAIO	/* need a CoerceViaIO node */
+	COERCION_PATH_COERCEVIAIO,	/* need a CoerceViaIO node */
 } CoercionPathType;
 
 
@@ -70,7 +70,11 @@ extern Node *coerce_to_specific_type_typmod(ParseState *pstate, Node *node,
 extern Node *coerce_null_to_domain(Oid typid, int32 typmod, Oid collation,
 								   int typlen, bool typbyval);
 
+<<<<<<< HEAD
 extern void parser_coercion_errposition(ParseState *pstate,
+=======
+extern int	parser_coercion_errposition(ParseState *pstate,
+>>>>>>> REL_18_BETA1_branch
 										int coerce_location,
 										Node *input_expr);
 extern Node *coerce_null_to_domain(Oid typid, int32 typmod, Oid collation,

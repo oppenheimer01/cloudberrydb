@@ -11,7 +11,11 @@ msgstr ""
 "Project-Id-Version: PostgreSQL 16\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
 "POT-Creation-Date: 2023-07-29 09:17+0000\n"
+<<<<<<< HEAD
 "PO-Revision-Date: 2024-09-16 16:35+0200\n"
+=======
+"PO-Revision-Date: 2023-09-05 07:49+0200\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Guillaume Lelarge <guillaume@lelarge.info>\n"
 "Language-Team: French <guillaume@lelarge.info>\n"
 "Language: fr\n"
@@ -19,7 +23,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+<<<<<<< HEAD
 "X-Generator: Poedit 3.5\n"
+=======
+"X-Generator: Poedit 3.3.2\n"
+>>>>>>> REL_18_BETA1_branch
 
 #: ../../../src/common/logging.c:276
 #, c-format

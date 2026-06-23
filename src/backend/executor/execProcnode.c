@@ -7,9 +7,13 @@
  *	 ExecProcNode, or ExecEndNode on its subnodes and do the appropriate
  *	 processing.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -547,6 +551,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	/*
 	 * Initialize any initPlans present in this node.  The planner put them in
 	 * a separate list for us.
+	 *
+	 * The defining characteristic of initplans is that they don't have
+	 * arguments, so we don't need to evaluate them (in contrast to
+	 * ExecInitSubPlanExpr()).
 	 */
 	subps = NIL;
 	foreach(l, node->initPlan)
@@ -556,9 +564,13 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 		int			origSliceId = estate->currentSliceId;
 
 		Assert(IsA(subplan, SubPlan));
+<<<<<<< HEAD
 
 		estate->currentSliceId = estate->es_plannedstmt->subplan_sliceIds[subplan->plan_id - 1];
 
+=======
+		Assert(subplan->args == NIL);
+>>>>>>> REL_18_BETA1_branch
 		sstate = ExecInitSubPlan(subplan, result);
 		subps = lappend(subps, sstate);
 
@@ -940,20 +952,8 @@ ExecEndNode(PlanState *node)
 			ExecEndTableFuncScan((TableFuncScanState *) node);
 			break;
 
-		case T_ValuesScanState:
-			ExecEndValuesScan((ValuesScanState *) node);
-			break;
-
 		case T_CteScanState:
 			ExecEndCteScan((CteScanState *) node);
-			break;
-
-		case T_NamedTuplestoreScanState:
-			ExecEndNamedTuplestoreScan((NamedTuplestoreScanState *) node);
-			break;
-
-		case T_WorkTableScanState:
-			ExecEndWorkTableScan((WorkTableScanState *) node);
 			break;
 
 		case T_ForeignScanState:
@@ -1049,6 +1049,7 @@ ExecEndNode(PlanState *node)
 			ExecEndLimit((LimitState *) node);
 			break;
 
+<<<<<<< HEAD
 		case T_MotionState:
 			ExecEndMotion((MotionState *) node);
 			break;
@@ -1067,6 +1068,12 @@ ExecEndNode(PlanState *node)
 			break;
 		case T_PartitionSelectorState:
 			ExecEndPartitionSelector((PartitionSelectorState *) node);
+=======
+			/* No clean up actions for these nodes. */
+		case T_ValuesScanState:
+		case T_NamedTuplestoreScanState:
+		case T_WorkTableScanState:
+>>>>>>> REL_18_BETA1_branch
 			break;
 
 		default:

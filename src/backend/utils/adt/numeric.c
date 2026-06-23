@@ -11,7 +11,7 @@
  * Transactions on Mathematical Software, Vol. 24, No. 4, December 1998,
  * pages 359-367.
  *
- * Copyright (c) 1998-2023, PostgreSQL Global Development Group
+ * Copyright (c) 1998-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/utils/adt/numeric.c
@@ -26,7 +26,6 @@
 #include <limits.h>
 #include <math.h>
 
-#include "catalog/pg_type.h"
 #include "common/hashfn.h"
 #include "common/int.h"
 #include "funcapi.h"
@@ -36,6 +35,7 @@
 #include "nodes/nodeFuncs.h"
 #include "nodes/execnodes.h"
 #include "nodes/supportnodes.h"
+#include "optimizer/optimizer.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
@@ -52,6 +52,280 @@
 #define NUMERIC_DEBUG
  */
 
+<<<<<<< HEAD
+=======
+
+/* ----------
+ * Local data types
+ *
+ * Numeric values are represented in a base-NBASE floating point format.
+ * Each "digit" ranges from 0 to NBASE-1.  The type NumericDigit is signed
+ * and wide enough to store a digit.  We assume that NBASE*NBASE can fit in
+ * an int.  Although the purely calculational routines could handle any even
+ * NBASE that's less than sqrt(INT_MAX), in practice we are only interested
+ * in NBASE a power of ten, so that I/O conversions and decimal rounding
+ * are easy.  Also, it's actually more efficient if NBASE is rather less than
+ * sqrt(INT_MAX), so that there is "headroom" for mul_var and div_var to
+ * postpone processing carries.
+ *
+ * Values of NBASE other than 10000 are considered of historical interest only
+ * and are no longer supported in any sense; no mechanism exists for the client
+ * to discover the base, so every client supporting binary mode expects the
+ * base-10000 format.  If you plan to change this, also note the numeric
+ * abbreviation code, which assumes NBASE=10000.
+ * ----------
+ */
+
+#if 0
+#define NBASE		10
+#define HALF_NBASE	5
+#define DEC_DIGITS	1			/* decimal digits per NBASE digit */
+#define MUL_GUARD_DIGITS	4	/* these are measured in NBASE digits */
+#define DIV_GUARD_DIGITS	8
+
+typedef signed char NumericDigit;
+#endif
+
+#if 0
+#define NBASE		100
+#define HALF_NBASE	50
+#define DEC_DIGITS	2			/* decimal digits per NBASE digit */
+#define MUL_GUARD_DIGITS	3	/* these are measured in NBASE digits */
+#define DIV_GUARD_DIGITS	6
+
+typedef signed char NumericDigit;
+#endif
+
+#if 1
+#define NBASE		10000
+#define HALF_NBASE	5000
+#define DEC_DIGITS	4			/* decimal digits per NBASE digit */
+#define MUL_GUARD_DIGITS	2	/* these are measured in NBASE digits */
+#define DIV_GUARD_DIGITS	4
+
+typedef int16 NumericDigit;
+#endif
+
+#define NBASE_SQR	(NBASE * NBASE)
+
+/*
+ * The Numeric type as stored on disk.
+ *
+ * If the high bits of the first word of a NumericChoice (n_header, or
+ * n_short.n_header, or n_long.n_sign_dscale) are NUMERIC_SHORT, then the
+ * numeric follows the NumericShort format; if they are NUMERIC_POS or
+ * NUMERIC_NEG, it follows the NumericLong format. If they are NUMERIC_SPECIAL,
+ * the value is a NaN or Infinity.  We currently always store SPECIAL values
+ * using just two bytes (i.e. only n_header), but previous releases used only
+ * the NumericLong format, so we might find 4-byte NaNs (though not infinities)
+ * on disk if a database has been migrated using pg_upgrade.  In either case,
+ * the low-order bits of a special value's header are reserved and currently
+ * should always be set to zero.
+ *
+ * In the NumericShort format, the remaining 14 bits of the header word
+ * (n_short.n_header) are allocated as follows: 1 for sign (positive or
+ * negative), 6 for dynamic scale, and 7 for weight.  In practice, most
+ * commonly-encountered values can be represented this way.
+ *
+ * In the NumericLong format, the remaining 14 bits of the header word
+ * (n_long.n_sign_dscale) represent the display scale; and the weight is
+ * stored separately in n_weight.
+ *
+ * NOTE: by convention, values in the packed form have been stripped of
+ * all leading and trailing zero digits (where a "digit" is of base NBASE).
+ * In particular, if the value is zero, there will be no digits at all!
+ * The weight is arbitrary in that case, but we normally set it to zero.
+ */
+
+struct NumericShort
+{
+	uint16		n_header;		/* Sign + display scale + weight */
+	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* Digits */
+};
+
+struct NumericLong
+{
+	uint16		n_sign_dscale;	/* Sign + display scale */
+	int16		n_weight;		/* Weight of 1st digit	*/
+	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* Digits */
+};
+
+union NumericChoice
+{
+	uint16		n_header;		/* Header word */
+	struct NumericLong n_long;	/* Long form (4-byte header) */
+	struct NumericShort n_short;	/* Short form (2-byte header) */
+};
+
+struct NumericData
+{
+	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	union NumericChoice choice; /* choice of format */
+};
+
+
+/*
+ * Interpretation of high bits.
+ */
+
+#define NUMERIC_SIGN_MASK	0xC000
+#define NUMERIC_POS			0x0000
+#define NUMERIC_NEG			0x4000
+#define NUMERIC_SHORT		0x8000
+#define NUMERIC_SPECIAL		0xC000
+
+#define NUMERIC_FLAGBITS(n) ((n)->choice.n_header & NUMERIC_SIGN_MASK)
+#define NUMERIC_IS_SHORT(n)		(NUMERIC_FLAGBITS(n) == NUMERIC_SHORT)
+#define NUMERIC_IS_SPECIAL(n)	(NUMERIC_FLAGBITS(n) == NUMERIC_SPECIAL)
+
+#define NUMERIC_HDRSZ	(VARHDRSZ + sizeof(uint16) + sizeof(int16))
+#define NUMERIC_HDRSZ_SHORT (VARHDRSZ + sizeof(uint16))
+
+/*
+ * If the flag bits are NUMERIC_SHORT or NUMERIC_SPECIAL, we want the short
+ * header; otherwise, we want the long one.  Instead of testing against each
+ * value, we can just look at the high bit, for a slight efficiency gain.
+ */
+#define NUMERIC_HEADER_IS_SHORT(n)	(((n)->choice.n_header & 0x8000) != 0)
+#define NUMERIC_HEADER_SIZE(n) \
+	(VARHDRSZ + sizeof(uint16) + \
+	 (NUMERIC_HEADER_IS_SHORT(n) ? 0 : sizeof(int16)))
+
+/*
+ * Definitions for special values (NaN, positive infinity, negative infinity).
+ *
+ * The two bits after the NUMERIC_SPECIAL bits are 00 for NaN, 01 for positive
+ * infinity, 11 for negative infinity.  (This makes the sign bit match where
+ * it is in a short-format value, though we make no use of that at present.)
+ * We could mask off the remaining bits before testing the active bits, but
+ * currently those bits must be zeroes, so masking would just add cycles.
+ */
+#define NUMERIC_EXT_SIGN_MASK	0xF000	/* high bits plus NaN/Inf flag bits */
+#define NUMERIC_NAN				0xC000
+#define NUMERIC_PINF			0xD000
+#define NUMERIC_NINF			0xF000
+#define NUMERIC_INF_SIGN_MASK	0x2000
+
+#define NUMERIC_EXT_FLAGBITS(n)	((n)->choice.n_header & NUMERIC_EXT_SIGN_MASK)
+#define NUMERIC_IS_NAN(n)		((n)->choice.n_header == NUMERIC_NAN)
+#define NUMERIC_IS_PINF(n)		((n)->choice.n_header == NUMERIC_PINF)
+#define NUMERIC_IS_NINF(n)		((n)->choice.n_header == NUMERIC_NINF)
+#define NUMERIC_IS_INF(n) \
+	(((n)->choice.n_header & ~NUMERIC_INF_SIGN_MASK) == NUMERIC_PINF)
+
+/*
+ * Short format definitions.
+ */
+
+#define NUMERIC_SHORT_SIGN_MASK			0x2000
+#define NUMERIC_SHORT_DSCALE_MASK		0x1F80
+#define NUMERIC_SHORT_DSCALE_SHIFT		7
+#define NUMERIC_SHORT_DSCALE_MAX		\
+	(NUMERIC_SHORT_DSCALE_MASK >> NUMERIC_SHORT_DSCALE_SHIFT)
+#define NUMERIC_SHORT_WEIGHT_SIGN_MASK	0x0040
+#define NUMERIC_SHORT_WEIGHT_MASK		0x003F
+#define NUMERIC_SHORT_WEIGHT_MAX		NUMERIC_SHORT_WEIGHT_MASK
+#define NUMERIC_SHORT_WEIGHT_MIN		(-(NUMERIC_SHORT_WEIGHT_MASK+1))
+
+/*
+ * Extract sign, display scale, weight.  These macros extract field values
+ * suitable for the NumericVar format from the Numeric (on-disk) format.
+ *
+ * Note that we don't trouble to ensure that dscale and weight read as zero
+ * for an infinity; however, that doesn't matter since we never convert
+ * "special" numerics to NumericVar form.  Only the constants defined below
+ * (const_nan, etc) ever represent a non-finite value as a NumericVar.
+ */
+
+#define NUMERIC_DSCALE_MASK			0x3FFF
+#define NUMERIC_DSCALE_MAX			NUMERIC_DSCALE_MASK
+
+#define NUMERIC_SIGN(n) \
+	(NUMERIC_IS_SHORT(n) ? \
+		(((n)->choice.n_short.n_header & NUMERIC_SHORT_SIGN_MASK) ? \
+		 NUMERIC_NEG : NUMERIC_POS) : \
+		(NUMERIC_IS_SPECIAL(n) ? \
+		 NUMERIC_EXT_FLAGBITS(n) : NUMERIC_FLAGBITS(n)))
+#define NUMERIC_DSCALE(n)	(NUMERIC_HEADER_IS_SHORT((n)) ? \
+	((n)->choice.n_short.n_header & NUMERIC_SHORT_DSCALE_MASK) \
+		>> NUMERIC_SHORT_DSCALE_SHIFT \
+	: ((n)->choice.n_long.n_sign_dscale & NUMERIC_DSCALE_MASK))
+#define NUMERIC_WEIGHT(n)	(NUMERIC_HEADER_IS_SHORT((n)) ? \
+	(((n)->choice.n_short.n_header & NUMERIC_SHORT_WEIGHT_SIGN_MASK ? \
+		~NUMERIC_SHORT_WEIGHT_MASK : 0) \
+	 | ((n)->choice.n_short.n_header & NUMERIC_SHORT_WEIGHT_MASK)) \
+	: ((n)->choice.n_long.n_weight))
+
+/*
+ * Maximum weight of a stored Numeric value (based on the use of int16 for the
+ * weight in NumericLong).  Note that intermediate values held in NumericVar
+ * and NumericSumAccum variables may have much larger weights.
+ */
+#define NUMERIC_WEIGHT_MAX			PG_INT16_MAX
+
+/* ----------
+ * NumericVar is the format we use for arithmetic.  The digit-array part
+ * is the same as the NumericData storage format, but the header is more
+ * complex.
+ *
+ * The value represented by a NumericVar is determined by the sign, weight,
+ * ndigits, and digits[] array.  If it is a "special" value (NaN or Inf)
+ * then only the sign field matters; ndigits should be zero, and the weight
+ * and dscale fields are ignored.
+ *
+ * Note: the first digit of a NumericVar's value is assumed to be multiplied
+ * by NBASE ** weight.  Another way to say it is that there are weight+1
+ * digits before the decimal point.  It is possible to have weight < 0.
+ *
+ * buf points at the physical start of the palloc'd digit buffer for the
+ * NumericVar.  digits points at the first digit in actual use (the one
+ * with the specified weight).  We normally leave an unused digit or two
+ * (preset to zeroes) between buf and digits, so that there is room to store
+ * a carry out of the top digit without reallocating space.  We just need to
+ * decrement digits (and increment weight) to make room for the carry digit.
+ * (There is no such extra space in a numeric value stored in the database,
+ * only in a NumericVar in memory.)
+ *
+ * If buf is NULL then the digit buffer isn't actually palloc'd and should
+ * not be freed --- see the constants below for an example.
+ *
+ * dscale, or display scale, is the nominal precision expressed as number
+ * of digits after the decimal point (it must always be >= 0 at present).
+ * dscale may be more than the number of physically stored fractional digits,
+ * implying that we have suppressed storage of significant trailing zeroes.
+ * It should never be less than the number of stored digits, since that would
+ * imply hiding digits that are present.  NOTE that dscale is always expressed
+ * in *decimal* digits, and so it may correspond to a fractional number of
+ * base-NBASE digits --- divide by DEC_DIGITS to convert to NBASE digits.
+ *
+ * rscale, or result scale, is the target precision for a computation.
+ * Like dscale it is expressed as number of *decimal* digits after the decimal
+ * point, and is always >= 0 at present.
+ * Note that rscale is not stored in variables --- it's figured on-the-fly
+ * from the dscales of the inputs.
+ *
+ * While we consistently use "weight" to refer to the base-NBASE weight of
+ * a numeric value, it is convenient in some scale-related calculations to
+ * make use of the base-10 weight (ie, the approximate log10 of the value).
+ * To avoid confusion, such a decimal-units weight is called a "dweight".
+ *
+ * NB: All the variable-level functions are written in a style that makes it
+ * possible to give one and the same variable as argument and destination.
+ * This is feasible because the digit buffer is separate from the variable.
+ * ----------
+ */
+typedef struct NumericVar
+{
+	int			ndigits;		/* # of digits in digits[] - can be 0! */
+	int			weight;			/* weight of first digit */
+	int			sign;			/* NUMERIC_POS, _NEG, _NAN, _PINF, or _NINF */
+	int			dscale;			/* display scale */
+	NumericDigit *buf;			/* start of palloc'd space for digits[] */
+	NumericDigit *digits;		/* base-NBASE digits */
+} NumericVar;
+
+
+>>>>>>> REL_18_BETA1_branch
 /* ----------
  * Data for generate_series
  * ----------
@@ -318,11 +592,10 @@ static void sub_var(const NumericVar *var1, const NumericVar *var2,
 static void mul_var(const NumericVar *var1, const NumericVar *var2,
 					NumericVar *result,
 					int rscale);
+static void mul_var_short(const NumericVar *var1, const NumericVar *var2,
+						  NumericVar *result);
 static void div_var(const NumericVar *var1, const NumericVar *var2,
-					NumericVar *result,
-					int rscale, bool round);
-static void div_var_fast(const NumericVar *var1, const NumericVar *var2,
-						 NumericVar *result, int rscale, bool round);
+					NumericVar *result, int rscale, bool round, bool exact);
 static void div_var_int(const NumericVar *var, int ival, int ival_weight,
 						NumericVar *result, int rscale, bool round);
 #ifdef HAVE_INT128
@@ -350,6 +623,8 @@ static void power_var(const NumericVar *base, const NumericVar *exp,
 static void power_var_int(const NumericVar *base, int exp, int exp_dscale,
 						  NumericVar *result);
 static void power_ten_int(int exp, NumericVar *result);
+static void random_var(pg_prng_state *state, const NumericVar *rmin,
+					   const NumericVar *rmax, NumericVar *result);
 
 static int	cmp_abs(const NumericVar *var1, const NumericVar *var2);
 static int	cmp_abs_common(const NumericDigit *var1digits, int var1ndigits,
@@ -364,7 +639,7 @@ static void round_var(NumericVar *var, int rscale);
 static void trunc_var(NumericVar *var, int rscale);
 static void strip_var(NumericVar *var);
 static void compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
-						   const NumericVar *count_var, bool reversed_bounds,
+						   const NumericVar *count_var,
 						   NumericVar *result_var);
 
 static void accum_sum_add(NumericSumAccum *accum, const NumericVar *val);
@@ -1607,6 +1882,126 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 		SRF_RETURN_DONE(funcctx);
 }
 
+/*
+ * Planner support function for generate_series(numeric, numeric [, numeric])
+ */
+Datum
+generate_series_numeric_support(PG_FUNCTION_ARGS)
+{
+	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
+	Node	   *ret = NULL;
+
+	if (IsA(rawreq, SupportRequestRows))
+	{
+		/* Try to estimate the number of rows returned */
+		SupportRequestRows *req = (SupportRequestRows *) rawreq;
+
+		if (is_funcclause(req->node))	/* be paranoid */
+		{
+			List	   *args = ((FuncExpr *) req->node)->args;
+			Node	   *arg1,
+					   *arg2,
+					   *arg3;
+
+			/* We can use estimated argument values here */
+			arg1 = estimate_expression_value(req->root, linitial(args));
+			arg2 = estimate_expression_value(req->root, lsecond(args));
+			if (list_length(args) >= 3)
+				arg3 = estimate_expression_value(req->root, lthird(args));
+			else
+				arg3 = NULL;
+
+			/*
+			 * If any argument is constant NULL, we can safely assume that
+			 * zero rows are returned.  Otherwise, if they're all non-NULL
+			 * constants, we can calculate the number of rows that will be
+			 * returned.
+			 */
+			if ((IsA(arg1, Const) &&
+				 ((Const *) arg1)->constisnull) ||
+				(IsA(arg2, Const) &&
+				 ((Const *) arg2)->constisnull) ||
+				(arg3 != NULL && IsA(arg3, Const) &&
+				 ((Const *) arg3)->constisnull))
+			{
+				req->rows = 0;
+				ret = (Node *) req;
+			}
+			else if (IsA(arg1, Const) &&
+					 IsA(arg2, Const) &&
+					 (arg3 == NULL || IsA(arg3, Const)))
+			{
+				Numeric		start_num;
+				Numeric		stop_num;
+				NumericVar	step = const_one;
+
+				/*
+				 * If any argument is NaN or infinity, generate_series() will
+				 * error out, so we needn't produce an estimate.
+				 */
+				start_num = DatumGetNumeric(((Const *) arg1)->constvalue);
+				stop_num = DatumGetNumeric(((Const *) arg2)->constvalue);
+
+				if (NUMERIC_IS_SPECIAL(start_num) ||
+					NUMERIC_IS_SPECIAL(stop_num))
+					PG_RETURN_POINTER(NULL);
+
+				if (arg3)
+				{
+					Numeric		step_num;
+
+					step_num = DatumGetNumeric(((Const *) arg3)->constvalue);
+
+					if (NUMERIC_IS_SPECIAL(step_num))
+						PG_RETURN_POINTER(NULL);
+
+					init_var_from_num(step_num, &step);
+				}
+
+				/*
+				 * The number of rows that will be returned is given by
+				 * floor((stop - start) / step) + 1, if the sign of step
+				 * matches the sign of stop - start.  Otherwise, no rows will
+				 * be returned.
+				 */
+				if (cmp_var(&step, &const_zero) != 0)
+				{
+					NumericVar	start;
+					NumericVar	stop;
+					NumericVar	res;
+
+					init_var_from_num(start_num, &start);
+					init_var_from_num(stop_num, &stop);
+
+					init_var(&res);
+					sub_var(&stop, &start, &res);
+
+					if (step.sign != res.sign)
+					{
+						/* no rows will be returned */
+						req->rows = 0;
+						ret = (Node *) req;
+					}
+					else
+					{
+						if (arg3)
+							div_var(&res, &step, &res, 0, false, false);
+						else
+							trunc_var(&res, 0); /* step = 1 */
+
+						req->rows = numericvar_to_double_no_overflow(&res) + 1;
+						ret = (Node *) req;
+					}
+
+					free_var(&res);
+				}
+			}
+		}
+	}
+
+	PG_RETURN_POINTER(ret);
+}
+
 
 /*
  * Implements the numeric version of the width_bucket() function
@@ -1675,7 +2070,7 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 			else if (cmp_numerics(operand, bound2) >= 0)
 				add_var(&count_var, &const_one, &result_var);
 			else
-				compute_bucket(operand, bound1, bound2, &count_var, false,
+				compute_bucket(operand, bound1, bound2, &count_var,
 							   &result_var);
 			break;
 
@@ -1686,7 +2081,7 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 			else if (cmp_numerics(operand, bound2) <= 0)
 				add_var(&count_var, &const_one, &result_var);
 			else
-				compute_bucket(operand, bound1, bound2, &count_var, true,
+				compute_bucket(operand, bound1, bound2, &count_var,
 							   &result_var);
 			break;
 	}
@@ -1705,14 +2100,13 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 
 /*
  * 'operand' is inside the bucket range, so determine the correct
- * bucket for it to go. The calculations performed by this function
+ * bucket for it to go in. The calculations performed by this function
  * are derived directly from the SQL2003 spec. Note however that we
  * multiply by count before dividing, to avoid unnecessary roundoff error.
  */
 static void
 compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
-			   const NumericVar *count_var, bool reversed_bounds,
-			   NumericVar *result_var)
+			   const NumericVar *count_var, NumericVar *result_var)
 {
 	NumericVar	bound1_var;
 	NumericVar	bound2_var;
@@ -1722,34 +2116,22 @@ compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
 	init_var_from_num(bound2, &bound2_var);
 	init_var_from_num(operand, &operand_var);
 
-	if (!reversed_bounds)
-	{
-		sub_var(&operand_var, &bound1_var, &operand_var);
-		sub_var(&bound2_var, &bound1_var, &bound2_var);
-	}
-	else
-	{
-		sub_var(&bound1_var, &operand_var, &operand_var);
-		sub_var(&bound1_var, &bound2_var, &bound2_var);
-	}
+	/*
+	 * Per spec, bound1 is inclusive and bound2 is exclusive, and so we have
+	 * bound1 <= operand < bound2 or bound1 >= operand > bound2.  Either way,
+	 * the result is ((operand - bound1) * count) / (bound2 - bound1) + 1,
+	 * where the quotient is computed using floor division (i.e., division to
+	 * zero decimal places with truncation), which guarantees that the result
+	 * is in the range [1, count].  Reversing the bounds doesn't affect the
+	 * computation, because the signs cancel out when dividing.
+	 */
+	sub_var(&operand_var, &bound1_var, &operand_var);
+	sub_var(&bound2_var, &bound1_var, &bound2_var);
 
 	mul_var(&operand_var, count_var, &operand_var,
 			operand_var.dscale + count_var->dscale);
-	div_var(&operand_var, &bound2_var, result_var,
-			select_div_scale(&operand_var, &bound2_var), true);
-
-	/*
-	 * Roundoff in the division could give us a quotient exactly equal to
-	 * "count", which is too large.  Clamp so that we do not emit a result
-	 * larger than "count".
-	 */
-	if (cmp_var(result_var, count_var) >= 0)
-		set_var_from_var(count_var, result_var);
-	else
-	{
-		add_var(result_var, &const_one, result_var);
-		floor_var(result_var, result_var);
-	}
+	div_var(&operand_var, &bound2_var, result_var, 0, false, true);
+	add_var(result_var, &const_one, result_var);
 
 	free_var(&bound1_var);
 	free_var(&bound2_var);
@@ -1919,13 +2301,11 @@ numeric_abbrev_abort(int memtupcount, SortSupport ssup)
 	 */
 	if (abbr_card > 100000.0)
 	{
-#ifdef TRACE_SORT
 		if (trace_sort)
 			elog(LOG,
 				 "numeric_abbrev: estimation ends at cardinality %f"
 				 " after " INT64_FORMAT " values (%d rows)",
 				 abbr_card, nss->input_count, memtupcount);
-#endif
 		nss->estimating = false;
 		return false;
 	}
@@ -1941,24 +2321,20 @@ numeric_abbrev_abort(int memtupcount, SortSupport ssup)
 	 */
 	if (abbr_card < nss->input_count / 10000.0 + 0.5)
 	{
-#ifdef TRACE_SORT
 		if (trace_sort)
 			elog(LOG,
 				 "numeric_abbrev: aborting abbreviation at cardinality %f"
 				 " below threshold %f after " INT64_FORMAT " values (%d rows)",
 				 abbr_card, nss->input_count / 10000.0 + 0.5,
 				 nss->input_count, memtupcount);
-#endif
 		return true;
 	}
 
-#ifdef TRACE_SORT
 	if (trace_sort)
 		elog(LOG,
 			 "numeric_abbrev: cardinality %f"
 			 " after " INT64_FORMAT " values (%d rows)",
 			 abbr_card, nss->input_count, memtupcount);
-#endif
 
 	return false;
 }
@@ -3036,7 +3412,7 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	/*
 	 * Do the divide and return the result
 	 */
-	div_var(&arg1, &arg2, &result, rscale, true);
+	div_var(&arg1, &arg2, &result, rscale, true, true);
 
 	res = make_result_opt_error(&result, have_error);
 
@@ -3125,7 +3501,7 @@ numeric_div_trunc(PG_FUNCTION_ARGS)
 	/*
 	 * Do the divide and return the result
 	 */
-	div_var(&arg1, &arg2, &result, 0, false);
+	div_var(&arg1, &arg2, &result, 0, false, true);
 
 	res = make_numeric_result(&result);
 
@@ -3429,7 +3805,7 @@ numeric_lcm(PG_FUNCTION_ARGS)
 	else
 	{
 		gcd_var(&arg1, &arg2, &result);
-		div_var(&arg1, &result, &result, 0, false);
+		div_var(&arg1, &result, &result, 0, false, true);
 		mul_var(&arg2, &result, &result, arg2.dscale);
 		result.sign = NUMERIC_POS;
 	}
@@ -4296,6 +4672,56 @@ numeric_trim_scale(PG_FUNCTION_ARGS)
 	PG_RETURN_NUMERIC(res);
 }
 
+/*
+ * Return a random numeric value in the range [rmin, rmax].
+ */
+Numeric
+random_numeric(pg_prng_state *state, Numeric rmin, Numeric rmax)
+{
+	NumericVar	rmin_var;
+	NumericVar	rmax_var;
+	NumericVar	result;
+	Numeric		res;
+
+	/* Range bounds must not be NaN/infinity */
+	if (NUMERIC_IS_SPECIAL(rmin))
+	{
+		if (NUMERIC_IS_NAN(rmin))
+			ereport(ERROR,
+					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("lower bound cannot be NaN"));
+		else
+			ereport(ERROR,
+					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("lower bound cannot be infinity"));
+	}
+	if (NUMERIC_IS_SPECIAL(rmax))
+	{
+		if (NUMERIC_IS_NAN(rmax))
+			ereport(ERROR,
+					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("upper bound cannot be NaN"));
+		else
+			ereport(ERROR,
+					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("upper bound cannot be infinity"));
+	}
+
+	/* Return a random value in the range [rmin, rmax] */
+	init_var_from_num(rmin, &rmin_var);
+	init_var_from_num(rmax, &rmax_var);
+
+	init_var(&result);
+
+	random_var(state, &rmin_var, &rmax_var, &result);
+
+	res = make_result(&result);
+
+	free_var(&result);
+
+	return res;
+}
+
 
 /* ----------------------------------------------------------------------
  *
@@ -4504,35 +4930,67 @@ int8_numeric(PG_FUNCTION_ARGS)
 	PG_RETURN_NUMERIC(int64_to_numeric(val));
 }
 
+int64
+numeric_int8_opt_error(Numeric num, bool *have_error)
+{
+	NumericVar	x;
+	int64		result;
+
+	if (have_error)
+		*have_error = false;
+
+	if (NUMERIC_IS_SPECIAL(num))
+	{
+		if (have_error)
+		{
+			*have_error = true;
+			return 0;
+		}
+		else
+		{
+			if (NUMERIC_IS_NAN(num))
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("cannot convert NaN to %s", "bigint")));
+			else
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("cannot convert infinity to %s", "bigint")));
+		}
+	}
+
+	/* Convert to variable format, then convert to int8 */
+	init_var_from_num(num, &x);
+
+	if (!numericvar_to_int64(&x, &result))
+	{
+		if (have_error)
+		{
+			*have_error = true;
+			return 0;
+		}
+		else
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("bigint out of range")));
+		}
+	}
+
+	return result;
+}
 
 Datum
 numeric_int8(PG_FUNCTION_ARGS)
 {
 	Numeric		num = PG_GETARG_NUMERIC(0);
+<<<<<<< HEAD
 	NumericVar	x;
 	int64		result = 0;
+=======
+>>>>>>> REL_18_BETA1_branch
 
-	if (NUMERIC_IS_SPECIAL(num))
-	{
-		if (NUMERIC_IS_NAN(num))
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("cannot convert NaN to %s", "bigint")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("cannot convert infinity to %s", "bigint")));
-	}
-
-	/* Convert to variable format and thence to int8 */
-	init_var_from_num(num, &x);
-
-	if (!numericvar_to_int64(&x, &result))
-		ereport(ERROR,
-				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-				 errmsg("bigint out of range")));
-
-	PG_RETURN_INT64(result);
+	PG_RETURN_INT64(numeric_int8_opt_error(num, NULL));
 }
 
 
@@ -5292,12 +5750,11 @@ numeric_avg_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * Initialize a StringInfo so that we can "receive" it using the standard
+	 * recv-function infrastructure.
 	 */
-	initStringInfo(&buf);
-	appendBinaryStringInfo(&buf,
-						   VARDATA_ANY(sstate), VARSIZE_ANY_EXHDR(sstate));
+	initReadOnlyStringInfo(&buf, VARDATA_ANY(sstate),
+						   VARSIZE_ANY_EXHDR(sstate));
 
 	result = makeNumericAggStateCurrentContext(false);
 
@@ -5324,7 +5781,6 @@ numeric_avg_deserialize(PG_FUNCTION_ARGS)
 	result->nInfcount = pq_getmsgint64(&buf);
 
 	pq_getmsgend(&buf);
-	pfree(buf.data);
 
 	free_var(&tmp_var);
 
@@ -5417,12 +5873,11 @@ numeric_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * Initialize a StringInfo so that we can "receive" it using the standard
+	 * recv-function infrastructure.
 	 */
-	initStringInfo(&buf);
-	appendBinaryStringInfo(&buf,
-						   VARDATA_ANY(sstate), VARSIZE_ANY_EXHDR(sstate));
+	initReadOnlyStringInfo(&buf, VARDATA_ANY(sstate),
+						   VARSIZE_ANY_EXHDR(sstate));
 
 	result = makeNumericAggStateCurrentContext(false);
 
@@ -5453,7 +5908,6 @@ numeric_deserialize(PG_FUNCTION_ARGS)
 	result->nInfcount = pq_getmsgint64(&buf);
 
 	pq_getmsgend(&buf);
-	pfree(buf.data);
 
 	free_var(&tmp_var);
 
@@ -5798,12 +6252,11 @@ numeric_poly_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * Initialize a StringInfo so that we can "receive" it using the standard
+	 * recv-function infrastructure.
 	 */
-	initStringInfo(&buf);
-	appendBinaryStringInfo(&buf,
-						   VARDATA_ANY(sstate), VARSIZE_ANY_EXHDR(sstate));
+	initReadOnlyStringInfo(&buf, VARDATA_ANY(sstate),
+						   VARSIZE_ANY_EXHDR(sstate));
 
 	result = makePolyNumAggStateCurrentContext(false);
 
@@ -5827,7 +6280,6 @@ numeric_poly_deserialize(PG_FUNCTION_ARGS)
 #endif
 
 	pq_getmsgend(&buf);
-	pfree(buf.data);
 
 	free_var(&tmp_var);
 
@@ -5999,12 +6451,11 @@ int8_avg_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * Initialize a StringInfo so that we can "receive" it using the standard
+	 * recv-function infrastructure.
 	 */
-	initStringInfo(&buf);
-	appendBinaryStringInfo(&buf,
-						   VARDATA_ANY(sstate), VARSIZE_ANY_EXHDR(sstate));
+	initReadOnlyStringInfo(&buf, VARDATA_ANY(sstate),
+						   VARSIZE_ANY_EXHDR(sstate));
 
 	result = makePolyNumAggStateCurrentContext(false);
 
@@ -6020,7 +6471,6 @@ int8_avg_deserialize(PG_FUNCTION_ARGS)
 #endif
 
 	pq_getmsgend(&buf);
-	pfree(buf.data);
 
 	free_var(&tmp_var);
 
@@ -6333,7 +6783,7 @@ numeric_stddev_internal(NumericAggState *state,
 		else
 			mul_var(&vN, &vN, &vNminus1, 0);	/* N * N */
 		rscale = select_div_scale(&vsumX2, &vNminus1);
-		div_var(&vsumX2, &vNminus1, &vsumX, rscale, true);	/* variance */
+		div_var(&vsumX2, &vNminus1, &vsumX, rscale, true, true);	/* variance */
 		if (!variance)
 			sqrt_var(&vsumX, &vsumX, rscale);	/* stddev */
 
@@ -7777,7 +8227,7 @@ get_str_from_var_sci(const NumericVar *var, int rscale)
 	init_var(&tmp_var);
 
 	power_ten_int(exponent, &tmp_var);
-	div_var(var, &tmp_var, &tmp_var, rscale, true);
+	div_var(var, &tmp_var, &tmp_var, rscale, true, true);
 	sig_out = get_str_from_var(&tmp_var);
 
 	free_var(&tmp_var);
@@ -8260,7 +8710,7 @@ int64_to_numericvar(int64 val, NumericVar *var)
 	if (val < 0)
 	{
 		var->sign = NUMERIC_NEG;
-		uval = -val;
+		uval = pg_abs_s64(val);
 	}
 	else
 	{
@@ -8817,21 +9267,30 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		int rscale)
 {
 	int			res_ndigits;
+	int			res_ndigitpairs;
 	int			res_sign;
 	int			res_weight;
+	int			pair_offset;
 	int			maxdigits;
-	int		   *dig;
-	int			carry;
-	int			maxdig;
-	int			newdig;
+	int			maxdigitpairs;
+	uint64	   *dig,
+			   *dig_i1_off;
+	uint64		maxdig;
+	uint64		carry;
+	uint64		newdig;
 	int			var1ndigits;
 	int			var2ndigits;
+	int			var1ndigitpairs;
+	int			var2ndigitpairs;
 	NumericDigit *var1digits;
 	NumericDigit *var2digits;
+	uint32		var1digitpair;
+	uint32	   *var2digitpairs;
 	NumericDigit *res_digits;
 	int			i,
 				i1,
-				i2;
+				i2,
+				i2limit;
 
 	/*
 	 * Arrange for var1 to be the shorter of the two numbers.  This improves
@@ -8854,7 +9313,7 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	var1digits = var1->digits;
 	var2digits = var2->digits;
 
-	if (var1ndigits == 0 || var2ndigits == 0)
+	if (var1ndigits == 0)
 	{
 		/* one or both inputs is zero; so is result */
 		zero_numeric_var(result);
@@ -8862,86 +9321,174 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		return;
 	}
 
-	/* Determine result sign and (maximum possible) weight */
+	/*
+	 * If var1 has 1-6 digits and the exact result was requested, delegate to
+	 * mul_var_short() which uses a faster direct multiplication algorithm.
+	 */
+	if (var1ndigits <= 6 && rscale == var1->dscale + var2->dscale)
+	{
+		mul_var_short(var1, var2, result);
+		return;
+	}
+
+	/* Determine result sign */
 	if (var1->sign == var2->sign)
 		res_sign = NUMERIC_POS;
 	else
 		res_sign = NUMERIC_NEG;
-	res_weight = var1->weight + var2->weight + 2;
 
 	/*
-	 * Determine the number of result digits to compute.  If the exact result
-	 * would have more than rscale fractional digits, truncate the computation
-	 * with MUL_GUARD_DIGITS guard digits, i.e., ignore input digits that
-	 * would only contribute to the right of that.  (This will give the exact
+	 * Determine the number of result digits to compute and the (maximum
+	 * possible) result weight.  If the exact result would have more than
+	 * rscale fractional digits, truncate the computation with
+	 * MUL_GUARD_DIGITS guard digits, i.e., ignore input digits that would
+	 * only contribute to the right of that.  (This will give the exact
 	 * rounded-to-rscale answer unless carries out of the ignored positions
 	 * would have propagated through more than MUL_GUARD_DIGITS digits.)
 	 *
 	 * Note: an exact computation could not produce more than var1ndigits +
-	 * var2ndigits digits, but we allocate one extra output digit in case
-	 * rscale-driven rounding produces a carry out of the highest exact digit.
+	 * var2ndigits digits, but we allocate at least one extra output digit in
+	 * case rscale-driven rounding produces a carry out of the highest exact
+	 * digit.
+	 *
+	 * The computation itself is done using base-NBASE^2 arithmetic, so we
+	 * actually process the input digits in pairs, producing a base-NBASE^2
+	 * intermediate result.  This significantly improves performance, since
+	 * schoolbook multiplication is O(N^2) in the number of input digits, and
+	 * working in base NBASE^2 effectively halves "N".
+	 *
+	 * Note: in a truncated computation, we must compute at least one extra
+	 * output digit to ensure that all the guard digits are fully computed.
 	 */
-	res_ndigits = var1ndigits + var2ndigits + 1;
+	/* digit pairs in each input */
+	var1ndigitpairs = (var1ndigits + 1) / 2;
+	var2ndigitpairs = (var2ndigits + 1) / 2;
+
+	/* digits in exact result */
+	res_ndigits = var1ndigits + var2ndigits;
+
+	/* digit pairs in exact result with at least one extra output digit */
+	res_ndigitpairs = res_ndigits / 2 + 1;
+
+	/* pair offset to align result to end of dig[] */
+	pair_offset = res_ndigitpairs - var1ndigitpairs - var2ndigitpairs + 1;
+
+	/* maximum possible result weight (odd-length inputs shifted up below) */
+	res_weight = var1->weight + var2->weight + 1 + 2 * res_ndigitpairs -
+		res_ndigits - (var1ndigits & 1) - (var2ndigits & 1);
+
+	/* rscale-based truncation with at least one extra output digit */
 	maxdigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS +
 		MUL_GUARD_DIGITS;
-	res_ndigits = Min(res_ndigits, maxdigits);
+	maxdigitpairs = maxdigits / 2 + 1;
 
-	if (res_ndigits < 3)
+	res_ndigitpairs = Min(res_ndigitpairs, maxdigitpairs);
+	res_ndigits = 2 * res_ndigitpairs;
+
+	/*
+	 * In the computation below, digit pair i1 of var1 and digit pair i2 of
+	 * var2 are multiplied and added to digit i1+i2+pair_offset of dig[]. Thus
+	 * input digit pairs with index >= res_ndigitpairs - pair_offset don't
+	 * contribute to the result, and can be ignored.
+	 */
+	if (res_ndigitpairs <= pair_offset)
 	{
 		/* All input digits will be ignored; so result is zero */
 		zero_numeric_var(result);
 		result->dscale = rscale;
 		return;
 	}
+	var1ndigitpairs = Min(var1ndigitpairs, res_ndigitpairs - pair_offset);
+	var2ndigitpairs = Min(var2ndigitpairs, res_ndigitpairs - pair_offset);
 
 	/*
-	 * We do the arithmetic in an array "dig[]" of signed int's.  Since
-	 * INT_MAX is noticeably larger than NBASE*NBASE, this gives us headroom
-	 * to avoid normalizing carries immediately.
+	 * We do the arithmetic in an array "dig[]" of unsigned 64-bit integers.
+	 * Since PG_UINT64_MAX is much larger than NBASE^4, this gives us a lot of
+	 * headroom to avoid normalizing carries immediately.
 	 *
 	 * maxdig tracks the maximum possible value of any dig[] entry; when this
-	 * threatens to exceed INT_MAX, we take the time to propagate carries.
-	 * Furthermore, we need to ensure that overflow doesn't occur during the
-	 * carry propagation passes either.  The carry values could be as much as
-	 * INT_MAX/NBASE, so really we must normalize when digits threaten to
-	 * exceed INT_MAX - INT_MAX/NBASE.
+	 * threatens to exceed PG_UINT64_MAX, we take the time to propagate
+	 * carries.  Furthermore, we need to ensure that overflow doesn't occur
+	 * during the carry propagation passes either.  The carry values could be
+	 * as much as PG_UINT64_MAX / NBASE^2, so really we must normalize when
+	 * digits threaten to exceed PG_UINT64_MAX - PG_UINT64_MAX / NBASE^2.
 	 *
-	 * To avoid overflow in maxdig itself, it actually represents the max
-	 * possible value divided by NBASE-1, ie, at the top of the loop it is
-	 * known that no dig[] entry exceeds maxdig * (NBASE-1).
+	 * To avoid overflow in maxdig itself, it actually represents the maximum
+	 * possible value divided by NBASE^2-1, i.e., at the top of the loop it is
+	 * known that no dig[] entry exceeds maxdig * (NBASE^2-1).
+	 *
+	 * The conversion of var1 to base NBASE^2 is done on the fly, as each new
+	 * digit is required.  The digits of var2 are converted upfront, and
+	 * stored at the end of dig[].  To avoid loss of precision, the input
+	 * digits are aligned with the start of digit pair array, effectively
+	 * shifting them up (multiplying by NBASE) if the inputs have an odd
+	 * number of NBASE digits.
 	 */
-	dig = (int *) palloc0(res_ndigits * sizeof(int));
-	maxdig = 0;
+	dig = (uint64 *) palloc(res_ndigitpairs * sizeof(uint64) +
+							var2ndigitpairs * sizeof(uint32));
+
+	/* convert var2 to base NBASE^2, shifting up if its length is odd */
+	var2digitpairs = (uint32 *) (dig + res_ndigitpairs);
+
+	for (i2 = 0; i2 < var2ndigitpairs - 1; i2++)
+		var2digitpairs[i2] = var2digits[2 * i2] * NBASE + var2digits[2 * i2 + 1];
+
+	if (2 * i2 + 1 < var2ndigits)
+		var2digitpairs[i2] = var2digits[2 * i2] * NBASE + var2digits[2 * i2 + 1];
+	else
+		var2digitpairs[i2] = var2digits[2 * i2] * NBASE;
 
 	/*
-	 * The least significant digits of var1 should be ignored if they don't
-	 * contribute directly to the first res_ndigits digits of the result that
-	 * we are computing.
+	 * Start by multiplying var2 by the least significant contributing digit
+	 * pair from var1, storing the results at the end of dig[], and filling
+	 * the leading digits with zeros.
 	 *
-	 * Digit i1 of var1 and digit i2 of var2 are multiplied and added to digit
-	 * i1+i2+2 of the accumulator array, so we need only consider digits of
-	 * var1 for which i1 <= res_ndigits - 3.
+	 * The loop here is the same as the inner loop below, except that we set
+	 * the results in dig[], rather than adding to them.  This is the
+	 * performance bottleneck for multiplication, so we want to keep it simple
+	 * enough so that it can be auto-vectorized.  Accordingly, process the
+	 * digits left-to-right even though schoolbook multiplication would
+	 * suggest right-to-left.  Since we aren't propagating carries in this
+	 * loop, the order does not matter.
 	 */
-	for (i1 = Min(var1ndigits - 1, res_ndigits - 3); i1 >= 0; i1--)
-	{
-		NumericDigit var1digit = var1digits[i1];
+	i1 = var1ndigitpairs - 1;
+	if (2 * i1 + 1 < var1ndigits)
+		var1digitpair = var1digits[2 * i1] * NBASE + var1digits[2 * i1 + 1];
+	else
+		var1digitpair = var1digits[2 * i1] * NBASE;
+	maxdig = var1digitpair;
 
-		if (var1digit == 0)
+	i2limit = Min(var2ndigitpairs, res_ndigitpairs - i1 - pair_offset);
+	dig_i1_off = &dig[i1 + pair_offset];
+
+	memset(dig, 0, (i1 + pair_offset) * sizeof(uint64));
+	for (i2 = 0; i2 < i2limit; i2++)
+		dig_i1_off[i2] = (uint64) var1digitpair * var2digitpairs[i2];
+
+	/*
+	 * Next, multiply var2 by the remaining digit pairs from var1, adding the
+	 * results to dig[] at the appropriate offsets, and normalizing whenever
+	 * there is a risk of any dig[] entry overflowing.
+	 */
+	for (i1 = i1 - 1; i1 >= 0; i1--)
+	{
+		var1digitpair = var1digits[2 * i1] * NBASE + var1digits[2 * i1 + 1];
+		if (var1digitpair == 0)
 			continue;
 
 		/* Time to normalize? */
-		maxdig += var1digit;
-		if (maxdig > (INT_MAX - INT_MAX / NBASE) / (NBASE - 1))
+		maxdig += var1digitpair;
+		if (maxdig > (PG_UINT64_MAX - PG_UINT64_MAX / NBASE_SQR) / (NBASE_SQR - 1))
 		{
-			/* Yes, do it */
+			/* Yes, do it (to base NBASE^2) */
 			carry = 0;
-			for (i = res_ndigits - 1; i >= 0; i--)
+			for (i = res_ndigitpairs - 1; i >= 0; i--)
 			{
 				newdig = dig[i] + carry;
-				if (newdig >= NBASE)
+				if (newdig >= NBASE_SQR)
 				{
-					carry = newdig / NBASE;
-					newdig -= carry * NBASE;
+					carry = newdig / NBASE_SQR;
+					newdig -= carry * NBASE_SQR;
 				}
 				else
 					carry = 0;
@@ -8949,50 +9496,37 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 			}
 			Assert(carry == 0);
 			/* Reset maxdig to indicate new worst-case */
-			maxdig = 1 + var1digit;
+			maxdig = 1 + var1digitpair;
 		}
 
-		/*
-		 * Add the appropriate multiple of var2 into the accumulator.
-		 *
-		 * As above, digits of var2 can be ignored if they don't contribute,
-		 * so we only include digits for which i1+i2+2 < res_ndigits.
-		 *
-		 * This inner loop is the performance bottleneck for multiplication,
-		 * so we want to keep it simple enough so that it can be
-		 * auto-vectorized.  Accordingly, process the digits left-to-right
-		 * even though schoolbook multiplication would suggest right-to-left.
-		 * Since we aren't propagating carries in this loop, the order does
-		 * not matter.
-		 */
-		{
-			int			i2limit = Min(var2ndigits, res_ndigits - i1 - 2);
-			int		   *dig_i1_2 = &dig[i1 + 2];
+		/* Multiply and add */
+		i2limit = Min(var2ndigitpairs, res_ndigitpairs - i1 - pair_offset);
+		dig_i1_off = &dig[i1 + pair_offset];
 
-			for (i2 = 0; i2 < i2limit; i2++)
-				dig_i1_2[i2] += var1digit * var2digits[i2];
-		}
+		for (i2 = 0; i2 < i2limit; i2++)
+			dig_i1_off[i2] += (uint64) var1digitpair * var2digitpairs[i2];
 	}
 
 	/*
-	 * Now we do a final carry propagation pass to normalize the result, which
-	 * we combine with storing the result digits into the output. Note that
-	 * this is still done at full precision w/guard digits.
+	 * Now we do a final carry propagation pass to normalize back to base
+	 * NBASE^2, and construct the base-NBASE result digits.  Note that this is
+	 * still done at full precision w/guard digits.
 	 */
 	alloc_numeric_var(result, res_ndigits);
 	res_digits = result->digits;
 	carry = 0;
-	for (i = res_ndigits - 1; i >= 0; i--)
+	for (i = res_ndigitpairs - 1; i >= 0; i--)
 	{
 		newdig = dig[i] + carry;
-		if (newdig >= NBASE)
+		if (newdig >= NBASE_SQR)
 		{
-			carry = newdig / NBASE;
-			newdig -= carry * NBASE;
+			carry = newdig / NBASE_SQR;
+			newdig -= carry * NBASE_SQR;
 		}
 		else
 			carry = 0;
-		res_digits[i] = newdig;
+		res_digits[2 * i + 1] = (NumericDigit) ((uint32) newdig % NBASE);
+		res_digits[2 * i] = (NumericDigit) ((uint32) newdig / NBASE);
 	}
 	Assert(carry == 0);
 
@@ -9013,34 +9547,326 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 
 
 /*
+ * mul_var_short() -
+ *
+ *	Special-case multiplication function used when var1 has 1-6 digits, var2
+ *	has at least as many digits as var1, and the exact product var1 * var2 is
+ *	requested.
+ */
+static void
+mul_var_short(const NumericVar *var1, const NumericVar *var2,
+			  NumericVar *result)
+{
+	int			var1ndigits = var1->ndigits;
+	int			var2ndigits = var2->ndigits;
+	NumericDigit *var1digits = var1->digits;
+	NumericDigit *var2digits = var2->digits;
+	int			res_sign;
+	int			res_weight;
+	int			res_ndigits;
+	NumericDigit *res_buf;
+	NumericDigit *res_digits;
+	uint32		carry = 0;
+	uint32		term;
+
+	/* Check preconditions */
+	Assert(var1ndigits >= 1);
+	Assert(var1ndigits <= 6);
+	Assert(var2ndigits >= var1ndigits);
+
+	/*
+	 * Determine the result sign, weight, and number of digits to calculate.
+	 * The weight figured here is correct if the product has no leading zero
+	 * digits; otherwise strip_var() will fix things up.  Note that, unlike
+	 * mul_var(), we do not need to allocate an extra output digit, because we
+	 * are not rounding here.
+	 */
+	if (var1->sign == var2->sign)
+		res_sign = NUMERIC_POS;
+	else
+		res_sign = NUMERIC_NEG;
+	res_weight = var1->weight + var2->weight + 1;
+	res_ndigits = var1ndigits + var2ndigits;
+
+	/* Allocate result digit array */
+	res_buf = digitbuf_alloc(res_ndigits + 1);
+	res_buf[0] = 0;				/* spare digit for later rounding */
+	res_digits = res_buf + 1;
+
+	/*
+	 * Compute the result digits in reverse, in one pass, propagating the
+	 * carry up as we go.  The i'th result digit consists of the sum of the
+	 * products var1digits[i1] * var2digits[i2] for which i = i1 + i2 + 1.
+	 */
+#define PRODSUM1(v1,i1,v2,i2) ((v1)[(i1)] * (v2)[(i2)])
+#define PRODSUM2(v1,i1,v2,i2) (PRODSUM1(v1,i1,v2,i2) + (v1)[(i1)+1] * (v2)[(i2)-1])
+#define PRODSUM3(v1,i1,v2,i2) (PRODSUM2(v1,i1,v2,i2) + (v1)[(i1)+2] * (v2)[(i2)-2])
+#define PRODSUM4(v1,i1,v2,i2) (PRODSUM3(v1,i1,v2,i2) + (v1)[(i1)+3] * (v2)[(i2)-3])
+#define PRODSUM5(v1,i1,v2,i2) (PRODSUM4(v1,i1,v2,i2) + (v1)[(i1)+4] * (v2)[(i2)-4])
+#define PRODSUM6(v1,i1,v2,i2) (PRODSUM5(v1,i1,v2,i2) + (v1)[(i1)+5] * (v2)[(i2)-5])
+
+	switch (var1ndigits)
+	{
+		case 1:
+			/* ---------
+			 * 1-digit case:
+			 *		var1ndigits = 1
+			 *		var2ndigits >= 1
+			 *		res_ndigits = var2ndigits + 1
+			 * ----------
+			 */
+			for (int i = var2ndigits - 1; i >= 0; i--)
+			{
+				term = PRODSUM1(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			res_digits[0] = (NumericDigit) carry;
+			break;
+
+		case 2:
+			/* ---------
+			 * 2-digit case:
+			 *		var1ndigits = 2
+			 *		var2ndigits >= 2
+			 *		res_ndigits = var2ndigits + 2
+			 * ----------
+			 */
+			/* last result digit and carry */
+			term = PRODSUM1(var1digits, 1, var2digits, var2ndigits - 1);
+			res_digits[res_ndigits - 1] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			/* remaining digits, except for the first two */
+			for (int i = var2ndigits - 1; i >= 1; i--)
+			{
+				term = PRODSUM2(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			break;
+
+		case 3:
+			/* ---------
+			 * 3-digit case:
+			 *		var1ndigits = 3
+			 *		var2ndigits >= 3
+			 *		res_ndigits = var2ndigits + 3
+			 * ----------
+			 */
+			/* last two result digits */
+			term = PRODSUM1(var1digits, 2, var2digits, var2ndigits - 1);
+			res_digits[res_ndigits - 1] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM2(var1digits, 1, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 2] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			/* remaining digits, except for the first three */
+			for (int i = var2ndigits - 1; i >= 2; i--)
+			{
+				term = PRODSUM3(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			break;
+
+		case 4:
+			/* ---------
+			 * 4-digit case:
+			 *		var1ndigits = 4
+			 *		var2ndigits >= 4
+			 *		res_ndigits = var2ndigits + 4
+			 * ----------
+			 */
+			/* last three result digits */
+			term = PRODSUM1(var1digits, 3, var2digits, var2ndigits - 1);
+			res_digits[res_ndigits - 1] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM2(var1digits, 2, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 2] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM3(var1digits, 1, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 3] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			/* remaining digits, except for the first four */
+			for (int i = var2ndigits - 1; i >= 3; i--)
+			{
+				term = PRODSUM4(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			break;
+
+		case 5:
+			/* ---------
+			 * 5-digit case:
+			 *		var1ndigits = 5
+			 *		var2ndigits >= 5
+			 *		res_ndigits = var2ndigits + 5
+			 * ----------
+			 */
+			/* last four result digits */
+			term = PRODSUM1(var1digits, 4, var2digits, var2ndigits - 1);
+			res_digits[res_ndigits - 1] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM2(var1digits, 3, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 2] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM3(var1digits, 2, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 3] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM4(var1digits, 1, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 4] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			/* remaining digits, except for the first five */
+			for (int i = var2ndigits - 1; i >= 4; i--)
+			{
+				term = PRODSUM5(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			break;
+
+		case 6:
+			/* ---------
+			 * 6-digit case:
+			 *		var1ndigits = 6
+			 *		var2ndigits >= 6
+			 *		res_ndigits = var2ndigits + 6
+			 * ----------
+			 */
+			/* last five result digits */
+			term = PRODSUM1(var1digits, 5, var2digits, var2ndigits - 1);
+			res_digits[res_ndigits - 1] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM2(var1digits, 4, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 2] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM3(var1digits, 3, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 3] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM4(var1digits, 2, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 4] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			term = PRODSUM5(var1digits, 1, var2digits, var2ndigits - 1) + carry;
+			res_digits[res_ndigits - 5] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+
+			/* remaining digits, except for the first six */
+			for (int i = var2ndigits - 1; i >= 5; i--)
+			{
+				term = PRODSUM6(var1digits, 0, var2digits, i) + carry;
+				res_digits[i + 1] = (NumericDigit) (term % NBASE);
+				carry = term / NBASE;
+			}
+			break;
+	}
+
+	/*
+	 * Finally, for var1ndigits > 1, compute the remaining var1ndigits most
+	 * significant result digits.
+	 */
+	switch (var1ndigits)
+	{
+		case 6:
+			term = PRODSUM5(var1digits, 0, var2digits, 4) + carry;
+			res_digits[5] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+			/* FALLTHROUGH */
+		case 5:
+			term = PRODSUM4(var1digits, 0, var2digits, 3) + carry;
+			res_digits[4] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+			/* FALLTHROUGH */
+		case 4:
+			term = PRODSUM3(var1digits, 0, var2digits, 2) + carry;
+			res_digits[3] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+			/* FALLTHROUGH */
+		case 3:
+			term = PRODSUM2(var1digits, 0, var2digits, 1) + carry;
+			res_digits[2] = (NumericDigit) (term % NBASE);
+			carry = term / NBASE;
+			/* FALLTHROUGH */
+		case 2:
+			term = PRODSUM1(var1digits, 0, var2digits, 0) + carry;
+			res_digits[1] = (NumericDigit) (term % NBASE);
+			res_digits[0] = (NumericDigit) (term / NBASE);
+			break;
+	}
+
+	/* Store the product in result */
+	digitbuf_free(result->buf);
+	result->ndigits = res_ndigits;
+	result->buf = res_buf;
+	result->digits = res_digits;
+	result->weight = res_weight;
+	result->sign = res_sign;
+	result->dscale = var1->dscale + var2->dscale;
+
+	/* Strip leading and trailing zeroes */
+	strip_var(result);
+}
+
+
+/*
  * div_var() -
  *
- *	Division on variable level. Quotient of var1 / var2 is stored in result.
- *	The quotient is figured to exactly rscale fractional digits.
- *	If round is true, it is rounded at the rscale'th digit; if false, it
- *	is truncated (towards zero) at that digit.
+ *	Compute the quotient var1 / var2 to rscale fractional digits.
+ *
+ *	If "round" is true, the result is rounded at the rscale'th digit; if
+ *	false, it is truncated (towards zero) at that digit.
+ *
+ *	If "exact" is true, the exact result is computed to the specified rscale;
+ *	if false, successive quotient digits are approximated up to rscale plus
+ *	DIV_GUARD_DIGITS extra digits, ignoring all contributions from digits to
+ *	the right of that, before rounding or truncating to the specified rscale.
+ *	This can be significantly faster, and usually gives the same result as the
+ *	exact computation, but it may occasionally be off by one in the final
+ *	digit, if contributions from the ignored digits would have propagated
+ *	through the guard digits.  This is good enough for the transcendental
+ *	functions, where small errors are acceptable.
  */
 static void
 div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
-		int rscale, bool round)
+		int rscale, bool round, bool exact)
 {
-	int			div_ndigits;
-	int			res_ndigits;
-	int			res_sign;
-	int			res_weight;
-	int			carry;
-	int			borrow;
-	int			divisor1;
-	int			divisor2;
-	NumericDigit *dividend;
-	NumericDigit *divisor;
-	NumericDigit *res_digits;
-	int			i;
-	int			j;
-
-	/* copy these values into local vars for speed in inner loop */
 	int			var1ndigits = var1->ndigits;
 	int			var2ndigits = var2->ndigits;
+	int			res_sign;
+	int			res_weight;
+	int			res_ndigits;
+	int			var1ndigitpairs;
+	int			var2ndigitpairs;
+	int			res_ndigitpairs;
+	int			div_ndigitpairs;
+	int64	   *dividend;
+	int32	   *divisor;
+	double		fdivisor,
+				fdivisorinverse,
+				fdividend,
+				fquotient;
+	int64		maxdiv;
+	int			qi;
+	int32		qdigit;
+	int64		carry;
+	int64		newdig;
+	int64	   *remainder;
+	NumericDigit *res_digits;
+	int			i;
 
 	/*
 	 * First of all division by zero check; we must not be handed an
@@ -9110,6 +9936,22 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	}
 
 	/*
+	 * The approximate computation can be significantly faster than the exact
+	 * one, since the working dividend is var2ndigitpairs base-NBASE^2 digits
+	 * shorter below.  However, that comes with the tradeoff of computing
+	 * DIV_GUARD_DIGITS extra base-NBASE result digits.  Ignoring all other
+	 * overheads, that suggests that, in theory, the approximate computation
+	 * will only be faster than the exact one when var2ndigits is greater than
+	 * 2 * (DIV_GUARD_DIGITS + 1), independent of the size of var1.
+	 *
+	 * Thus, we're better off doing an exact computation when var2 is shorter
+	 * than this.  Empirically, it has been found that the exact threshold is
+	 * a little higher, due to other overheads in the outer division loop.
+	 */
+	if (var2ndigits <= 2 * (DIV_GUARD_DIGITS + 2))
+		exact = true;
+
+	/*
 	 * Determine the result sign, weight and number of digits to calculate.
 	 * The weight figured here is correct if the emitted quotient has no
 	 * leading zero digits; otherwise strip_var() will fix things up.
@@ -9118,7 +9960,7 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		res_sign = NUMERIC_POS;
 	else
 		res_sign = NUMERIC_NEG;
-	res_weight = var1->weight - var2->weight;
+	res_weight = var1->weight - var2->weight + 1;
 	/* The number of accurate result digits we need to produce: */
 	res_ndigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
 	/* ... but always at least 1 */
@@ -9126,18 +9968,24 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	/* If rounding needed, figure one more digit to ensure correct result */
 	if (round)
 		res_ndigits++;
+	/* Add guard digits for roundoff error when producing approx result */
+	if (!exact)
+		res_ndigits += DIV_GUARD_DIGITS;
 
 	/*
-	 * The working dividend normally requires res_ndigits + var2ndigits
-	 * digits, but make it at least var1ndigits so we can load all of var1
-	 * into it.  (There will be an additional digit dividend[0] in the
-	 * dividend space, but for consistency with Knuth's notation we don't
-	 * count that in div_ndigits.)
+	 * The computation itself is done using base-NBASE^2 arithmetic, so we
+	 * actually process the input digits in pairs, producing a base-NBASE^2
+	 * intermediate result.  This significantly improves performance, since
+	 * the computation is O(N^2) in the number of input digits, and working in
+	 * base NBASE^2 effectively halves "N".
 	 */
-	div_ndigits = res_ndigits + var2ndigits;
-	div_ndigits = Max(div_ndigits, var1ndigits);
+	var1ndigitpairs = (var1ndigits + 1) / 2;
+	var2ndigitpairs = (var2ndigits + 1) / 2;
+	res_ndigitpairs = (res_ndigits + 1) / 2;
+	res_ndigits = 2 * res_ndigitpairs;
 
 	/*
+<<<<<<< HEAD
 	 * We need a workspace with room for the working dividend (div_ndigits+1
 	 * digits) plus room for the possibly-normalized divisor (var2ndigits
 	 * digits).  It is convenient also to have a zero at divisor[0] with the
@@ -9162,134 +10010,378 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	/*
 	 * The full multiple-place algorithm is taken from Knuth volume 2,
 	 * Algorithm 4.3.1D.
+=======
+	 * We do the arithmetic in an array "dividend[]" of signed 64-bit
+	 * integers.  Since PG_INT64_MAX is much larger than NBASE^4, this gives
+	 * us a lot of headroom to avoid normalizing carries immediately.
+>>>>>>> REL_18_BETA1_branch
 	 *
-	 * We need the first divisor digit to be >= NBASE/2.  If it isn't, make it
-	 * so by scaling up both the divisor and dividend by the factor "d".  (The
-	 * reason for allocating dividend[0] above is to leave room for possible
-	 * carry here.)
+	 * When performing an exact computation, the working dividend requires
+	 * res_ndigitpairs + var2ndigitpairs digits.  If var1 is larger than that,
+	 * the extra digits do not contribute to the result, and are ignored.
+	 *
+	 * When performing an approximate computation, the working dividend only
+	 * requires res_ndigitpairs digits (which includes the extra guard
+	 * digits).  All input digits beyond that are ignored.
 	 */
-	if (divisor[1] < HALF_NBASE)
+	if (exact)
 	{
-		int			d = NBASE / (divisor[1] + 1);
-
-		carry = 0;
-		for (i = var2ndigits; i > 0; i--)
-		{
-			carry += divisor[i] * d;
-			divisor[i] = carry % NBASE;
-			carry = carry / NBASE;
-		}
-		Assert(carry == 0);
-		carry = 0;
-		/* at this point only var1ndigits of dividend can be nonzero */
-		for (i = var1ndigits; i >= 0; i--)
-		{
-			carry += dividend[i] * d;
-			dividend[i] = carry % NBASE;
-			carry = carry / NBASE;
-		}
-		Assert(carry == 0);
-		Assert(divisor[1] >= HALF_NBASE);
+		div_ndigitpairs = res_ndigitpairs + var2ndigitpairs;
+		var1ndigitpairs = Min(var1ndigitpairs, div_ndigitpairs);
 	}
-	/* First 2 divisor digits are used repeatedly in main loop */
-	divisor1 = divisor[1];
-	divisor2 = divisor[2];
+	else
+	{
+		div_ndigitpairs = res_ndigitpairs;
+		var1ndigitpairs = Min(var1ndigitpairs, div_ndigitpairs);
+		var2ndigitpairs = Min(var2ndigitpairs, div_ndigitpairs);
+	}
 
 	/*
-	 * Begin the main loop.  Each iteration of this loop produces the j'th
-	 * quotient digit by dividing dividend[j .. j + var2ndigits] by the
-	 * divisor; this is essentially the same as the common manual procedure
-	 * for long division.
+	 * Allocate room for the working dividend (div_ndigitpairs 64-bit digits)
+	 * plus the divisor (var2ndigitpairs 32-bit base-NBASE^2 digits).
+	 *
+	 * For convenience, we allocate one extra dividend digit, which is set to
+	 * zero and not counted in div_ndigitpairs, so that the main loop below
+	 * can safely read and write the (qi+1)'th digit in the approximate case.
 	 */
-	for (j = 0; j < res_ndigits; j++)
+	dividend = (int64 *) palloc((div_ndigitpairs + 1) * sizeof(int64) +
+								var2ndigitpairs * sizeof(int32));
+	divisor = (int32 *) (dividend + div_ndigitpairs + 1);
+
+	/* load var1 into dividend[0 .. var1ndigitpairs-1], zeroing the rest */
+	for (i = 0; i < var1ndigitpairs - 1; i++)
+		dividend[i] = var1->digits[2 * i] * NBASE + var1->digits[2 * i + 1];
+
+	if (2 * i + 1 < var1ndigits)
+		dividend[i] = var1->digits[2 * i] * NBASE + var1->digits[2 * i + 1];
+	else
+		dividend[i] = var1->digits[2 * i] * NBASE;
+
+	memset(dividend + i + 1, 0, (div_ndigitpairs - i) * sizeof(int64));
+
+	/* load var2 into divisor[0 .. var2ndigitpairs-1] */
+	for (i = 0; i < var2ndigitpairs - 1; i++)
+		divisor[i] = var2->digits[2 * i] * NBASE + var2->digits[2 * i + 1];
+
+	if (2 * i + 1 < var2ndigits)
+		divisor[i] = var2->digits[2 * i] * NBASE + var2->digits[2 * i + 1];
+	else
+		divisor[i] = var2->digits[2 * i] * NBASE;
+
+	/*
+	 * We estimate each quotient digit using floating-point arithmetic, taking
+	 * the first 2 base-NBASE^2 digits of the (current) dividend and divisor.
+	 * This must be float to avoid overflow.
+	 *
+	 * Since the floating-point dividend and divisor use 4 base-NBASE input
+	 * digits, they include roughly 40-53 bits of information from their
+	 * respective inputs (assuming NBASE is 10000), which fits well in IEEE
+	 * double-precision variables.  The relative error in the floating-point
+	 * quotient digit will then be less than around 2/NBASE^3, so the
+	 * estimated base-NBASE^2 quotient digit will typically be correct, and
+	 * should not be off by more than one from the correct value.
+	 */
+	fdivisor = (double) divisor[0] * NBASE_SQR;
+	if (var2ndigitpairs > 1)
+		fdivisor += (double) divisor[1];
+	fdivisorinverse = 1.0 / fdivisor;
+
+	/*
+	 * maxdiv tracks the maximum possible absolute value of any dividend[]
+	 * entry; when this threatens to exceed PG_INT64_MAX, we take the time to
+	 * propagate carries.  Furthermore, we need to ensure that overflow
+	 * doesn't occur during the carry propagation passes either.  The carry
+	 * values may have an absolute value as high as PG_INT64_MAX/NBASE^2 + 1,
+	 * so really we must normalize when digits threaten to exceed PG_INT64_MAX
+	 * - PG_INT64_MAX/NBASE^2 - 1.
+	 *
+	 * To avoid overflow in maxdiv itself, it represents the max absolute
+	 * value divided by NBASE^2-1, i.e., at the top of the loop it is known
+	 * that no dividend[] entry has an absolute value exceeding maxdiv *
+	 * (NBASE^2-1).
+	 *
+	 * Actually, though, that holds good only for dividend[] entries after
+	 * dividend[qi]; the adjustment done at the bottom of the loop may cause
+	 * dividend[qi + 1] to exceed the maxdiv limit, so that dividend[qi] in
+	 * the next iteration is beyond the limit.  This does not cause problems,
+	 * as explained below.
+	 */
+	maxdiv = 1;
+
+	/*
+	 * Outer loop computes next quotient digit, which goes in dividend[qi].
+	 */
+	for (qi = 0; qi < res_ndigitpairs; qi++)
 	{
-		/* Estimate quotient digit from the first two dividend digits */
-		int			next2digits = dividend[j] * NBASE + dividend[j + 1];
-		int			qhat;
+		/* Approximate the current dividend value */
+		fdividend = (double) dividend[qi] * NBASE_SQR;
+		fdividend += (double) dividend[qi + 1];
 
-		/*
-		 * If next2digits are 0, then quotient digit must be 0 and there's no
-		 * need to adjust the working dividend.  It's worth testing here to
-		 * fall out ASAP when processing trailing zeroes in a dividend.
-		 */
-		if (next2digits == 0)
+		/* Compute the (approximate) quotient digit */
+		fquotient = fdividend * fdivisorinverse;
+		qdigit = (fquotient >= 0.0) ? ((int32) fquotient) :
+			(((int32) fquotient) - 1);	/* truncate towards -infinity */
+
+		if (qdigit != 0)
 		{
-			res_digits[j] = 0;
-			continue;
-		}
-
-		if (dividend[j] == divisor1)
-			qhat = NBASE - 1;
-		else
-			qhat = next2digits / divisor1;
-
-		/*
-		 * Adjust quotient digit if it's too large.  Knuth proves that after
-		 * this step, the quotient digit will be either correct or just one
-		 * too large.  (Note: it's OK to use dividend[j+2] here because we
-		 * know the divisor length is at least 2.)
-		 */
-		while (divisor2 * qhat >
-			   (next2digits - qhat * divisor1) * NBASE + dividend[j + 2])
-			qhat--;
-
-		/* As above, need do nothing more when quotient digit is 0 */
-		if (qhat > 0)
-		{
-			NumericDigit *dividend_j = &dividend[j];
-
-			/*
-			 * Multiply the divisor by qhat, and subtract that from the
-			 * working dividend.  The multiplication and subtraction are
-			 * folded together here, noting that qhat <= NBASE (since it might
-			 * be one too large), and so the intermediate result "tmp_result"
-			 * is in the range [-NBASE^2, NBASE - 1], and "borrow" is in the
-			 * range [0, NBASE].
-			 */
-			borrow = 0;
-			for (i = var2ndigits; i >= 0; i--)
+			/* Do we need to normalize now? */
+			maxdiv += i64abs(qdigit);
+			if (maxdiv > (PG_INT64_MAX - PG_INT64_MAX / NBASE_SQR - 1) / (NBASE_SQR - 1))
 			{
-				int			tmp_result;
+				/*
+				 * Yes, do it.  Note that if var2ndigitpairs is much smaller
+				 * than div_ndigitpairs, we can save a significant amount of
+				 * effort here by noting that we only need to normalise those
+				 * dividend[] entries touched where prior iterations
+				 * subtracted multiples of the divisor.
+				 */
+				carry = 0;
+				for (i = Min(qi + var2ndigitpairs - 2, div_ndigitpairs - 1); i > qi; i--)
+				{
+					newdig = dividend[i] + carry;
+					if (newdig < 0)
+					{
+						carry = -((-newdig - 1) / NBASE_SQR) - 1;
+						newdig -= carry * NBASE_SQR;
+					}
+					else if (newdig >= NBASE_SQR)
+					{
+						carry = newdig / NBASE_SQR;
+						newdig -= carry * NBASE_SQR;
+					}
+					else
+						carry = 0;
+					dividend[i] = newdig;
+				}
+				dividend[qi] += carry;
 
-				tmp_result = dividend_j[i] - borrow - divisor[i] * qhat;
-				borrow = (NBASE - 1 - tmp_result) / NBASE;
-				dividend_j[i] = tmp_result + borrow * NBASE;
+				/*
+				 * All the dividend[] digits except possibly dividend[qi] are
+				 * now in the range 0..NBASE^2-1.  We do not need to consider
+				 * dividend[qi] in the maxdiv value anymore, so we can reset
+				 * maxdiv to 1.
+				 */
+				maxdiv = 1;
+
+				/*
+				 * Recompute the quotient digit since new info may have
+				 * propagated into the top two dividend digits.
+				 */
+				fdividend = (double) dividend[qi] * NBASE_SQR;
+				fdividend += (double) dividend[qi + 1];
+				fquotient = fdividend * fdivisorinverse;
+				qdigit = (fquotient >= 0.0) ? ((int32) fquotient) :
+					(((int32) fquotient) - 1);	/* truncate towards -infinity */
+
+				maxdiv += i64abs(qdigit);
 			}
 
 			/*
-			 * If we got a borrow out of the top dividend digit, then indeed
-			 * qhat was one too large.  Fix it, and add back the divisor to
-			 * correct the working dividend.  (Knuth proves that this will
-			 * occur only about 3/NBASE of the time; hence, it's a good idea
-			 * to test this code with small NBASE to be sure this section gets
-			 * exercised.)
+			 * Subtract off the appropriate multiple of the divisor.
+			 *
+			 * The digits beyond dividend[qi] cannot overflow, because we know
+			 * they will fall within the maxdiv limit.  As for dividend[qi]
+			 * itself, note that qdigit is approximately trunc(dividend[qi] /
+			 * divisor[0]), which would make the new value simply dividend[qi]
+			 * mod divisor[0].  The lower-order terms in qdigit can change
+			 * this result by not more than about twice PG_INT64_MAX/NBASE^2,
+			 * so overflow is impossible.
+			 *
+			 * This inner loop is the performance bottleneck for division, so
+			 * code it in the same way as the inner loop of mul_var() so that
+			 * it can be auto-vectorized.
 			 */
-			if (borrow)
+			if (qdigit != 0)
 			{
-				qhat--;
+				int			istop = Min(var2ndigitpairs, div_ndigitpairs - qi);
+				int64	   *dividend_qi = &dividend[qi];
+
+				for (i = 0; i < istop; i++)
+					dividend_qi[i] -= (int64) qdigit * divisor[i];
+			}
+		}
+
+		/*
+		 * The dividend digit we are about to replace might still be nonzero.
+		 * Fold it into the next digit position.
+		 *
+		 * There is no risk of overflow here, although proving that requires
+		 * some care.  Much as with the argument for dividend[qi] not
+		 * overflowing, if we consider the first two terms in the numerator
+		 * and denominator of qdigit, we can see that the final value of
+		 * dividend[qi + 1] will be approximately a remainder mod
+		 * (divisor[0]*NBASE^2 + divisor[1]).  Accounting for the lower-order
+		 * terms is a bit complicated but ends up adding not much more than
+		 * PG_INT64_MAX/NBASE^2 to the possible range.  Thus, dividend[qi + 1]
+		 * cannot overflow here, and in its role as dividend[qi] in the next
+		 * loop iteration, it can't be large enough to cause overflow in the
+		 * carry propagation step (if any), either.
+		 *
+		 * But having said that: dividend[qi] can be more than
+		 * PG_INT64_MAX/NBASE^2, as noted above, which means that the product
+		 * dividend[qi] * NBASE^2 *can* overflow.  When that happens, adding
+		 * it to dividend[qi + 1] will always cause a canceling overflow so
+		 * that the end result is correct.  We could avoid the intermediate
+		 * overflow by doing the multiplication and addition using unsigned
+		 * int64 arithmetic, which is modulo 2^64, but so far there appears no
+		 * need.
+		 */
+		dividend[qi + 1] += dividend[qi] * NBASE_SQR;
+
+		dividend[qi] = qdigit;
+	}
+
+	/*
+	 * If an exact result was requested, use the remainder to correct the
+	 * approximate quotient.  The remainder is in dividend[], immediately
+	 * after the quotient digits.  Note, however, that although the remainder
+	 * starts at dividend[qi = res_ndigitpairs], the first digit is the result
+	 * of folding two remainder digits into one above, and the remainder
+	 * currently only occupies var2ndigitpairs - 1 digits (the last digit of
+	 * the working dividend was untouched by the computation above).  Thus we
+	 * expand the remainder down by one base-NBASE^2 digit when we normalize
+	 * it, so that it completely fills the last var2ndigitpairs digits of the
+	 * dividend array.
+	 */
+	if (exact)
+	{
+		/* Normalize the remainder, expanding it down by one digit */
+		remainder = &dividend[qi];
+		carry = 0;
+		for (i = var2ndigitpairs - 2; i >= 0; i--)
+		{
+			newdig = remainder[i] + carry;
+			if (newdig < 0)
+			{
+				carry = -((-newdig - 1) / NBASE_SQR) - 1;
+				newdig -= carry * NBASE_SQR;
+			}
+			else if (newdig >= NBASE_SQR)
+			{
+				carry = newdig / NBASE_SQR;
+				newdig -= carry * NBASE_SQR;
+			}
+			else
 				carry = 0;
-				for (i = var2ndigits; i >= 0; i--)
+			remainder[i + 1] = newdig;
+		}
+		remainder[0] = carry;
+
+		if (remainder[0] < 0)
+		{
+			/*
+			 * The remainder is negative, so the approximate quotient is too
+			 * large.  Correct by reducing the quotient by one and adding the
+			 * divisor to the remainder until the remainder is positive.  We
+			 * expect the quotient to be off by at most one, which has been
+			 * borne out in all testing, but not conclusively proven, so we
+			 * allow for larger corrections, just in case.
+			 */
+			do
+			{
+				/* Add the divisor to the remainder */
+				carry = 0;
+				for (i = var2ndigitpairs - 1; i > 0; i--)
 				{
-					carry += dividend_j[i] + divisor[i];
-					if (carry >= NBASE)
+					newdig = remainder[i] + divisor[i] + carry;
+					if (newdig >= NBASE_SQR)
 					{
-						dividend_j[i] = carry - NBASE;
+						remainder[i] = newdig - NBASE_SQR;
 						carry = 1;
 					}
 					else
 					{
-						dividend_j[i] = carry;
+						remainder[i] = newdig;
 						carry = 0;
 					}
 				}
-				/* A carry should occur here to cancel the borrow above */
-				Assert(carry == 1);
+				remainder[0] += divisor[0] + carry;
+
+				/* Subtract 1 from the quotient (propagating carries later) */
+				dividend[qi - 1]--;
+
+			} while (remainder[0] < 0);
+		}
+		else
+		{
+			/*
+			 * The remainder is nonnegative.  If it's greater than or equal to
+			 * the divisor, then the approximate quotient is too small and
+			 * must be corrected.  As above, we don't expect to have to apply
+			 * more than one correction, but allow for it just in case.
+			 */
+			while (true)
+			{
+				bool		less = false;
+
+				/* Is remainder < divisor? */
+				for (i = 0; i < var2ndigitpairs; i++)
+				{
+					if (remainder[i] < divisor[i])
+					{
+						less = true;
+						break;
+					}
+					if (remainder[i] > divisor[i])
+						break;	/* remainder > divisor */
+				}
+				if (less)
+					break;		/* quotient is correct */
+
+				/* Subtract the divisor from the remainder */
+				carry = 0;
+				for (i = var2ndigitpairs - 1; i > 0; i--)
+				{
+					newdig = remainder[i] - divisor[i] + carry;
+					if (newdig < 0)
+					{
+						remainder[i] = newdig + NBASE_SQR;
+						carry = -1;
+					}
+					else
+					{
+						remainder[i] = newdig;
+						carry = 0;
+					}
+				}
+				remainder[0] = remainder[0] - divisor[0] + carry;
+
+				/* Add 1 to the quotient (propagating carries later) */
+				dividend[qi - 1]++;
 			}
 		}
-
-		/* And we're done with this quotient digit */
-		res_digits[j] = qhat;
 	}
+
+	/*
+	 * Because the quotient digits were estimates that might have been off by
+	 * one (and we didn't bother propagating carries when adjusting the
+	 * quotient above), some quotient digits might be out of range, so do a
+	 * final carry propagation pass to normalize back to base NBASE^2, and
+	 * construct the base-NBASE result digits.  Note that this is still done
+	 * at full precision w/guard digits.
+	 */
+	alloc_var(result, res_ndigits);
+	res_digits = result->digits;
+	carry = 0;
+	for (i = res_ndigitpairs - 1; i >= 0; i--)
+	{
+		newdig = dividend[i] + carry;
+		if (newdig < 0)
+		{
+			carry = -((-newdig - 1) / NBASE_SQR) - 1;
+			newdig -= carry * NBASE_SQR;
+		}
+		else if (newdig >= NBASE_SQR)
+		{
+			carry = newdig / NBASE_SQR;
+			newdig -= carry * NBASE_SQR;
+		}
+		else
+			carry = 0;
+		res_digits[2 * i + 1] = (NumericDigit) ((uint32) newdig % NBASE);
+		res_digits[2 * i] = (NumericDigit) ((uint32) newdig / NBASE);
+	}
+	Assert(carry == 0);
 
 	pfree(dividend);
 
@@ -9311,6 +10403,7 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 
 
 /*
+<<<<<<< HEAD
  * div_var_fast() -
  *
  *	This has the same API as div_var, but is implemented using the division
@@ -9698,6 +10791,8 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 
 
 /*
+=======
+>>>>>>> REL_18_BETA1_branch
  * div_var_int() -
  *
  *	Divide a numeric variable by a 32-bit integer with the specified weight.
@@ -10013,7 +11108,7 @@ mod_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	 * div_var can be persuaded to give us trunc(x/y) directly.
 	 * ----------
 	 */
-	div_var(var1, var2, &tmp, 0, false);
+	div_var(var1, var2, &tmp, 0, false, true);
 
 	mul_var(var2, &tmp, &tmp, var2->dscale);
 
@@ -10040,11 +11135,11 @@ div_mod_var(const NumericVar *var1, const NumericVar *var2,
 	init_var(&r);
 
 	/*
-	 * Use div_var_fast() to get an initial estimate for the integer quotient.
-	 * This might be inaccurate (per the warning in div_var_fast's comments),
-	 * but we can correct it below.
+	 * Use div_var() with exact = false to get an initial estimate for the
+	 * integer quotient (truncated towards zero).  This might be slightly
+	 * inaccurate, but we correct it below.
 	 */
-	div_var_fast(var1, var2, &q, 0, false);
+	div_var(var1, var2, &q, 0, false, false);
 
 	/* Compute initial estimate of remainder using the quotient estimate. */
 	mul_var(var2, &q, &r, var2->dscale);
@@ -10985,7 +12080,7 @@ ln_var(const NumericVar *arg, NumericVar *result, int rscale)
 
 	sub_var(&x, &const_one, result);
 	add_var(&x, &const_one, &elem);
-	div_var_fast(result, &elem, result, local_rscale, true);
+	div_var(result, &elem, result, local_rscale, true, false);
 	set_var_from_var(result, &xx);
 	mul_var(result, result, &x, local_rscale);
 
@@ -11069,7 +12164,7 @@ log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
 	ln_var(num, &ln_num, ln_num_rscale);
 
 	/* Divide and round to the required scale */
-	div_var_fast(&ln_num, &ln_base, result, rscale, true);
+	div_var(&ln_num, &ln_base, result, rscale, true, false);
 
 	free_var(&ln_num);
 	free_var(&ln_base);
@@ -11181,7 +12276,8 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 	/*
 	 * Set the scale for the low-precision calculation, computing ln(base) to
 	 * around 8 significant digits.  Note that ln_dweight may be as small as
-	 * -SHRT_MAX, so the scale may exceed NUMERIC_MAX_DISPLAY_SCALE here.
+	 * -NUMERIC_DSCALE_MAX, so the scale may exceed NUMERIC_MAX_DISPLAY_SCALE
+	 * here.
 	 */
 	local_rscale = 8 - ln_dweight;
 	local_rscale = Max(local_rscale, NUMERIC_MIN_DISPLAY_SCALE);
@@ -11330,7 +12426,7 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 			round_var(result, rscale);
 			return;
 		case -1:
-			div_var(&const_one, base, result, rscale, true);
+			div_var(&const_one, base, result, rscale, true, true);
 			return;
 		case 2:
 			mul_var(base, base, result, rscale);
@@ -11378,7 +12474,7 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	 * Now we can proceed with the multiplications.
 	 */
 	neg = (exp < 0);
-	mask = abs(exp);
+	mask = pg_abs_s32(exp);
 
 	init_var(&base_prod);
 	set_var_from_var(base, &base_prod);
@@ -11438,7 +12534,7 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 
 	/* Compensate for input sign, and round to requested rscale */
 	if (neg)
-		div_var_fast(&const_one, result, result, rscale, true);
+		div_var(&const_one, result, result, rscale, true, false);
 	else
 		round_var(result, rscale);
 }
@@ -11469,6 +12565,173 @@ power_ten_int(int exp, NumericVar *result)
 	/* Final adjustment of the result's single NBASE digit */
 	while (exp-- > 0)
 		result->digits[0] *= 10;
+}
+
+/*
+ * random_var() - return a random value in the range [rmin, rmax].
+ */
+static void
+random_var(pg_prng_state *state, const NumericVar *rmin,
+		   const NumericVar *rmax, NumericVar *result)
+{
+	int			rscale;
+	NumericVar	rlen;
+	int			res_ndigits;
+	int			n;
+	int			pow10;
+	int			i;
+	uint64		rlen64;
+	int			rlen64_ndigits;
+
+	rscale = Max(rmin->dscale, rmax->dscale);
+
+	/* Compute rlen = rmax - rmin and check the range bounds */
+	init_var(&rlen);
+	sub_var(rmax, rmin, &rlen);
+
+	if (rlen.sign == NUMERIC_NEG)
+		ereport(ERROR,
+				errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				errmsg("lower bound must be less than or equal to upper bound"));
+
+	/* Special case for an empty range */
+	if (rlen.ndigits == 0)
+	{
+		set_var_from_var(rmin, result);
+		result->dscale = rscale;
+		free_var(&rlen);
+		return;
+	}
+
+	/*
+	 * Otherwise, select a random value in the range [0, rlen = rmax - rmin],
+	 * and shift it to the required range by adding rmin.
+	 */
+
+	/* Required result digits */
+	res_ndigits = rlen.weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
+
+	/*
+	 * To get the required rscale, the final result digit must be a multiple
+	 * of pow10 = 10^n, where n = (-rscale) mod DEC_DIGITS.
+	 */
+	n = ((rscale + DEC_DIGITS - 1) / DEC_DIGITS) * DEC_DIGITS - rscale;
+	pow10 = 1;
+	for (i = 0; i < n; i++)
+		pow10 *= 10;
+
+	/*
+	 * To choose a random value uniformly from the range [0, rlen], we choose
+	 * from the slightly larger range [0, rlen2], where rlen2 is formed from
+	 * rlen by copying the first 4 NBASE digits, and setting all remaining
+	 * decimal digits to "9".
+	 *
+	 * Without loss of generality, we can ignore the weight of rlen2 and treat
+	 * it as a pure integer for the purposes of this discussion.  The process
+	 * above gives rlen2 + 1 = rlen64 * 10^N, for some integer N, where rlen64
+	 * is a 64-bit integer formed from the first 4 NBASE digits copied from
+	 * rlen.  Since this trivially factors into smaller pieces that fit in
+	 * 64-bit integers, the task of choosing a random value uniformly from the
+	 * rlen2 + 1 possible values in [0, rlen2] is much simpler.
+	 *
+	 * If the random value selected is too large, it is rejected, and we try
+	 * again until we get a result <= rlen, ensuring that the overall result
+	 * is uniform (no particular value is any more likely than any other).
+	 *
+	 * Since rlen64 holds 4 NBASE digits from rlen, it contains at least
+	 * DEC_DIGITS * 3 + 1 decimal digits (i.e., at least 13 decimal digits,
+	 * when DEC_DIGITS is 4). Therefore the probability of needing to reject
+	 * the value chosen and retry is less than 1e-13.
+	 */
+	rlen64 = (uint64) rlen.digits[0];
+	rlen64_ndigits = 1;
+	while (rlen64_ndigits < res_ndigits && rlen64_ndigits < 4)
+	{
+		rlen64 *= NBASE;
+		if (rlen64_ndigits < rlen.ndigits)
+			rlen64 += rlen.digits[rlen64_ndigits];
+		rlen64_ndigits++;
+	}
+
+	/* Loop until we get a result <= rlen */
+	do
+	{
+		NumericDigit *res_digits;
+		uint64		rand;
+		int			whole_ndigits;
+
+		alloc_var(result, res_ndigits);
+		result->sign = NUMERIC_POS;
+		result->weight = rlen.weight;
+		result->dscale = rscale;
+		res_digits = result->digits;
+
+		/*
+		 * Set the first rlen64_ndigits using a random value in [0, rlen64].
+		 *
+		 * If this is the whole result, and rscale is not a multiple of
+		 * DEC_DIGITS (pow10 from above is not 1), then we need this to be a
+		 * multiple of pow10.
+		 */
+		if (rlen64_ndigits == res_ndigits && pow10 != 1)
+			rand = pg_prng_uint64_range(state, 0, rlen64 / pow10) * pow10;
+		else
+			rand = pg_prng_uint64_range(state, 0, rlen64);
+
+		for (i = rlen64_ndigits - 1; i >= 0; i--)
+		{
+			res_digits[i] = (NumericDigit) (rand % NBASE);
+			rand = rand / NBASE;
+		}
+
+		/*
+		 * Set the remaining digits to random values in range [0, NBASE),
+		 * noting that the last digit needs to be a multiple of pow10.
+		 */
+		whole_ndigits = res_ndigits;
+		if (pow10 != 1)
+			whole_ndigits--;
+
+		/* Set whole digits in groups of 4 for best performance */
+		i = rlen64_ndigits;
+		while (i < whole_ndigits - 3)
+		{
+			rand = pg_prng_uint64_range(state, 0,
+										(uint64) NBASE * NBASE * NBASE * NBASE - 1);
+			res_digits[i++] = (NumericDigit) (rand % NBASE);
+			rand = rand / NBASE;
+			res_digits[i++] = (NumericDigit) (rand % NBASE);
+			rand = rand / NBASE;
+			res_digits[i++] = (NumericDigit) (rand % NBASE);
+			rand = rand / NBASE;
+			res_digits[i++] = (NumericDigit) rand;
+		}
+
+		/* Remaining whole digits */
+		while (i < whole_ndigits)
+		{
+			rand = pg_prng_uint64_range(state, 0, NBASE - 1);
+			res_digits[i++] = (NumericDigit) rand;
+		}
+
+		/* Final partial digit (multiple of pow10) */
+		if (i < res_ndigits)
+		{
+			rand = pg_prng_uint64_range(state, 0, NBASE / pow10 - 1) * pow10;
+			res_digits[i] = (NumericDigit) rand;
+		}
+
+		/* Remove leading/trailing zeroes */
+		strip_var(result);
+
+		/* If result > rlen, try again */
+
+	} while (cmp_var(result, &rlen) > 0);
+
+	/* Offset the result to the required range */
+	add_var(result, rmin, result);
+
+	free_var(&rlen);
 }
 
 

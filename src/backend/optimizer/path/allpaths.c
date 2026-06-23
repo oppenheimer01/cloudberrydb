@@ -3,9 +3,13 @@
  * allpaths.c
  *	  Routines to find possible search paths for processing a query
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -38,21 +42,27 @@
 #include "optimizer/appendinfo.h"
 #include "optimizer/clauses.h"
 #include "optimizer/cost.h"
+<<<<<<< HEAD
 #include "optimizer/inherit.h"
+=======
+#include "optimizer/geqo.h"
+>>>>>>> REL_18_BETA1_branch
 #include "optimizer/optimizer.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/paths.h"
 #include "optimizer/plancat.h"
 #include "optimizer/planmain.h"
 #include "optimizer/planner.h"
+<<<<<<< HEAD
 #include "optimizer/restrictinfo.h"
 #include "optimizer/subselect.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "optimizer/tlist.h"
 #include "optimizer/planshare.h"
 #include "parser/parse_clause.h"
 #include "parser/parsetree.h"
 #include "partitioning/partbounds.h"
-#include "partitioning/partprune.h"
 #include "port/pg_bitutils.h"
 #include "rewrite/rewriteManip.h"
 #include "utils/guc.h"
@@ -90,7 +100,7 @@ typedef enum pushdown_safe_type
 {
 	PUSHDOWN_UNSAFE,			/* unsafe to push qual into subquery */
 	PUSHDOWN_SAFE,				/* safe to push qual into subquery */
-	PUSHDOWN_WINDOWCLAUSE_RUNCOND	/* unsafe, but may work as WindowClause
+	PUSHDOWN_WINDOWCLAUSE_RUNCOND,	/* unsafe, but may work as WindowClause
 									 * run condition */
 } pushdown_safe_type;
 
@@ -830,7 +840,7 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
-	debug_print_rel(root, rel);
+	pprint(rel);
 #endif
 }
 
@@ -1021,6 +1031,10 @@ set_rel_consider_parallel(PlannerInfo *root, RelOptInfo *rel,
 		case RTE_RESULT:
 			/* RESULT RTEs, in themselves, are no problem. */
 			break;
+		case RTE_GROUP:
+			/* Shouldn't happen; we're only considering baserels here. */
+			Assert(false);
+			return;
 	}
 
 	/*
@@ -1062,6 +1076,17 @@ set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	 */
 	required_outer = rel->lateral_relids;
 
+	/*
+	 * Consider TID scans.
+	 *
+	 * If create_tidscan_paths returns true, then a TID scan path is forced.
+	 * This happens when rel->baserestrictinfo contains CurrentOfExpr, because
+	 * the executor can't handle any other type of path for such queries.
+	 * Hence, we return without adding any other paths.
+	 */
+	if (create_tidscan_paths(root, rel))
+		return;
+
 	/* Consider sequential scan */
 	add_path(rel, create_seqscan_path(root, rel, required_outer, 0), root);
 
@@ -1071,8 +1096,11 @@ set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 
 	/* Consider index and bitmap scans */
 	create_index_paths(root, rel);
+<<<<<<< HEAD
 
 	create_tidscan_paths(root, rel);
+=======
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -1260,6 +1288,7 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 {
 	int			parentRTindex = rti;
 	bool		has_live_children;
+	double		parent_tuples;
 	double		parent_rows;
 	double		parent_size;
 	double	   *parent_attrsizes;
@@ -1285,6 +1314,15 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 	/*
 	 * Initialize to compute size estimates for whole append relation.
 	 *
+	 * We handle tuples estimates by setting "tuples" to the total number of
+	 * tuples accumulated from each live child, rather than using "rows".
+	 * Although an appendrel itself doesn't directly enforce any quals, its
+	 * child relations may.  Therefore, setting "tuples" equal to "rows" for
+	 * an appendrel isn't always appropriate, and can lead to inaccurate cost
+	 * estimates.  For example, when estimating the number of distinct values
+	 * from an appendrel, we would be unable to adjust the estimate based on
+	 * the restriction selectivity (see estimate_num_groups).
+	 *
 	 * We handle width estimates by weighting the widths of different child
 	 * rels proportionally to their number of rows.  This is sensible because
 	 * the use of width estimates is mainly to compute the total relation
@@ -1297,6 +1335,7 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 	 * have zero rows and/or width, if they were excluded by constraints.
 	 */
 	has_live_children = false;
+	parent_tuples = 0;
 	parent_rows = 0;
 	parent_size = 0;
 	nattrs = rel->max_attr - rel->min_attr + 1;
@@ -1463,6 +1502,7 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 		 */
 		Assert(childrel->rows > 0);
 
+		parent_tuples += childrel->tuples;
 		parent_rows += childrel->rows;
 		parent_size += childrel->reltarget->width * childrel->rows;
 
@@ -1509,16 +1549,11 @@ set_append_rel_size(PlannerInfo *root, RelOptInfo *rel,
 		int			i;
 
 		Assert(parent_rows > 0);
+		rel->tuples = parent_tuples;
 		rel->rows = parent_rows;
 		rel->reltarget->width = rint(parent_size / parent_rows);
 		for (i = 0; i < nattrs; i++)
 			rel->attr_widths[i] = rint(parent_attrsizes[i] / parent_rows);
-
-		/*
-		 * Set "raw tuples" count equal to "rows" for the appendrel; needed
-		 * because some places assume rel->tuples is valid for any baserel.
-		 */
-		rel->tuples = parent_rows;
 
 		/*
 		 * Note that we leave rel->pages as zero; this is important to avoid
@@ -1618,6 +1653,8 @@ add_paths_to_append_rel(PlannerInfo *root, RelOptInfo *rel,
 {
 	List	   *subpaths = NIL;
 	bool		subpaths_valid = true;
+	List	   *startup_subpaths = NIL;
+	bool		startup_subpaths_valid = true;
 	List	   *partial_subpaths = NIL;
 	List	   *pa_partial_subpaths = NIL;
 	List	   *pa_nonpartial_subpaths = NIL;
@@ -1656,6 +1693,37 @@ add_paths_to_append_rel(PlannerInfo *root, RelOptInfo *rel,
 									  &subpaths, NULL);
 		else
 			subpaths_valid = false;
+
+		/*
+		 * When the planner is considering cheap startup plans, we'll also
+		 * collect all the cheapest_startup_paths (if set) and build an
+		 * AppendPath containing those as subpaths.
+		 */
+		if (rel->consider_startup && childrel->cheapest_startup_path != NULL)
+		{
+			Path	   *cheapest_path;
+
+			/*
+			 * With an indication of how many tuples the query should provide,
+			 * the optimizer tries to choose the path optimal for that
+			 * specific number of tuples.
+			 */
+			if (root->tuple_fraction > 0.0)
+				cheapest_path =
+					get_cheapest_fractional_path(childrel,
+												 root->tuple_fraction);
+			else
+				cheapest_path = childrel->cheapest_startup_path;
+
+			/* cheapest_startup_path must not be a parameterized path. */
+			Assert(cheapest_path->param_info == NULL);
+			accumulate_append_subpath(cheapest_path,
+									  &startup_subpaths,
+									  NULL);
+		}
+		else
+			startup_subpaths_valid = false;
+
 
 		/* Same idea, but for a partial plan. */
 		if (childrel->partial_pathlist != NIL)
@@ -1794,6 +1862,11 @@ add_paths_to_append_rel(PlannerInfo *root, RelOptInfo *rel,
 		add_path(rel, (Path *) create_append_path(root, rel, subpaths, NIL,
 												  NIL, NULL, 0, false,
 												  -1), root);
+
+	/* build an AppendPath for the cheap startup paths, if valid */
+	if (startup_subpaths_valid)
+		add_path(rel, (Path *) create_append_path(root, rel, startup_subpaths,
+												  NIL, NIL, NULL, 0, false, -1));
 
 	/*
 	 * Consider an append of unordered, unparameterized partial paths.  Make
@@ -2537,33 +2610,11 @@ set_dummy_rel_pathlist(PlannerInfo *root, RelOptInfo *rel)
 
 	/*
 	 * We set the cheapest-path fields immediately, just in case they were
-	 * pointing at some discarded path.  This is redundant when we're called
-	 * from set_rel_size(), but not when called from elsewhere, and doing it
-	 * twice is harmless anyway.
+	 * pointing at some discarded path.  This is redundant in current usage
+	 * because set_rel_pathlist will do it later, but it's cheap so we keep it
+	 * for safety and consistency with mark_dummy_rel.
 	 */
 	set_cheapest(rel);
-}
-
-/* quick-and-dirty test to see if any joining is needed */
-static bool
-has_multiple_baserels(PlannerInfo *root)
-{
-	int			num_base_rels = 0;
-	Index		rti;
-
-	for (rti = 1; rti < root->simple_rel_array_size; rti++)
-	{
-		RelOptInfo *brel = root->simple_rel_array[rti];
-
-		if (brel == NULL)
-			continue;
-
-		/* ignore RTEs that are "other rels" */
-		if (brel->reloptkind == RELOPT_BASEREL)
-			if (++num_base_rels > 1)
-				return true;
-	}
-	return false;
 }
 
 /*
@@ -2584,7 +2635,7 @@ has_multiple_baserels(PlannerInfo *root)
  * the run condition will handle all of the required filtering.
  *
  * Returns true if 'opexpr' was found to be useful and was added to the
- * WindowClauses runCondition.  We also set *keep_original accordingly and add
+ * WindowFunc's runCondition.  We also set *keep_original accordingly and add
  * 'attno' to *run_cond_attrs offset by FirstLowInvalidHeapAttributeNumber.
  * If the 'opexpr' cannot be used then we set *keep_original to true and
  * return false.
@@ -2659,16 +2710,15 @@ find_window_run_conditions(Query *subquery, RangeTblEntry *rte, Index rti,
 
 	runopexpr = NULL;
 	runoperator = InvalidOid;
-	opinfos = get_op_btree_interpretation(opexpr->opno);
+	opinfos = get_op_index_interpretation(opexpr->opno);
 
 	foreach(lc, opinfos)
 	{
-		OpBtreeInterpretation *opinfo = (OpBtreeInterpretation *) lfirst(lc);
-		int			strategy = opinfo->strategy;
+		OpIndexInterpretation *opinfo = (OpIndexInterpretation *) lfirst(lc);
+		CompareType cmptype = opinfo->cmptype;
 
 		/* handle < / <= */
-		if (strategy == BTLessStrategyNumber ||
-			strategy == BTLessEqualStrategyNumber)
+		if (cmptype == COMPARE_LT || cmptype == COMPARE_LE)
 		{
 			/*
 			 * < / <= is supported for monotonically increasing functions in
@@ -2685,8 +2735,7 @@ find_window_run_conditions(Query *subquery, RangeTblEntry *rte, Index rti,
 			break;
 		}
 		/* handle > / >= */
-		else if (strategy == BTGreaterStrategyNumber ||
-				 strategy == BTGreaterEqualStrategyNumber)
+		else if (cmptype == COMPARE_GT || cmptype == COMPARE_GE)
 		{
 			/*
 			 * > / >= is supported for monotonically decreasing functions in
@@ -2703,9 +2752,9 @@ find_window_run_conditions(Query *subquery, RangeTblEntry *rte, Index rti,
 			break;
 		}
 		/* handle = */
-		else if (strategy == BTEqualStrategyNumber)
+		else if (cmptype == COMPARE_EQ)
 		{
-			int16		newstrategy;
+			CompareType newcmptype;
 
 			/*
 			 * When both monotonically increasing and decreasing then the
@@ -2729,46 +2778,34 @@ find_window_run_conditions(Query *subquery, RangeTblEntry *rte, Index rti,
 			 * below the value in the equality condition.
 			 */
 			if (res->monotonic & MONOTONICFUNC_INCREASING)
-				newstrategy = wfunc_left ? BTLessEqualStrategyNumber : BTGreaterEqualStrategyNumber;
+				newcmptype = wfunc_left ? COMPARE_LE : COMPARE_GE;
 			else
-				newstrategy = wfunc_left ? BTGreaterEqualStrategyNumber : BTLessEqualStrategyNumber;
+				newcmptype = wfunc_left ? COMPARE_GE : COMPARE_LE;
 
 			/* We must keep the original equality qual */
 			*keep_original = true;
 			runopexpr = opexpr;
 
-			/* determine the operator to use for the runCondition qual */
-			runoperator = get_opfamily_member(opinfo->opfamily_id,
-											  opinfo->oplefttype,
-											  opinfo->oprighttype,
-											  newstrategy);
+			/* determine the operator to use for the WindowFuncRunCondition */
+			runoperator = get_opfamily_member_for_cmptype(opinfo->opfamily_id,
+														  opinfo->oplefttype,
+														  opinfo->oprighttype,
+														  newcmptype);
 			break;
 		}
 	}
 
 	if (runopexpr != NULL)
 	{
-		Expr	   *newexpr;
+		WindowFuncRunCondition *wfuncrc;
 
-		/*
-		 * Build the qual required for the run condition keeping the
-		 * WindowFunc on the same side as it was originally.
-		 */
-		if (wfunc_left)
-			newexpr = make_opclause(runoperator,
-									runopexpr->opresulttype,
-									runopexpr->opretset, (Expr *) wfunc,
-									otherexpr, runopexpr->opcollid,
-									runopexpr->inputcollid);
-		else
-			newexpr = make_opclause(runoperator,
-									runopexpr->opresulttype,
-									runopexpr->opretset,
-									otherexpr, (Expr *) wfunc,
-									runopexpr->opcollid,
-									runopexpr->inputcollid);
+		wfuncrc = makeNode(WindowFuncRunCondition);
+		wfuncrc->opno = runoperator;
+		wfuncrc->inputcollid = runopexpr->inputcollid;
+		wfuncrc->wfunc_left = wfunc_left;
+		wfuncrc->arg = copyObject(otherexpr);
 
-		wclause->runCondition = lappend(wclause->runCondition, newexpr);
+		wfunc->runCondition = lappend(wfunc->runCondition, wfuncrc);
 
 		/* record that this attno was used in a run condition */
 		*run_cond_attrs = bms_add_member(*run_cond_attrs,
@@ -2782,9 +2819,9 @@ find_window_run_conditions(Query *subquery, RangeTblEntry *rte, Index rti,
 
 /*
  * check_and_push_window_quals
- *		Check if 'clause' is a qual that can be pushed into a WindowFunc's
- *		WindowClause as a 'runCondition' qual.  These, when present, allow
- *		some unnecessary work to be skipped during execution.
+ *		Check if 'clause' is a qual that can be pushed into a WindowFunc
+ *		as a 'runCondition' qual.  These, when present, allow some unnecessary
+ *		work to be skipped during execution.
  *
  * 'run_cond_attrs' will be populated with all targetlist resnos of subquery
  * targets (offset by FirstLowInvalidHeapAttributeNumber) that we pushed
@@ -3001,13 +3038,14 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 		root->hasHavingQual ||
 		parse->distinctClause ||
 		parse->sortClause ||
-		has_multiple_baserels(root))
+		bms_membership(root->all_baserels) == BMS_MULTIPLE)
 		tuple_fraction = 0.0;	/* default case */
 	else
 		tuple_fraction = root->tuple_fraction;
 
 
 	/* Generate a subroot and Paths for the subquery */
+<<<<<<< HEAD
 	config = CopyPlannerConfig(root->config);
 	config->honor_order_by = false;		/* partial order is enough */
 
@@ -3034,6 +3072,10 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 								root,
 								false, tuple_fraction,
 								config);
+=======
+	rel->subroot = subquery_planner(root->glob, subquery, root, false,
+									tuple_fraction, NULL);
+>>>>>>> REL_18_BETA1_branch
 
 	/* Isolate the params needed by this specific subplan */
 	rel->subplan_params = root->plan_params;
@@ -3378,8 +3420,14 @@ set_tablefunc_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 static void
 set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 {
+<<<<<<< HEAD
+=======
+	Path	   *ctepath;
+	Plan	   *cteplan;
+>>>>>>> REL_18_BETA1_branch
 	PlannerInfo *cteroot;
 	Index		levelsup;
+	List	   *pathkeys;
 	int			ndx;
 	ListCell   *lc;
 	int			planinfo_id;
@@ -3395,7 +3443,12 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	bool            contain_volatile_function = false;
 
 	/*
+<<<<<<< HEAD
 	 * Find the referenced CTE based on the given range table entry
+=======
+	 * Find the referenced CTE, and locate the path and plan previously made
+	 * for it.
+>>>>>>> REL_18_BETA1_branch
 	 */
 	levelsup = rte->ctelevelsup;
 	cteroot = root;
@@ -3417,6 +3470,7 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	}
 	if (lc == NULL)				/* shouldn't happen */
 		elog(ERROR, "could not find CTE \"%s\"", rte->ctename);
+<<<<<<< HEAD
 
 	Assert(IsA(cte->ctequery, Query));
 	/*
@@ -3598,6 +3652,17 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	}
 
 	pathkeys = subroot->query_pathkeys;
+=======
+	if (ndx >= list_length(cteroot->cte_plan_ids))
+		elog(ERROR, "could not find plan for CTE \"%s\"", rte->ctename);
+	plan_id = list_nth_int(cteroot->cte_plan_ids, ndx);
+	if (plan_id <= 0)
+		elog(ERROR, "no plan was made for CTE \"%s\"", rte->ctename);
+
+	Assert(list_length(root->glob->subpaths) == list_length(root->glob->subplans));
+	ctepath = (Path *) list_nth(root->glob->subpaths, plan_id - 1);
+	cteplan = (Plan *) list_nth(root->glob->subplans, plan_id - 1);
+>>>>>>> REL_18_BETA1_branch
 
 	/* Mark rel with estimated output rows, width, etc */
 	{
@@ -3613,6 +3678,12 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 		set_cte_size_estimates(root, rel, sub_total_rows);
 	}
 
+	/* Convert the ctepath's pathkeys to outer query's representation */
+	pathkeys = convert_subquery_pathkeys(root,
+										 rel,
+										 ctepath->pathkeys,
+										 cteplan->targetlist);
+
 	/*
 	 * We don't support pushing join clauses into the quals of a CTE scan, but
 	 * it could still have required parameterization due to LATERAL refs in
@@ -3620,6 +3691,7 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	 */
 	required_outer = rel->lateral_relids;
 
+<<<<<<< HEAD
 	/*
 	 * For each Path that subquery_planner produced, make a CteScanPath
 	 * in the outer query.
@@ -3645,6 +3717,10 @@ set_cte_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 										  required_outer),
 				 root);
 	}
+=======
+	/* Generate appropriate path */
+	add_path(rel, create_ctescan_path(root, rel, pathkeys, required_outer));
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -3676,11 +3752,15 @@ set_namedtuplestore_pathlist(PlannerInfo *root, RelOptInfo *rel,
 		rel->cdbpolicy = relation->rd_cdbpolicy;
 
 	/* Generate appropriate path */
+<<<<<<< HEAD
 	add_path(rel, create_namedtuplestorescan_path(root, rel, required_outer), root);
 
 	relation_close(relation, NoLock);
 	/* Select cheapest path (pretty easy in this case...) */
 	set_cheapest(rel);
+=======
+	add_path(rel, create_namedtuplestorescan_path(root, rel, required_outer));
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -3707,10 +3787,14 @@ set_result_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	required_outer = rel->lateral_relids;
 
 	/* Generate appropriate path */
+<<<<<<< HEAD
 	add_path(rel, create_resultscan_path(root, rel, required_outer), root);
 
 	/* Select cheapest path (pretty easy in this case...) */
 	set_cheapest(rel);
+=======
+	add_path(rel, create_resultscan_path(root, rel, required_outer));
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -3774,10 +3858,10 @@ set_worktable_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
  *
  * If we're generating paths for a scan or join relation, override_rows will
  * be false, and we'll just use the relation's size estimate.  When we're
- * being called for a partially-grouped path, though, we need to override
- * the rowcount estimate.  (It's not clear that the particular value we're
- * using here is actually best, but the underlying rel has no estimate so
- * we must do something.)
+ * being called for a partially-grouped or partially-distinct path, though, we
+ * need to override the rowcount estimate.  (It's not clear that the
+ * particular value we're using here is actually best, but the underlying rel
+ * has no estimate so we must do something.)
  */
 void
 generate_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_rows)
@@ -3803,12 +3887,16 @@ generate_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_rows)
 	 * of partial_pathlist because of the way add_partial_path works.
 	 */
 	cheapest_partial_path = linitial(rel->partial_pathlist);
+<<<<<<< HEAD
 
 	if (!cheapest_partial_path->parallel_safe)
 		return;
 
 	rows =
 		cheapest_partial_path->rows * cheapest_partial_path->parallel_workers;
+=======
+	rows = compute_gather_rows(cheapest_partial_path);
+>>>>>>> REL_18_BETA1_branch
 	simple_gather_path = (Path *)
 		create_gather_path(root, rel, cheapest_partial_path, rel->reltarget,
 						   NULL, rowsp);
@@ -3826,7 +3914,7 @@ generate_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_rows)
 		if (subpath->pathkeys == NIL)
 			continue;
 
-		rows = subpath->rows * subpath->parallel_workers;
+		rows = compute_gather_rows(subpath);
 		path = create_gather_merge_path(root, rel, subpath, rel->reltarget,
 										subpath->pathkeys, NULL, rowsp);
 		add_path(rel, &path->path, root);
@@ -4011,7 +4099,6 @@ generate_useful_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_r
 													subpath,
 													useful_pathkeys,
 													-1.0);
-				rows = subpath->rows * subpath->parallel_workers;
 			}
 			else
 				subpath = (Path *) create_incremental_sort_path(root,
@@ -4020,6 +4107,7 @@ generate_useful_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_r
 																useful_pathkeys,
 																presorted_keys,
 																-1);
+			rows = compute_gather_rows(subpath);
 			path = create_gather_merge_path(root, rel,
 											subpath,
 											rel->reltarget,
@@ -4324,7 +4412,8 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 			/*
 			 * Except for the topmost scan/join rel, consider gathering
 			 * partial paths.  We'll do the same for the topmost scan/join rel
-			 * once we know the final targetlist (see grouping_planner).
+			 * once we know the final targetlist (see grouping_planner's and
+			 * its call to apply_scanjoin_target_to_paths).
 			 */
 #if 0
 			if (!bms_equal(rel->relids, root->all_query_rels))
@@ -4346,9 +4435,13 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 				set_cheapest(rel_grouped);
 
 #ifdef OPTIMIZER_DEBUG
+<<<<<<< HEAD
 			debug_print_rel(root, rel);
 			if (rel_grouped)
 				debug_print_rel(root, rel_grouped);
+=======
+			pprint(rel);
+>>>>>>> REL_18_BETA1_branch
 #endif
 		}
 	}
@@ -4940,6 +5033,7 @@ subquery_push_qual(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual)
 		 */
 		qual = ReplaceVarsFromTargetList(qual, rti, 0, rte,
 										 subquery->targetList,
+										 subquery->resultRelation,
 										 REPLACEVARS_REPORT_ERROR, 0,
 										 &subquery->hasSubLinks);
 
@@ -5357,7 +5451,7 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 			continue;
 
 #ifdef OPTIMIZER_DEBUG
-		debug_print_rel(root, child_rel);
+		pprint(child_rel);
 #endif
 
 		live_children = lappend(live_children, child_rel);
@@ -5374,6 +5468,7 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 	add_paths_to_append_rel(root, rel, live_children);
 	list_free(live_children);
 }
+<<<<<<< HEAD
 
 static bool
 is_query_contain_limit_groupby(Query *parse)
@@ -5767,3 +5862,5 @@ debug_print_rel(PlannerInfo *root, RelOptInfo *rel)
 }
 
 #endif							/* OPTIMIZER_DEBUG */
+=======
+>>>>>>> REL_18_BETA1_branch

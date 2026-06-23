@@ -11,7 +11,7 @@
 #ifndef HBA_H
 #define HBA_H
 
-#include "libpq/pqcomm.h"	/* pgrminclude ignore */	/* needed for NetBSD */
+#include "libpq/pqcomm.h"		/* needed for NetBSD */
 #include "nodes/pg_list.h"
 #include "regex/regex.h"
 
@@ -38,8 +38,9 @@ typedef enum UserAuth
 	uaLDAP,
 	uaCert,
 	uaRADIUS,
-	uaPeer
-#define USER_AUTH_LAST uaPeer	/* Must be last value of this enum */
+	uaPeer,
+	uaOAuth,
+#define USER_AUTH_LAST uaOAuth	/* Must be last value of this enum */
 } UserAuth;
 
 /*
@@ -51,7 +52,7 @@ typedef enum IPCompareMethod
 	ipCmpMask,
 	ipCmpSameHost,
 	ipCmpSameNet,
-	ipCmpAll
+	ipCmpAll,
 } IPCompareMethod;
 
 typedef enum ConnType
@@ -68,13 +69,13 @@ typedef enum ClientCertMode
 {
 	clientCertOff,
 	clientCertCA,
-	clientCertFull
+	clientCertFull,
 } ClientCertMode;
 
 typedef enum ClientCertName
 {
 	clientCertCN,
-	clientCertDN
+	clientCertDN,
 } ClientCertName;
 
 /*
@@ -135,6 +136,10 @@ typedef struct HbaLine
 	char	   *radiusidentifiers_s;
 	List	   *radiusports;
 	char	   *radiusports_s;
+	char	   *oauth_issuer;
+	char	   *oauth_scope;
+	char	   *oauth_validator;
+	bool		oauth_skip_usermap;
 } HbaLine;
 
 typedef struct IdentLine

@@ -8,7 +8,7 @@
  * Perhaps someday that code should be moved here, but it'd have to be
  * disentangled from other stuff such as pg_depend updates.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -28,8 +28,11 @@
 #include "storage/lmgr.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
+<<<<<<< HEAD
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 

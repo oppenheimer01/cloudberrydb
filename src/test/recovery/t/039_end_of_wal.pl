@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 # Copyright (c) 2023, PostgreSQL Global Development Group
+=======
+# Copyright (c) 2023-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
 #
 # Test detecting end-of-WAL conditions.  This test suite generates
 # fake defective page and record headers to trigger various failure
 # scenarios.
 
 use strict;
+<<<<<<< HEAD
 use warnings;
+=======
+use warnings FATAL => 'all';
+>>>>>>> REL_18_BETA1_branch
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -314,6 +322,7 @@ note "Multi-page, but header is split, so page checks are done first";
 ###########################################################################
 
 # xl_prev is bad and xl_tot_len is too big, but we'll check xlp_magic first.
+<<<<<<< HEAD
 # Cloudberry: with 32KB WAL pages, the split zone may leave only 8 bytes on the
 # current page.  Writing a full 24-byte record header would spill xl_prev bytes
 # (0xDEADBEEF) into the next page, making xlp_magic=0xBEEF instead of 0x0000.
@@ -326,6 +335,13 @@ $node->stop('immediate');
 $node->write_wal($TLI, $end_lsn, $WAL_SEGMENT_SIZE,
 	substr(build_record_header(2 * 1024 * 1024 * 1024, 0, 0xdeadbeef),
 		0, $split_bytes_left));
+=======
+$node->emit_wal(0);
+$end_lsn = $node->advance_wal_to_record_splitting_zone($WAL_BLOCK_SIZE);
+$node->stop('immediate');
+$node->write_wal($TLI, $end_lsn, $WAL_SEGMENT_SIZE,
+	build_record_header(2 * 1024 * 1024 * 1024, 0, 0xdeadbeef));
+>>>>>>> REL_18_BETA1_branch
 $log_size = -s $node->logfile;
 $node->start;
 ok($node->log_contains("invalid magic number 0000 .* LSN .*", $log_size),

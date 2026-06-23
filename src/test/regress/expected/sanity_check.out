@@ -265,6 +265,7 @@ SELECT relname, relkind
 ---------+---------
 (0 rows)
 
+<<<<<<< HEAD
 --
 -- When ALIGNOF_DOUBLE==4 (e.g. AIX), the C ABI may impose 8-byte alignment on
 -- some of the C types that correspond to TYPALIGN_DOUBLE SQL types.  To ensure
@@ -298,3 +299,5 @@ SELECT relname, attname, coltypes, get_columns_length(coltypes)
  pg_password_history     | passhistpasswordsetat | {26}            |                  4
 (4 rows)
 
+=======
+>>>>>>> REL_18_BETA1_branch

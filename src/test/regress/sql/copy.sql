@@ -38,6 +38,34 @@ copy copytest2 from :'filename' csv quote '''' escape E'\\';
 
 select * from copytest except select * from copytest2 order by 1,2,3;
 
+--- test unquoted \. as data inside CSV
+-- do not use copy out to export the data, as it would quote \.
+\o :filename
+\qecho line1
+\qecho '\\.'
+\qecho line2
+\o
+-- get the data back in with copy
+truncate copytest2;
+copy copytest2(test) from :'filename' csv;
+select test from copytest2 order by test collate "C";
+
+-- in text mode, \. must be alone on its line
+truncate copytest2;
+copy copytest2(test) from stdin;
+line1
+line2
+foo\.
+line3
+\.
+copy copytest2(test) from stdin;
+line4
+line5
+\.foo
+line6
+\.
+select test from copytest2;
+
 
 -- test header line feature
 
@@ -167,7 +195,8 @@ begin
        bytes_processed > 0 as has_bytes_processed,
        bytes_total > 0 as has_bytes_total,
        tuples_processed,
-       tuples_excluded
+       tuples_excluded,
+       tuples_skipped
       from pg_stat_progress_copy
       where pid = pg_backend_pid())
   select into report (to_jsonb(r)) as value
@@ -195,6 +224,13 @@ truncate tab_progress_reporting;
 \set filename :abs_srcdir '/data/emp.data'
 copy tab_progress_reporting from :'filename'
 	where (salary < 2000);
+
+-- Generate COPY FROM report with PIPE, with some skipped tuples.
+copy tab_progress_reporting from stdin(on_error ignore);
+sharon	x	(15,12)	x	sam
+sharon	25	(15,12)	1000	sam
+sharon	y	(15,12)	x	sam
+\.
 
 drop trigger check_after_tab_progress_reporting on tab_progress_reporting;
 drop function notice_after_tab_progress_reporting();
@@ -308,8 +344,13 @@ CREATE TABLE parted_si_p_odd PARTITION OF parted_si FOR VALUES IN (1);
 
 -- Test that bulk relation extension handles reusing a single BulkInsertState
 -- across partitions.  Without the fix applied, this reliably reproduces
+<<<<<<< HEAD
 -- #18130 unless shared_buffers is extremely small (preventing any use use of
 -- bulk relation extension). See
+=======
+-- #18130 unless shared_buffers is extremely small (preventing any use of bulk
+-- relation extension). See
+>>>>>>> REL_18_BETA1_branch
 -- https://postgr.es/m/18130-7a86a7356a75209d%40postgresql.org
 -- https://postgr.es/m/257696.1695670946%40sss.pgh.pa.us
 \set filename :abs_srcdir '/data/desc.data'
@@ -322,3 +363,25 @@ COPY parted_si(id, data) FROM :'filename';
 SELECT tableoid::regclass, id % 2 = 0 is_even, count(*) from parted_si GROUP BY 1, 2 ORDER BY 1;
 
 DROP TABLE parted_si;
+<<<<<<< HEAD
+=======
+
+-- ensure COPY FREEZE errors for foreign tables
+begin;
+create foreign data wrapper copytest_wrapper;
+create server copytest_server foreign data wrapper copytest_wrapper;
+create foreign table copytest_foreign_table (a int) server copytest_server;
+copy copytest_foreign_table from stdin (freeze);
+1
+\.
+rollback;
+
+-- Tests for COPY TO with materialized views.
+-- COPY TO should fail for an unpopulated materialized view
+-- but succeed for a populated one.
+CREATE MATERIALIZED VIEW copytest_mv AS SELECT 1 AS id WITH NO DATA;
+COPY copytest_mv(id) TO stdout WITH (header);
+REFRESH MATERIALIZED VIEW copytest_mv;
+COPY copytest_mv(id) TO stdout WITH (header);
+DROP MATERIALIZED VIEW copytest_mv;
+>>>>>>> REL_18_BETA1_branch

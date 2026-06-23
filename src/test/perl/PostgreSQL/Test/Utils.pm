@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 # Copyright (c) 2021-2023, PostgreSQL Global Development Group
+=======
+
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
 
 =pod
 
@@ -19,7 +24,7 @@ PostgreSQL::Test::Utils - helper module for writing PostgreSQL's C<prove> tests.
   command_fails(['initdb', '--invalid-option'],
               'command fails with invalid option');
   my $tempdir = PostgreSQL::Test::Utils::tempdir;
-  command_ok('initdb', '-D', $tempdir);
+  command_ok('initdb', '--pgdata' => $tempdir);
 
   # Miscellanea
   print "on Windows" if $PostgreSQL::Test::Utils::windows_os;
@@ -41,7 +46,7 @@ aimed at controlling command execution, logging and test functions.
 package PostgreSQL::Test::Utils;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use Carp;
 use Config;
@@ -49,6 +54,7 @@ use Cwd;
 use Exporter 'import';
 use Fcntl qw(:mode :seek);
 use File::Basename;
+use File::Compare;
 use File::Find;
 use File::Spec;
 use File::stat qw(stat);
@@ -69,6 +75,7 @@ our @EXPORT = qw(
   check_mode_recursive
   chmod_recursive
   check_pg_config
+  compare_files
   dir_symlink
   scan_server_header
   system_or_bail
@@ -86,6 +93,7 @@ our @EXPORT = qw(
   command_like
   command_like_safe
   command_fails_like
+  command_ok_or_fails_like
   command_checks_all
 
   $windows_os
@@ -188,6 +196,11 @@ Set to true when running under MSYS2.
 
 INIT
 {
+	# See https://github.com/cpan-authors/IPC-Run/commit/fc9288c for how this
+	# reduces idle time.  Remove this when IPC::Run 20231003.0 is too old to
+	# matter (when all versions that matter provide the optimization).
+	$SIG{CHLD} = sub { }
+	  unless defined $SIG{CHLD};
 
 	# Return EPIPE instead of killing the process with SIGPIPE.  An affected
 	# test may still fail, but it's more likely to report useful facts.
@@ -210,10 +223,10 @@ INIT
 	  or die "could not open STDOUT to logfile \"$test_logfile\": $!";
 
 	# Hijack STDOUT and STDERR to the log file
-	open(my $orig_stdout, '>&', \*STDOUT);
-	open(my $orig_stderr, '>&', \*STDERR);
-	open(STDOUT, '>&', $testlog);
-	open(STDERR, '>&', $testlog);
+	open(my $orig_stdout, '>&', \*STDOUT) or die $!;
+	open(my $orig_stderr, '>&', \*STDERR) or die $!;
+	open(STDOUT, '>&', $testlog) or die $!;
+	open(STDERR, '>&', $testlog) or die $!;
 
 	# The test output (ok ...) needs to be printed to the original STDOUT so
 	# that the 'prove' program can parse it, and display it to the user in
@@ -325,7 +338,7 @@ sub has_wal_read_bug
 	return
 		 $Config{osname} eq 'linux'
 	  && $Config{archname} =~ /^sparc/
-	  && !run_log([ qw(df -x ext4), $tmp_check ], '>', '/dev/null', '2>&1');
+	  && !run_log([ qw(df -x ext4), $tmp_check ], '&>' => '/dev/null');
 }
 
 =pod
@@ -411,7 +424,7 @@ sub run_command
 {
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
-	my $result = IPC::Run::run $cmd, '>', \$stdout, '2>', \$stderr;
+	my $result = IPC::Run::run $cmd, '>' => \$stdout, '2>' => \$stderr;
 	chomp($stdout);
 	chomp($stderr);
 	return ($stdout, $stderr);
@@ -563,7 +576,11 @@ Find and replace string of a given file.
 sub string_replace_file
 {
 	my ($filename, $find, $replace) = @_;
+<<<<<<< HEAD
 	open(my $in, '<', $filename);
+=======
+	open(my $in, '<', $filename) or croak $!;
+>>>>>>> REL_18_BETA1_branch
 	my $content = '';
 	while (<$in>)
 	{
@@ -571,7 +588,7 @@ sub string_replace_file
 		$content = $content . $_;
 	}
 	close $in;
-	open(my $out, '>', $filename);
+	open(my $out, '>', $filename) or croak $!;
 	print $out $content;
 	close($out);
 
@@ -715,8 +732,14 @@ sub scan_server_header
 	my ($header_path, $regexp) = @_;
 
 	my ($stdout, $stderr);
+<<<<<<< HEAD
 	my $result = IPC::Run::run [ 'pg_config', '--includedir-server' ], '>',
 	  \$stdout, '2>', \$stderr
+=======
+	my $result = IPC::Run::run [ 'pg_config', '--includedir-server' ],
+	  '>' => \$stdout,
+	  '2>' => \$stderr
+>>>>>>> REL_18_BETA1_branch
 	  or die "could not execute pg_config";
 	chomp($stdout);
 	$stdout =~ s/\r$//;
@@ -753,8 +776,9 @@ sub check_pg_config
 {
 	my ($regexp) = @_;
 	my ($stdout, $stderr);
-	my $result = IPC::Run::run [ 'pg_config', '--includedir' ], '>',
-	  \$stdout, '2>', \$stderr
+	my $result = IPC::Run::run [ 'pg_config', '--includedir' ],
+	  '>' => \$stdout,
+	  '2>' => \$stderr
 	  or die "could not execute pg_config";
 	chomp($stdout);
 	$stdout =~ s/\r$//;
@@ -763,6 +787,45 @@ sub check_pg_config
 	my $match = (grep { /^$regexp/ } <$pg_config_h>);
 	close $pg_config_h;
 	return $match;
+}
+
+=pod
+
+=item compare_files(file1, file2, testname)
+
+Check that two files match, printing the difference if any.
+
+C<line_comp_function> is an optional CODE reference to a line comparison
+function, passed down as-is to File::Compare::compare_text.
+
+=cut
+
+sub compare_files
+{
+	my ($file1, $file2, $testname, $line_comp_function) = @_;
+
+	# If nothing is given, all lines should be equal.
+	$line_comp_function = sub { $_[0] ne $_[1] }
+	  unless defined $line_comp_function;
+
+	my $compare_res =
+	  File::Compare::compare_text($file1, $file2, $line_comp_function);
+	is($compare_res, 0, $testname);
+
+	# Provide more context if the files do not match.
+	if ($compare_res != 0)
+	{
+		my ($stdout, $stderr) =
+		  run_command([ 'diff', '-u', $file1, $file2 ]);
+		print "=== diff of $file1 and $file2\n";
+		print "=== stdout ===\n";
+		print $stdout;
+		print "=== stderr ===\n";
+		print $stderr;
+		print "=== EOF ===\n";
+	}
+
+	return;
 }
 
 =pod
@@ -788,11 +851,11 @@ sub dir_symlink
 			# need some indirection on msys
 			$cmd = qq{echo '$cmd' | \$COMSPEC /Q};
 		}
-		system($cmd);
+		system($cmd) == 0 or die;
 	}
 	else
 	{
-		symlink $oldname, $newname;
+		symlink $oldname, $newname or die $!;
 	}
 	die "No $newname" unless -e $newname;
 }
@@ -878,11 +941,21 @@ sub program_help_ok
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --help\n");
-	my $result = IPC::Run::run [ $cmd, '--help' ], '>', \$stdout, '2>',
-	  \$stderr;
+	my $result = IPC::Run::run [ $cmd, '--help' ],
+	  '>' => \$stdout,
+	  '2>' => \$stderr;
 	ok($result, "$cmd --help exit code 0");
 	isnt($stdout, '', "$cmd --help goes to stdout");
 	is($stderr, '', "$cmd --help nothing to stderr");
+
+	# This value isn't set in stone, it reflects the current
+	# convention in use.  Most output actually tries to aim for 80.
+	my $max_line_length = 95;
+	my @long_lines = grep { length > $max_line_length } split /\n/, $stdout;
+	is(scalar @long_lines, 0, "$cmd --help maximum line length")
+	  or diag("These lines are too long (>$max_line_length):\n",
+		join("\n", @long_lines));
+
 	return;
 }
 
@@ -900,8 +973,9 @@ sub program_version_ok
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --version\n");
-	my $result = IPC::Run::run [ $cmd, '--version' ], '>', \$stdout, '2>',
-	  \$stderr;
+	my $result = IPC::Run::run [ $cmd, '--version' ],
+	  '>' => \$stdout,
+	  '2>' => \$stderr;
 	ok($result, "$cmd --version exit code 0");
 	isnt($stdout, '', "$cmd --version goes to stdout");
 	is($stderr, '', "$cmd --version nothing to stderr");
@@ -923,9 +997,9 @@ sub program_options_handling_ok
 	my ($cmd) = @_;
 	my ($stdout, $stderr);
 	print("# Running: $cmd --not-a-valid-option\n");
-	my $result = IPC::Run::run [ $cmd, '--not-a-valid-option' ], '>',
-	  \$stdout,
-	  '2>', \$stderr;
+	my $result = IPC::Run::run [ $cmd, '--not-a-valid-option' ],
+	  '>' => \$stdout,
+	  '2>' => \$stderr;
 	ok(!$result, "$cmd with invalid option nonzero exit code");
 	isnt($stderr, '', "$cmd with invalid option prints error message");
 	return;
@@ -946,7 +1020,7 @@ sub command_like
 	my ($cmd, $expected_stdout, $test_name) = @_;
 	my ($stdout, $stderr);
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
-	my $result = IPC::Run::run $cmd, '>', \$stdout, '2>', \$stderr;
+	my $result = IPC::Run::run $cmd, '>' => \$stdout, '2>' => \$stderr;
 	ok($result, "$test_name: exit code 0");
 	is($stderr, '', "$test_name: no stderr");
 	like($stdout, $expected_stdout, "$test_name: matches");
@@ -975,7 +1049,7 @@ sub command_like_safe
 	my $stdoutfile = File::Temp->new();
 	my $stderrfile = File::Temp->new();
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
-	my $result = IPC::Run::run $cmd, '>', $stdoutfile, '2>', $stderrfile;
+	my $result = IPC::Run::run $cmd, '>' => $stdoutfile, '2>' => $stderrfile;
 	$stdout = slurp_file($stdoutfile);
 	$stderr = slurp_file($stderrfile);
 	ok($result, "$test_name: exit code 0");
@@ -999,10 +1073,34 @@ sub command_fails_like
 	my ($cmd, $expected_stderr, $test_name) = @_;
 	my ($stdout, $stderr);
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
-	my $result = IPC::Run::run $cmd, '>', \$stdout, '2>', \$stderr;
+	my $result = IPC::Run::run $cmd, '>' => \$stdout, '2>' => \$stderr;
 	ok(!$result, "$test_name: exit code not 0");
 	like($stderr, $expected_stderr, "$test_name: matches");
 	return;
+}
+
+=pod
+
+=item command_ok_or_fails_like(cmd, expected_stdout, expected_stderr, test_name)
+
+Check that the command either succeeds or fails with an error that matches the
+given regular expressions.
+
+=cut
+
+sub command_ok_or_fails_like
+{
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+	my ($cmd, $expected_stdout, $expected_stderr, $test_name) = @_;
+	my ($stdout, $stderr);
+	print("# Running: " . join(" ", @{$cmd}) . "\n");
+	my $result = IPC::Run::run $cmd, '>' => \$stdout, '2>' => \$stderr;
+	if (!$result)
+	{
+		like($stdout, $expected_stdout, "$test_name: stdout matches");
+		like($stderr, $expected_stderr, "$test_name: stderr matches");
+	}
+	return $result;
 }
 
 =pod
@@ -1037,7 +1135,7 @@ sub command_checks_all
 	# run command
 	my ($stdout, $stderr);
 	print("# Running: " . join(" ", @{$cmd}) . "\n");
-	IPC::Run::run($cmd, '>', \$stdout, '2>', \$stderr);
+	IPC::Run::run($cmd, '>' => \$stdout, '2>' => \$stderr);
 
 	# See http://perldoc.perl.org/perlvar.html#%24CHILD_ERROR
 	my $ret = $?;

@@ -1,8 +1,11 @@
+
+# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+
 # Tests to cross-check the consistency of GUC parameters with
 # postgresql.conf.sample.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -53,7 +56,7 @@ while (my $line = <$contents>)
 	# file.
 	# - Valid configuration options are followed immediately by " = ",
 	# with one space before and after the equal sign.
-	if ($line =~ m/^#?([_[:alpha:]]+) = .*/)
+	if ($line =~ m/^#?([_[:alnum:]]+) = .*/)
 	{
 		# Lower-case conversion matters for some of the GUCs.
 		my $param_name = lc($1);

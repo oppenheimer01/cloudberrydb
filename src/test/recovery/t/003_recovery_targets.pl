@@ -1,9 +1,9 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test for recovery targets: name, timestamp, XID
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -57,9 +57,13 @@ $node_primary->init(has_archiving => 1, allows_streaming => 1);
 
 # Bump the transaction ID epoch.  This is useful to stress the portability
 # of recovery_target_xid parsing.
+<<<<<<< HEAD
 # Cloudberry: pg_resetwal has an interactive confirmation prompt, so pipe
 # 'yes' through shell to bypass it.
 system('echo yes | pg_resetwal --epoch 1 ' . $node_primary->data_dir);
+=======
+system_or_bail('pg_resetwal', '--epoch' => '1', $node_primary->data_dir);
+>>>>>>> REL_18_BETA1_branch
 
 # Start it
 $node_primary->start;
@@ -150,10 +154,17 @@ recovery_target_time = '$recovery_time'");
 # Cloudberry: pg_ctl requires --gp_dbid and --gp_contentid options.
 my $res = run_log(
 	[
+<<<<<<< HEAD
 		'pg_ctl', '-D', $node_standby->data_dir, '-l',
 		$node_standby->logfile, '-o',
 		"--gp_dbid=$node_standby->{_dbid} --gp_contentid=0 -c gp_role=utility",
 		'start'
+=======
+		'pg_ctl',
+		'--pgdata' => $node_standby->data_dir,
+		'--log' => $node_standby->logfile,
+		'start',
+>>>>>>> REL_18_BETA1_branch
 	]);
 ok(!$res, 'invalid recovery startup fails');
 
@@ -173,10 +184,17 @@ $node_standby->append_conf('postgresql.conf',
 
 run_log(
 	[
+<<<<<<< HEAD
 		'pg_ctl', '-D', $node_standby->data_dir, '-l',
 		$node_standby->logfile, '-o',
 		"--gp_dbid=$node_standby->{_dbid} --gp_contentid=0 -c gp_role=utility",
 		'start'
+=======
+		'pg_ctl',
+		'--pgdata' => $node_standby->data_dir,
+		'--log' => $node_standby->logfile,
+		'start',
+>>>>>>> REL_18_BETA1_branch
 	]);
 
 # wait for postgres to terminate

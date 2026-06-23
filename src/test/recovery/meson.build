@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 tests += {
   'name': 'recovery',
@@ -6,6 +6,9 @@ tests += {
   'bd': meson.current_build_dir(),
   'tap': {
     'test_kwargs': {'priority': 40}, # recovery tests are slow, start early
+    'env': {
+       'enable_injection_points': get_option('injection_points') ? 'yes' : 'no',
+    },
     'tests': [
       't/001_stream_rep.pl',
       't/002_archiving.pl',
@@ -43,9 +46,19 @@ tests += {
       't/035_standby_logical_decoding.pl',
       't/036_truncated_dropped.pl',
       't/037_invalid_database.pl',
+<<<<<<< HEAD
       't/039_end_of_wal.pl',
       't/043_vacuum_horizon_floor.pl',
       't/043_no_contrecord_switch.pl',
+=======
+      't/038_save_logical_slots_shutdown.pl',
+      't/039_end_of_wal.pl',
+      't/040_standby_failover_slots_sync.pl',
+      't/041_checkpoint_at_promote.pl',
+      't/042_low_level_backup.pl',
+      't/043_no_contrecord_switch.pl',
+      't/044_invalidate_inactive_slots.pl',
+>>>>>>> REL_18_BETA1_branch
       't/045_archive_restartpoint.pl',
     ],
   },

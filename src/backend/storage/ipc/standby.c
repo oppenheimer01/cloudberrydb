@@ -7,7 +7,7 @@
  *	AccessExclusiveLocks and starting snapshots for Hot Standby mode.
  *	Plus conflict recovery processing.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -27,14 +27,13 @@
 #include "pgstat.h"
 #include "replication/slot.h"
 #include "storage/bufmgr.h"
-#include "storage/lmgr.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "storage/sinvaladt.h"
 #include "storage/standby.h"
 #include "utils/faultinjector.h"
 #include "utils/hsearch.h"
-#include "utils/memutils.h"
+#include "utils/injection_point.h"
 #include "utils/ps_status.h"
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
@@ -139,7 +138,8 @@ InitRecoveryTransactionEnvironment(void)
 	 * are held by vxids and row level locks are held by xids. All queries
 	 * hold AccessShareLocks so never block while we write or lock new rows.
 	 */
-	vxid.backendId = MyBackendId;
+	MyProc->vxid.procNumber = MyProcNumber;
+	vxid.procNumber = MyProcNumber;
 	vxid.localTransactionId = GetNextLocalTransactionId();
 	VirtualXactLockTableInsert(vxid);
 
@@ -301,7 +301,7 @@ LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 		vxids = wait_list;
 		while (VirtualTransactionIdIsValid(*vxids))
 		{
-			PGPROC	   *proc = BackendIdGetProc(vxids->backendId);
+			PGPROC	   *proc = ProcNumberGetProc(vxids->procNumber);
 
 			/* proc can be NULL if the target backend is not active */
 			if (proc)
@@ -842,7 +842,7 @@ ResolveRecoveryConflictWithBufferPin(void)
 	 * SIGHUP signal handler, etc cannot do that because it uses the different
 	 * latch from that ProcWaitForSignal() waits on.
 	 */
-	ProcWaitForSignal(PG_WAIT_BUFFER_PIN);
+	ProcWaitForSignal(WAIT_EVENT_BUFFER_PIN);
 
 	if (got_standby_delay_timeout)
 		SendRecoveryConflictWithBufferPin(PROCSIG_RECOVERY_CONFLICT_BUFFERPIN);
@@ -1001,8 +1001,7 @@ StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid)
 		TransactionIdDidAbort(xid))
 		return;
 
-	elog(trace_recovery(DEBUG4),
-		 "adding recovery lock: db %u rel %u", dbOid, relOid);
+	elog(DEBUG4, "adding recovery lock: db %u rel %u", dbOid, relOid);
 
 	/* dbOid is InvalidOid when we are locking a shared relation. */
 	Assert(OidIsValid(relOid));
@@ -1046,7 +1045,7 @@ StandbyReleaseXidEntryLocks(RecoveryLockXidEntry *xidentry)
 	{
 		LOCKTAG		locktag;
 
-		elog(trace_recovery(DEBUG4),
+		elog(DEBUG4,
 			 "releasing recovery lock: xid %u db %u rel %u",
 			 entry->key.xid, entry->key.dbOid, entry->key.relOid);
 		/* Release the lock ... */
@@ -1113,7 +1112,7 @@ StandbyReleaseAllLocks(void)
 	HASH_SEQ_STATUS status;
 	RecoveryLockXidEntry *entry;
 
-	elog(trace_recovery(DEBUG2), "release all standby locks");
+	elog(DEBUG2, "release all standby locks");
 
 	hash_seq_init(&status, RecoveryLockXidHash);
 	while ((entry = hash_seq_search(&status)))
@@ -1127,6 +1126,9 @@ StandbyReleaseAllLocks(void)
  * StandbyReleaseOldLocks
  *		Release standby locks held by top-level XIDs that aren't running,
  *		as long as they're not prepared transactions.
+ *
+ * This is needed to prune the locks of crashed transactions, which didn't
+ * write an ABORT/COMMIT record.
  */
 void
 StandbyReleaseOldLocks(TransactionId oldxid)
@@ -1289,13 +1291,6 @@ standby_redo(XLogReaderState *record)
  * transactions already committed, since those commits raced ahead when
  * making WAL entries.
  *
- * The loose timing also means that locks may be recorded that have a
- * zero xid, since xids are removed from procs before locks are removed.
- * So we must prune the lock list down to ensure we hold locks only for
- * currently running xids, performed by StandbyReleaseOldLocks().
- * Zero xids should no longer be possible, but we may be replaying WAL
- * from a time when they were possible.
- *
  * For logical decoding only the running xacts information is needed;
  * there's no need to look at the locking information, but it's logged anyway,
  * as there's no independent knob to just enable logical decoding. For
@@ -1313,6 +1308,17 @@ LogStandbySnapshot(void)
 	int			nlocks;
 
 	Assert(XLogStandbyInfoActive());
+
+#ifdef USE_INJECTION_POINTS
+	if (IS_INJECTION_POINT_ATTACHED("skip-log-running-xacts"))
+	{
+		/*
+		 * This record could move slot's xmin forward during decoding, leading
+		 * to unpredictable results, so skip it when requested by the test.
+		 */
+		return GetInsertRecPtr();
+	}
+#endif
 
 	/*
 	 * Get details of any AccessExclusiveLocks being held at the moment.
@@ -1395,17 +1401,21 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
 	/* Header */
 	XLogBeginInsert();
 	XLogSetRecordFlags(XLOG_MARK_UNIMPORTANT);
-	XLogRegisterData((char *) (&xlrec), MinSizeOfXactRunningXacts);
+	XLogRegisterData(&xlrec, MinSizeOfXactRunningXacts);
 
 	/* array of TransactionIds */
 	if (xlrec.xcnt > 0)
-		XLogRegisterData((char *) CurrRunningXacts->xids,
+		XLogRegisterData(CurrRunningXacts->xids,
 						 (xlrec.xcnt + xlrec.subxcnt) * sizeof(TransactionId));
 
 	recptr = XLogInsert(RM_STANDBY_ID, XLOG_RUNNING_XACTS);
 
 	if (xlrec.subxid_overflow)
+<<<<<<< HEAD
 		elog(trace_recovery(DEBUG2),
+=======
+		elog(DEBUG2,
+>>>>>>> REL_18_BETA1_branch
 			 "snapshot of %d running transactions overflowed (lsn %X/%X oldest xid %u latest complete %u next xid %u)",
 			 CurrRunningXacts->xcnt,
 			 LSN_FORMAT_ARGS(recptr),
@@ -1413,7 +1423,7 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
 			 CurrRunningXacts->latestCompletedXid,
 			 CurrRunningXacts->nextXid);
 	else
-		elog(trace_recovery(DEBUG2),
+		elog(DEBUG2,
 			 "snapshot of %d+%d running transaction ids (lsn %X/%X oldest xid %u latest complete %u next xid %u)",
 			 CurrRunningXacts->xcnt, CurrRunningXacts->subxcnt,
 			 LSN_FORMAT_ARGS(recptr),
@@ -1447,8 +1457,8 @@ LogAccessExclusiveLocks(int nlocks, xl_standby_lock *locks)
 	xlrec.nlocks = nlocks;
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) &xlrec, offsetof(xl_standby_locks, locks));
-	XLogRegisterData((char *) locks, nlocks * sizeof(xl_standby_lock));
+	XLogRegisterData(&xlrec, offsetof(xl_standby_locks, locks));
+	XLogRegisterData(locks, nlocks * sizeof(xl_standby_lock));
 	XLogSetRecordFlags(XLOG_MARK_UNIMPORTANT);
 
 	(void) XLogInsert(RM_STANDBY_ID, XLOG_STANDBY_LOCK);
@@ -1511,8 +1521,8 @@ LogStandbyInvalidations(int nmsgs, SharedInvalidationMessage *msgs,
 
 	/* perform insertion */
 	XLogBeginInsert();
-	XLogRegisterData((char *) (&xlrec), MinSizeOfInvalidations);
-	XLogRegisterData((char *) msgs,
+	XLogRegisterData(&xlrec, MinSizeOfInvalidations);
+	XLogRegisterData(msgs,
 					 nmsgs * sizeof(SharedInvalidationMessage));
 	XLogInsert(RM_STANDBY_ID, XLOG_INVALIDATIONS);
 }

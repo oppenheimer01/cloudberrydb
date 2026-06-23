@@ -23,7 +23,7 @@
  * aggregate function over all rows in the current row's window frame.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -249,7 +249,7 @@ initialize_windowaggregate(WindowAggState *winstate,
 	 * it, so we must leave it to the caller to reset at an appropriate time.
 	 */
 	if (peraggstate->aggcontext != winstate->aggcontext)
-		MemoryContextResetAndDeleteChildren(peraggstate->aggcontext);
+		MemoryContextReset(peraggstate->aggcontext);
 
 	if (peraggstate->initValueIsNull)
 		peraggstate->transValue = peraggstate->initValue;
@@ -437,7 +437,7 @@ call_transfunc(WindowAggState *winstate,
 	InitFunctionCallInfoData(*fcinfo, &(peraggstate->transfn),
 							 numArguments + 1,
 							 perfuncstate->winCollation,
-							 (void *) winstate, NULL);
+							 (Node *) winstate, NULL);
 	fcinfo->args[0].value = peraggstate->transValue;
 	fcinfo->args[0].isnull = peraggstate->transValueIsNull;
 	winstate->curaggcontext = peraggstate->aggcontext;
@@ -608,7 +608,7 @@ advance_windowaggregate_base(WindowAggState *winstate,
 	InitFunctionCallInfoData(*fcinfo, &(peraggstate->invtransfn),
 							 numArguments + 1,
 							 perfuncstate->winCollation,
-							 (void *) winstate, NULL);
+							 (Node *) winstate, NULL);
 	fcinfo->args[0].value = peraggstate->transValue;
 	fcinfo->args[0].isnull = peraggstate->transValueIsNull;
 	winstate->curaggcontext = peraggstate->aggcontext;
@@ -797,7 +797,7 @@ finalize_windowaggregate(WindowAggState *winstate,
 		InitFunctionCallInfoData(fcinfodata.fcinfo, &(peraggstate->finalfn),
 								 numFinalArgs,
 								 perfuncstate->winCollation,
-								 (void *) winstate, NULL);
+								 (Node *) winstate, NULL);
 		fcinfo->args[0].value =
 			MakeExpandedObjectReadOnly(peraggstate->transValue,
 									   peraggstate->transValueIsNull,
@@ -1126,7 +1126,7 @@ eval_windowaggregates(WindowAggState *winstate)
 	 * result for it, else we'll leak memory.
 	 */
 	if (numaggs_restart > 0)
-		MemoryContextResetAndDeleteChildren(winstate->aggcontext);
+		MemoryContextReset(winstate->aggcontext);
 	for (i = 0; i < numaggs; i++)
 	{
 		peraggstate = &winstate->peragg[i];
@@ -1304,7 +1304,7 @@ eval_windowfunction(WindowAggState *winstate, WindowStatePerFunc perfuncstate,
 	InitFunctionCallInfoData(*fcinfo, &(perfuncstate->flinfo),
 							 perfuncstate->numArguments,
 							 perfuncstate->winCollation,
-							 (void *) perfuncstate->winobj, NULL);
+							 (Node *) perfuncstate->winobj, NULL);
 	/* Just in case, make all the regular argument slots be null */
 	for (int argno = 0; argno < perfuncstate->numArguments; argno++)
 		fcinfo->args[argno].isnull = true;
@@ -1331,37 +1331,24 @@ eval_windowfunction(WindowAggState *winstate, WindowStatePerFunc perfuncstate,
 }
 
 /*
- * begin_partition
- * Start buffering rows of the next partition.
+ * prepare_tuplestore
+ *		Prepare the tuplestore and all of the required read pointers for the
+ *		WindowAggState's frameOptions.
+ *
+ * Note: We use pg_noinline to avoid bloating the calling function with code
+ * which is only called once.
  */
-static void
-begin_partition(WindowAggState *winstate)
+static pg_noinline void
+prepare_tuplestore(WindowAggState *winstate)
 {
 	WindowAgg  *node = (WindowAgg *) winstate->ss.ps.plan;
-	PlanState  *outerPlan = outerPlanState(winstate);
 	int			frameOptions = winstate->frameOptions;
 	int			numfuncs = winstate->numfuncs;
-	int			i;
 
-	winstate->partition_spooled = false;
-	winstate->framehead_valid = false;
-	winstate->frametail_valid = false;
-	winstate->grouptail_valid = false;
-	winstate->spooled_rows = 0;
-	winstate->currentpos = 0;
-	winstate->frameheadpos = 0;
-	winstate->frametailpos = 0;
-	winstate->currentgroup = 0;
-	winstate->frameheadgroup = 0;
-	winstate->frametailgroup = 0;
-	winstate->groupheadpos = 0;
-	winstate->grouptailpos = -1;	/* see update_grouptailpos */
-	ExecClearTuple(winstate->agg_row_slot);
-	if (winstate->framehead_slot)
-		ExecClearTuple(winstate->framehead_slot);
-	if (winstate->frametail_slot)
-		ExecClearTuple(winstate->frametail_slot);
+	/* we shouldn't be called if this was done already */
+	Assert(winstate->buffer == NULL);
 
+<<<<<<< HEAD
 	/*
 	 * If this is the very first partition, we need to fetch the first input
 	 * row to store in first_part_slot.
@@ -1385,6 +1372,10 @@ begin_partition(WindowAggState *winstate)
 	winstate->buffer =
 		tuplestore_begin_heap(false, false,
 							  PlanStateOperatorMemKB((PlanState *) winstate));
+=======
+	/* Create new tuplestore */
+	winstate->buffer = tuplestore_begin_heap(false, false, work_mem);
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Set up read pointers for the tuplestore.  The current pointer doesn't
@@ -1418,16 +1409,10 @@ begin_partition(WindowAggState *winstate)
 
 		agg_winobj->readptr = tuplestore_alloc_read_pointer(winstate->buffer,
 															readptr_flags);
-		agg_winobj->markpos = -1;
-		agg_winobj->seekpos = -1;
-
-		/* Also reset the row counters for aggregates */
-		winstate->aggregatedbase = 0;
-		winstate->aggregatedupto = 0;
 	}
 
 	/* create mark and read pointers for each real window function */
-	for (i = 0; i < numfuncs; i++)
+	for (int i = 0; i < numfuncs; i++)
 	{
 		WindowStatePerFunc perfuncstate = &(winstate->perfunc[i]);
 
@@ -1439,8 +1424,6 @@ begin_partition(WindowAggState *winstate)
 															0);
 			winobj->readptr = tuplestore_alloc_read_pointer(winstate->buffer,
 															EXEC_FLAG_BACKWARD);
-			winobj->markpos = -1;
-			winobj->seekpos = -1;
 		}
 	}
 
@@ -1485,6 +1468,88 @@ begin_partition(WindowAggState *winstate)
 	{
 		winstate->grouptail_ptr =
 			tuplestore_alloc_read_pointer(winstate->buffer, 0);
+	}
+}
+
+/*
+ * begin_partition
+ * Start buffering rows of the next partition.
+ */
+static void
+begin_partition(WindowAggState *winstate)
+{
+	PlanState  *outerPlan = outerPlanState(winstate);
+	int			numfuncs = winstate->numfuncs;
+
+	winstate->partition_spooled = false;
+	winstate->framehead_valid = false;
+	winstate->frametail_valid = false;
+	winstate->grouptail_valid = false;
+	winstate->spooled_rows = 0;
+	winstate->currentpos = 0;
+	winstate->frameheadpos = 0;
+	winstate->frametailpos = 0;
+	winstate->currentgroup = 0;
+	winstate->frameheadgroup = 0;
+	winstate->frametailgroup = 0;
+	winstate->groupheadpos = 0;
+	winstate->grouptailpos = -1;	/* see update_grouptailpos */
+	ExecClearTuple(winstate->agg_row_slot);
+	if (winstate->framehead_slot)
+		ExecClearTuple(winstate->framehead_slot);
+	if (winstate->frametail_slot)
+		ExecClearTuple(winstate->frametail_slot);
+
+	/*
+	 * If this is the very first partition, we need to fetch the first input
+	 * row to store in first_part_slot.
+	 */
+	if (TupIsNull(winstate->first_part_slot))
+	{
+		TupleTableSlot *outerslot = ExecProcNode(outerPlan);
+
+		if (!TupIsNull(outerslot))
+			ExecCopySlot(winstate->first_part_slot, outerslot);
+		else
+		{
+			/* outer plan is empty, so we have nothing to do */
+			winstate->partition_spooled = true;
+			winstate->more_partitions = false;
+			return;
+		}
+	}
+
+	/* Create new tuplestore if not done already. */
+	if (unlikely(winstate->buffer == NULL))
+		prepare_tuplestore(winstate);
+
+	winstate->next_partition = false;
+
+	if (winstate->numaggs > 0)
+	{
+		WindowObject agg_winobj = winstate->agg_winobj;
+
+		/* reset mark and see positions for aggregate functions */
+		agg_winobj->markpos = -1;
+		agg_winobj->seekpos = -1;
+
+		/* Also reset the row counters for aggregates */
+		winstate->aggregatedbase = 0;
+		winstate->aggregatedupto = 0;
+	}
+
+	/* reset mark and seek positions for each real window function */
+	for (int i = 0; i < numfuncs; i++)
+	{
+		WindowStatePerFunc perfuncstate = &(winstate->perfunc[i]);
+
+		if (!perfuncstate->plain_agg)
+		{
+			WindowObject winobj = perfuncstate->winobj;
+
+			winobj->markpos = -1;
+			winobj->seekpos = -1;
+		}
 	}
 
 	/*
@@ -1613,18 +1678,18 @@ release_partition(WindowAggState *winstate)
 	 * any aggregate temp data).  We don't rely on retail pfree because some
 	 * aggregates might have allocated data we don't have direct pointers to.
 	 */
-	MemoryContextResetAndDeleteChildren(winstate->partcontext);
-	MemoryContextResetAndDeleteChildren(winstate->aggcontext);
+	MemoryContextReset(winstate->partcontext);
+	MemoryContextReset(winstate->aggcontext);
 	for (i = 0; i < winstate->numaggs; i++)
 	{
 		if (winstate->peragg[i].aggcontext != winstate->aggcontext)
-			MemoryContextResetAndDeleteChildren(winstate->peragg[i].aggcontext);
+			MemoryContextReset(winstate->peragg[i].aggcontext);
 	}
 
 	if (winstate->buffer)
-		tuplestore_end(winstate->buffer);
-	winstate->buffer = NULL;
+		tuplestore_clear(winstate->buffer);
 	winstate->partition_spooled = false;
+	winstate->next_partition = true;
 }
 
 /*
@@ -2330,16 +2395,31 @@ update_grouptailpos(WindowAggState *winstate)
 	MemoryContextSwitchTo(oldcontext);
 }
 
+<<<<<<< HEAD
 static void
 compute_start_end_offsets(WindowAggState *winstate)
 {
 	int			frameOptions = winstate->frameOptions;
 	ExprContext *econtext = winstate->ss.ps.ps_ExprContext;
+=======
+/*
+ * calculate_frame_offsets
+ *		Determine the startOffsetValue and endOffsetValue values for the
+ *		WindowAgg's frame options.
+ */
+static pg_noinline void
+calculate_frame_offsets(PlanState *pstate)
+{
+	WindowAggState *winstate = castNode(WindowAggState, pstate);
+	ExprContext *econtext;
+	int			frameOptions = winstate->frameOptions;
+>>>>>>> REL_18_BETA1_branch
 	Datum		value;
 	bool		isnull;
 	int16		len;
 	bool		byval;
 
+<<<<<<< HEAD
 	/*
 	 * Compute frame offset values, if any
 	 */
@@ -2403,6 +2483,67 @@ compute_start_end_offsets(WindowAggState *winstate)
 		}
 		winstate->end_offset_valid = true;
 	}
+=======
+	/* Ensure we've not been called before for this scan */
+	Assert(winstate->all_first);
+
+	econtext = winstate->ss.ps.ps_ExprContext;
+
+	if (frameOptions & FRAMEOPTION_START_OFFSET)
+	{
+		Assert(winstate->startOffset != NULL);
+		value = ExecEvalExprSwitchContext(winstate->startOffset,
+										  econtext,
+										  &isnull);
+		if (isnull)
+			ereport(ERROR,
+					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+					 errmsg("frame starting offset must not be null")));
+		/* copy value into query-lifespan context */
+		get_typlenbyval(exprType((Node *) winstate->startOffset->expr),
+						&len,
+						&byval);
+		winstate->startOffsetValue = datumCopy(value, byval, len);
+		if (frameOptions & (FRAMEOPTION_ROWS | FRAMEOPTION_GROUPS))
+		{
+			/* value is known to be int8 */
+			int64		offset = DatumGetInt64(value);
+
+			if (offset < 0)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE),
+						 errmsg("frame starting offset must not be negative")));
+		}
+	}
+
+	if (frameOptions & FRAMEOPTION_END_OFFSET)
+	{
+		Assert(winstate->endOffset != NULL);
+		value = ExecEvalExprSwitchContext(winstate->endOffset,
+										  econtext,
+										  &isnull);
+		if (isnull)
+			ereport(ERROR,
+					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+					 errmsg("frame ending offset must not be null")));
+		/* copy value into query-lifespan context */
+		get_typlenbyval(exprType((Node *) winstate->endOffset->expr),
+						&len,
+						&byval);
+		winstate->endOffsetValue = datumCopy(value, byval, len);
+		if (frameOptions & (FRAMEOPTION_ROWS | FRAMEOPTION_GROUPS))
+		{
+			/* value is known to be int8 */
+			int64		offset = DatumGetInt64(value);
+
+			if (offset < 0)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE),
+						 errmsg("frame ending offset must not be negative")));
+		}
+	}
+	winstate->all_first = false;
+>>>>>>> REL_18_BETA1_branch
 }
 
 /* -----------------
@@ -2436,6 +2577,7 @@ ExecWindowAgg(PlanState *pstate)
 	 * GPDB: We accept non-constant frame offsets, too. If they're not
 	 * constants, we'll compute them later.
 	 */
+<<<<<<< HEAD
 	if (winstate->all_first &&
 		winstate->start_offset_var_free &&
 		winstate->end_offset_var_free)
@@ -2444,11 +2586,15 @@ ExecWindowAgg(PlanState *pstate)
 
 		winstate->all_first = false;
 	}
+=======
+	if (unlikely(winstate->all_first))
+		calculate_frame_offsets(pstate);
+>>>>>>> REL_18_BETA1_branch
 
 	/* We need to loop as the runCondition or qual may filter out tuples */
 	for (;;)
 	{
-		if (winstate->buffer == NULL)
+		if (winstate->next_partition)
 		{
 			/* Initialize for first partition and set current row = 0 */
 			begin_partition(winstate);
@@ -3002,6 +3148,7 @@ ExecInitWindowAgg(WindowAgg *node, EState *estate, int eflags)
 	winstate->all_first = true;
 	winstate->partition_spooled = false;
 	winstate->more_partitions = false;
+	winstate->next_partition = true;
 
 	return winstate;
 }
@@ -3016,24 +3163,15 @@ ExecEndWindowAgg(WindowAggState *node)
 	PlanState  *outerPlan;
 	int			i;
 
+	if (node->buffer != NULL)
+	{
+		tuplestore_end(node->buffer);
+
+		/* nullify so that release_partition skips the tuplestore_clear() */
+		node->buffer = NULL;
+	}
+
 	release_partition(node);
-
-	ExecClearTuple(node->ss.ss_ScanTupleSlot);
-	ExecClearTuple(node->first_part_slot);
-	ExecClearTuple(node->agg_row_slot);
-	ExecClearTuple(node->temp_slot_1);
-	ExecClearTuple(node->temp_slot_2);
-	if (node->framehead_slot)
-		ExecClearTuple(node->framehead_slot);
-	if (node->frametail_slot)
-		ExecClearTuple(node->frametail_slot);
-
-	/*
-	 * Free both the expr contexts.
-	 */
-	ExecFreeExprContext(&node->ss.ps);
-	node->ss.ps.ps_ExprContext = node->tmpcontext;
-	ExecFreeExprContext(&node->ss.ps);
 
 	for (i = 0; i < node->numaggs; i++)
 	{

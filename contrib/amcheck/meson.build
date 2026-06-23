@@ -1,6 +1,8 @@
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 amcheck_sources = files(
+  'verify_common.c',
+  'verify_gin.c',
   'verify_heapam.c',
   'verify_nbtree.c',
 )
@@ -23,6 +25,8 @@ install_data(
   'amcheck--1.0--1.1.sql',
   'amcheck--1.1--1.2.sql',
   'amcheck--1.2--1.3.sql',
+  'amcheck--1.3--1.4.sql',
+  'amcheck--1.4--1.5.sql',
   kwargs: contrib_data_args,
 )
 
@@ -34,6 +38,7 @@ tests += {
     'sql': [
       'check',
       'check_btree',
+      'check_gin',
       'check_heap',
     ],
   },
@@ -42,6 +47,10 @@ tests += {
       't/001_verify_heapam.pl',
       't/002_cic.pl',
       't/003_cic_2pc.pl',
+<<<<<<< HEAD
+=======
+      't/004_verify_nbtree_unique.pl',
+>>>>>>> REL_18_BETA1_branch
       't/005_pitr.pl',
     ],
   },

@@ -1,12 +1,12 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Tests for peer authentication and user name map.
 # The test is skipped if the platform does not support peer authentication,
 # and is only able to run with Unix-domain sockets.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -72,6 +72,8 @@ sub test_role
 my $node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->append_conf('postgresql.conf', "log_connections = on\n");
+# Needed to allow connect_fails to inspect postmaster log:
+$node->append_conf('postgresql.conf', "log_min_messages = debug2");
 $node->start;
 
 # Set pg_hba.conf with the peer authentication.
@@ -99,6 +101,12 @@ $node->safe_psql('postgres', 'GRANT "testmapgroupliteral\\1" TO testmapuser');
 my $system_user =
   $node->safe_psql('postgres',
 	q(select (string_to_array(SYSTEM_USER, ':'))[2]));
+
+# While on it, check the status of huge pages, that can be either on
+# or off, but never unknown.
+my $huge_pages_status =
+  $node->safe_psql('postgres', q(SHOW huge_pages_status;));
+isnt($huge_pages_status, 'unknown', "check huge_pages_status");
 
 # Tests without the user name map.
 # Failure as connection is attempted with a database role not mapping

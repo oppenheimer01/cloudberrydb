@@ -19,5 +19,9 @@ check:
 installcheck:
 	$(prove_installcheck)
 
+<<<<<<< HEAD
 clean distclean maintainer-clean:
+=======
+clean distclean:
+>>>>>>> REL_18_BETA1_branch
 	rm -rf tmp_check

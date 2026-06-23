@@ -7,7 +7,7 @@
  * knowledge of the tuple descriptor. Fixed column widths, NOT NULLness, etc
  * can be taken advantage of.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -110,7 +110,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	 */
 	for (attnum = 0; attnum < desc->natts; attnum++)
 	{
-		Form_pg_attribute att = TupleDescAttr(desc, attnum);
+		CompactAttribute *att = TupleDescCompactAttr(desc, attnum);
 
 		/*
 		 * If the column is declared NOT NULL then it must be present in every
@@ -123,7 +123,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		 * combination of attisdropped && attnotnull combination shouldn't
 		 * exist.
 		 */
-		if (att->attnotnull &&
+		if (att->attnullability == ATTNULLABLE_VALID &&
 			!att->atthasmissing &&
 			!att->attisdropped)
 			guaranteed_column_number = attnum;
@@ -393,9 +393,13 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	 */
 	for (attnum = 0; attnum < natts; attnum++)
 	{
-		Form_pg_attribute att = TupleDescAttr(desc, attnum);
+		CompactAttribute *att = TupleDescCompactAttr(desc, attnum);
 		LLVMValueRef v_incby;
+<<<<<<< HEAD
 		int			alignto;
+=======
+		int			alignto = att->attalignby;
+>>>>>>> REL_18_BETA1_branch
 		LLVMValueRef l_attno = l_int16_const(lc, attnum);
 		LLVMValueRef v_attdatap;
 		LLVMValueRef v_resultp;
@@ -438,7 +442,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		 * into account, because if they're present the heaptuple's natts
 		 * would have indicated that a slot_getmissingattrs() is needed.
 		 */
-		if (!att->attnotnull)
+		if (att->attnullability != ATTNULLABLE_VALID)
 		{
 			LLVMBasicBlockRef b_ifnotnull;
 			LLVMBasicBlockRef b_ifnull;
@@ -494,21 +498,6 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 		LLVMPositionBuilderAtEnd(b, attcheckalignblocks[attnum]);
 
-		/* determine required alignment */
-		if (att->attalign == TYPALIGN_INT)
-			alignto = ALIGNOF_INT;
-		else if (att->attalign == TYPALIGN_CHAR)
-			alignto = 1;
-		else if (att->attalign == TYPALIGN_DOUBLE)
-			alignto = ALIGNOF_DOUBLE;
-		else if (att->attalign == TYPALIGN_SHORT)
-			alignto = ALIGNOF_SHORT;
-		else
-		{
-			elog(ERROR, "unknown alignment");
-			alignto = 0;
-		}
-
 		/* ------
 		 * Even if alignment is required, we can skip doing it if provably
 		 * unnecessary:
@@ -542,8 +531,12 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 				v_off = l_load(b, TypeSizeT, v_offp, "");
 
 				v_possible_padbyte =
+<<<<<<< HEAD
 					l_load_gep1(b, LLVMInt8TypeInContext(lc), v_tupdata_base,
 								v_off, "padbyte");
+=======
+					l_load_gep1(b, LLVMInt8TypeInContext(lc), v_tupdata_base, v_off, "padbyte");
+>>>>>>> REL_18_BETA1_branch
 				v_ispad =
 					LLVMBuildICmp(b, LLVMIntEQ,
 								  v_possible_padbyte, l_int8_const(lc, 0),
@@ -620,7 +613,8 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			known_alignment = -1;
 			attguaranteedalign = false;
 		}
-		else if (att->attnotnull && attguaranteedalign && known_alignment >= 0)
+		else if (att->attnullability == ATTNULLABLE_VALID &&
+				 attguaranteedalign && known_alignment >= 0)
 		{
 			/*
 			 * If the offset to the column was previously known, a NOT NULL &
@@ -630,7 +624,8 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			Assert(att->attlen > 0);
 			known_alignment += att->attlen;
 		}
-		else if (att->attnotnull && (att->attlen % alignto) == 0)
+		else if (att->attnullability == ATTNULLABLE_VALID &&
+				 (att->attlen % alignto) == 0)
 		{
 			/*
 			 * After a NOT NULL fixed-width column with a length that is a

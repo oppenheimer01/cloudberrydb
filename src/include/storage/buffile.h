@@ -15,9 +15,13 @@
  * but currently we have no need for oversize temp files without buffered
  * access.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/buffile.h
@@ -45,7 +49,7 @@ struct workfile_set;
 extern BufFile *BufFileCreateTemp(char *operation_name, bool interXact);
 extern BufFile *BufFileCreateTempInSet(char *operation_name, bool interXact, struct workfile_set *work_set);
 extern void BufFileClose(BufFile *file);
-extern pg_nodiscard size_t BufFileRead(BufFile *file, void *ptr, size_t size);
+pg_nodiscard extern size_t BufFileRead(BufFile *file, void *ptr, size_t size);
 extern void BufFileReadExact(BufFile *file, void *ptr, size_t size);
 extern size_t BufFileReadMaybeEOF(BufFile *file, void *ptr, size_t size, bool eofOK);
 extern void BufFileWrite(BufFile *file, const void *ptr, size_t size);
@@ -53,7 +57,7 @@ extern int	BufFileSeek(BufFile *file, int fileno, off_t offset, int whence);
 extern void BufFileTell(BufFile *file, int *fileno, off_t *offset);
 extern int	BufFileSeekBlock(BufFile *file, int64 blknum);
 extern int64 BufFileSize(BufFile *file);
-extern long BufFileAppend(BufFile *target, BufFile *source);
+extern int64 BufFileAppend(BufFile *target, BufFile *source);
 
 extern BufFile *BufFileCreateFileSet(FileSet *fileset, const char *name, workfile_set *work_set);
 extern void BufFileExportFileSet(BufFile *file);

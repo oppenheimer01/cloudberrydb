@@ -3,7 +3,7 @@
  * buf_init.c
  *	  buffer manager initialization routines
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -14,6 +14,7 @@
  */
 #include "postgres.h"
 
+<<<<<<< HEAD
 #include <sys/mman.h>
 
 #ifdef MPROTECT_BUFFERS
@@ -21,9 +22,11 @@
 #include "miscadmin.h"
 #endif
 
+=======
+#include "storage/aio.h"
+>>>>>>> REL_18_BETA1_branch
 #include "storage/buf_internals.h"
 #include "storage/bufmgr.h"
-#include "storage/proc.h"
 
 BufferDescPadded *BufferDescriptors;
 char	   *BufferBlocks;
@@ -94,7 +97,7 @@ ProtectMemoryPoolBuffers()
  * postmaster, or in a standalone backend).
  */
 void
-InitBufferPool(void)
+BufferManagerShmemInit(void)
 {
 	bool		foundBufs,
 				foundDescs,
@@ -151,9 +154,11 @@ InitBufferPool(void)
 			ClearBufferTag(&buf->tag);
 
 			pg_atomic_init_u32(&buf->state, 0);
-			buf->wait_backend_pgprocno = INVALID_PGPROCNO;
+			buf->wait_backend_pgprocno = INVALID_PROC_NUMBER;
 
 			buf->buf_id = i;
+
+			pgaio_wref_clear(&buf->io_wref);
 
 			/*
 			 * Initially link all the buffers together as unused. Subsequent
@@ -184,13 +189,13 @@ InitBufferPool(void)
 }
 
 /*
- * BufferShmemSize
+ * BufferManagerShmemSize
  *
  * compute the size of shared memory for the buffer pool including
  * data pages, buffer descriptors, hash tables, etc.
  */
 Size
-BufferShmemSize(void)
+BufferManagerShmemSize(void)
 {
 	Size		size = 0;
 

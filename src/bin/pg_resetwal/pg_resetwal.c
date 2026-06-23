@@ -6,8 +6,7 @@
  *
  * The theory of operation is fairly simple:
  *	  1. Read the existing pg_control (which will include the last
- *		 checkpoint record).  If it is an old format then update to
- *		 current format.
+ *		 checkpoint record).
  *	  2. If pg_control is corrupt, attempt to intuit reasonable values,
  *		 by scanning the old xlog if necessary.
  *	  3. Modify pg_control to reflect a "shutdown" state with a checkpoint
@@ -20,7 +19,7 @@
  * step 2 ...
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/pg_resetwal/pg_resetwal.c
@@ -57,6 +56,7 @@
 #include "common/logging.h"
 #include "common/restricted_token.h"
 #include "common/string.h"
+#include "fe_utils/option_utils.h"
 #include "getopt_long.h"
 #include "pg_getopt.h"
 #include "storage/large_object.h"
@@ -80,7 +80,11 @@ static TimeLineID minXlogTli = 0;
 static XLogSegNo minXlogSegNo = 0;
 static int	WalSegSz;
 static int	set_wal_segsize;
+<<<<<<< HEAD
 static uint64 system_identifier = 0;
+=======
+static int	set_char_signedness = -1;
+>>>>>>> REL_18_BETA1_branch
 
 static void CheckDataVersion(void);
 static bool read_controlfile(void);
@@ -91,6 +95,7 @@ static void RewriteControlFile(void);
 static void FindEndOfXLOG(void);
 static void KillExistingXLOG(void);
 static void KillExistingArchiveStatus(void);
+static void KillExistingWALSummaries(void);
 static void WriteEmptyXLOG(void);
 static void usage(void);
 static bool AcceptWarning(void);
@@ -119,6 +124,7 @@ main(int argc, char *argv[])
 		{"oldest-transaction-id", required_argument, NULL, 'u'},
 		{"next-transaction-id", required_argument, NULL, 'x'},
 		{"wal-segsize", required_argument, NULL, 1},
+<<<<<<< HEAD
 
 		/*
 		 * GPDB: The option numbers below start at 1000 to avoid conflicts with
@@ -127,6 +133,9 @@ main(int argc, char *argv[])
 		{"binary-upgrade", no_argument, NULL, 1000},
 		{"system-identifier", required_argument, NULL, 1001},
 		{"next-gxid", required_argument, NULL, 1002},
+=======
+		{"char-signedness", required_argument, NULL, 2},
+>>>>>>> REL_18_BETA1_branch
 		{NULL, 0, NULL, 0}
 	};
 
@@ -239,13 +248,13 @@ main(int argc, char *argv[])
 					exit(1);
 				}
 
-				if (set_oldest_commit_ts_xid < 2 &&
-					set_oldest_commit_ts_xid != 0)
-					pg_fatal("transaction ID (-c) must be either 0 or greater than or equal to 2");
+				if (set_oldest_commit_ts_xid < FirstNormalTransactionId &&
+					set_oldest_commit_ts_xid != InvalidTransactionId)
+					pg_fatal("transaction ID (-c) must be either %u or greater than or equal to %u", InvalidTransactionId, FirstNormalTransactionId);
 
-				if (set_newest_commit_ts_xid < 2 &&
-					set_newest_commit_ts_xid != 0)
-					pg_fatal("transaction ID (-c) must be either 0 or greater than or equal to 2");
+				if (set_newest_commit_ts_xid < FirstNormalTransactionId &&
+					set_newest_commit_ts_xid != InvalidTransactionId)
+					pg_fatal("transaction ID (-c) must be either %u or greater than or equal to %u", InvalidTransactionId, FirstNormalTransactionId);
 				break;
 
 			case 'o':
@@ -333,6 +342,7 @@ main(int argc, char *argv[])
 				break;
 
 			case 1:
+<<<<<<< HEAD
 				errno = 0;
 				set_wal_segsize = strtol(optarg, &endptr, 10) * 1024 * 1024;
 				if (endptr == optarg || *endptr != '\0' || errno != 0)
@@ -397,6 +407,35 @@ main(int argc, char *argv[])
 					exit(1);
 				}
 				break;
+=======
+				{
+					int			wal_segsize_mb;
+
+					if (!option_parse_int(optarg, "--wal-segsize", 1, 1024, &wal_segsize_mb))
+						exit(1);
+					set_wal_segsize = wal_segsize_mb * 1024 * 1024;
+					if (!IsValidWalSegSize(set_wal_segsize))
+						pg_fatal("argument of %s must be a power of two between 1 and 1024", "--wal-segsize");
+					break;
+				}
+
+			case 2:
+				{
+					errno = 0;
+
+					if (pg_strcasecmp(optarg, "signed") == 0)
+						set_char_signedness = 1;
+					else if (pg_strcasecmp(optarg, "unsigned") == 0)
+						set_char_signedness = 0;
+					else
+					{
+						pg_log_error("invalid argument for option %s", "--char-signedness");
+						pg_log_error_hint("Try \"%s --help\" for more information.", progname);
+						exit(1);
+					}
+					break;
+				}
+>>>>>>> REL_18_BETA1_branch
 
 			default:
 				/* getopt_long already emitted a complaint */
@@ -566,9 +605,13 @@ main(int argc, char *argv[])
 	if (set_wal_segsize != 0)
 		ControlFile.xlog_seg_size = WalSegSz;
 
+	if (set_char_signedness != -1)
+		ControlFile.default_char_signedness = (set_char_signedness == 1);
+
 	if (minXlogSegNo > newXlogSegNo)
 		newXlogSegNo = minXlogSegNo;
 
+<<<<<<< HEAD
 	if (system_identifier != 0)
 		ControlFile.system_identifier = system_identifier;
 
@@ -580,15 +623,24 @@ main(int argc, char *argv[])
 	 * guessed values and exit.  Also print if -n is given.
 	 */
 	if ((guessed && !force) || noupdate)
+=======
+	if (noupdate)
+>>>>>>> REL_18_BETA1_branch
 	{
 		PrintNewControlValues();
-		if (!noupdate)
-		{
-			printf(_("\nIf these values seem acceptable, use -f to force reset.\n"));
-			exit(1);
-		}
-		else
-			exit(0);
+		exit(0);
+	}
+
+	/*
+	 * If we had to guess anything, and -f was not given, just print the
+	 * guessed values and exit.
+	 */
+	if (guessed && !force)
+	{
+		PrintNewControlValues();
+		pg_log_error("not proceeding because control file values were guessed");
+		pg_log_error_hint("If these values seem acceptable, use -f to force reset.");
+		exit(1);
 	}
 
 	/*
@@ -596,9 +648,9 @@ main(int argc, char *argv[])
 	 */
 	if (ControlFile.state != DB_SHUTDOWNED && !force)
 	{
-		printf(_("The database server was not shut down cleanly.\n"
-				 "Resetting the write-ahead log might cause data to be lost.\n"
-				 "If you want to proceed anyway, use -f to force reset.\n"));
+		pg_log_error("database server was not shut down cleanly");
+		pg_log_error_detail("Resetting the write-ahead log might cause data to be lost.");
+		pg_log_error_hint("If you want to proceed anyway, use -f to force reset.");
 		exit(1);
 	}
 
@@ -617,6 +669,7 @@ main(int argc, char *argv[])
 	RewriteControlFile();
 	KillExistingXLOG();
 	KillExistingArchiveStatus();
+	KillExistingWALSummaries();
 	WriteEmptyXLOG();
 
 	printf(_("Write-ahead log reset\n"));
@@ -886,8 +939,8 @@ PrintControlValues(bool guessed)
 		   ControlFile.pg_control_version);
 	printf(_("Catalog version number:               %u\n"),
 		   ControlFile.catalog_version_no);
-	printf(_("Database system identifier:           %llu\n"),
-		   (unsigned long long) ControlFile.system_identifier);
+	printf(_("Database system identifier:           %" PRIu64 "\n"),
+		   ControlFile.system_identifier);
 	printf(_("Latest checkpoint's TimeLineID:       %u\n"),
 		   ControlFile.checkPointCopy.ThisTimeLineID);
 	printf(_("Latest checkpoint's full_page_writes: %s\n"),
@@ -945,8 +998,13 @@ PrintControlValues(bool guessed)
 		   (ControlFile.float8ByVal ? _("by value") : _("by reference")));
 	printf(_("Data page checksum version:           %u\n"),
 		   ControlFile.data_checksum_version);
+<<<<<<< HEAD
 	printf(_("File encryption method:               %s\n"),
 		   encryption_methods[ControlFile.file_encryption_method].name);
+=======
+	printf(_("Default char data signedness:         %s\n"),
+		   (ControlFile.default_char_signedness ? _("signed") : _("unsigned")));
+>>>>>>> REL_18_BETA1_branch
 }
 
 
@@ -1235,6 +1293,40 @@ KillExistingArchiveStatus(void)
 		pg_fatal("could not close directory \"%s\": %m", ARCHSTATDIR);
 }
 
+/*
+ * Remove existing WAL summary files
+ */
+static void
+KillExistingWALSummaries(void)
+{
+#define WALSUMMARYDIR XLOGDIR	"/summaries"
+#define WALSUMMARY_NHEXCHARS	40
+
+	DIR		   *xldir;
+	struct dirent *xlde;
+	char		path[MAXPGPATH + sizeof(WALSUMMARYDIR)];
+
+	xldir = opendir(WALSUMMARYDIR);
+	if (xldir == NULL)
+		pg_fatal("could not open directory \"%s\": %m", WALSUMMARYDIR);
+
+	while (errno = 0, (xlde = readdir(xldir)) != NULL)
+	{
+		if (strspn(xlde->d_name, "0123456789ABCDEF") == WALSUMMARY_NHEXCHARS &&
+			strcmp(xlde->d_name + WALSUMMARY_NHEXCHARS, ".summary") == 0)
+		{
+			snprintf(path, sizeof(path), "%s/%s", WALSUMMARYDIR, xlde->d_name);
+			if (unlink(path) < 0)
+				pg_fatal("could not delete file \"%s\": %m", path);
+		}
+	}
+
+	if (errno)
+		pg_fatal("could not read directory \"%s\": %m", WALSUMMARYDIR);
+
+	if (closedir(xldir))
+		pg_fatal("could not close directory \"%s\": %m", ARCHSTATDIR);
+}
 
 /*
  * Write an empty XLOG file, containing only the checkpoint record
@@ -1439,28 +1531,42 @@ static void
 usage(void)
 {
 	printf(_("%s resets the PostgreSQL write-ahead log.\n\n"), progname);
-	printf(_("Usage:\n  %s [OPTION]... DATADIR\n\n"), progname);
-	printf(_("Options:\n"));
+	printf(_("Usage:\n"));
+	printf(_("  %s [OPTION]... DATADIR\n"), progname);
+
+	printf(_("\nOptions:\n"));
+	printf(_(" [-D, --pgdata=]DATADIR  data directory\n"));
+	printf(_("  -f, --force            force update to be done even after unclean shutdown or\n"
+			 "                         if pg_control values had to be guessed\n"));
+	printf(_("  -n, --dry-run          no update, just show what would be done\n"));
+	printf(_("  -V, --version          output version information, then exit\n"));
+	printf(_("  -?, --help             show this help, then exit\n"));
+
+	printf(_("\nOptions to override control file values:\n"));
 	printf(_("  -c, --commit-timestamp-ids=XID,XID\n"
 			 "                                   set oldest and newest transactions bearing\n"
 			 "                                   commit timestamp (zero means no change)\n"));
-	printf(_(" [-D, --pgdata=]DATADIR            data directory\n"));
 	printf(_("  -e, --epoch=XIDEPOCH             set next transaction ID epoch\n"));
+<<<<<<< HEAD
 	printf(_("  -f, --force                      force update to be done\n"));
 	printf(_("  -k data_checksum_version         set data_checksum_version\n"));
+=======
+>>>>>>> REL_18_BETA1_branch
 	printf(_("  -l, --next-wal-file=WALFILE      set minimum starting location for new WAL\n"));
 	printf(_("  -m, --multixact-ids=MXID,MXID    set next and oldest multitransaction ID\n"));
-	printf(_("  -n, --dry-run                    no update, just show what would be done\n"));
 	printf(_("  -o, --next-oid=OID               set next OID\n"));
 	printf(_("  -O, --multixact-offset=OFFSET    set next multitransaction offset\n"));
 	printf(_("  -r RELFILENODE                 set next RELFILENODE\n"));
 	printf(_("      --system-identifier=ID     set database system identifier\n"));
 	printf(_("  -u, --oldest-transaction-id=XID  set oldest transaction ID\n"));
-	printf(_("  -V, --version                    output version information, then exit\n"));
 	printf(_("  -x, --next-transaction-id=XID    set next transaction ID\n"));
+<<<<<<< HEAD
 	printf(_("      --next-gxid=GXID           set next distributed transaction ID\n"));
+=======
+	printf(_("      --char-signedness=OPTION     set char signedness to \"signed\" or \"unsigned\"\n"));
+>>>>>>> REL_18_BETA1_branch
 	printf(_("      --wal-segsize=SIZE           size of WAL segments, in megabytes\n"));
-	printf(_("  -?, --help                       show this help, then exit\n"));
+
 	printf(_("\nReport bugs to <%s>.\n"), PACKAGE_BUGREPORT);
 	printf(_("%s home page: <%s>\n"), PACKAGE_NAME, PACKAGE_URL);
 }

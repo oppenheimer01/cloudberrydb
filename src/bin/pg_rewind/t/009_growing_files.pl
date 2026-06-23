@@ -1,8 +1,8 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Utils;
 use Test::More;
 
@@ -28,7 +28,7 @@ primary_psql('CHECKPOINT');
 RewindTest::promote_standby();
 
 # Insert a row in the old primary. This causes the primary and standby to have
-# "diverged", it's no longer possible to just apply the standy's logs over
+# "diverged", it's no longer possible to just apply the standby's logs over
 # primary directory - you need to rewind.  Also insert a new row in the
 # standby, which won't be present in the old primary.
 primary_psql("INSERT INTO tbl1 VALUES ('in primary, after promotion')");
@@ -52,12 +52,11 @@ append_to_file "$standby_pgdata/tst_both_dir/file1", 'a';
 my $ret = run_log(
 	[
 		'pg_rewind', '--debug',
-		'--source-pgdata', $standby_pgdata,
-		'--target-pgdata', $primary_pgdata,
+		'--source-pgdata' => $standby_pgdata,
+		'--target-pgdata' => $primary_pgdata,
 		'--no-sync',
 	],
-	'2>>',
-	"$standby_pgdata/tst_both_dir/file1");
+	'2>>' => "$standby_pgdata/tst_both_dir/file1");
 ok(!$ret, 'Error out on copying growing file');
 
 # Ensure that the files are of different size, the final error message should
@@ -69,7 +68,7 @@ isnt($standby_size, $primary_size, "File sizes should differ");
 # Extract the last line from the verbose output as that should have the error
 # message for the unexpected file size
 my $last;
-open my $f, '<', "$standby_pgdata/tst_both_dir/file1";
+open my $f, '<', "$standby_pgdata/tst_both_dir/file1" or die $!;
 $last = $_ while (<$f>);
 close $f;
 like($last, qr/error: size of source file/, "Check error message");

@@ -19,10 +19,15 @@ PG_CPPFLAGS = -I$(libpq_srcdir)
 SHLIB_LINK_INTERNAL = -Wl,-Bsymbolic -Wl,-Bstatic -Wl,-Bstatic $(libpq) -Wl,-Bdynamic
 
 EXTENSION = postgres_fdw
-DATA = postgres_fdw--1.0.sql postgres_fdw--1.0--1.1.sql
+DATA = postgres_fdw--1.0.sql postgres_fdw--1.0--1.1.sql postgres_fdw--1.1--1.2.sql
 
+<<<<<<< HEAD
 REGRESS = gp2pg_postgres_fdw gp_postgres_fdw mpp_postgres_fdw #postgres_fdw
 REGRESS_OPTS += --init-file=$(top_srcdir)/src/test/regress/init_file
+=======
+REGRESS = postgres_fdw query_cancel
+TAP_TESTS = 1
+>>>>>>> REL_18_BETA1_branch
 
 ifdef USE_PGXS
 PG_CONFIG = pg_config

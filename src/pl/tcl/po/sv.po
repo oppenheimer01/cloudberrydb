@@ -5,9 +5,15 @@
 #
 msgid ""
 msgstr ""
+<<<<<<< HEAD
 "Project-Id-Version: PostgreSQL 16\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
 "POT-Creation-Date: 2024-07-13 15:57+0000\n"
+=======
+"Project-Id-Version: PostgreSQL 17\n"
+"Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+"POT-Creation-Date: 2024-07-12 17:38+0000\n"
+>>>>>>> REL_18_BETA1_branch
 "PO-Revision-Date: 2024-07-12 22:05+0200\n"
 "Last-Translator: Dennis Björklund <db@zigo.dhs.org>\n"
 "Language-Team: Swedish <pgsql-translators@postgresql.org>\n"
@@ -100,22 +106,38 @@ msgstr "PL/Tcl-funktioner kan inte ta emot typ %s"
 msgid "could not create internal procedure \"%s\": %s"
 msgstr "kunde inte skapa en intern procedur \"%s\": %s"
 
+<<<<<<< HEAD
 #: pltcl.c:3206
+=======
+#: pltcl.c:3207
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list must have even number of elements"
 msgstr "kolumn-namn/-värde måste ha ett jämt antal element"
 
+<<<<<<< HEAD
 #: pltcl.c:3224
+=======
+#: pltcl.c:3225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list contains nonexistent column name \"%s\""
 msgstr "listan med kolumn-namn/-värde innehåller det icke existerande kolumnnamnet \"%s\""
 
+<<<<<<< HEAD
 #: pltcl.c:3231
+=======
+#: pltcl.c:3232
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set system attribute \"%s\""
 msgstr "kan inte sätta systemattribut \"%s\""
 
+<<<<<<< HEAD
 #: pltcl.c:3237
+=======
+#: pltcl.c:3238
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set generated column \"%s\""
 msgstr "kan inte sätta genererad kolumn \"%s\""

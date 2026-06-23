@@ -3,7 +3,7 @@
  * float.c
  *	  Functions for the built-in floating-point types.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -21,15 +21,12 @@
 
 #include "catalog/pg_type.h"
 #include "common/int.h"
-#include "common/pg_prng.h"
 #include "common/shortest_dec.h"
 #include "libpq/pqformat.h"
-#include "miscadmin.h"
 #include "utils/array.h"
 #include "utils/float.h"
 #include "utils/fmgrprotos.h"
 #include "utils/sortsupport.h"
-#include "utils/timestamp.h"
 
 
 /*
@@ -57,16 +54,20 @@ static float8 cot_45 = 0;
  * be referenced by other files, much less changed; but we don't want the
  * compiler to know that, else it might try to precompute expressions
  * involving them.  See comments for init_degree_constants().
+ *
+ * The additional extern declarations are to silence
+ * -Wmissing-variable-declarations.
  */
+extern float8 degree_c_thirty;
+extern float8 degree_c_forty_five;
+extern float8 degree_c_sixty;
+extern float8 degree_c_one_half;
+extern float8 degree_c_one;
 float8		degree_c_thirty = 30.0;
 float8		degree_c_forty_five = 45.0;
 float8		degree_c_sixty = 60.0;
 float8		degree_c_one_half = 0.5;
 float8		degree_c_one = 1.0;
-
-/* State for drandom() and setseed() */
-static bool drandom_seed_set = false;
-static pg_prng_state drandom_seed;
 
 /* Local function prototypes */
 static double sind_q1(double x);
@@ -2785,92 +2786,91 @@ derfc(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== RANDOM FUNCTIONS ========== */
+/* ========== GAMMA FUNCTIONS ========== */
 
 
 /*
- * initialize_drandom_seed - initialize drandom_seed if not yet done
- */
-static void
-initialize_drandom_seed(void)
-{
-	/* Initialize random seed, if not done yet in this process */
-	if (unlikely(!drandom_seed_set))
-	{
-		/*
-		 * If possible, initialize the seed using high-quality random bits.
-		 * Should that fail for some reason, we fall back on a lower-quality
-		 * seed based on current time and PID.
-		 */
-		if (unlikely(!pg_prng_strong_seed(&drandom_seed)))
-		{
-			TimestampTz now = GetCurrentTimestamp();
-			uint64		iseed;
-
-			/* Mix the PID with the most predictable bits of the timestamp */
-			iseed = (uint64) now ^ ((uint64) MyProcPid << 32);
-			pg_prng_seed(&drandom_seed, iseed);
-		}
-		drandom_seed_set = true;
-	}
-}
-
-/*
- *		drandom		- returns a random number
+ *		dgamma			- returns the gamma function of arg1
  */
 Datum
-drandom(PG_FUNCTION_ARGS)
+dgamma(PG_FUNCTION_ARGS)
 {
+	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	initialize_drandom_seed();
+	/*
+	 * Handle NaN and Inf cases explicitly.  This simplifies the overflow
+	 * checks on platforms that do not set errno.
+	 */
+	if (isnan(arg1))
+		result = arg1;
+	else if (isinf(arg1))
+	{
+		/* Per POSIX, an input of -Inf causes a domain error */
+		if (arg1 < 0)
+		{
+			float_overflow_error();
+			result = get_float8_nan();	/* keep compiler quiet */
+		}
+		else
+			result = arg1;
+	}
+	else
+	{
+		/*
+		 * Note: the POSIX/C99 gamma function is called "tgamma", not "gamma".
+		 *
+		 * On some platforms, tgamma() will not set errno but just return Inf,
+		 * NaN, or zero to report overflow/underflow; therefore, test those
+		 * cases explicitly (note that, like the exponential function, the
+		 * gamma function has no zeros).
+		 */
+		errno = 0;
+		result = tgamma(arg1);
 
-	/* pg_prng_double produces desired result range [0.0 - 1.0) */
-	result = pg_prng_double(&drandom_seed);
+		if (errno != 0 || isinf(result) || isnan(result))
+		{
+			if (result != 0.0)
+				float_overflow_error();
+			else
+				float_underflow_error();
+		}
+		else if (result == 0.0)
+			float_underflow_error();
+	}
 
 	PG_RETURN_FLOAT8(result);
 }
 
+
 /*
- *		drandom_normal	- returns a random number from a normal distribution
+ *		dlgamma			- natural logarithm of absolute value of gamma of arg1
  */
 Datum
-drandom_normal(PG_FUNCTION_ARGS)
+dlgamma(PG_FUNCTION_ARGS)
 {
-	float8		mean = PG_GETARG_FLOAT8(0);
-	float8		stddev = PG_GETARG_FLOAT8(1);
-	float8		result,
-				z;
+	float8		arg1 = PG_GETARG_FLOAT8(0);
+	float8		result;
 
-	initialize_drandom_seed();
+	/*
+	 * Note: lgamma may not be thread-safe because it may write to a global
+	 * variable signgam, which may not be thread-local. However, this doesn't
+	 * matter to us, since we don't use signgam.
+	 */
+	errno = 0;
+	result = lgamma(arg1);
 
-	/* Get random value from standard normal(mean = 0.0, stddev = 1.0) */
-	z = pg_prng_double_normal(&drandom_seed);
-	/* Transform the normal standard variable (z) */
-	/* using the target normal distribution parameters */
-	result = (stddev * z) + mean;
+	/*
+	 * If an ERANGE error occurs, it means there was an overflow or a pole
+	 * error (which happens for zero and negative integer inputs).
+	 *
+	 * On some platforms, lgamma() will not set errno but just return infinity
+	 * to report overflow, but it should never underflow.
+	 */
+	if (errno == ERANGE || (isinf(result) && !isinf(arg1)))
+		float_overflow_error();
 
 	PG_RETURN_FLOAT8(result);
-}
-
-/*
- *		setseed		- set seed for the random number generator
- */
-Datum
-setseed(PG_FUNCTION_ARGS)
-{
-	float8		seed = PG_GETARG_FLOAT8(0);
-
-	if (seed < -1 || seed > 1 || isnan(seed))
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("setseed parameter %g is out of allowed range [-1,1]",
-						seed)));
-
-	pg_prng_fseed(&drandom_seed, seed);
-	drandom_seed_set = true;
-
-	PG_RETURN_VOID();
 }
 
 
@@ -3033,9 +3033,7 @@ float8_combine(PG_FUNCTION_ARGS)
 		transdatums[1] = Float8GetDatumFast(Sx);
 		transdatums[2] = Float8GetDatumFast(Sxx);
 
-		result = construct_array(transdatums, 3,
-								 FLOAT8OID,
-								 sizeof(float8), FLOAT8PASSBYVAL, TYPALIGN_DOUBLE);
+		result = construct_array_builtin(transdatums, 3, FLOAT8OID);
 
 		PG_RETURN_ARRAYTYPE_P(result);
 	}
@@ -3116,9 +3114,7 @@ float8_accum(PG_FUNCTION_ARGS)
 		transdatums[1] = Float8GetDatumFast(Sx);
 		transdatums[2] = Float8GetDatumFast(Sxx);
 
-		result = construct_array(transdatums, 3,
-								 FLOAT8OID,
-								 sizeof(float8), FLOAT8PASSBYVAL, TYPALIGN_DOUBLE);
+		result = construct_array_builtin(transdatums, 3, FLOAT8OID);
 
 		PG_RETURN_ARRAYTYPE_P(result);
 	}
@@ -3201,9 +3197,7 @@ float4_accum(PG_FUNCTION_ARGS)
 		transdatums[1] = Float8GetDatumFast(Sx);
 		transdatums[2] = Float8GetDatumFast(Sxx);
 
-		result = construct_array(transdatums, 3,
-								 FLOAT8OID,
-								 sizeof(float8), FLOAT8PASSBYVAL, TYPALIGN_DOUBLE);
+		result = construct_array_builtin(transdatums, 3, FLOAT8OID);
 
 		PG_RETURN_ARRAYTYPE_P(result);
 	}
@@ -3446,9 +3440,7 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 		transdatums[4] = Float8GetDatumFast(Syy);
 		transdatums[5] = Float8GetDatumFast(Sxy);
 
-		result = construct_array(transdatums, 6,
-								 FLOAT8OID,
-								 sizeof(float8), FLOAT8PASSBYVAL, TYPALIGN_DOUBLE);
+		result = construct_array_builtin(transdatums, 6, FLOAT8OID);
 
 		PG_RETURN_ARRAYTYPE_P(result);
 	}
@@ -3587,9 +3579,7 @@ float8_regr_combine(PG_FUNCTION_ARGS)
 		transdatums[4] = Float8GetDatumFast(Syy);
 		transdatums[5] = Float8GetDatumFast(Sxy);
 
-		result = construct_array(transdatums, 6,
-								 FLOAT8OID,
-								 sizeof(float8), FLOAT8PASSBYVAL, TYPALIGN_DOUBLE);
+		result = construct_array_builtin(transdatums, 6, FLOAT8OID);
 
 		PG_RETURN_ARRAYTYPE_P(result);
 	}

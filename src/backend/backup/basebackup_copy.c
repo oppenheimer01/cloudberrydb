@@ -16,7 +16,7 @@
  * An older method that sent each archive using a separate COPY OUT
  * operation is no longer supported.
  *
- * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2010-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/backup/basebackup_copy.c
@@ -152,7 +152,7 @@ bbsink_copystream_begin_backup(bbsink *sink)
 	SendTablespaceList(state->tablespaces);
 
 	/* Send a CommandComplete message */
-	pq_puttextmessage('C', "SELECT");
+	pq_puttextmessage(PqMsg_CommandComplete, "SELECT");
 
 	/* Begin COPY stream. This will be used for all archives + manifest. */
 	SendCopyOutResponse();
@@ -170,7 +170,7 @@ bbsink_copystream_begin_archive(bbsink *sink, const char *archive_name)
 	char *link_path_to_be_sent;
 
 	ti = list_nth(state->tablespaces, state->tablespace_num);
-	pq_beginmessage(&buf, 'd'); /* CopyData */
+	pq_beginmessage(&buf, PqMsg_CopyData);
 	pq_sendbyte(&buf, 'n');		/* New archive */
 	pq_sendstring(&buf, archive_name);
 	if(ti->rpath == NULL && ti->path)
@@ -232,7 +232,7 @@ bbsink_copystream_archive_contents(bbsink *sink, size_t len)
 		{
 			mysink->last_progress_report_time = now;
 
-			pq_beginmessage(&buf, 'd'); /* CopyData */
+			pq_beginmessage(&buf, PqMsg_CopyData);
 			pq_sendbyte(&buf, 'p'); /* Progress report */
 			pq_sendint64(&buf, state->bytes_done);
 			pq_endmessage(&buf);
@@ -258,7 +258,7 @@ bbsink_copystream_end_archive(bbsink *sink)
 
 	mysink->bytes_done_at_last_time_check = state->bytes_done;
 	mysink->last_progress_report_time = GetCurrentTimestamp();
-	pq_beginmessage(&buf, 'd'); /* CopyData */
+	pq_beginmessage(&buf, PqMsg_CopyData);
 	pq_sendbyte(&buf, 'p');		/* Progress report */
 	pq_sendint64(&buf, state->bytes_done);
 	pq_endmessage(&buf);
@@ -273,7 +273,7 @@ bbsink_copystream_begin_manifest(bbsink *sink)
 {
 	StringInfoData buf;
 
-	pq_beginmessage(&buf, 'd'); /* CopyData */
+	pq_beginmessage(&buf, PqMsg_CopyData);
 	pq_sendbyte(&buf, 'm');		/* Manifest */
 	pq_endmessage(&buf);
 }
@@ -330,7 +330,7 @@ SendCopyOutResponse(void)
 {
 	StringInfoData buf;
 
-	pq_beginmessage(&buf, 'H');
+	pq_beginmessage(&buf, PqMsg_CopyOutResponse);
 	pq_sendbyte(&buf, 0);		/* overall format */
 	pq_sendint16(&buf, 0);		/* natts */
 	pq_endmessage(&buf);
@@ -342,7 +342,7 @@ SendCopyOutResponse(void)
 static void
 SendCopyDone(void)
 {
-	pq_putemptymessage('c');
+	pq_putemptymessage(PqMsg_CopyDone);
 }
 
 /*
@@ -380,7 +380,7 @@ SendXlogRecPtrResult(XLogRecPtr ptr, TimeLineID tli)
 	end_tup_output(tstate);
 
 	/* Send a CommandComplete message */
-	pq_puttextmessage('C', "SELECT");
+	pq_puttextmessage(PqMsg_CommandComplete, "SELECT");
 }
 
 /*
@@ -419,6 +419,7 @@ SendTablespaceList(List *tablespaces)
 		}
 		else
 		{
+<<<<<<< HEAD
 			char		*link_path_to_be_sent;
 
 			values[0] = ObjectIdGetDatum(strtoul(ti->oid, NULL, 10));
@@ -436,6 +437,10 @@ SendTablespaceList(List *tablespaces)
 				link_path_to_be_sent = ti->path;
 
 			values[1] = CStringGetTextDatum(link_path_to_be_sent);
+=======
+			values[0] = ObjectIdGetDatum(ti->oid);
+			values[1] = CStringGetTextDatum(ti->path);
+>>>>>>> REL_18_BETA1_branch
 		}
 		if (ti->size >= 0)
 			values[2] = Int64GetDatum(ti->size / 1024);

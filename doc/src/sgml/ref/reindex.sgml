@@ -194,7 +194,8 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { DA
     <term><literal>VERBOSE</literal></term>
     <listitem>
      <para>
-      Prints a progress report as each index is reindexed.
+      Prints a progress report as each index is reindexed
+      at <literal>INFO</literal> level.
      </para>
     </listitem>
    </varlistentry>
@@ -292,9 +293,27 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { DA
   </para>
 
   <para>
+<<<<<<< HEAD
    Reindexing a single index or table requires being the owner of that
    index or table.  Reindexing a schema or database requires being the
    owner of that schema or database.  Note specifically that it's thus
+=======
+   While <command>REINDEX</command> is running, the <xref
+   linkend="guc-search-path"/> is temporarily changed to <literal>pg_catalog,
+   pg_temp</literal>.
+  </para>
+
+  <para>
+   Reindexing a single index or table requires
+   having the <literal>MAINTAIN</literal> privilege on the
+   table.  Note that while <command>REINDEX</command> on a partitioned index or
+   table requires having the <literal>MAINTAIN</literal> privilege on the
+   partitioned table, such commands skip the privilege checks when processing
+   the individual partitions.  Reindexing a schema or database requires being the
+   owner of that schema or database or having privileges of the
+   <xref linkend="predefined-role-pg-maintain"/>
+   role.  Note specifically that it's thus
+>>>>>>> REL_18_BETA1_branch
    possible for non-superusers to rebuild indexes of tables owned by
    other users.  However, as a special exception, when
    <command>REINDEX DATABASE</command>, <command>REINDEX SCHEMA</command>

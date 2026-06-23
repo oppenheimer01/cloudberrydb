@@ -12,7 +12,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libpq (PostgreSQL) 16\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2024-12-02 21:59+0000\n"
+=======
+"POT-Creation-Date: 2023-10-03 07:10+0000\n"
+>>>>>>> REL_18_BETA1_branch
 "PO-Revision-Date: 2023-10-06 13:28+0200\n"
 "Last-Translator: Carlos Chapi <carloswaldo@babelruins.org>\n"
 "Language-Team: PgSQL-es-Ayuda <pgsql-es-ayuda@lists.postgresql.org>\n"
@@ -78,6 +82,7 @@ msgstr "no se pudo generar nonce"
 #: fe-auth-scram.c:704 fe-auth-scram.c:740 fe-auth-scram.c:914 fe-auth.c:296
 #: fe-auth.c:369 fe-auth.c:403 fe-auth.c:618 fe-auth.c:729 fe-auth.c:1210
 #: fe-auth.c:1375 fe-connect.c:925 fe-connect.c:1759 fe-connect.c:1921
+<<<<<<< HEAD
 #: fe-connect.c:3291 fe-connect.c:4492 fe-connect.c:5157 fe-connect.c:5412
 #: fe-connect.c:5530 fe-connect.c:5777 fe-connect.c:5857 fe-connect.c:5955
 #: fe-connect.c:6206 fe-connect.c:6233 fe-connect.c:6309 fe-connect.c:6332
@@ -88,6 +93,18 @@ msgstr "no se pudo generar nonce"
 #: fe-protocol3.c:268 fe-protocol3.c:348 fe-protocol3.c:715 fe-protocol3.c:954
 #: fe-protocol3.c:1765 fe-protocol3.c:2165 fe-secure-common.c:110
 #: fe-secure-gssapi.c:496 fe-secure-openssl.c:435 fe-secure-openssl.c:1271
+=======
+#: fe-connect.c:3291 fe-connect.c:4496 fe-connect.c:5161 fe-connect.c:5416
+#: fe-connect.c:5534 fe-connect.c:5781 fe-connect.c:5861 fe-connect.c:5959
+#: fe-connect.c:6210 fe-connect.c:6237 fe-connect.c:6313 fe-connect.c:6336
+#: fe-connect.c:6360 fe-connect.c:6395 fe-connect.c:6481 fe-connect.c:6489
+#: fe-connect.c:6846 fe-connect.c:6996 fe-exec.c:527 fe-exec.c:1321
+#: fe-exec.c:3111 fe-exec.c:4071 fe-exec.c:4235 fe-gssapi-common.c:109
+#: fe-lobj.c:870 fe-protocol3.c:204 fe-protocol3.c:228 fe-protocol3.c:256
+#: fe-protocol3.c:273 fe-protocol3.c:353 fe-protocol3.c:720 fe-protocol3.c:959
+#: fe-protocol3.c:1770 fe-protocol3.c:2170 fe-secure-common.c:110
+#: fe-secure-gssapi.c:500 fe-secure-openssl.c:434 fe-secure-openssl.c:1285
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory"
 msgstr "memoria agotada"
@@ -789,7 +806,11 @@ msgstr "contraseña obtenida desde el archivo «%s»"
 msgid "row number %d is out of range 0..%d"
 msgstr "el número de fila %d está fuera del rango 0..%d"
 
+<<<<<<< HEAD
 #: fe-exec.c:528 fe-protocol3.c:1971
+=======
+#: fe-exec.c:528 fe-protocol3.c:1976
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s"
 msgstr "%s"
@@ -875,7 +896,11 @@ msgstr "COPY terminado por un nuevo PQexec"
 msgid "PQexec not allowed during COPY BOTH"
 msgstr "PQexec no está permitido durante COPY BOTH"
 
+<<<<<<< HEAD
 #: fe-exec.c:2581 fe-exec.c:2636 fe-exec.c:2704 fe-protocol3.c:1902
+=======
+#: fe-exec.c:2586 fe-exec.c:2641 fe-exec.c:2709 fe-protocol3.c:1907
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no COPY in progress"
 msgstr "no hay COPY alguno en ejecución"
@@ -1155,6 +1180,7 @@ msgstr "%s:%s"
 msgid "LINE %d: "
 msgstr "LÍNEA %d: "
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1418
 #, c-format
 msgid "protocol version not supported by server: client uses %u.%u, server supports up to %u.%u"
@@ -1168,21 +1194,48 @@ msgstr[0] "extensión del protocolo no soportada por el servidor: %s"
 msgstr[1] "extensiones del protocolo no soportadas por el servidor: %s"
 
 #: fe-protocol3.c:1432
+=======
+#: fe-protocol3.c:1423
+#, c-format
+msgid "protocol version not supported by server: client uses %u.%u, server supports up to %u.%u"
+msgstr "versión de protocolo no soportada por el servidor: cliente usa %u.%u, servidor soporta hasta %u.%u"
+
+#: fe-protocol3.c:1429
+#, c-format
+msgid "protocol extension not supported by server: %s"
+msgid_plural "protocol extensions not supported by server: %s"
+msgstr[0] "extensión del protocolo no soportada por el servidor: %s"
+msgstr[1] "extensiones del protocolo no soportadas por el servidor: %s"
+
+#: fe-protocol3.c:1437
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid %s message"
 msgstr "mensaje %s no válido"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1797
+=======
+#: fe-protocol3.c:1802
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "PQgetline: not doing text COPY OUT"
 msgstr "PQgetline: no se está haciendo COPY OUT de texto"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:2171
+=======
+#: fe-protocol3.c:2176
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "protocol error: no function result"
 msgstr "error de protocolo: no hay resultado de función"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:2182
+=======
+#: fe-protocol3.c:2187
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "protocol error: id=0x%x"
 msgstr "error de protocolo: id=0x%x"

@@ -4,7 +4,7 @@
 #    Perl module that extracts info from catalog files into Perl
 #    data structures
 #
-# Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+# Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/backend/catalog/Catalog.pm
@@ -14,7 +14,7 @@
 package Catalog;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use File::Compare;
 
@@ -91,73 +91,99 @@ sub ParseHeader
 		# Push the data into the appropriate data structure.
 		# Caution: when adding new recognized OID-defining macros,
 		# also update src/include/catalog/renumber_oids.pl.
-		if (/^DECLARE_TOAST\(\s*(\w+),\s*(\d+),\s*(\d+)\)/)
-		{
-			push @{ $catalog{toasting} },
-			  { parent_table => $1, toast_oid => $2, toast_index_oid => $3 };
-		}
-		elsif (
-			/^DECLARE_TOAST_WITH_MACRO\(\s*(\w+),\s*(\d+),\s*(\d+),\s*(\w+),\s*(\w+)\)/
+		if (/^DECLARE_TOAST\(\s*
+			 (?<parent_table>\w+),\s*
+			 (?<toast_oid>\d+),\s*
+			 (?<toast_index_oid>\d+)\s*
+			 \)/x
 		  )
 		{
-			push @{ $catalog{toasting} },
-			  {
-				parent_table => $1,
-				toast_oid => $2,
-				toast_index_oid => $3,
-				toast_oid_macro => $4,
-				toast_index_oid_macro => $5
-			  };
+			push @{ $catalog{toasting} }, {%+};
 		}
 		elsif (
-			/^DECLARE_(UNIQUE_)?INDEX(_PKEY)?\(\s*(\w+),\s*(\d+),\s*(\w+),\s*(.+)\)/
+			/^DECLARE_TOAST_WITH_MACRO\(\s*
+			 (?<parent_table>\w+),\s*
+			 (?<toast_oid>\d+),\s*
+			 (?<toast_index_oid>\d+),\s*
+			 (?<toast_oid_macro>\w+),\s*
+			 (?<toast_index_oid_macro>\w+)\s*
+			 \)/x
+		  )
+		{
+			push @{ $catalog{toasting} }, {%+};
+		}
+		elsif (
+			/^DECLARE_(UNIQUE_)?INDEX(_PKEY)?\(\s*
+			 (?<index_name>\w+),\s*
+			 (?<index_oid>\d+),\s*
+			 (?<index_oid_macro>\w+),\s*
+			 (?<table_name>\w+),\s*
+			 (?<index_decl>.+)\s*
+			 \)/x
 		  )
 		{
 			push @{ $catalog{indexing} },
 			  {
 				is_unique => $1 ? 1 : 0,
 				is_pkey => $2 ? 1 : 0,
-				index_name => $3,
-				index_oid => $4,
-				index_oid_macro => $5,
-				index_decl => $6
-			  };
-		}
-		elsif (/^DECLARE_OID_DEFINING_MACRO\(\s*(\w+),\s*(\d+)\)/)
-		{
-			push @{ $catalog{other_oids} },
-			  {
-				other_name => $1,
-				other_oid => $2
+				%+,
 			  };
 		}
 		elsif (
-			/^DECLARE_(ARRAY_)?FOREIGN_KEY(_OPT)?\(\s*\(([^)]+)\),\s*(\w+),\s*\(([^)]+)\)\)/
+			/^MAKE_SYSCACHE\(\s*
+			(?<syscache_name>\w+),\s*
+			(?<index_name>\w+),\s*
+			(?<syscache_nbuckets>\w+)\s*
+			\)/x
+		  )
+		{
+			push @{ $catalog{syscaches} }, {%+};
+		}
+		elsif (
+			/^DECLARE_OID_DEFINING_MACRO\(\s*
+			 (?<other_name>\w+),\s*
+			 (?<other_oid>\d+)\s*
+			 \)/x
+		  )
+		{
+			push @{ $catalog{other_oids} }, {%+};
+		}
+		elsif (
+			/^DECLARE_(ARRAY_)?FOREIGN_KEY(_OPT)?\(\s*
+			 \((?<fk_cols>[^)]+)\),\s*
+			 (?<pk_table>\w+),\s*
+			 \((?<pk_cols>[^)]+)\)\s*
+			 \)/x
 		  )
 		{
 			push @{ $catalog{foreign_keys} },
 			  {
 				is_array => $1 ? 1 : 0,
 				is_opt => $2 ? 1 : 0,
-				fk_cols => $3,
-				pk_table => $4,
-				pk_cols => $5
+				%+,
 			  };
 		}
-		elsif (/^CATALOG\((\w+),(\d+),(\w+)\)/)
+		elsif (
+			/^CATALOG\(\s*
+			 (?<catname>\w+),\s*
+			 (?<relation_oid>\d+),\s*
+			 (?<relation_oid_macro>\w+)\s*
+			 \)/x
+		  )
 		{
-			$catalog{catname} = $1;
-			$catalog{relation_oid} = $2;
-			$catalog{relation_oid_macro} = $3;
+			@catalog{ keys %+ } = values %+;
 
 			$catalog{bootstrap} = /BKI_BOOTSTRAP/ ? ' bootstrap' : '';
 			$catalog{shared_relation} =
 			  /BKI_SHARED_RELATION/ ? ' shared_relation' : '';
-			if (/BKI_ROWTYPE_OID\((\d+),(\w+)\)/)
+			if (/BKI_ROWTYPE_OID\(\s*
+				 (?<rowtype_oid>\d+),\s*
+				 (?<rowtype_oid_macro>\w+)\s*
+				 \)/x
+			  )
 			{
-				$catalog{rowtype_oid} = $1;
-				$catalog{rowtype_oid_clause} = " rowtype_oid $1";
-				$catalog{rowtype_oid_macro} = $2;
+				@catalog{ keys %+ } = values %+;
+				$catalog{rowtype_oid_clause} = " rowtype_oid $+{rowtype_oid}";
 			}
 			else
 			{
@@ -274,12 +300,14 @@ sub ParseHeader
 
 # Parses a file containing Perl data structure literals, returning live data.
 #
-# The parameter $preserve_formatting needs to be set for callers that want
+# The parameter $preserve_comments needs to be set for callers that want
 # to work with non-data lines in the data files, such as comments and blank
 # lines. If a caller just wants to consume the data, leave it unset.
+# (When requested, non-data lines will be returned as array entries that
+# are strings not hashes, so extra code is needed to deal with that.)
 sub ParseData
 {
-	my ($input_file, $schema, $preserve_formatting) = @_;
+	my ($input_file, $schema, $preserve_comments) = @_;
 
 	open(my $ifd, '<', $input_file) || die "$input_file: $!";
 	$input_file =~ /(\w+)\.dat$/
@@ -313,7 +341,11 @@ sub ParseData
 				# We're treating the input line as a piece of Perl, so we
 				# need to use string eval here. Tell perlcritic we know what
 				# we're doing.
+<<<<<<< HEAD
 				eval '$hash_ref = ' . $_;   ## no critic (ProhibitStringyEval)
+=======
+				eval "\$hash_ref = $_";    ## no critic (ProhibitStringyEval)
+>>>>>>> REL_18_BETA1_branch
 				if (!ref $hash_ref)
 				{
 					die "$input_file: error parsing line $.:\n$_\n";
@@ -341,14 +373,25 @@ sub ParseData
 		# with --full-tuples to print autogenerated entries, which seems like
 		# useful behavior for debugging.)
 		#
+<<<<<<< HEAD
 		# Only keep non-data strings if we are told to preserve formatting.
+=======
+		# Otherwise, we have a non-data string, which we keep only if
+		# the caller requested it.
+>>>>>>> REL_18_BETA1_branch
 		if (defined $hash_ref)
 		{
 			push @$data, $hash_ref if !$hash_ref->{autogenerated};
 		}
+<<<<<<< HEAD
 		elsif ($preserve_formatting)
 		{
 			push @$data, $_;
+=======
+		else
+		{
+			push @$data, $_ if $preserve_comments;
+>>>>>>> REL_18_BETA1_branch
 		}
 	}
 	close $ifd;

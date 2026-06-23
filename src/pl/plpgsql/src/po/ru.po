@@ -6,8 +6,13 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plpgsql (PostgreSQL current)\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2025-05-03 15:59+0300\n"
 "PO-Revision-Date: 2022-09-05 13:38+0300\n"
+=======
+"POT-Creation-Date: 2024-09-02 09:29+0300\n"
+"PO-Revision-Date: 2024-09-04 20:00+0300\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Alexander Lakhin <exclusion@gmail.com>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
 "Language: ru\n"
@@ -78,43 +83,91 @@ msgstr "неоднозначная ссылка на столбец \"%s\""
 msgid "It could refer to either a PL/pgSQL variable or a table column."
 msgstr "Подразумевается ссылка на переменную PL/pgSQL или столбец таблицы."
 
+<<<<<<< HEAD
 #: pl_comp.c:1314 pl_exec.c:5258 pl_exec.c:5431 pl_exec.c:5518 pl_exec.c:5609
 #: pl_exec.c:6634
+=======
+#: pl_comp.c:1314 pl_exec.c:5260 pl_exec.c:5433 pl_exec.c:5520 pl_exec.c:5611
+#: pl_exec.c:6636
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "record \"%s\" has no field \"%s\""
 msgstr "в записи \"%s\" нет поля \"%s\""
 
+<<<<<<< HEAD
 #: pl_comp.c:1808
+=======
+#: pl_comp.c:1633 pl_gram.y:645 pl_gram.y:660 pl_gram.y:686
+#, c-format
+msgid "variable \"%s\" does not exist"
+msgstr "переменная \"%s\" не существует"
+
+#: pl_comp.c:1722
+#, c-format
+msgid "column \"%s\" of relation \"%s\" does not exist"
+msgstr "столбец \"%s\" в таблице \"%s\" не существует"
+
+#: pl_comp.c:1775
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "relation \"%s\" does not exist"
 msgstr "отношение \"%s\" не существует"
 
+<<<<<<< HEAD
 #: pl_comp.c:1815 pl_comp.c:1857
+=======
+#: pl_comp.c:1782 pl_comp.c:1820
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "relation \"%s\" does not have a composite type"
 msgstr "отношение \"%s\" не имеет составного типа"
 
+<<<<<<< HEAD
 #: pl_comp.c:1923
+=======
+#: pl_comp.c:1886
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "variable \"%s\" has pseudo-type %s"
 msgstr "переменная \"%s\" имеет псевдотип %s"
 
+<<<<<<< HEAD
 #: pl_comp.c:2112
+=======
+#: pl_comp.c:2075
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "type \"%s\" is only a shell"
 msgstr "тип \"%s\" является пустышкой"
 
+<<<<<<< HEAD
 #: pl_comp.c:2194 pl_exec.c:6935
+=======
+#: pl_comp.c:2157 pl_exec.c:6937
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "type %s is not composite"
 msgstr "тип %s не является составным"
 
+<<<<<<< HEAD
 #: pl_comp.c:2242 pl_comp.c:2295
+=======
+#: pl_comp.c:2193
+#, c-format
+msgid "could not find array type for data type %s"
+msgstr "тип массива для типа данных %s не найден"
+
+#: pl_comp.c:2232 pl_comp.c:2285
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized exception condition \"%s\""
 msgstr "нераспознанное условие исключения \"%s\""
 
+<<<<<<< HEAD
 #: pl_comp.c:2524
+=======
+#: pl_comp.c:2514
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not determine actual argument type for polymorphic function \"%s\""
@@ -276,17 +329,29 @@ msgstr "значение BY в цикле FOR не может быть равн�
 msgid "BY value of FOR loop must be greater than zero"
 msgstr "значение BY в цикле FOR должно быть больше нуля"
 
+<<<<<<< HEAD
 #: pl_exec.c:2885 pl_exec.c:4691
+=======
+#: pl_exec.c:2885 pl_exec.c:4693
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" already in use"
 msgstr "курсор \"%s\" уже используется"
 
+<<<<<<< HEAD
 #: pl_exec.c:2908 pl_exec.c:4761
+=======
+#: pl_exec.c:2908 pl_exec.c:4763
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "arguments given for cursor without arguments"
 msgstr "курсору без аргументов были переданы аргументы"
 
+<<<<<<< HEAD
 #: pl_exec.c:2927 pl_exec.c:4780
+=======
+#: pl_exec.c:2927 pl_exec.c:4782
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "arguments required for cursor"
 msgstr "курсору требуются аргументы"
@@ -323,7 +388,11 @@ msgid ""
 msgstr ""
 "функция, возвращающая составной тип, не может вернуть несоставное значение"
 
+<<<<<<< HEAD
 #: pl_exec.c:3339 pl_gram.y:3350
+=======
+#: pl_exec.c:3339 pl_gram.y:3375
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot use RETURN NEXT in a non-SETOF function"
 msgstr ""
@@ -344,7 +413,11 @@ msgstr "в RETURN NEXT передан неправильный тип запис
 msgid "RETURN NEXT must have a parameter"
 msgstr "у оператора RETURN NEXT должен быть параметр"
 
+<<<<<<< HEAD
 #: pl_exec.c:3559 pl_gram.y:3414
+=======
+#: pl_exec.c:3559 pl_gram.y:3439
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot use RETURN QUERY in a non-SETOF function"
 msgstr ""
@@ -354,7 +427,11 @@ msgstr ""
 msgid "structure of query does not match function result type"
 msgstr "структура запроса не соответствует типу результата функции"
 
+<<<<<<< HEAD
 #: pl_exec.c:3632 pl_exec.c:4468 pl_exec.c:8759
+=======
+#: pl_exec.c:3632 pl_exec.c:4469 pl_exec.c:8759
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query string argument of EXECUTE is null"
 msgstr "в качестве текста запроса в EXECUTE передан NULL"
@@ -385,54 +462,94 @@ msgstr "%s"
 msgid "assertion failed"
 msgstr "нарушение истинности"
 
+<<<<<<< HEAD
 #: pl_exec.c:4341 pl_exec.c:4530
+=======
+#: pl_exec.c:4342 pl_exec.c:4532
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot COPY to/from client in PL/pgSQL"
 msgstr "в PL/pgSQL нельзя выполнить COPY с участием клиента"
 
+<<<<<<< HEAD
 #: pl_exec.c:4347
+=======
+#: pl_exec.c:4348
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unsupported transaction command in PL/pgSQL"
 msgstr "неподдерживаемая транзакционная команда в PL/pgSQL"
 
+<<<<<<< HEAD
 #: pl_exec.c:4370 pl_exec.c:4559
+=======
+#: pl_exec.c:4371 pl_exec.c:4561
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "INTO used with a command that cannot return data"
 msgstr "INTO с командой не может возвращать данные"
 
+<<<<<<< HEAD
 #: pl_exec.c:4393 pl_exec.c:4582
+=======
+#: pl_exec.c:4394 pl_exec.c:4584
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query returned no rows"
 msgstr "запрос не вернул строк"
 
+<<<<<<< HEAD
 #: pl_exec.c:4415 pl_exec.c:4601 pl_exec.c:5753
+=======
+#: pl_exec.c:4416 pl_exec.c:4603 pl_exec.c:5755
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query returned more than one row"
 msgstr "запрос вернул несколько строк"
 
+<<<<<<< HEAD
 #: pl_exec.c:4417
+=======
+#: pl_exec.c:4418
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Make sure the query returns a single row, or use LIMIT 1."
 msgstr ""
 "Измените запрос, чтобы он выбирал одну строку, или используйте LIMIT 1."
 
+<<<<<<< HEAD
 #: pl_exec.c:4433
+=======
+#: pl_exec.c:4434
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query has no destination for result data"
 msgstr "в запросе нет назначения для данных результата"
 
+<<<<<<< HEAD
 #: pl_exec.c:4434
+=======
+#: pl_exec.c:4435
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "If you want to discard the results of a SELECT, use PERFORM instead."
 msgstr "Если вам нужно отбросить результаты SELECT, используйте PERFORM."
 
+<<<<<<< HEAD
 #: pl_exec.c:4522
+=======
+#: pl_exec.c:4524
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "EXECUTE of SELECT ... INTO is not implemented"
 msgstr "возможность выполнения SELECT ... INTO в EXECUTE не реализована"
 
 # skip-rule: space-before-ellipsis
+<<<<<<< HEAD
 #: pl_exec.c:4523
+=======
+#: pl_exec.c:4525
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "You might want to use EXECUTE ... INTO or EXECUTE CREATE TABLE ... AS "
@@ -441,57 +558,101 @@ msgstr ""
 "Альтернативой может стать EXECUTE ... INTO или EXECUTE CREATE TABLE ... "
 "AS ..."
 
+<<<<<<< HEAD
 #: pl_exec.c:4536
+=======
+#: pl_exec.c:4538
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "EXECUTE of transaction commands is not implemented"
 msgstr "EXECUTE с транзакционными командами не поддерживается"
 
+<<<<<<< HEAD
 #: pl_exec.c:4846 pl_exec.c:4934
+=======
+#: pl_exec.c:4848 pl_exec.c:4936
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor variable \"%s\" is null"
 msgstr "переменная курсора \"%s\" равна NULL"
 
+<<<<<<< HEAD
 #: pl_exec.c:4857 pl_exec.c:4945
+=======
+#: pl_exec.c:4859 pl_exec.c:4947
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" does not exist"
 msgstr "курсор \"%s\" не существует"
 
+<<<<<<< HEAD
 #: pl_exec.c:4870
+=======
+#: pl_exec.c:4872
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "relative or absolute cursor position is null"
 msgstr "относительная или абсолютная позиция курсора равна NULL"
 
+<<<<<<< HEAD
 #: pl_exec.c:5108 pl_exec.c:5203
+=======
+#: pl_exec.c:5110 pl_exec.c:5205
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "null value cannot be assigned to variable \"%s\" declared NOT NULL"
 msgstr "значение NULL нельзя присвоить переменной \"%s\", объявленной NOT NULL"
 
+<<<<<<< HEAD
 #: pl_exec.c:5184
+=======
+#: pl_exec.c:5186
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot assign non-composite value to a row variable"
 msgstr "переменной типа кортеж можно присвоить только составное значение"
 
+<<<<<<< HEAD
 #: pl_exec.c:5216
+=======
+#: pl_exec.c:5218
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot assign non-composite value to a record variable"
 msgstr "переменной типа запись можно присвоить только составное значение"
 
+<<<<<<< HEAD
 #: pl_exec.c:5267
+=======
+#: pl_exec.c:5269
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot assign to system column \"%s\""
 msgstr "присвоить значение системному столбцу \"%s\" нельзя"
 
+<<<<<<< HEAD
 #: pl_exec.c:5716
+=======
+#: pl_exec.c:5718
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query did not return data"
 msgstr "запрос не вернул данные"
 
+<<<<<<< HEAD
 #: pl_exec.c:5717 pl_exec.c:5729 pl_exec.c:5754 pl_exec.c:5830 pl_exec.c:5835
+=======
+#: pl_exec.c:5719 pl_exec.c:5731 pl_exec.c:5756 pl_exec.c:5832 pl_exec.c:5837
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query: %s"
 msgstr "запрос: %s"
 
+<<<<<<< HEAD
 #: pl_exec.c:5725
+=======
+#: pl_exec.c:5727
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query returned %d column"
 msgid_plural "query returned %d columns"
@@ -499,17 +660,29 @@ msgstr[0] "запрос вернул %d столбец"
 msgstr[1] "запрос вернул %d столбца"
 msgstr[2] "запрос вернул %d столбцов"
 
+<<<<<<< HEAD
 #: pl_exec.c:5829
+=======
+#: pl_exec.c:5831
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query is SELECT INTO, but it should be plain SELECT"
 msgstr "запрос - не просто SELECT, а SELECT INTO"
 
+<<<<<<< HEAD
 #: pl_exec.c:5834
+=======
+#: pl_exec.c:5836
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "query is not a SELECT"
 msgstr "запрос - не SELECT"
 
+<<<<<<< HEAD
 #: pl_exec.c:6648 pl_exec.c:6688 pl_exec.c:6728
+=======
+#: pl_exec.c:6650 pl_exec.c:6690 pl_exec.c:6730
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "type of parameter %d (%s) does not match that when preparing the plan (%s)"
@@ -517,35 +690,59 @@ msgstr ""
 "тип параметра %d (%s) не соответствует тому, с которым подготавливался план "
 "(%s)"
 
+<<<<<<< HEAD
 #: pl_exec.c:7139 pl_exec.c:7173 pl_exec.c:7247 pl_exec.c:7273
+=======
+#: pl_exec.c:7141 pl_exec.c:7175 pl_exec.c:7249 pl_exec.c:7275
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "number of source and target fields in assignment does not match"
 msgstr "в левой и правой части присваивания разное количество полей"
 
 #. translator: %s represents a name of an extra check
+<<<<<<< HEAD
 #: pl_exec.c:7141 pl_exec.c:7175 pl_exec.c:7249 pl_exec.c:7275
+=======
+#: pl_exec.c:7143 pl_exec.c:7177 pl_exec.c:7251 pl_exec.c:7277
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s check of %s is active."
 msgstr "Включена проверка %s (с %s)."
 
+<<<<<<< HEAD
 #: pl_exec.c:7145 pl_exec.c:7179 pl_exec.c:7253 pl_exec.c:7279
+=======
+#: pl_exec.c:7147 pl_exec.c:7181 pl_exec.c:7255 pl_exec.c:7281
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Make sure the query returns the exact list of columns."
 msgstr ""
 "Измените запрос, чтобы он возвращал в точности требуемый список столбцов."
 
+<<<<<<< HEAD
 #: pl_exec.c:7666
+=======
+#: pl_exec.c:7668
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "record \"%s\" is not assigned yet"
 msgstr "записи \"%s\" не присвоено значение"
 
+<<<<<<< HEAD
 #: pl_exec.c:7667
+=======
+#: pl_exec.c:7669
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The tuple structure of a not-yet-assigned record is indeterminate."
 msgstr ""
 "Для записи, которой не присвоено значение, структура кортежа не определена."
 
+<<<<<<< HEAD
 #: pl_exec.c:8357 pl_gram.y:3473
+=======
+#: pl_exec.c:8357 pl_gram.y:3498
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "variable \"%s\" is declared CONSTANT"
 msgstr "переменная \"%s\" объявлена как CONSTANT"
@@ -599,11 +796,14 @@ msgstr ""
 "у переменной \"%s\" должно быть значение по умолчанию, так как она объявлена "
 "как NOT NULL"
 
+<<<<<<< HEAD
 #: pl_gram.y:645 pl_gram.y:660 pl_gram.y:686
 #, c-format
 msgid "variable \"%s\" does not exist"
 msgstr "переменная \"%s\" не существует"
 
+=======
+>>>>>>> REL_18_BETA1_branch
 #: pl_gram.y:704 pl_gram.y:732
 msgid "duplicate declaration"
 msgstr "повторяющееся объявление"
@@ -613,26 +813,46 @@ msgstr "повторяющееся объявление"
 msgid "variable \"%s\" shadows a previously defined variable"
 msgstr "переменная \"%s\" скрывает ранее определённую переменную"
 
+<<<<<<< HEAD
 #: pl_gram.y:1016
+=======
+#: pl_gram.y:1017
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "diagnostics item %s is not allowed in GET STACKED DIAGNOSTICS"
 msgstr "команда GET STACKED DIAGNOSTICS не принимает элемент %s"
 
+<<<<<<< HEAD
 #: pl_gram.y:1034
+=======
+#: pl_gram.y:1035
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "diagnostics item %s is not allowed in GET CURRENT DIAGNOSTICS"
 msgstr "команда GET CURRENT DIAGNOSTICS не принимает элемент %s"
 
+<<<<<<< HEAD
 #: pl_gram.y:1132
 msgid "unrecognized GET DIAGNOSTICS item"
 msgstr "нераспознанный элемент GET DIAGNOSTICS"
 
 #: pl_gram.y:1148 pl_gram.y:3589
+=======
+#: pl_gram.y:1133
+msgid "unrecognized GET DIAGNOSTICS item"
+msgstr "нераспознанный элемент GET DIAGNOSTICS"
+
+#: pl_gram.y:1149 pl_gram.y:3614
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"%s\" is not a scalar variable"
 msgstr "\"%s\" - не скалярная переменная"
 
+<<<<<<< HEAD
 #: pl_gram.y:1378 pl_gram.y:1571
+=======
+#: pl_gram.y:1379 pl_gram.y:1572
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "loop variable of loop over rows must be a record variable or list of scalar "
@@ -641,56 +861,93 @@ msgstr ""
 "переменная цикла по кортежам должна быть переменной типа запись или списком "
 "скалярных переменных"
 
+<<<<<<< HEAD
 #: pl_gram.y:1413
+=======
+#: pl_gram.y:1414
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor FOR loop must have only one target variable"
 msgstr "в цикле FOR с курсором должна быть только одна переменная"
 
+<<<<<<< HEAD
 #: pl_gram.y:1420
+=======
+#: pl_gram.y:1421
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor FOR loop must use a bound cursor variable"
 msgstr ""
 "в цикле FOR с курсором должен использоваться курсор, привязанный к запросу"
 
+<<<<<<< HEAD
 #: pl_gram.y:1510
+=======
+#: pl_gram.y:1511
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "integer FOR loop must have only one target variable"
 msgstr "в целочисленном цикле FOR должна быть только одна переменная"
 
+<<<<<<< HEAD
 #: pl_gram.y:1544
+=======
+#: pl_gram.y:1545
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot specify REVERSE in query FOR loop"
 msgstr "в цикле FOR с запросом нельзя указать REVERSE"
 
+<<<<<<< HEAD
 #: pl_gram.y:1674
+=======
+#: pl_gram.y:1675
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "loop variable of FOREACH must be a known variable or list of variables"
 msgstr ""
 "переменной цикла FOREACH должна быть известная переменная или список "
 "переменных"
 
+<<<<<<< HEAD
 #: pl_gram.y:1716
+=======
+#: pl_gram.y:1717
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "there is no label \"%s\" attached to any block or loop enclosing this "
 "statement"
 msgstr "в блоке или цикле, окружающем этот оператор, нет метки \"%s\""
 
+<<<<<<< HEAD
 #: pl_gram.y:1724
+=======
+#: pl_gram.y:1725
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "block label \"%s\" cannot be used in CONTINUE"
 msgstr "метку блока \"%s\" нельзя использовать в CONTINUE"
 
+<<<<<<< HEAD
 #: pl_gram.y:1739
+=======
+#: pl_gram.y:1740
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "EXIT cannot be used outside a loop, unless it has a label"
 msgstr "EXIT можно использовать вне цикла только с указанием метки"
 
+<<<<<<< HEAD
 #: pl_gram.y:1740
+=======
+#: pl_gram.y:1741
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "CONTINUE cannot be used outside a loop"
 msgstr "CONTINUE нельзя использовать вне цикла"
 
+<<<<<<< HEAD
 #: pl_gram.y:1764 pl_gram.y:1802 pl_gram.y:1850 pl_gram.y:3036 pl_gram.y:3124
 #: pl_gram.y:3235 pl_gram.y:3984
 msgid "unexpected end of function definition"
@@ -711,39 +968,86 @@ msgid "syntax error, expected \"FOR\""
 msgstr "ошибка синтаксиса, ожидался \"FOR\""
 
 #: pl_gram.y:2167
+=======
+#: pl_gram.y:1765 pl_gram.y:1803 pl_gram.y:1851 pl_gram.y:3061 pl_gram.y:3149
+#: pl_gram.y:3260 pl_gram.y:4009
+msgid "unexpected end of function definition"
+msgstr "неожиданный конец определения функции"
+
+#: pl_gram.y:1871 pl_gram.y:1895 pl_gram.y:1911 pl_gram.y:1917 pl_gram.y:2042
+#: pl_gram.y:2050 pl_gram.y:2064 pl_gram.y:2159 pl_gram.y:2383 pl_gram.y:2473
+#: pl_gram.y:2632 pl_gram.y:3856 pl_gram.y:3917 pl_gram.y:3990
+msgid "syntax error"
+msgstr "ошибка синтаксиса"
+
+#: pl_gram.y:1899 pl_gram.y:1901 pl_gram.y:2387 pl_gram.y:2389
+msgid "invalid SQLSTATE code"
+msgstr "неверный код SQLSTATE"
+
+#: pl_gram.y:2107
+msgid "syntax error, expected \"FOR\""
+msgstr "ошибка синтаксиса, ожидался \"FOR\""
+
+#: pl_gram.y:2168
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "FETCH statement cannot return multiple rows"
 msgstr "оператор FETCH не может вернуть несколько строк"
 
+<<<<<<< HEAD
 #: pl_gram.y:2264
+=======
+#: pl_gram.y:2265
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor variable must be a simple variable"
 msgstr "переменная-курсор должна быть простой переменной"
 
+<<<<<<< HEAD
 #: pl_gram.y:2270
+=======
+#: pl_gram.y:2271
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "variable \"%s\" must be of type cursor or refcursor"
 msgstr "переменная \"%s\" должна быть типа cursor или refcursor"
 
+<<<<<<< HEAD
 #: pl_gram.y:2602 pl_gram.y:2613
+=======
+#: pl_gram.y:2603 pl_gram.y:2614
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"%s\" is not a known variable"
 msgstr "\"%s\" - не известная переменная"
 
+<<<<<<< HEAD
 #: pl_gram.y:2718 pl_gram.y:2728 pl_gram.y:2886
 msgid "mismatched parentheses"
 msgstr "непарные скобки"
 
 #: pl_gram.y:2732
+=======
+#: pl_gram.y:2719 pl_gram.y:2729 pl_gram.y:2911
+msgid "mismatched parentheses"
+msgstr "непарные скобки"
+
+#: pl_gram.y:2733
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "missing \"%s\" at end of SQL expression"
 msgstr "отсутствует \"%s\" в конце выражения SQL"
 
+<<<<<<< HEAD
 #: pl_gram.y:2738
+=======
+#: pl_gram.y:2739
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "missing \"%s\" at end of SQL statement"
 msgstr "отсутствует \"%s\" в конце оператора SQL"
 
+<<<<<<< HEAD
 #: pl_gram.y:2757
 msgid "missing expression"
 msgstr "отсутствует выражение"
@@ -769,87 +1073,179 @@ msgid "expected FROM or IN"
 msgstr "ожидалось FROM или IN"
 
 #: pl_gram.y:3277
+=======
+#: pl_gram.y:2758
+msgid "missing expression"
+msgstr "отсутствует выражение"
+
+#: pl_gram.y:2760
+msgid "missing SQL statement"
+msgstr "отсутствует оператор SQL"
+
+#: pl_gram.y:2889
+msgid "syntax error, expected \"]\""
+msgstr "ошибка синтаксиса, ожидалась \"]\""
+
+#: pl_gram.y:2913
+msgid "incomplete data type declaration"
+msgstr "неполное определение типа данных"
+
+#: pl_gram.y:2936
+msgid "missing data type declaration"
+msgstr "отсутствует определение типа данных"
+
+#: pl_gram.y:3071
+msgid "INTO specified more than once"
+msgstr "INTO указано неоднократно"
+
+#: pl_gram.y:3241
+msgid "expected FROM or IN"
+msgstr "ожидалось FROM или IN"
+
+#: pl_gram.y:3302
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "RETURN cannot have a parameter in function returning set"
 msgstr "в функции, возвращающей множество, RETURN должен быть без параметров"
 
+<<<<<<< HEAD
 #: pl_gram.y:3278
+=======
+#: pl_gram.y:3303
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Use RETURN NEXT or RETURN QUERY."
 msgstr "Используйте RETURN NEXT или RETURN QUERY."
 
+<<<<<<< HEAD
 #: pl_gram.y:3288
+=======
+#: pl_gram.y:3313
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "RETURN cannot have a parameter in a procedure"
 msgstr "в процедуре RETURN должен быть без параметров"
 
+<<<<<<< HEAD
 #: pl_gram.y:3293
+=======
+#: pl_gram.y:3318
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "RETURN cannot have a parameter in function returning void"
 msgstr "в функции, не возвращающей ничего, RETURN не должен иметь параметров"
 
+<<<<<<< HEAD
 #: pl_gram.y:3302
+=======
+#: pl_gram.y:3327
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "RETURN cannot have a parameter in function with OUT parameters"
 msgstr "RETURN должен быть без параметров в функции с параметрами OUT"
 
+<<<<<<< HEAD
 #: pl_gram.y:3365
+=======
+#: pl_gram.y:3390
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "RETURN NEXT cannot have a parameter in function with OUT parameters"
 msgstr "RETURN NEXT должен быть без параметров в функции с параметрами OUT"
 
+<<<<<<< HEAD
 #: pl_gram.y:3531
+=======
+#: pl_gram.y:3556
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "record variable cannot be part of multiple-item INTO list"
 msgstr ""
 "переменная типа запись не может быть частью списка INTO с несколькими "
 "элементами"
 
+<<<<<<< HEAD
 #: pl_gram.y:3577
+=======
+#: pl_gram.y:3602
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many INTO variables specified"
 msgstr "указано слишком много переменных INTO"
 
+<<<<<<< HEAD
 #: pl_gram.y:3785
+=======
+#: pl_gram.y:3810
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end label \"%s\" specified for unlabeled block"
 msgstr "конечная метка \"%s\" указана для непомеченного блока"
 
+<<<<<<< HEAD
 #: pl_gram.y:3792
+=======
+#: pl_gram.y:3817
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end label \"%s\" differs from block's label \"%s\""
 msgstr "конечная метка \"%s\" отличается от метки блока \"%s\""
 
+<<<<<<< HEAD
 #: pl_gram.y:3826
+=======
+#: pl_gram.y:3851
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" has no arguments"
 msgstr "курсор \"%s\" не имеет аргументов"
 
+<<<<<<< HEAD
 #: pl_gram.y:3840
+=======
+#: pl_gram.y:3865
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" has arguments"
 msgstr "курсор \"%s\" имеет аргументы"
 
+<<<<<<< HEAD
 #: pl_gram.y:3882
+=======
+#: pl_gram.y:3907
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" has no argument named \"%s\""
 msgstr "курсор \"%s\" не имеет аргумента \"%s\""
 
+<<<<<<< HEAD
 #: pl_gram.y:3902
+=======
+#: pl_gram.y:3927
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "value for parameter \"%s\" of cursor \"%s\" specified more than once"
 msgstr "значение параметра \"%s\" курсора \"%s\" указано неоднократно"
 
+<<<<<<< HEAD
 #: pl_gram.y:3923
+=======
+#: pl_gram.y:3948
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "not enough arguments for cursor \"%s\""
 msgstr "недостаточно аргументов для курсора \"%s\""
 
+<<<<<<< HEAD
 #: pl_gram.y:3930
+=======
+#: pl_gram.y:3955
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many arguments for cursor \"%s\""
 msgstr "слишком много аргументов для курсора \"%s\""
 
+<<<<<<< HEAD
 #: pl_gram.y:4016
 msgid "unrecognized RAISE statement option"
 msgstr "нераспознанный параметр оператора RAISE"
@@ -859,11 +1255,26 @@ msgid "syntax error, expected \"=\""
 msgstr "ошибка синтаксиса, ожидалось \"=\""
 
 #: pl_gram.y:4061
+=======
+#: pl_gram.y:4041
+msgid "unrecognized RAISE statement option"
+msgstr "нераспознанный параметр оператора RAISE"
+
+#: pl_gram.y:4045
+msgid "syntax error, expected \"=\""
+msgstr "ошибка синтаксиса, ожидалось \"=\""
+
+#: pl_gram.y:4086
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many parameters specified for RAISE"
 msgstr "слишком много параметров для RAISE"
 
+<<<<<<< HEAD
 #: pl_gram.y:4065
+=======
+#: pl_gram.y:4090
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too few parameters specified for RAISE"
 msgstr "недостаточно параметров для RAISE"

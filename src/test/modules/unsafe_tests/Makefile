@@ -2,6 +2,11 @@
 
 REGRESS = rolenames setconfig alter_system_table guc_privs
 REGRESS_OPTS = \
+<<<<<<< HEAD
+=======
+	--create-role=regress_authenticated_user_db_sr \
+	--create-role=regress_authenticated_user_db_ssa \
+>>>>>>> REL_18_BETA1_branch
 	--create-role=regress_authenticated_user_sr \
 	--create-role=regress_authenticated_user_ssa
 

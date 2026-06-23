@@ -12,8 +12,13 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PostgreSQL 16\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2025-02-15 21:59+0000\n"
 "PO-Revision-Date: 2025-02-16 09:12+0100\n"
+=======
+"POT-Creation-Date: 2023-07-29 09:10+0000\n"
+"PO-Revision-Date: 2023-07-30 08:42+0200\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Guillaume Lelarge <guillaume@lelarge.info>\n"
 "Language-Team: French <guillaume@lelarge.info>\n"
 "Language: fr\n"
@@ -21,7 +26,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+<<<<<<< HEAD
 "X-Generator: Poedit 3.5\n"
+=======
+"X-Generator: Poedit 3.3.2\n"
+>>>>>>> REL_18_BETA1_branch
 
 #: ../../port/thread.c:50 ../../port/thread.c:86
 #, c-format
@@ -78,6 +87,7 @@ msgstr "n'a pas pu générer le nonce"
 #: fe-auth-scram.c:704 fe-auth-scram.c:740 fe-auth-scram.c:914 fe-auth.c:296
 #: fe-auth.c:369 fe-auth.c:403 fe-auth.c:618 fe-auth.c:729 fe-auth.c:1210
 #: fe-auth.c:1375 fe-connect.c:925 fe-connect.c:1759 fe-connect.c:1921
+<<<<<<< HEAD
 #: fe-connect.c:3291 fe-connect.c:4492 fe-connect.c:5157 fe-connect.c:5412
 #: fe-connect.c:5530 fe-connect.c:5777 fe-connect.c:5857 fe-connect.c:5955
 #: fe-connect.c:6206 fe-connect.c:6233 fe-connect.c:6309 fe-connect.c:6332
@@ -88,6 +98,18 @@ msgstr "n'a pas pu générer le nonce"
 #: fe-protocol3.c:268 fe-protocol3.c:348 fe-protocol3.c:715 fe-protocol3.c:954
 #: fe-protocol3.c:1765 fe-protocol3.c:2165 fe-secure-common.c:110
 #: fe-secure-gssapi.c:496 fe-secure-openssl.c:435 fe-secure-openssl.c:1271
+=======
+#: fe-connect.c:3291 fe-connect.c:4496 fe-connect.c:5161 fe-connect.c:5416
+#: fe-connect.c:5534 fe-connect.c:5781 fe-connect.c:5861 fe-connect.c:5959
+#: fe-connect.c:6210 fe-connect.c:6237 fe-connect.c:6313 fe-connect.c:6336
+#: fe-connect.c:6360 fe-connect.c:6395 fe-connect.c:6481 fe-connect.c:6489
+#: fe-connect.c:6846 fe-connect.c:6996 fe-exec.c:527 fe-exec.c:1321
+#: fe-exec.c:3111 fe-exec.c:4071 fe-exec.c:4235 fe-gssapi-common.c:109
+#: fe-lobj.c:870 fe-protocol3.c:204 fe-protocol3.c:228 fe-protocol3.c:256
+#: fe-protocol3.c:273 fe-protocol3.c:353 fe-protocol3.c:720 fe-protocol3.c:959
+#: fe-protocol3.c:1770 fe-protocol3.c:2170 fe-secure-common.c:110
+#: fe-secure-gssapi.c:500 fe-secure-openssl.c:434 fe-secure-openssl.c:1285
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory"
 msgstr "mémoire épuisée"
@@ -485,6 +507,7 @@ msgstr "n'a pas pu activer le mode non-bloquant pour la socket : %s"
 msgid "could not set socket to close-on-exec mode: %s"
 msgstr "n'a pas pu paramétrer la socket en mode close-on-exec : %s"
 
+<<<<<<< HEAD
 #: fe-connect.c:3100
 #, c-format
 msgid "could not get socket error status: %s"
@@ -541,227 +564,458 @@ msgid "server sent an error response during SSL exchange"
 msgstr "le serveur a envoyé une erreur lors de l'échange SSL"
 
 #: fe-connect.c:3400
+=======
+#: fe-connect.c:2961
+#, c-format
+msgid "keepalives parameter must be an integer"
+msgstr "le paramètre keepalives doit être un entier"
+
+#: fe-connect.c:3100
+#, c-format
+msgid "could not get socket error status: %s"
+msgstr "n'a pas pu déterminer le statut d'erreur de la socket : %s"
+
+#: fe-connect.c:3127
+#, c-format
+msgid "could not get client address from socket: %s"
+msgstr "n'a pas pu obtenir l'adresse du client depuis la socket : %s"
+
+#: fe-connect.c:3165
+#, c-format
+msgid "requirepeer parameter is not supported on this platform"
+msgstr "le paramètre requirepeer n'est pas supporté sur cette plateforme"
+
+#: fe-connect.c:3167
+#, c-format
+msgid "could not get peer credentials: %s"
+msgstr "n'a pas pu obtenir l'authentification de l'autre : %s"
+
+#: fe-connect.c:3180
+#, c-format
+msgid "requirepeer specifies \"%s\", but actual peer user name is \"%s\""
+msgstr "requirepeer indique « %s » mais le nom de l'utilisateur réel est « %s »"
+
+#: fe-connect.c:3221
+#, c-format
+msgid "could not send GSSAPI negotiation packet: %s"
+msgstr "n'a pas pu transmettre le paquet de négociation GSSAPI : %s"
+
+#: fe-connect.c:3233
+#, c-format
+msgid "GSSAPI encryption required but was impossible (possibly no credential cache, no server support, or using a local socket)"
+msgstr "le chiffrage avec GSSAPI était requis, mais impossible (potentiellement pas de cache, de support serveur ou de socket local)"
+
+#: fe-connect.c:3274
+#, c-format
+msgid "could not send SSL negotiation packet: %s"
+msgstr "n'a pas pu transmettre le paquet de négociation SSL : %s"
+
+#: fe-connect.c:3303
+#, c-format
+msgid "could not send startup packet: %s"
+msgstr "n'a pas pu transmettre le paquet de démarrage : %s"
+
+#: fe-connect.c:3378
+#, c-format
+msgid "server does not support SSL, but SSL was required"
+msgstr "le serveur ne supporte pas SSL alors que SSL était réclamé"
+
+#: fe-connect.c:3404
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received invalid response to SSL negotiation: %c"
 msgstr "a reçu une réponse invalide à la négociation SSL : %c"
 
+<<<<<<< HEAD
 #: fe-connect.c:3420
+=======
+#: fe-connect.c:3424
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received unencrypted data after SSL response"
 msgstr "a reçu des données non chiffrées après la réponse SSL"
 
+<<<<<<< HEAD
 #: fe-connect.c:3500
+=======
+#: fe-connect.c:3504
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "server doesn't support GSSAPI encryption, but it was required"
 msgstr "le serveur ne supporte pas le chiffrage GSSAPI alors qu'il était réclamé"
 
+<<<<<<< HEAD
 #: fe-connect.c:3511
+=======
+#: fe-connect.c:3515
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received invalid response to GSSAPI negotiation: %c"
 msgstr "a reçu une réponse invalide à la négociation GSSAPI : %c"
 
+<<<<<<< HEAD
 #: fe-connect.c:3529
+=======
+#: fe-connect.c:3533
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received unencrypted data after GSSAPI encryption response"
 msgstr "a reçu des données non chiffrées après la réponse de chiffrement GSSAPI"
 
+<<<<<<< HEAD
 #: fe-connect.c:3594
+=======
+#: fe-connect.c:3598
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected authentication request from server, but received %c"
 msgstr "attendait une requête d'authentification du serveur, mais a reçu %c"
 
+<<<<<<< HEAD
 #: fe-connect.c:3621 fe-connect.c:3790
+=======
+#: fe-connect.c:3625 fe-connect.c:3794
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received invalid authentication request"
 msgstr "méthode d'authentification invalide reçue"
 
+<<<<<<< HEAD
 #: fe-connect.c:3626 fe-connect.c:3775
+=======
+#: fe-connect.c:3630 fe-connect.c:3779
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received invalid protocol negotiation message"
 msgstr "a reçu un message invalide pour la négociation du protocole"
 
+<<<<<<< HEAD
 #: fe-connect.c:3644 fe-connect.c:3698
+=======
+#: fe-connect.c:3648 fe-connect.c:3702
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received invalid error message"
 msgstr "a reçu un message d'erreur invalide"
 
+<<<<<<< HEAD
 #: fe-connect.c:3861
+=======
+#: fe-connect.c:3865
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected message from server during startup"
 msgstr "message inattendu du serveur lors du démarrage"
 
+<<<<<<< HEAD
 #: fe-connect.c:3952
+=======
+#: fe-connect.c:3956
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "session is read-only"
 msgstr "la session est en lecture seule"
 
+<<<<<<< HEAD
 #: fe-connect.c:3954
+=======
+#: fe-connect.c:3958
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "session is not read-only"
 msgstr "la session n'est pas en lecture seule"
 
+<<<<<<< HEAD
 #: fe-connect.c:4007
+=======
+#: fe-connect.c:4011
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "server is in hot standby mode"
 msgstr "le serveur est dans le mode hot standby"
 
+<<<<<<< HEAD
 #: fe-connect.c:4009
+=======
+#: fe-connect.c:4013
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "server is not in hot standby mode"
 msgstr "le serveur n'est pas dans le mode hot standby"
 
+<<<<<<< HEAD
 #: fe-connect.c:4125 fe-connect.c:4175
+=======
+#: fe-connect.c:4129 fe-connect.c:4179
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"%s\" failed"
 msgstr "échec de « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:4189
+=======
+#: fe-connect.c:4193
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid connection state %d, probably indicative of memory corruption"
 msgstr "état de connexion invalide (%d), indiquant probablement une corruption de mémoire"
 
+<<<<<<< HEAD
 #: fe-connect.c:5170
+=======
+#: fe-connect.c:5174
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": scheme must be ldap://"
 msgstr "URL LDAP « %s » invalide : le schéma doit être ldap://"
 
+<<<<<<< HEAD
 #: fe-connect.c:5185
+=======
+#: fe-connect.c:5189
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": missing distinguished name"
 msgstr "URL LDAP « %s » invalide : le « distinguished name » manque"
 
+<<<<<<< HEAD
 #: fe-connect.c:5197 fe-connect.c:5255
+=======
+#: fe-connect.c:5201 fe-connect.c:5259
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": must have exactly one attribute"
 msgstr "URL LDAP « %s » invalide : doit avoir exactement un attribut"
 
+<<<<<<< HEAD
 #: fe-connect.c:5209 fe-connect.c:5271
+=======
+#: fe-connect.c:5213 fe-connect.c:5275
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": must have search scope (base/one/sub)"
 msgstr "URL LDAP « %s » invalide : doit avoir une échelle de recherche (base/un/sous)"
 
+<<<<<<< HEAD
 #: fe-connect.c:5221
+=======
+#: fe-connect.c:5225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": no filter"
 msgstr "URL LDAP « %s » invalide : aucun filtre"
 
+<<<<<<< HEAD
 #: fe-connect.c:5243
+=======
+#: fe-connect.c:5247
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid LDAP URL \"%s\": invalid port number"
 msgstr "URL LDAP « %s » invalide : numéro de port invalide"
 
+<<<<<<< HEAD
 #: fe-connect.c:5280
+=======
+#: fe-connect.c:5284
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create LDAP structure"
 msgstr "n'a pas pu créer la structure LDAP"
 
+<<<<<<< HEAD
 #: fe-connect.c:5355
+=======
+#: fe-connect.c:5359
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "lookup on LDAP server failed: %s"
 msgstr "échec de la recherche sur le serveur LDAP : %s"
 
+<<<<<<< HEAD
 #: fe-connect.c:5365
+=======
+#: fe-connect.c:5369
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "more than one entry found on LDAP lookup"
 msgstr "plusieurs entrées trouvées pendant la recherche LDAP"
 
+<<<<<<< HEAD
 #: fe-connect.c:5367 fe-connect.c:5378
+=======
+#: fe-connect.c:5371 fe-connect.c:5382
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no entry found on LDAP lookup"
 msgstr "aucune entrée trouvée pendant la recherche LDAP"
 
+<<<<<<< HEAD
 #: fe-connect.c:5388 fe-connect.c:5400
+=======
+#: fe-connect.c:5392 fe-connect.c:5404
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "attribute has no values on LDAP lookup"
 msgstr "l'attribut n'a pas de valeur après la recherche LDAP"
 
+<<<<<<< HEAD
 #: fe-connect.c:5451 fe-connect.c:5470 fe-connect.c:5994
+=======
+#: fe-connect.c:5455 fe-connect.c:5474 fe-connect.c:5998
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "missing \"=\" after \"%s\" in connection info string"
 msgstr "« = » manquant après « %s » dans la chaîne des paramètres de connexion"
 
+<<<<<<< HEAD
 #: fe-connect.c:5541 fe-connect.c:6177 fe-connect.c:6975
+=======
+#: fe-connect.c:5545 fe-connect.c:6181 fe-connect.c:6979
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid connection option \"%s\""
 msgstr "option de connexion « %s » invalide"
 
+<<<<<<< HEAD
 #: fe-connect.c:5556 fe-connect.c:6042
+=======
+#: fe-connect.c:5560 fe-connect.c:6046
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unterminated quoted string in connection info string"
 msgstr "guillemets non refermés dans la chaîne des paramètres de connexion"
 
+<<<<<<< HEAD
 #: fe-connect.c:5636
+=======
+#: fe-connect.c:5640
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "definition of service \"%s\" not found"
 msgstr "définition du service « %s » introuvable"
 
+<<<<<<< HEAD
 #: fe-connect.c:5662
+=======
+#: fe-connect.c:5666
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "service file \"%s\" not found"
 msgstr "fichier de service « %s » introuvable"
 
+<<<<<<< HEAD
 #: fe-connect.c:5675
+=======
+#: fe-connect.c:5679
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "line %d too long in service file \"%s\""
 msgstr "ligne %d trop longue dans le fichier service « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:5746 fe-connect.c:5789
+=======
+#: fe-connect.c:5750 fe-connect.c:5793
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "syntax error in service file \"%s\", line %d"
 msgstr "erreur de syntaxe dans le fichier service « %s », ligne %d"
 
+<<<<<<< HEAD
 #: fe-connect.c:5757
+=======
+#: fe-connect.c:5761
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "nested service specifications not supported in service file \"%s\", line %d"
 msgstr "spécifications imbriquées de service non supportées dans le fichier service « %s », ligne %d"
 
+<<<<<<< HEAD
 #: fe-connect.c:6496
+=======
+#: fe-connect.c:6500
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid URI propagated to internal parser routine: \"%s\""
 msgstr "URI invalide propagée à la routine d'analyse interne : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6573
+=======
+#: fe-connect.c:6577
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end of string reached when looking for matching \"]\" in IPv6 host address in URI: \"%s\""
 msgstr ""
 "fin de chaîne atteinte lors de la recherche du « ] » correspondant dans\n"
 "l'adresse IPv6 de l'hôte indiquée dans l'URI : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6580
+=======
+#: fe-connect.c:6584
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "IPv6 host address may not be empty in URI: \"%s\""
 msgstr "l'adresse IPv6 de l'hôte ne peut pas être vide dans l'URI : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6595
+=======
+#: fe-connect.c:6599
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected character \"%c\" at position %d in URI (expected \":\" or \"/\"): \"%s\""
 msgstr "caractère « %c » inattendu à la position %d de l'URI (caractère « : » ou « / » attendu) : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6724
+=======
+#: fe-connect.c:6728
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "extra key/value separator \"=\" in URI query parameter: \"%s\""
 msgstr "séparateur « = » de clé/valeur en trop dans le paramètre de requête URI : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6744
+=======
+#: fe-connect.c:6748
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "missing key/value separator \"=\" in URI query parameter: \"%s\""
 msgstr "séparateur « = » de clé/valeur manquant dans le paramètre de requête URI : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6796
+=======
+#: fe-connect.c:6800
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid URI query parameter: \"%s\""
 msgstr "paramètre de la requête URI invalide : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6870
+=======
+#: fe-connect.c:6874
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid percent-encoded token: \"%s\""
 msgstr "jeton encodé en pourcentage invalide : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:6880
+=======
+#: fe-connect.c:6884
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "forbidden value %%00 in percent-encoded value: \"%s\""
 msgstr "valeur %%00 interdite dans la valeur codée en pourcentage : « %s »"
 
+<<<<<<< HEAD
 #: fe-connect.c:7244
 msgid "connection pointer is NULL\n"
 msgstr "le pointeur de connexion est NULL\n"
@@ -772,11 +1026,27 @@ msgid "out of memory\n"
 msgstr "mémoire épuisée\n"
 
 #: fe-connect.c:7543
+=======
+#: fe-connect.c:7248
+msgid "connection pointer is NULL\n"
+msgstr "le pointeur de connexion est NULL\n"
+
+#: fe-connect.c:7256 fe-exec.c:710 fe-exec.c:970 fe-exec.c:3292
+#: fe-protocol3.c:974 fe-protocol3.c:1007
+msgid "out of memory\n"
+msgstr "mémoire épuisée\n"
+
+#: fe-connect.c:7547
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WARNING: password file \"%s\" is not a plain file\n"
 msgstr "ATTENTION : le fichier de mots de passe « %s » n'est pas un fichier texte\n"
 
+<<<<<<< HEAD
 #: fe-connect.c:7552
+=======
+#: fe-connect.c:7556
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WARNING: password file \"%s\" has group or world access; permissions should be u=rw (0600) or less\n"
 msgstr ""
@@ -784,17 +1054,29 @@ msgstr ""
 "lecture pour le groupe ou universel ; les droits devraient être u=rw (0600)\n"
 "ou inférieur\n"
 
+<<<<<<< HEAD
 #: fe-connect.c:7659
+=======
+#: fe-connect.c:7663
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "password retrieved from file \"%s\""
 msgstr "mot de passe récupéré dans le fichier « %s »"
 
+<<<<<<< HEAD
 #: fe-exec.c:466 fe-exec.c:3395
+=======
+#: fe-exec.c:466 fe-exec.c:3366
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "row number %d is out of range 0..%d"
 msgstr "le numéro de ligne %d est en dehors des limites 0..%d"
 
+<<<<<<< HEAD
 #: fe-exec.c:528 fe-protocol3.c:1971
+=======
+#: fe-exec.c:528 fe-protocol3.c:1976
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s"
 msgstr "%s"
@@ -804,11 +1086,16 @@ msgstr "%s"
 msgid "write to server failed"
 msgstr "échec en écriture vers le serveur"
 
+<<<<<<< HEAD
 #: fe-exec.c:871
+=======
+#: fe-exec.c:869
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no error text available"
 msgstr "aucun texte d'erreur disponible"
 
+<<<<<<< HEAD
 #: fe-exec.c:960
 msgid "NOTICE"
 msgstr "NOTICE"
@@ -822,99 +1109,187 @@ msgid "size_t overflow"
 msgstr "saturation de size_t"
 
 #: fe-exec.c:1446 fe-exec.c:1515 fe-exec.c:1561
+=======
+#: fe-exec.c:958
+msgid "NOTICE"
+msgstr "NOTICE"
+
+#: fe-exec.c:1016
+msgid "PGresult cannot support more than INT_MAX tuples"
+msgstr "PGresult ne supporte pas plus de INT_MAX lignes"
+
+#: fe-exec.c:1028
+msgid "size_t overflow"
+msgstr "saturation de size_t"
+
+#: fe-exec.c:1444 fe-exec.c:1513 fe-exec.c:1559
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "command string is a null pointer"
 msgstr "la chaîne de commande est un pointeur nul"
 
+<<<<<<< HEAD
 #: fe-exec.c:1452 fe-exec.c:2883
+=======
+#: fe-exec.c:1450 fe-exec.c:2888
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s not allowed in pipeline mode"
 msgstr "%s non autorisé dans le mode pipeline"
 
+<<<<<<< HEAD
 #: fe-exec.c:1520 fe-exec.c:1566 fe-exec.c:1660
+=======
+#: fe-exec.c:1518 fe-exec.c:1564 fe-exec.c:1658
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "number of parameters must be between 0 and %d"
 msgstr "le nombre de paramètres doit être compris entre 0 et %d"
 
+<<<<<<< HEAD
 #: fe-exec.c:1556 fe-exec.c:1655
+=======
+#: fe-exec.c:1554 fe-exec.c:1653
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "statement name is a null pointer"
 msgstr "le nom de l'instruction est un pointeur nul"
 
+<<<<<<< HEAD
 #: fe-exec.c:1697 fe-exec.c:3241
+=======
+#: fe-exec.c:1695 fe-exec.c:3220
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no connection to the server"
 msgstr "aucune connexion au serveur"
 
+<<<<<<< HEAD
 #: fe-exec.c:1705 fe-exec.c:3249
+=======
+#: fe-exec.c:1703 fe-exec.c:3228
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "another command is already in progress"
 msgstr "une autre commande est déjà en cours"
 
+<<<<<<< HEAD
 #: fe-exec.c:1735
+=======
+#: fe-exec.c:1733
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot queue commands during COPY"
 msgstr "ne peut pas mettre en queue les commandes lors du COPY"
 
+<<<<<<< HEAD
 #: fe-exec.c:1852
+=======
+#: fe-exec.c:1850
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "length must be given for binary parameter"
 msgstr "la longueur doit être indiquée pour les paramètres binaires"
 
+<<<<<<< HEAD
 #: fe-exec.c:2166
+=======
+#: fe-exec.c:2171
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected asyncStatus: %d"
 msgstr "asyncStatus inattendu : %d"
 
+<<<<<<< HEAD
 #: fe-exec.c:2322
+=======
+#: fe-exec.c:2327
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "synchronous command execution functions are not allowed in pipeline mode"
 msgstr "les fonctions d'exécution de commande synchrone ne sont pas autorisées en mode pipeline"
 
+<<<<<<< HEAD
 #: fe-exec.c:2339
 msgid "COPY terminated by new PQexec"
 msgstr "COPY terminé par un nouveau PQexec"
 
 #: fe-exec.c:2355
+=======
+#: fe-exec.c:2344
+msgid "COPY terminated by new PQexec"
+msgstr "COPY terminé par un nouveau PQexec"
+
+#: fe-exec.c:2360
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "PQexec not allowed during COPY BOTH"
 msgstr "PQexec non autorisé pendant COPY BOTH"
 
+<<<<<<< HEAD
 #: fe-exec.c:2581 fe-exec.c:2636 fe-exec.c:2704 fe-protocol3.c:1902
+=======
+#: fe-exec.c:2586 fe-exec.c:2641 fe-exec.c:2709 fe-protocol3.c:1907
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no COPY in progress"
 msgstr "aucun COPY en cours"
 
+<<<<<<< HEAD
 #: fe-exec.c:2890
+=======
+#: fe-exec.c:2895
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "connection in wrong state"
 msgstr "connexion dans un état erroné"
 
+<<<<<<< HEAD
 #: fe-exec.c:2933
+=======
+#: fe-exec.c:2938
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot enter pipeline mode, connection not idle"
 msgstr "ne peut pas entrer dans le mode pipeline, connexion active"
 
+<<<<<<< HEAD
 #: fe-exec.c:2969 fe-exec.c:2990
+=======
+#: fe-exec.c:2974 fe-exec.c:2995
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot exit pipeline mode with uncollected results"
 msgstr "ne peut pas sortir du mode pipeline avec des résultats non récupérés"
 
+<<<<<<< HEAD
 #: fe-exec.c:2973
+=======
+#: fe-exec.c:2978
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot exit pipeline mode while busy"
 msgstr "ne peut pas sortir du mode pipeline alors qu'il est occupé"
 
+<<<<<<< HEAD
 #: fe-exec.c:2984
+=======
+#: fe-exec.c:2989
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot exit pipeline mode while in COPY"
 msgstr "ne peut pas sortir du mode pipeline pendant un COPY"
 
+<<<<<<< HEAD
 #: fe-exec.c:3175
+=======
+#: fe-exec.c:3154
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot send pipeline when not in pipeline mode"
 msgstr "ne peut pas envoyer le pipeline lorsqu'il n'est pas en mode pipeline"
 
+<<<<<<< HEAD
 #: fe-exec.c:3284
 msgid "invalid ExecStatusType code"
 msgstr "code ExecStatusType invalide"
@@ -924,30 +1299,56 @@ msgid "PGresult is not an error result\n"
 msgstr "PGresult n'est pas un résultat d'erreur\n"
 
 #: fe-exec.c:3379 fe-exec.c:3402
+=======
+#: fe-exec.c:3255
+msgid "invalid ExecStatusType code"
+msgstr "code ExecStatusType invalide"
+
+#: fe-exec.c:3282
+msgid "PGresult is not an error result\n"
+msgstr "PGresult n'est pas un résultat d'erreur\n"
+
+#: fe-exec.c:3350 fe-exec.c:3373
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column number %d is out of range 0..%d"
 msgstr "le numéro de colonne %d est en dehors des limites 0..%d"
 
+<<<<<<< HEAD
 #: fe-exec.c:3417
+=======
+#: fe-exec.c:3388
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "parameter number %d is out of range 0..%d"
 msgstr "le numéro de paramètre %d est en dehors des limites 0..%d"
 
+<<<<<<< HEAD
 #: fe-exec.c:3728
+=======
+#: fe-exec.c:3699
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not interpret result from server: %s"
 msgstr "n'a pas pu interpréter la réponse du serveur : %s"
 
+<<<<<<< HEAD
 #: fe-exec.c:4006 fe-exec.c:4119
+=======
+#: fe-exec.c:3964 fe-exec.c:4054
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "incomplete multibyte character"
 msgstr "caractère multi-octet incomplet"
 
+<<<<<<< HEAD
 #: fe-exec.c:4008 fe-exec.c:4138
 #, c-format
 msgid "invalid multibyte character"
 msgstr "caractère multi-octets invalide"
 
+=======
+>>>>>>> REL_18_BETA1_branch
 #: fe-gssapi-common.c:122
 msgid "GSSAPI name import error"
 msgstr "erreur d'import du nom GSSAPI"
@@ -1009,8 +1410,13 @@ msgstr "entier de taille %lu non supporté par pqPutInt"
 msgid "connection not open"
 msgstr "la connexion n'est pas active"
 
+<<<<<<< HEAD
 #: fe-misc.c:751 fe-secure-openssl.c:210 fe-secure-openssl.c:316
 #: fe-secure.c:259 fe-secure.c:426
+=======
+#: fe-misc.c:751 fe-secure-openssl.c:215 fe-secure-openssl.c:315
+#: fe-secure.c:257 fe-secure.c:419
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "server closed the connection unexpectedly\n"
@@ -1045,28 +1451,45 @@ msgstr "échec de %s() : %s"
 msgid "message type 0x%02x arrived from server while idle"
 msgstr "le message de type 0x%02x est arrivé alors que le serveur était en attente"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:380
+=======
+#: fe-protocol3.c:385
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "server sent data (\"D\" message) without prior row description (\"T\" message)"
 msgstr ""
 "le serveur a envoyé des données (message « D ») sans description préalable\n"
 "de la ligne (message « T »)"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:422
+=======
+#: fe-protocol3.c:427
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected response from server; first received character was \"%c\""
 msgstr "réponse inattendue du serveur, le premier caractère reçu étant « %c »"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:445
+=======
+#: fe-protocol3.c:450
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "message contents do not agree with length in message type \"%c\""
 msgstr "le contenu du message ne correspond pas avec la longueur du type de message « %c »"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:463
+=======
+#: fe-protocol3.c:468
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "lost synchronization with server: got message type \"%c\", length %d"
 msgstr "synchronisation perdue avec le serveur : a reçu le type de message « %c », longueur %d"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:515 fe-protocol3.c:555
 msgid "insufficient data in \"T\" message"
 msgstr "données insuffisantes dans le message « T »"
@@ -1088,105 +1511,249 @@ msgid "unexpected field count in \"D\" message"
 msgstr "nombre de champs inattendu dans le message « D »"
 
 #: fe-protocol3.c:1015
+=======
+#: fe-protocol3.c:520 fe-protocol3.c:560
+msgid "insufficient data in \"T\" message"
+msgstr "données insuffisantes dans le message « T »"
+
+#: fe-protocol3.c:631 fe-protocol3.c:837
+msgid "out of memory for query result"
+msgstr "mémoire épuisée pour le résultat de la requête"
+
+#: fe-protocol3.c:700
+msgid "insufficient data in \"t\" message"
+msgstr "données insuffisantes dans le message « t »"
+
+#: fe-protocol3.c:759 fe-protocol3.c:791 fe-protocol3.c:809
+msgid "insufficient data in \"D\" message"
+msgstr "données insuffisantes dans le message « D »"
+
+#: fe-protocol3.c:765
+msgid "unexpected field count in \"D\" message"
+msgstr "nombre de champs inattendu dans le message « D »"
+
+#: fe-protocol3.c:1020
+>>>>>>> REL_18_BETA1_branch
 msgid "no error message available\n"
 msgstr "aucun message d'erreur disponible\n"
 
 #. translator: %s represents a digit string
+<<<<<<< HEAD
 #: fe-protocol3.c:1063 fe-protocol3.c:1082
+=======
+#: fe-protocol3.c:1068 fe-protocol3.c:1087
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid " at character %s"
 msgstr " au caractère %s"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1095
+=======
+#: fe-protocol3.c:1100
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "DETAIL:  %s\n"
 msgstr "DÉTAIL : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1098
+=======
+#: fe-protocol3.c:1103
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "HINT:  %s\n"
 msgstr "ASTUCE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1101
+=======
+#: fe-protocol3.c:1106
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "QUERY:  %s\n"
 msgstr "REQUÊTE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1108
+=======
+#: fe-protocol3.c:1113
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "CONTEXT:  %s\n"
 msgstr "CONTEXTE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1117
+=======
+#: fe-protocol3.c:1122
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SCHEMA NAME:  %s\n"
 msgstr "NOM DE SCHÉMA : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1121
+=======
+#: fe-protocol3.c:1126
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "TABLE NAME:  %s\n"
 msgstr "NOM DE TABLE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1125
+=======
+#: fe-protocol3.c:1130
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "COLUMN NAME:  %s\n"
 msgstr "NOM DE COLONNE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1129
+=======
+#: fe-protocol3.c:1134
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "DATATYPE NAME:  %s\n"
 msgstr "NOM DU TYPE DE DONNÉES : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1133
+=======
+#: fe-protocol3.c:1138
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "CONSTRAINT NAME:  %s\n"
 msgstr "NOM DE CONTRAINTE : %s\n"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1145
 msgid "LOCATION:  "
 msgstr "EMPLACEMENT : "
 
 #: fe-protocol3.c:1147
+=======
+#: fe-protocol3.c:1150
+msgid "LOCATION:  "
+msgstr "EMPLACEMENT : "
+
+#: fe-protocol3.c:1152
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s, "
 msgstr "%s, "
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1149
+=======
+#: fe-protocol3.c:1154
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s:%s"
 msgstr "%s : %s"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1344
+=======
+#: fe-protocol3.c:1349
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "LINE %d: "
 msgstr "LIGNE %d : "
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1418
+=======
+#: fe-protocol3.c:1423
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "protocol version not supported by server: client uses %u.%u, server supports up to %u.%u"
 msgstr "version du protocole non supportée par le serveur : le client utilise %u.%u, le serveur supporte jusqu'à %u.%u"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1424
+=======
+#: fe-protocol3.c:1429
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "protocol extension not supported by server: %s"
 msgid_plural "protocol extensions not supported by server: %s"
 msgstr[0] "extension du protocole non supportée par le serveur : %s"
 msgstr[1] "extensions du protocole non supportées par le serveur : %s"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1432
+=======
+#: fe-protocol3.c:1437
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid %s message"
 msgstr "message %s invalide"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:1797
+=======
+#: fe-protocol3.c:1802
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "PQgetline: not doing text COPY OUT"
 msgstr "PQgetline : ne va pas réaliser un COPY OUT au format texte"
 
+<<<<<<< HEAD
 #: fe-protocol3.c:2171
 #, c-format
 msgid "protocol error: no function result"
 msgstr "erreur de protocole : aucun résultat de fonction"
+=======
+#: fe-protocol3.c:2176
+#, c-format
+msgid "protocol error: no function result"
+msgstr "erreur de protocole : aucun résultat de fonction"
+
+#: fe-protocol3.c:2187
+#, c-format
+msgid "protocol error: id=0x%x"
+msgstr "erreur de protocole : id=0x%x"
+
+#: fe-secure-common.c:123
+#, c-format
+msgid "SSL certificate's name contains embedded null"
+msgstr "le nom du certificat SSL contient des NULL"
+
+#: fe-secure-common.c:228
+#, c-format
+msgid "certificate contains IP address with invalid length %zu"
+msgstr "le certificat contient une adresse IP de longueur invalide %zu"
+
+#: fe-secure-common.c:237
+#, c-format
+msgid "could not convert certificate's IP address to string: %s"
+msgstr "n'a pas pu convertir l'adresse IP du certificat en chaîne de caractères : %s"
+
+#: fe-secure-common.c:269
+#, c-format
+msgid "host name must be specified for a verified SSL connection"
+msgstr "le nom d'hôte doit être précisé pour une connexion SSL vérifiée"
+
+#: fe-secure-common.c:286
+#, c-format
+msgid "server certificate for \"%s\" (and %d other name) does not match host name \"%s\""
+msgid_plural "server certificate for \"%s\" (and %d other names) does not match host name \"%s\""
+msgstr[0] "le certificat serveur pour « %s » (et %d autre nom) ne correspond pas au nom d'hôte « %s »"
+msgstr[1] "le certificat serveur pour « %s » (et %d autres noms) ne correspond pas au nom d'hôte « %s »"
+
+#: fe-secure-common.c:294
+#, c-format
+msgid "server certificate for \"%s\" does not match host name \"%s\""
+msgstr "le certificat serveur pour « %s » ne correspond pas au nom d'hôte « %s »"
+
+#: fe-secure-common.c:299
+#, c-format
+msgid "could not get server's host name from server certificate"
+msgstr "n'a pas pu récupérer le nom d'hôte du serveur à partir du certificat serveur"
+>>>>>>> REL_18_BETA1_branch
 
 #: fe-protocol3.c:2182
 #, c-format
@@ -1234,30 +1801,51 @@ msgstr "n'a pas pu récupérer le nom d'hôte du serveur à partir du certificat
 msgid "GSSAPI wrap error"
 msgstr "erreur d'emballage GSSAPI"
 
+<<<<<<< HEAD
 #: fe-secure-gssapi.c:201
+=======
+#: fe-secure-gssapi.c:208
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "outgoing GSSAPI message would not use confidentiality"
 msgstr "le message sortant GSSAPI n'utiliserait pas la confidentialité"
 
+<<<<<<< HEAD
 #: fe-secure-gssapi.c:208
+=======
+#: fe-secure-gssapi.c:215
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "client tried to send oversize GSSAPI packet (%zu > %zu)"
 msgstr "le client a essayé d'envoyer un paquet GSSAPI trop gros (%zu > %zu)"
 
+<<<<<<< HEAD
 #: fe-secure-gssapi.c:347 fe-secure-gssapi.c:589
+=======
+#: fe-secure-gssapi.c:351 fe-secure-gssapi.c:593
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "oversize GSSAPI packet sent by the server (%zu > %zu)"
 msgstr "paquet GSSAPI trop gros envoyé par le serveur (%zu > %zu)"
 
+<<<<<<< HEAD
 #: fe-secure-gssapi.c:386
 msgid "GSSAPI unwrap error"
 msgstr "erreur de dépaquetage GSSAPI"
 
 #: fe-secure-gssapi.c:395
+=======
+#: fe-secure-gssapi.c:390
+msgid "GSSAPI unwrap error"
+msgstr "erreur de dépaquetage GSSAPI"
+
+#: fe-secure-gssapi.c:399
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "incoming GSSAPI message did not use confidentiality"
 msgstr "le message entrant GSSAPI n'a pas utilisé la confidentialité"
 
+<<<<<<< HEAD
 #: fe-secure-gssapi.c:652
 msgid "could not initiate GSSAPI security context"
 msgstr "n'a pas pu initier le contexte de sécurité GSSAPI"
@@ -1271,91 +1859,174 @@ msgid "GSSAPI context establishment error"
 msgstr "erreur d'établissement du contexte GSSAPI"
 
 #: fe-secure-openssl.c:214 fe-secure-openssl.c:320 fe-secure-openssl.c:1518
+=======
+#: fe-secure-gssapi.c:656
+msgid "could not initiate GSSAPI security context"
+msgstr "n'a pas pu initier le contexte de sécurité GSSAPI"
+
+#: fe-secure-gssapi.c:685
+msgid "GSSAPI size check error"
+msgstr "erreur de vérification de la taille GSSAPI"
+
+#: fe-secure-gssapi.c:696
+msgid "GSSAPI context establishment error"
+msgstr "erreur d'établissement du contexte GSSAPI"
+
+#: fe-secure-openssl.c:219 fe-secure-openssl.c:319 fe-secure-openssl.c:1531
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL SYSCALL error: %s"
 msgstr "erreur SYSCALL SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:220 fe-secure-openssl.c:326 fe-secure-openssl.c:1521
+=======
+#: fe-secure-openssl.c:225 fe-secure-openssl.c:325 fe-secure-openssl.c:1534
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL SYSCALL error: EOF detected"
 msgstr "erreur SYSCALL SSL : EOF détecté"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:230 fe-secure-openssl.c:336 fe-secure-openssl.c:1529
+=======
+#: fe-secure-openssl.c:235 fe-secure-openssl.c:335 fe-secure-openssl.c:1542
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL error: %s"
 msgstr "erreur SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:244 fe-secure-openssl.c:350
+=======
+#: fe-secure-openssl.c:249 fe-secure-openssl.c:349
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL connection has been closed unexpectedly"
 msgstr "la connexion SSL a été fermée de façon inattendu"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:249 fe-secure-openssl.c:355 fe-secure-openssl.c:1576
+=======
+#: fe-secure-openssl.c:254 fe-secure-openssl.c:354 fe-secure-openssl.c:1589
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized SSL error code: %d"
 msgstr "code d'erreur SSL inconnu : %d"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:398
+=======
+#: fe-secure-openssl.c:397
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not determine server certificate signature algorithm"
 msgstr "n'a pas pu déterminer l'algorithme de signature du certificat serveur"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:418
+=======
+#: fe-secure-openssl.c:417
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find digest for NID %s"
 msgstr "n'a pas pu trouver l'entrée pour le NID %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:427
+=======
+#: fe-secure-openssl.c:426
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not generate peer certificate hash"
 msgstr "n'a pas pu générer le hachage du certificat peer"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:510
+=======
+#: fe-secure-openssl.c:509
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL certificate's name entry is missing"
 msgstr "l'entrée du nom du certificat SSL est manquante"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:544
+=======
+#: fe-secure-openssl.c:543
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL certificate's address entry is missing"
 msgstr "l'entrée d'adresse du certificat SSL est manquante"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:945
+=======
+#: fe-secure-openssl.c:960
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create SSL context: %s"
 msgstr "n'a pas pu créer le contexte SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:987
+=======
+#: fe-secure-openssl.c:1002
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid value \"%s\" for minimum SSL protocol version"
 msgstr "valeur « %s » invalide pour la version minimale du protocole SSL"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:997
+=======
+#: fe-secure-openssl.c:1012
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set minimum SSL protocol version: %s"
 msgstr "n'a pas pu configurer la version minimale de protocole SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1013
+=======
+#: fe-secure-openssl.c:1028
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid value \"%s\" for maximum SSL protocol version"
 msgstr "valeur « %s » invalide pour la version maximale du protocole SSL"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1023
+=======
+#: fe-secure-openssl.c:1038
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set maximum SSL protocol version: %s"
 msgstr "n'a pas pu configurer la version maximale de protocole SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1061
+=======
+#: fe-secure-openssl.c:1076
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not load system root certificate paths: %s"
 msgstr "n'a pas pu charger les chemins du certificat racine système : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1078
+=======
+#: fe-secure-openssl.c:1093
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read root certificate file \"%s\": %s"
 msgstr "n'a pas pu lire le certificat racine « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1130
+=======
+#: fe-secure-openssl.c:1145
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not get home directory to locate root certificate file\n"
@@ -1364,7 +2035,11 @@ msgstr ""
 "n'a pas pu obtenir le répertoire personnel pour situer le fichier de certificat racine.\n"
 "Fournissez le fichier, utilisez les racines de confiance du système avec sslrootcert=system, ou modifiez sslmode pour désactiver la vérification du certificat par le serveur."
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1133
+=======
+#: fe-secure-openssl.c:1148
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "root certificate file \"%s\" does not exist\n"
@@ -1373,112 +2048,200 @@ msgstr ""
 "le fichier de certificat racine « %s » n'existe pas.\n"
 "Fournissez le fichier, utilisez les racines de confiance du système avec sslrootcert=system, ou modifiez sslmode pour désactiver la vérification du certificat par le serveur."
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1168
+=======
+#: fe-secure-openssl.c:1183
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open certificate file \"%s\": %s"
 msgstr "n'a pas pu ouvrir le certificat « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1186
+=======
+#: fe-secure-openssl.c:1201
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read certificate file \"%s\": %s"
 msgstr "n'a pas pu lire le certificat « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1210
+=======
+#: fe-secure-openssl.c:1225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not establish SSL connection: %s"
 msgstr "n'a pas pu établir la connexion SSL : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1242
+=======
+#: fe-secure-openssl.c:1257
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set SSL Server Name Indication (SNI): %s"
 msgstr "n'a pas pu configurer le SSL Server Name Indication (SNI) : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1286
+=======
+#: fe-secure-openssl.c:1300
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not load SSL engine \"%s\": %s"
 msgstr "n'a pas pu charger le moteur SSL « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1297
+=======
+#: fe-secure-openssl.c:1311
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not initialize SSL engine \"%s\": %s"
 msgstr "n'a pas pu initialiser le moteur SSL « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1312
+=======
+#: fe-secure-openssl.c:1326
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read private SSL key \"%s\" from engine \"%s\": %s"
 msgstr "n'a pas pu lire la clé privée SSL « %s » à partir du moteur « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1325
+=======
+#: fe-secure-openssl.c:1339
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not load private SSL key \"%s\" from engine \"%s\": %s"
 msgstr "n'a pas pu charger la clé privée SSL « %s » à partir du moteur « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1362
+=======
+#: fe-secure-openssl.c:1376
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "certificate present, but not private key file \"%s\""
 msgstr "le certificat est présent, mais la clé privée « %s » est absente"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1365
+=======
+#: fe-secure-openssl.c:1379
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not stat private key file \"%s\": %m"
 msgstr "n'a pas pu interroger le fichier de clé privée « %s » : %m"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1373
+=======
+#: fe-secure-openssl.c:1387
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "private key file \"%s\" is not a regular file"
 msgstr "le fichier de clé privée « %s » n'est pas un fichier"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1406
+=======
+#: fe-secure-openssl.c:1420
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "private key file \"%s\" has group or world access; file must have permissions u=rw (0600) or less if owned by the current user, or permissions u=rw,g=r (0640) or less if owned by root"
 msgstr "le fichier de clé privée « %s » a des droits d'accès pour le groupe ou le monde ; le fichier doit avoir les droits u=rw (0600) ou moins si le propriétaire est l'utilisateur courant, ou les droits u=rw,g=r (0640) ou moins si le propriétaire est root"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1430
+=======
+#: fe-secure-openssl.c:1444
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not load private key file \"%s\": %s"
 msgstr "n'a pas pu charger le fichier de clé privée « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1446
+=======
+#: fe-secure-openssl.c:1460
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "certificate does not match private key file \"%s\": %s"
 msgstr "le certificat ne correspond pas à la clé privée « %s » : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1515
+=======
+#: fe-secure-openssl.c:1528
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL error: certificate verify failed: %s"
 msgstr "erreur SSL : échec de la vérification du certificat : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1560
+=======
+#: fe-secure-openssl.c:1573
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "This may indicate that the server does not support any SSL protocol version between %s and %s."
 msgstr "Ceci pourrait indiquer que le serveur ne supporte aucune des versions du protocole SSL entre %s et %s."
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1593
+=======
+#: fe-secure-openssl.c:1606
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "certificate could not be obtained: %s"
 msgstr "le certificat n'a pas pu être obtenu : %s"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1699
+=======
+#: fe-secure-openssl.c:1711
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no SSL error reported"
 msgstr "aucune erreur SSL reportée"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:1725
+=======
+#: fe-secure-openssl.c:1720
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SSL error code %lu"
 msgstr "code d'erreur SSL %lu"
 
+<<<<<<< HEAD
 #: fe-secure-openssl.c:2015
+=======
+#: fe-secure-openssl.c:1986
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WARNING: sslpassword truncated\n"
 msgstr "ATTENTION : sslpassword tronqué\n"
 
+<<<<<<< HEAD
 #: fe-secure.c:270
+=======
+#: fe-secure.c:263
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not receive data from server: %s"
 msgstr "n'a pas pu recevoir des données depuis le serveur : %s"
 
+<<<<<<< HEAD
 #: fe-secure.c:441
+=======
+#: fe-secure.c:434
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not send data to server: %s"
 msgstr "n'a pas pu transmettre les données au serveur : %s"
@@ -1488,6 +2251,276 @@ msgstr "n'a pas pu transmettre les données au serveur : %s"
 msgid "unrecognized socket error: 0x%08X/%d"
 msgstr "erreur de socket non reconnue : 0x%08X/%d"
 
+<<<<<<< HEAD
 #, c-format
 #~ msgid "keepalives parameter must be an integer"
 #~ msgstr "le paramètre keepalives doit être un entier"
+=======
+#~ msgid "\"SELECT pg_is_in_recovery()\" failed\n"
+#~ msgstr "\"SELECT pg_is_in_recovery()\" a échoué\n"
+
+#~ msgid "\"SHOW transaction_read_only\" failed\n"
+#~ msgstr "\"SHOW transaction_read_only\" a échoué\n"
+
+#, c-format
+#~ msgid "%s(%s) failed: error code %d\n"
+#~ msgstr "échec de %s(%s) : code d'erreur %d\n"
+
+#~ msgid "COPY IN state must be terminated first\n"
+#~ msgstr "l'état COPY IN doit d'abord être terminé\n"
+
+#~ msgid "COPY OUT state must be terminated first\n"
+#~ msgstr "l'état COPY OUT doit d'abord être terminé\n"
+
+#~ msgid "Kerberos 5 authentication rejected: %*s\n"
+#~ msgstr "authentification Kerberos 5 rejetée : %*s\n"
+
+#, c-format
+#~ msgid "PGEventProc \"%s\" failed during PGEVT_CONNRESET event\n"
+#~ msgstr "échec de PGEventProc « %s » lors de l'événement PGEVT_CONNRESET\n"
+
+#, c-format
+#~ msgid "PGEventProc \"%s\" failed during PGEVT_RESULTCREATE event\n"
+#~ msgstr "échec de PGEventProc « %s » lors de l'événement PGEVT_RESULTCREATE\n"
+
+#~ msgid "SCM_CRED authentication method not supported\n"
+#~ msgstr "authentification SCM_CRED non supportée\n"
+
+#, c-format
+#~ msgid "SSL error: %s\n"
+#~ msgstr "erreur SSL : %s\n"
+
+#~ msgid "SSL library does not support CRL certificates (file \"%s\")\n"
+#~ msgstr "la bibliothèque SSL ne supporte pas les certificats CRL (fichier « %s »)\n"
+
+#, c-format
+#~ msgid "Unix-domain socket path \"%s\" is too long (maximum %d bytes)\n"
+#~ msgstr "Le chemin du socket de domaine Unix, « %s », est trop (maximum %d octets)\n"
+
+#~ msgid "WARNING: line %d too long in password file \"%s\"\n"
+#~ msgstr "ATTENTION : ligne %d trop longue dans le fichier de mots de passe « %s »\n"
+
+#~ msgid "WSAIoctl(SIO_KEEPALIVE_VALS) failed: %d\n"
+#~ msgstr "échec de WSAIoctl(SIO_KEEPALIVE_VALS)  : %d\n"
+
+#~ msgid "cannot determine OID of function lo_creat\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_creat\n"
+
+#~ msgid "cannot determine OID of function lo_create\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_create\n"
+
+#~ msgid "cannot determine OID of function lo_lseek\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_lseek\n"
+
+#~ msgid "cannot determine OID of function lo_lseek64\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_lseek64\n"
+
+#~ msgid "cannot determine OID of function lo_open\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_open\n"
+
+#~ msgid "cannot determine OID of function lo_tell64\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_tell64\n"
+
+#~ msgid "cannot determine OID of function lo_truncate\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_truncate\n"
+
+#~ msgid "cannot determine OID of function lo_truncate64\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_truncate64\n"
+
+#~ msgid "cannot determine OID of function lo_unlink\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lo_unlink\n"
+
+#~ msgid "cannot determine OID of function loread\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction loread\n"
+
+#~ msgid "cannot determine OID of function lowrite\n"
+#~ msgstr "ne peut pas déterminer l'OID de la fonction lowrite\n"
+
+#~ msgid "could not acquire mutex: %s\n"
+#~ msgstr "n'a pas pu acquérir le mutex : %s\n"
+
+#~ msgid ""
+#~ "could not connect to server: %s\n"
+#~ "\tIs the server running on host \"%s\" (%s) and accepting\n"
+#~ "\tTCP/IP connections on port %s?\n"
+#~ msgstr ""
+#~ "n'a pas pu se connecter au serveur : %s\n"
+#~ "\tLe serveur est-il actif sur l'hôte « %s » (%s)\n"
+#~ "\tet accepte-t-il les connexionsTCP/IP sur le port %s ?\n"
+
+#, c-format
+#~ msgid "could not create SSL context: %s\n"
+#~ msgstr "n'a pas pu créer le contexte SSL : %s\n"
+
+#~ msgid "could not get home directory to locate client certificate files\n"
+#~ msgstr ""
+#~ "n'a pas pu récupérer le répertoire personnel pour trouver les certificats\n"
+#~ "du client\n"
+
+#~ msgid "could not get home directory to locate password file\n"
+#~ msgstr ""
+#~ "n'a pas pu obtenir le répertoire personnel pour trouver le fichier de\n"
+#~ "mot de passe\n"
+
+#~ msgid "could not get home directory to locate service definition file"
+#~ msgstr ""
+#~ "n'a pas pu obtenir le répertoire personnel pour trouver le certificat de\n"
+#~ "définition du service"
+
+#, c-format
+#~ msgid "could not load private key file \"%s\": %s\n"
+#~ msgstr "n'a pas pu charger le fichier de clé privée « %s » : %s\n"
+
+#~ msgid "could not make a writable connection to server \"%s:%s\"\n"
+#~ msgstr "n'a pas pu réaliser une connexion en écriture au serveur « %s » : %s\n"
+
+#, c-format
+#~ msgid "could not open file \"%s\": %s\n"
+#~ msgstr "n'a pas pu ouvrir le fichier « %s » : %s\n"
+
+#~ msgid "could not open private key file \"%s\": %s\n"
+#~ msgstr "n'a pas pu ouvrir le fichier de clé privée « %s » : %s\n"
+
+#~ msgid "could not read private key file \"%s\": %s\n"
+#~ msgstr "n'a pas pu lire la clé privée « %s » : %s\n"
+
+#~ msgid "could not restore nonblocking mode on socket: %s\n"
+#~ msgstr "n'a pas pu rétablir le mode non-bloquant pour la socket : %s\n"
+
+#~ msgid "could not set maximum version of SSL protocol: %s\n"
+#~ msgstr "n'a pas pu mettre en place la version maximale du protocole SSL : %s\n"
+
+#~ msgid "could not set minimum version of SSL protocol: %s\n"
+#~ msgstr "n'a pas pu mettre en place la version minimale du protocole SSL : %s\n"
+
+#~ msgid "could not set socket to blocking mode: %s\n"
+#~ msgstr "n'a pas pu activer le mode bloquant pour la socket : %s\n"
+
+#~ msgid "extraneous data in \"D\" message"
+#~ msgstr "données supplémentaires dans le message « D »"
+
+#~ msgid "extraneous data in \"T\" message"
+#~ msgstr "données supplémentaires dans le message « T »"
+
+#~ msgid "extraneous data in \"t\" message"
+#~ msgstr "données supplémentaires dans le message « t »"
+
+#~ msgid "failed to generate nonce\n"
+#~ msgstr "échec pour la génération de nonce\n"
+
+#~ msgid "failed to generate random salt"
+#~ msgstr "a échoué à générer le sel aléatoire"
+
+#~ msgid "function requires at least protocol version 3.0\n"
+#~ msgstr "la fonction nécessite au minimum le protocole 3.0\n"
+
+#~ msgid "incoming GSSAPI message did not use confidentiality\n"
+#~ msgstr "le message entrant GSSAPI n'a pas utilisé pas la confidentialité\n"
+
+#~ msgid "invalid appname state %d, probably indicative of memory corruption\n"
+#~ msgstr "état appname %d invalide, indiquant probablement une corruption de la mémoire\n"
+
+#~ msgid "invalid channel_binding value: \"%s\"\n"
+#~ msgstr "valeur de channel_binding invalide : « %s »\n"
+
+#~ msgid "invalid gssencmode value: \"%s\"\n"
+#~ msgstr "valeur gssencmode invalide : « %s »\n"
+
+#~ msgid "invalid setenv state %c, probably indicative of memory corruption\n"
+#~ msgstr "état setenv %c invalide, indiquant probablement une corruption de la mémoire\n"
+
+#~ msgid "invalid ssl_max_protocol_version value: \"%s\"\n"
+#~ msgstr "valeur ssl_max_protocol_version invalide : « %s »\n"
+
+#~ msgid "invalid ssl_min_protocol_version value: \"%s\"\n"
+#~ msgstr "valeur ssl_min_protocol_version invalide : « %s »\n"
+
+#~ msgid "invalid state %c, probably indicative of memory corruption\n"
+#~ msgstr "état %c invalide, indiquant probablement une corruption de la mémoire\n"
+
+#~ msgid "invalid target_session_attrs value: \"%s\"\n"
+#~ msgstr "valeur target_session_attrs invalide : « %s »\n"
+
+#, c-format
+#~ msgid "local user with ID %d does not exist\n"
+#~ msgstr "l'utilisateur local dont l'identifiant est %d n'existe pas\n"
+
+#~ msgid "lost synchronization with server, resetting connection"
+#~ msgstr "synchronisation perdue avec le serveur, réinitialisation de la connexion"
+
+#~ msgid "no GSSAPI support; cannot require GSSAPI\n"
+#~ msgstr "pas de support de GSSAPI : ne peut pas nécessiter GSSAPI\n"
+
+#~ msgid "outgoing GSSAPI message would not use confidentiality\n"
+#~ msgstr "le message sortant GSSAPI n'utiliserait pas la confidentialité\n"
+
+#~ msgid "private key file \"%s\" changed during execution\n"
+#~ msgstr "la clé privée « %s » a été modifiée durant l'exécution\n"
+
+#, c-format
+#~ msgid "private key file \"%s\" has group or world access; permissions should be u=rw (0600) or less\n"
+#~ msgstr ""
+#~ "le fichier de la clé privée « %s » a des droits d'accès en lecture\n"
+#~ "pour le groupe ou universel ; les droits devraient être u=rw (0600)\n"
+#~ "ou inférieur\n"
+
+#, c-format
+#~ msgid "private key file \"%s\" is not a regular file\n"
+#~ msgstr "le fichier de clé privée « %s » n'est pas un fichier standard\n"
+
+#, c-format
+#~ msgid "private key file \"%s\" must be owned by the current user or root\n"
+#~ msgstr "le fichier de clé privée « %s » doit avoir comme propriétaire l'utilisateur courant ou root\n"
+
+#~ msgid "select() failed: %s\n"
+#~ msgstr "échec de select() : %s\n"
+
+#~ msgid "server sent binary data (\"B\" message) without prior row description (\"T\" message)"
+#~ msgstr ""
+#~ "le serveur a envoyé des données binaires (message « B ») sans description\n"
+#~ "préalable de la ligne (message « T »)"
+
+#~ msgid "server sent data (\"D\" message) without prior row description (\"T\" message)\n"
+#~ msgstr ""
+#~ "le serveur a envoyé des données (message « D ») sans description préalable\n"
+#~ "de la ligne (message « T »)\n"
+
+#~ msgid "setsockopt(%s) failed: %s\n"
+#~ msgstr "setsockopt(%s) a échoué : %s\n"
+
+#~ msgid "setsockopt(SO_KEEPALIVE) failed: %s\n"
+#~ msgstr "setsockopt(SO_KEEPALIVE) a échoué : %s\n"
+
+#~ msgid "setsockopt(TCP_KEEPALIVE) failed: %s\n"
+#~ msgstr "setsockopt(TCP_KEEPALIVE) a échoué : %s\n"
+
+#~ msgid "setsockopt(TCP_KEEPIDLE) failed: %s\n"
+#~ msgstr "setsockopt(TCP_KEEPIDLE) a échoué : %s\n"
+
+#~ msgid "setsockopt(TCP_KEEPINTVL) failed: %s\n"
+#~ msgstr "setsockopt(TCP_KEEPINTVL) a échoué : %s\n"
+
+#~ msgid "socket not open\n"
+#~ msgstr "socket non ouvert\n"
+
+#~ msgid "unexpected character %c following empty query response (\"I\" message)"
+#~ msgstr ""
+#~ "caractère %c inattendu à la suite d'une réponse de requête vide (message\n"
+#~ "« I »)"
+
+#, c-format
+#~ msgid "unrecognized SSL error code: %d\n"
+#~ msgstr "code d'erreur SSL inconnu : %d\n"
+
+#~ msgid "unrecognized return value from row processor"
+#~ msgstr "valeur de retour du traitement de la ligne non reconnue"
+
+#, c-format
+#~ msgid "user name lookup failure: error code %lu\n"
+#~ msgstr "échec de la recherche du nom d'utilisateur : code d'erreur %lu\n"
+
+#~ msgid "verified SSL connections are only supported when connecting to a host name\n"
+#~ msgstr ""
+#~ "les connexions SSL vérifiées ne sont supportées que lors de la connexion\n"
+#~ "à un alias hôte\n"
+>>>>>>> REL_18_BETA1_branch

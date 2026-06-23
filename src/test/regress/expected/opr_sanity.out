@@ -877,7 +877,6 @@ sha224(bytea)
 sha256(bytea)
 sha384(bytea)
 sha512(bytea)
-gen_random_uuid()
 starts_with(text,text)
 macaddr8_eq(macaddr8,macaddr8)
 macaddr8_lt(macaddr8,macaddr8)
@@ -894,7 +893,25 @@ xid8ge(xid8,xid8)
 xid8eq(xid8,xid8)
 xid8ne(xid8,xid8)
 xid8cmp(xid8,xid8)
+<<<<<<< HEAD
 sm3(bytea)
+=======
+uuid_extract_timestamp(uuid)
+uuid_extract_version(uuid)
+crc32(bytea)
+crc32c(bytea)
+bytea(smallint)
+bytea(integer)
+bytea(bigint)
+bytea_larger(bytea,bytea)
+bytea_smaller(bytea,bytea)
+-- Check that functions without argument are not marked as leakproof.
+SELECT p1.oid::regprocedure
+FROM pg_proc p1 JOIN pg_namespace pn
+     ON pronamespace = pn.oid
+WHERE nspname = 'pg_catalog' AND proleakproof AND pronargs = 0
+ORDER BY 1;
+>>>>>>> REL_18_BETA1_branch
 -- restore normal output mode
 \a\t
 -- List of functions used by libpq's fe-lobj.c
@@ -2275,7 +2292,11 @@ ORDER BY 1, 2, 3;
                     | record_ops       | record_ops       | record
                     | tsquery_ops      | tsquery_ops      | tsquery
                     | tsvector_ops     | tsvector_ops     | tsvector
+<<<<<<< HEAD
 (17 rows)
+=======
+(16 rows)
+>>>>>>> REL_18_BETA1_branch
 
 -- **************** pg_index ****************
 -- Look for illegal values in pg_index fields.

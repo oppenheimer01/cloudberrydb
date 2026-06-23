@@ -3,9 +3,13 @@
  * nodeNestloop.c
  *	  routines to support nest-loop joins
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -29,7 +33,6 @@
 #include "optimizer/clauses.h"
 #include "utils/lsyscache.h"
 #include "miscadmin.h"
-#include "utils/memutils.h"
 
 extern bool Test_print_prefetch_joinqual;
 
@@ -607,16 +610,6 @@ ExecEndNestLoop(NestLoopState *node)
 {
 	NL1_printf("ExecEndNestLoop: %s\n",
 			   "ending node processing");
-
-	/*
-	 * Free the exprcontext
-	 */
-	ExecFreeExprContext(&node->js.ps);
-
-	/*
-	 * clean out the tuple table
-	 */
-	ExecClearTuple(node->js.ps.ps_ResultTupleSlot);
 
 	/*
 	 * close down subplans

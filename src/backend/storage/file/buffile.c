@@ -3,7 +3,7 @@
  * buffile.c
  *	  Management of large buffered temporary files.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -53,8 +53,8 @@
 #include "executor/instrument.h"
 #include "miscadmin.h"
 #include "pgstat.h"
-#include "storage/buf_internals.h"
 #include "storage/buffile.h"
+#include "storage/bufmgr.h"
 #include "storage/fd.h"
 #include "utils/resowner.h"
 
@@ -127,11 +127,16 @@ struct BufFile
 	FakeAlignedBlock buffer;	/* GPDB: PG upstream uses PGAlignedBlock */
 
 	/*
+<<<<<<< HEAD
 	 * Current stage, if this is a sequential BufFile. A sequential BufFile
 	 * can be written to once, and read once after that. Without compression,
 	 * there is no real difference between sequential and random access
 	 * buffiles, but we enforce the limitations anyway, to uncover possible
 	 * bugs in sequential BufFile usage earlier.
+=======
+	 * XXX Should ideally use PGIOAlignedBlock, but might need a way to avoid
+	 * wasting per-file alignment padding when some users create many files.
+>>>>>>> REL_18_BETA1_branch
 	 */
 	enum
 	{
@@ -636,7 +641,11 @@ BufFileLoadBuffer(BufFile *file)
 	 */
 	file->nbytes = FileRead(thisfile,
 							file->buffer.data,
+<<<<<<< HEAD
 							BLCKSZ,
+=======
+							sizeof(file->buffer.data),
+>>>>>>> REL_18_BETA1_branch
 							file->curOffset,
 							WAIT_EVENT_BUFFILE_READ);
 	if (file->nbytes < 0)
@@ -1138,14 +1147,14 @@ BufFileTell(BufFile *file, int *fileno, off_t *offset)
  *
  * Performs absolute seek to the start of the n'th BLCKSZ-sized block of
  * the file.  Note that users of this interface will fail if their files
- * exceed BLCKSZ * LONG_MAX bytes, but that is quite a lot; we don't work
- * with tables bigger than that, either...
+ * exceed BLCKSZ * PG_INT64_MAX bytes, but that is quite a lot; we don't
+ * work with tables bigger than that, either...
  *
  * Result is 0 if OK, EOF if not.  Logical position is not moved if an
  * impossible seek is attempted.
  */
 int
-BufFileSeekBlock(BufFile *file, long blknum)
+BufFileSeekBlock(BufFile *file, int64 blknum)
 {
 	return BufFileSeek(file,
 					   (int) (blknum / BUFFILE_SEG_SIZE),
@@ -1153,28 +1162,10 @@ BufFileSeekBlock(BufFile *file, long blknum)
 					   SEEK_SET);
 }
 
-#ifdef NOT_USED
 /*
- * BufFileTellBlock --- block-oriented tell
+ * Returns the amount of data in the given BufFile, in bytes.
  *
- * Any fractional part of a block in the current seek position is ignored.
- */
-long
-BufFileTellBlock(BufFile *file)
-{
-	long		blknum;
-
-	blknum = (file->curOffset + file->pos) / BLCKSZ;
-	blknum += file->curFile * BUFFILE_SEG_SIZE;
-	return blknum;
-}
-
-#endif
-
-/*
- * Return the current fileset based BufFile size.
- *
- * Counts any holes left behind by BufFileAppend as part of the size.
+ * Returned value includes the size of any holes left behind by BufFileAppend.
  * ereport()s on failure.
  */
 int64
@@ -1182,10 +1173,13 @@ BufFileSize(BufFile *file)
 {
 	int64		lastFileSize;
 
+<<<<<<< HEAD
 	// In upstream, this is only used for shared BufFiles, but in GPDB
 	// also for getting the file size for extra EXPLAIN ANALYZE stats.
 	//Assert(file->fileset != NULL);
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	/* Get the size of the last physical file. */
 	lastFileSize = FileSize(file->files[file->numFiles - 1]);
 	if (lastFileSize < 0)
@@ -1200,8 +1194,7 @@ BufFileSize(BufFile *file)
 }
 
 /*
- * Append the contents of source file (managed within fileset) to
- * end of target file (managed within same fileset).
+ * Append the contents of the source file to the end of the target file.
  *
  * Note that operation subsumes ownership of underlying resources from
  * "source".  Caller should never call BufFileClose against source having
@@ -1218,9 +1211,10 @@ BufFileSize(BufFile *file)
  * begins.  Caller should apply this as an offset when working off block
  * positions that are in terms of the original BufFile space.
  */
-long
+int64
 BufFileAppend(BufFile *target, BufFile *source)
 {
+<<<<<<< HEAD
 	if (target->state == BFS_COMPRESSED_WRITING ||
 		target->state == BFS_COMPRESSED_READING ||
 		source->state == BFS_COMPRESSED_WRITING ||
@@ -1230,13 +1224,14 @@ BufFileAppend(BufFile *target, BufFile *source)
 	}
 
 	long		startBlock = target->numFiles * BUFFILE_SEG_SIZE;
+=======
+	int64		startBlock = (int64) target->numFiles * BUFFILE_SEG_SIZE;
+>>>>>>> REL_18_BETA1_branch
 	int			newNumFiles = target->numFiles + source->numFiles;
 	int			i;
 
-	Assert(target->fileset != NULL);
 	Assert(source->readOnly);
 	Assert(!source->dirty);
-	Assert(source->fileset != NULL);
 
 	if (target->resowner != source->resowner)
 		elog(ERROR, "could not append BufFile with non-matching resource owner");

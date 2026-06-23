@@ -117,10 +117,17 @@ FROM pg_type JOIN pg_class c ON typrelid = c.oid WHERE typname = 'deptest_t';
 RESET SESSION AUTHORIZATION;
 REASSIGN OWNED BY regress_dep_user1 TO regress_dep_user2;
 \dt deptest
+<<<<<<< HEAD
                    List of relations
  Schema |  Name   | Type  |       Owner       | Storage 
 --------+---------+-------+-------------------+---------
  public | deptest | table | regress_dep_user2 | heap
+=======
+                List of tables
+ Schema |  Name   | Type  |       Owner       
+--------+---------+-------+-------------------
+ public | deptest | table | regress_dep_user2
+>>>>>>> REL_18_BETA1_branch
 (1 row)
 
 SELECT typowner = relowner
@@ -145,7 +152,6 @@ owner of sequence deptest_a_seq
 owner of table deptest
 owner of function deptest_func()
 owner of type deptest_enum
-owner of type deptest_multirange
 owner of type deptest_range
 owner of table deptest2
 owner of sequence ss1

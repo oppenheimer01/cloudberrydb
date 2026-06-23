@@ -32,7 +32,11 @@ test: strings md5 numerology point lseg line box path polygon circle date time t
 # geometry depends on point, lseg, line, box, path, polygon, circle
 # horology depends on date, time, timetz, timestamp, timestamptz, interval
 # ----------
+<<<<<<< HEAD
 test: geometry horology tstypes regex type_sanity opr_sanity misc_sanity comments expressions unicode xid mvcc database encoding euc_kr
+=======
+test: geometry horology tstypes regex type_sanity opr_sanity misc_sanity comments expressions unicode xid mvcc database stats_import
+>>>>>>> REL_18_BETA1_branch
 
 # ----------
 # Load huge amounts of data
@@ -40,7 +44,7 @@ test: geometry horology tstypes regex type_sanity opr_sanity misc_sanity comment
 # execute two copy tests in parallel, to check that copy itself
 # is concurrent safe.
 # ----------
-test: copy copyselect copydml insert insert_conflict
+test: copy copyselect copydml copyencoding insert insert_conflict
 
 # ----------
 # More groups of parallel tests
@@ -90,7 +94,11 @@ test: transactions
 # ----------
 # Another group of parallel tests
 # ----------
+<<<<<<< HEAD
 test: brin gin gist spgist privileges init_privs security_label collate matview lock replica_identity rowsecurity object_address tablesample groupingsets drop_operator password identity generated join_hash appendonly_sample aocs_sample
+=======
+test: brin gin gist spgist privileges init_privs security_label collate matview lock replica_identity rowsecurity object_address tablesample groupingsets drop_operator password identity generated_stored join_hash
+>>>>>>> REL_18_BETA1_branch
 
 # ----------
 # Additional BRIN tests
@@ -107,6 +115,7 @@ test: task
 # psql depends on create_am
 # amutils depends on geometry, create_index_spgist, hash_index, brin
 # ----------
+<<<<<<< HEAD
 test: create_table_like alter_generic alter_operator misc async dbsize misc_functions sysviews tsrf tid tidscan tidrangescan collate.icu.utf8 incremental_sort
 # test: incremental_matview
 
@@ -128,6 +137,12 @@ test: ivm
 #test: rules
 # collate.*.utf8 tests cannot be run in parallel with each other
 test: psql psql_crosstab amutils stats_ext collate.linux.utf8 collate.windows.win1252
+=======
+test: create_table_like alter_generic alter_operator misc async dbsize merge misc_functions sysviews tsrf tid tidscan tidrangescan collate.utf8 collate.icu.utf8 incremental_sort create_role without_overlaps generated_virtual
+
+# collate.linux.utf8 and collate.icu.utf8 tests cannot be run in parallel with each other
+test: rules psql psql_crosstab psql_pipeline amutils stats_ext collate.linux.utf8 collate.windows.win1252
+>>>>>>> REL_18_BETA1_branch
 
 # ----------
 # Run these alone so they don't run out of parallel workers
@@ -158,14 +173,14 @@ ignore: window
 # ----------
 # Another group of parallel tests (JSON related)
 # ----------
-test: json jsonb json_encoding jsonpath jsonpath_encoding jsonb_jsonpath sqljson
+test: json jsonb json_encoding jsonpath jsonpath_encoding jsonb_jsonpath sqljson sqljson_queryfuncs sqljson_jsontable
 
 test: gp_gin_index
 
 # ----------
 # Another group of parallel tests
 # with depends on create_misc
-# NB: temp.sql does a reconnect which transiently uses 2 connections,
+# NB: temp.sql does reconnects which transiently use 2 connections,
 # so keep this parallel group to at most 19 tests
 # ----------
 test: plancache limit plpgsql copy2 temp domain rangefuncs prepare conversion truncate alter_table sequence polymorphism rowtypes returning with xml cte_prune
@@ -180,16 +195,25 @@ test: gp_foreign_data
 # The stats test resets stats, so nothing else needing stats access can be in
 # this group.
 # ----------
-test: partition_join partition_prune reloptions hash_part indexing partition_aggregate partition_info tuplesort explain compression memoize stats
+test: partition_join partition_prune reloptions hash_part indexing partition_aggregate partition_info tuplesort explain compression memoize stats predicate numa
 
+<<<<<<< HEAD
 # test the partition table with append
 test: partition_append_setup
 test: partition_append partition_prune_append partition_prune_opfamily_append partition_pruning_append
 test: partition_append_teardown
 
 # event triggers cannot run concurrently with any test that runs DDL
+=======
+# event_trigger depends on create_am and cannot run concurrently with
+# any test that runs DDL
+>>>>>>> REL_18_BETA1_branch
 # oidjoins is read-only, though, and should run late for best coverage
-test: event_trigger oidjoins
+test: oidjoins event_trigger
+
+# event_trigger_login cannot run concurrently with any other tests because
+# on-login event handling could catch connection of a concurrent test.
+test: event_trigger_login
 
 # this test also uses event triggers, so likewise run it by itself
 test: fast_default

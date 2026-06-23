@@ -3,9 +3,13 @@
  * lmgr.c
  *	  POSTGRES lock manager code
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -18,7 +22,6 @@
 #include "postgres.h"
 
 #include "access/subtrans.h"
-#include "access/transam.h"
 #include "access/xact.h"
 #include "catalog/catalog.h"
 #include "commands/progress.h"
@@ -27,7 +30,6 @@
 #include "storage/lmgr.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
-#include "storage/sinvaladt.h"
 #include "utils/inval.h"
 #include "utils/memutils.h"
 
@@ -122,7 +124,8 @@ LockRelationOid(Oid relid, LOCKMODE lockmode)
 
 	SetLocktagRelationOid(&tag, relid);
 
-	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
+	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock,
+							  false);
 
 	/*
 	 * Now that we have the lock, check for invalidation messages, so that we
@@ -165,7 +168,8 @@ ConditionalLockRelationOid(Oid relid, LOCKMODE lockmode)
 
 	SetLocktagRelationOid(&tag, relid);
 
-	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock);
+	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock,
+							  false);
 
 	if (res == LOCKACQUIRE_NOT_AVAIL)
 		return false;
@@ -198,7 +202,8 @@ LockRelationId(LockRelId *relid, LOCKMODE lockmode)
 
 	SET_LOCKTAG_RELATION(tag, relid->dbId, relid->relId);
 
-	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
+	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock,
+							  false);
 
 	/*
 	 * Now that we have the lock, check for invalidation messages; see notes
@@ -260,7 +265,8 @@ LockRelation(Relation relation, LOCKMODE lockmode)
 						 relation->rd_lockInfo.lockRelId.dbId,
 						 relation->rd_lockInfo.lockRelId.relId);
 
-	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
+	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock,
+							  false);
 
 	/*
 	 * Now that we have the lock, check for invalidation messages; see notes
@@ -320,7 +326,8 @@ ConditionalLockRelation(Relation relation, LOCKMODE lockmode)
 						 relation->rd_lockInfo.lockRelId.dbId,
 						 relation->rd_lockInfo.lockRelId.relId);
 
-	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock);
+	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock,
+							  false);
 
 	if (res == LOCKACQUIRE_NOT_AVAIL)
 		return false;
@@ -373,9 +380,13 @@ CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger)
 						 relation->rd_lockInfo.lockRelId.dbId,
 						 relation->rd_lockInfo.lockRelId.relId);
 
+<<<<<<< HEAD
 	return (orstronger ?
 			LockOrStrongerHeldByMe(&tag, lockmode) :
 			LockHeldByMe(&tag, lockmode));
+=======
+	return LockHeldByMe(&tag, lockmode, orstronger);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -390,9 +401,13 @@ CheckRelationOidLockedByMe(Oid relid, LOCKMODE lockmode, bool orstronger)
 
 	SetLocktagRelationOid(&tag, relid);
 
+<<<<<<< HEAD
 	return (orstronger ?
 			LockOrStrongerHeldByMe(&tag, lockmode) :
 			LockHeldByMe(&tag, lockmode));
+=======
+	return LockHeldByMe(&tag, lockmode, orstronger);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -617,7 +632,8 @@ LockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
  * Returns true iff the lock was acquired.
  */
 bool
-ConditionalLockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
+ConditionalLockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode,
+					 bool logLockFailure)
 {
 	LOCKTAG		tag;
 
@@ -627,7 +643,8 @@ ConditionalLockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
 					  ItemPointerGetBlockNumber(tid),
 					  ItemPointerGetOffsetNumber(tid));
 
-	return (LockAcquire(&tag, lockmode, false, true) != LOCKACQUIRE_NOT_AVAIL);
+	return (LockAcquireExtended(&tag, lockmode, false, true, true, NULL,
+								logLockFailure) != LOCKACQUIRE_NOT_AVAIL);
 }
 
 /*
@@ -852,7 +869,7 @@ UnlockWarehouse(Oid warehouseOid, LOCKMODE lockmode)
  * Returns true if the lock was acquired.
  */
 bool
-ConditionalXactLockTableWait(TransactionId xid)
+ConditionalXactLockTableWait(TransactionId xid, bool logLockFailure)
 {
 	LOCKTAG		tag;
 	bool		first = true;
@@ -864,7 +881,9 @@ ConditionalXactLockTableWait(TransactionId xid)
 
 		SET_LOCKTAG_TRANSACTION(tag, xid);
 
-		if (LockAcquire(&tag, ShareLock, false, true) == LOCKACQUIRE_NOT_AVAIL)
+		if (LockAcquireExtended(&tag, ShareLock, false, true, true, NULL,
+								logLockFailure)
+			== LOCKACQUIRE_NOT_AVAIL)
 			return false;
 
 		LockRelease(&tag, ShareLock, false);
@@ -1061,7 +1080,7 @@ WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress)
 			/* If requested, publish who we're going to wait for. */
 			if (progress)
 			{
-				PGPROC	   *holder = BackendIdGetProc(lockholders->backendId);
+				PGPROC	   *holder = ProcNumberGetProc(lockholders->procNumber);
 
 				if (holder)
 					pgstat_progress_update_param(PROGRESS_WAITFOR_CURRENT_PID,
@@ -1153,7 +1172,12 @@ ConditionalLockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 					   objid,
 					   objsubid);
 
+<<<<<<< HEAD
 	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock);
+=======
+	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock,
+							  false);
+>>>>>>> REL_18_BETA1_branch
 
 	if (res == LOCKACQUIRE_NOT_AVAIL)
 		return false;
@@ -1223,6 +1247,11 @@ ConditionalLockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 							LOCKMODE lockmode)
 {
 	LOCKTAG		tag;
+<<<<<<< HEAD
+=======
+	LOCALLOCK  *locallock;
+	LockAcquireResult res;
+>>>>>>> REL_18_BETA1_branch
 
 	SET_LOCKTAG_OBJECT(tag,
 					   InvalidOid,
@@ -1230,7 +1259,27 @@ ConditionalLockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 					   objid,
 					   objsubid);
 
+<<<<<<< HEAD
 	return (LockAcquire(&tag, lockmode, false, true) != LOCKACQUIRE_NOT_AVAIL);
+=======
+	res = LockAcquireExtended(&tag, lockmode, false, true, true, &locallock,
+							  false);
+
+	if (res == LOCKACQUIRE_NOT_AVAIL)
+		return false;
+
+	/*
+	 * Now that we have the lock, check for invalidation messages; see notes
+	 * in LockRelationOid.
+	 */
+	if (res != LOCKACQUIRE_ALREADY_CLEAR)
+	{
+		AcceptInvalidationMessages();
+		MarkLockClear(locallock);
+	}
+
+	return true;
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*

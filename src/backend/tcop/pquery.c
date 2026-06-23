@@ -3,9 +3,13 @@
  * pquery.c
  *	  POSTGRES process query command code
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -22,6 +26,8 @@
 #include "access/xact.h"
 #include "commands/createas.h"
 #include "commands/prepare.h"
+#include "executor/execdesc.h"
+#include "executor/executor.h"
 #include "executor/tstoreReceiver.h"
 #include "miscadmin.h"
 #include "pg_trace.h"
@@ -52,8 +58,15 @@
 Portal		ActivePortal = NULL;
 
 
+<<<<<<< HEAD
 static void ProcessQuery(Portal portal, /* Resource queueing need SQL, so we pass portal. */
 						 PlannedStmt *stmt,
+=======
+static void ProcessQuery(PlannedStmt *plan,
+						 CachedPlan *cplan,
+						 CachedPlanSource *plansource,
+						 int query_index,
+>>>>>>> REL_18_BETA1_branch
 						 const char *sourceText,
 						 ParamListInfo params,
 						 QueryEnvironment *queryEnv,
@@ -88,6 +101,7 @@ static void PortalBackoffEntryInit(Portal portal);
  */
 QueryDesc *
 CreateQueryDesc(PlannedStmt *plannedstmt,
+				CachedPlan *cplan,
 				const char *sourceText,
 				Snapshot snapshot,
 				Snapshot crosscheck_snapshot,
@@ -100,6 +114,7 @@ CreateQueryDesc(PlannedStmt *plannedstmt,
 
 	qd->operation = plannedstmt->commandType;	/* operation */
 	qd->plannedstmt = plannedstmt;	/* plan */
+	qd->cplan = cplan;			/* CachedPlan supplying the plannedstmt */
 	qd->sourceText = sourceText;	/* query text */
 	qd->snapshot = RegisterSnapshot(snapshot);	/* snapshot */
 	/* RI check snapshot */
@@ -161,6 +176,9 @@ FreeQueryDesc(QueryDesc *qdesc)
  *
  *	portal: the portal
  *	plan: the plan tree for the query
+ *	cplan: CachedPlan supplying the plan
+ *	plansource: CachedPlanSource supplying the cplan
+ *	query_index: index of the query in plansource->query_list
  *	sourceText: the source text of the query
  *	params: any parameters needed
  *	dest: where to send results
@@ -172,8 +190,15 @@ FreeQueryDesc(QueryDesc *qdesc)
  * error; otherwise the executor's memory usage will be leaked.
  */
 static void
+<<<<<<< HEAD
 ProcessQuery(Portal portal,
 			 PlannedStmt *stmt,
+=======
+ProcessQuery(PlannedStmt *plan,
+			 CachedPlan *cplan,
+			 CachedPlanSource *plansource,
+			 int query_index,
+>>>>>>> REL_18_BETA1_branch
 			 const char *sourceText,
 			 ParamListInfo params,
 			 QueryEnvironment *queryEnv,
@@ -190,6 +215,7 @@ ProcessQuery(Portal portal,
 	/*
 	 * Create the QueryDesc object
 	 */
+<<<<<<< HEAD
 	Assert(portal);
 
 	if (portal->sourceTag == T_SelectStmt && gp_select_invisible)
@@ -234,21 +260,39 @@ ProcessQuery(Portal portal,
 	}
 
 	portal->status = PORTAL_ACTIVE;
+=======
+	queryDesc = CreateQueryDesc(plan, cplan, sourceText,
+								GetActiveSnapshot(), InvalidSnapshot,
+								dest, params, queryEnv, 0);
+>>>>>>> REL_18_BETA1_branch
 
 	/*
-	 * Call ExecutorStart to prepare the plan for execution
+	 * Prepare the plan for execution
 	 */
+<<<<<<< HEAD
 	if (Gp_role == GP_ROLE_EXECUTE &&
 		queryDesc->plannedstmt &&
 		queryDesc->plannedstmt->intoClause != NULL)
 		eflag = GetIntoRelEFlags(queryDesc->plannedstmt->intoClause);
 
 	ExecutorStart(queryDesc, eflag);
+=======
+	if (queryDesc->cplan)
+	{
+		ExecutorStartCachedPlan(queryDesc, 0, plansource, query_index);
+		Assert(queryDesc->planstate);
+	}
+	else
+	{
+		if (!ExecutorStart(queryDesc, 0))
+			elog(ERROR, "ExecutorStart() failed unexpectedly");
+	}
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Run the plan to completion.
 	 */
-	ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
+	ExecutorRun(queryDesc, ForwardScanDirection, 0);
 
 	autostats_get_cmdtype(queryDesc, &cmdType, &relationOid);
 
@@ -650,6 +694,7 @@ PortalStart(Portal portal, ParamListInfo params,
 				 * the destination to DestNone.
 				 */
 				queryDesc = CreateQueryDesc(linitial_node(PlannedStmt, portal->stmts),
+											portal->cplan,
 											portal->sourceText,
 											(gp_select_invisible ? SnapshotAny : GetActiveSnapshot()),
 											InvalidSnapshot,
@@ -722,9 +767,19 @@ PortalStart(Portal portal, ParamListInfo params,
 					myeflags = eflags;
 
 				/*
-				 * Call ExecutorStart to prepare the plan for execution
+				 * Prepare the plan for execution.
 				 */
-				ExecutorStart(queryDesc, myeflags);
+				if (portal->cplan)
+				{
+					ExecutorStartCachedPlan(queryDesc, myeflags,
+											portal->plansource, 0);
+					Assert(queryDesc->planstate);
+				}
+				else
+				{
+					if (!ExecutorStart(queryDesc, myeflags))
+						elog(ERROR, "ExecutorStart() failed unexpectedly");
+				}
 
 				/*
 				 * This tells PortalCleanup to shut down the executor
@@ -897,7 +952,11 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
  * suspended due to exhaustion of the count parameter.
  */
 bool
+<<<<<<< HEAD
 PortalRun(Portal portal, int64 count, bool isTopLevel, bool run_once,
+=======
+PortalRun(Portal portal, long count, bool isTopLevel,
+>>>>>>> REL_18_BETA1_branch
 		  DestReceiver *dest, DestReceiver *altdest,
 		  QueryCompletion *qc)
 {
@@ -1136,8 +1195,12 @@ PortalRunSelect(Portal portal,
 		else
 		{
 			PushActiveSnapshot(queryDesc->snapshot);
+<<<<<<< HEAD
 			ExecutorRun(queryDesc, direction, (uint64) count,
 						false);
+=======
+			ExecutorRun(queryDesc, direction, (uint64) count);
+>>>>>>> REL_18_BETA1_branch
 			nprocessed = queryDesc->estate->es_processed;
 			PopActiveSnapshot();
 		}
@@ -1176,8 +1239,12 @@ PortalRunSelect(Portal portal,
 		else
 		{
 			PushActiveSnapshot(queryDesc->snapshot);
+<<<<<<< HEAD
 			ExecutorRun(queryDesc, direction, (uint64) count,
 						false);
+=======
+			ExecutorRun(queryDesc, direction, (uint64) count);
+>>>>>>> REL_18_BETA1_branch
 			nprocessed = queryDesc->estate->es_processed;
 			PopActiveSnapshot();
 		}
@@ -1414,6 +1481,7 @@ PortalRunMulti(Portal portal,
 {
 	bool		active_snapshot_set = false;
 	ListCell   *stmtlist_item;
+	int			query_index = 0;
 
 	/*
 	 * If the destination is DestRemoteExecute, change to DestNone.  The
@@ -1494,7 +1562,14 @@ PortalRunMulti(Portal portal,
 			if (pstmt->canSetTag)
 			{
 				/* statement can set tag string */
+<<<<<<< HEAD
 				ProcessQuery(portal, pstmt,
+=======
+				ProcessQuery(pstmt,
+							 portal->cplan,
+							 portal->plansource,
+							 query_index,
+>>>>>>> REL_18_BETA1_branch
 							 portal->sourceText,
 							 portal->portalParams,
 							 portal->queryEnv,
@@ -1503,7 +1578,14 @@ PortalRunMulti(Portal portal,
 			else
 			{
 				/* stmt added by rewrite cannot set tag */
+<<<<<<< HEAD
 				ProcessQuery(portal, pstmt,
+=======
+				ProcessQuery(pstmt,
+							 portal->cplan,
+							 portal->plansource,
+							 query_index,
+>>>>>>> REL_18_BETA1_branch
 							 portal->sourceText,
 							 portal->portalParams,
 							 portal->queryEnv,
@@ -1568,6 +1650,8 @@ PortalRunMulti(Portal portal,
 		 */
 		if (lnext(portal->stmts, stmtlist_item) != NULL)
 			CommandCounterIncrement();
+
+		query_index++;
 	}
 
 	/* Pop the snapshot if we pushed one. */

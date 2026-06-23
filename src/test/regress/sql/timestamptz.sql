@@ -109,6 +109,23 @@ SELECT '20500110 173201 Europe/Helsinki'::timestamptz; -- non-DST
 SELECT '205000-07-10 17:32:01 Europe/Helsinki'::timestamptz; -- DST
 SELECT '205000-01-10 17:32:01 Europe/Helsinki'::timestamptz; -- non-DST
 
+-- Recognize "LMT" as whatever it means in the current zone
+SELECT 'Jan 01 00:00:00 1000 LMT'::timestamptz;
+SELECT 'Jan 01 00:00:00 2024 LMT'::timestamptz;
+SET timezone = 'Europe/London';
+SELECT 'Jan 01 00:00:00 1000 LMT'::timestamptz;
+SELECT 'Jan 01 00:00:00 2024 LMT'::timestamptz;
+-- which might be nothing
+SET timezone = 'UTC';
+SELECT 'Jan 01 00:00:00 2024 LMT'::timestamptz;  -- fail
+-- Another example of an abbrev that varies across zones
+SELECT '1912-01-01 00:00 MMT'::timestamptz;  -- from timezone_abbreviations
+SET timezone = 'America/Montevideo';
+SELECT '1912-01-01 00:00'::timestamptz;
+SELECT '1912-01-01 00:00 MMT'::timestamptz;
+SELECT '1912-01-01 00:00 MMT'::timestamptz AT TIME ZONE 'UTC';
+RESET timezone;
+
 -- Test non-error-throwing API
 SELECT pg_input_is_valid('now', 'timestamptz');
 SELECT pg_input_is_valid('garbage', 'timestamptz');
@@ -200,10 +217,14 @@ SELECT d1 - timestamp with time zone '1997-01-02' AS diff
    FROM TIMESTAMPTZ_TBL WHERE d1 BETWEEN '1902-01-01' AND '2038-01-01';
 
 SELECT date_trunc( 'week', timestamp with time zone '2004-02-29 15:44:17.71393' ) AS week_trunc;
+SELECT date_trunc( 'ago', timestamp with time zone 'infinity' ) AS invalid_trunc;
 
 SELECT date_trunc('day', timestamp with time zone '2001-02-16 20:38:40+00', 'Australia/Sydney') as sydney_trunc;  -- zone name
 SELECT date_trunc('day', timestamp with time zone '2001-02-16 20:38:40+00', 'GMT') as gmt_trunc;  -- fixed-offset abbreviation
 SELECT date_trunc('day', timestamp with time zone '2001-02-16 20:38:40+00', 'VET') as vet_trunc;  -- variable-offset abbreviation
+SELECT date_trunc('ago', timestamp with time zone 'infinity', 'GMT') AS invalid_zone_trunc;
+
+
 
 -- verify date_bin behaves the same as date_trunc for relevant intervals
 SELECT
@@ -255,6 +276,11 @@ SELECT date_bin('0 days'::interval, timestamp with time zone '1970-01-01 01:00:0
 
 -- disallow negative intervals
 SELECT date_bin('-2 days'::interval, timestamp with time zone '1970-01-01 01:00:00+00' , timestamp with time zone '1970-01-01 00:00:00+00');
+
+-- test overflow cases
+select date_bin('15 minutes'::interval, timestamptz '294276-12-30', timestamptz '4000-12-20 BC');
+select date_bin('200000000 days'::interval, '2024-02-01'::timestamptz, '2024-01-01'::timestamptz);
+select date_bin('365000 days'::interval, '4400-01-01 BC'::timestamptz, '4000-01-01 BC'::timestamptz);
 
 -- Test casting within a BETWEEN qualifier
 SELECT d1 - timestamp with time zone '1997-01-02' AS diff
@@ -468,6 +494,8 @@ select generate_series('2022-01-01 00:00'::timestamptz,
 select * from generate_series('2020-01-01 00:00'::timestamptz,
                               '2020-01-02 03:00'::timestamptz,
                               '0 hour'::interval);
+select generate_series(timestamptz '1995-08-06 12:12:12', timestamptz '1996-08-06 12:12:12', interval 'infinity');
+select generate_series(timestamptz '1995-08-06 12:12:12', timestamptz '1996-08-06 12:12:12', interval '-infinity');
 
 -- Interval crossing time shift for Europe/Warsaw timezone (with DST)
 SET TimeZone to 'UTC';
@@ -650,6 +678,29 @@ SELECT '2014-10-25 22:00:01 UTC'::timestamptz AT TIME ZONE 'MSK';
 SELECT '2014-10-25 23:00:00 UTC'::timestamptz AT TIME ZONE 'MSK';
 
 --
+-- Test LOCAL time zone
+--
+BEGIN;
+SET LOCAL TIME ZONE 'Europe/Paris';
+VALUES (CAST('1978-07-07 19:38 America/New_York' AS TIMESTAMP WITH TIME ZONE) AT LOCAL);
+VALUES (TIMESTAMP '1978-07-07 19:38' AT LOCAL);
+SET LOCAL TIME ZONE 'Australia/Sydney';
+VALUES (CAST('1978-07-07 19:38 America/New_York' AS TIMESTAMP WITH TIME ZONE) AT LOCAL);
+VALUES (TIMESTAMP '1978-07-07 19:38' AT LOCAL);
+SET LOCAL TimeZone TO 'UTC';
+CREATE VIEW timestamp_local_view AS
+  SELECT CAST('1978-07-07 19:38 America/New_York' AS TIMESTAMP WITH TIME ZONE) AT LOCAL AS ttz_at_local,
+         timezone(CAST('1978-07-07 19:38 America/New_York' AS TIMESTAMP WITH TIME ZONE)) AS ttz_func,
+         TIMESTAMP '1978-07-07 19:38' AT LOCAL AS t_at_local,
+         timezone(TIMESTAMP '1978-07-07 19:38') AS t_func;
+SELECT pg_get_viewdef('timestamp_local_view', true);
+\x
+TABLE timestamp_local_view;
+\x
+DROP VIEW timestamp_local_view;
+COMMIT;
+
+--
 -- Test that AT TIME ZONE isn't misoptimized when using an index (bug #14504)
 --
 create temp table tmptz (f1 timestamptz primary key);
@@ -657,3 +708,23 @@ insert into tmptz values ('2017-01-18 00:00+00');
 explain (costs off)
 select * from tmptz where f1 at time zone 'utc' = '2017-01-18 00:00';
 select * from tmptz where f1 at time zone 'utc' = '2017-01-18 00:00';
+
+-- test arithmetic with infinite timestamps
+SELECT timestamptz 'infinity' - timestamptz 'infinity';
+SELECT timestamptz 'infinity' - timestamptz '-infinity';
+SELECT timestamptz '-infinity' - timestamptz 'infinity';
+SELECT timestamptz '-infinity' - timestamptz '-infinity';
+SELECT timestamptz 'infinity' - timestamptz '1995-08-06 12:12:12';
+SELECT timestamptz '-infinity' - timestamptz '1995-08-06 12:12:12';
+
+-- test age() with infinite timestamps
+SELECT age(timestamptz 'infinity');
+SELECT age(timestamptz '-infinity');
+SELECT age(timestamptz 'infinity', timestamptz 'infinity');
+SELECT age(timestamptz 'infinity', timestamptz '-infinity');
+SELECT age(timestamptz '-infinity', timestamptz 'infinity');
+SELECT age(timestamptz '-infinity', timestamptz '-infinity');
+
+-- test timestamp near POSTGRES_EPOCH_JDATE
+select timestamptz '1999-12-31 24:00:00';
+select make_timestamptz(1999, 12, 31, 24, 0, 0);

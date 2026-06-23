@@ -11,30 +11,48 @@ SUBDIRS = \
 		  dummy_index_am \
 		  dummy_seclabel \
 		  libpq_pipeline \
+		  oauth_validator \
 		  plsample \
-		  snapshot_too_old \
 		  spgist_name_ops \
+		  test_aio \
 		  test_bloomfilter \
 		  test_copy_callbacks \
 		  test_custom_rmgrs \
 		  test_ddl_deparse \
+<<<<<<< HEAD
+=======
+		  test_dsa \
+		  test_dsm_registry \
+>>>>>>> REL_18_BETA1_branch
 		  test_escape \
 		  test_extensions \
 		  test_ginpostinglist \
 		  test_integerset \
+		  test_json_parser \
 		  test_lfind \
 		  test_misc \
 		  test_oat_hooks \
 		  test_parser \
 		  test_pg_dump \
 		  test_predtest \
+		  test_radixtree \
 		  test_rbtree \
 		  test_regex \
+		  test_resowner \
 		  test_rls_hooks \
 		  test_shm_mq \
 		  test_slru \
+		  test_tidstore \
 		  unsafe_tests \
-		  worker_spi
+		  worker_spi \
+		  xid_wraparound
+
+
+ifeq ($(enable_injection_points),yes)
+SUBDIRS += injection_points gin typcache
+else
+ALWAYS_SUBDIRS += injection_points gin typcache
+endif
 
 #ignore cases:
 # test_extensions

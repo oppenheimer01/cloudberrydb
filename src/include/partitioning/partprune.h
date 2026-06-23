@@ -4,7 +4,7 @@
  *	  prototypes for partprune.c
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/partitioning/partprune.h
@@ -70,6 +70,7 @@ typedef struct PartitionPruneContext
 #define PruneCxtStateIdx(partnatts, step_id, keyno) \
 	((partnatts) * (step_id) + (keyno))
 
+<<<<<<< HEAD
 extern PartitionPruneInfo *make_partition_pruneinfo(struct PlannerInfo *root,
 													struct RelOptInfo *parentrel,
 													List *subpaths,
@@ -78,6 +79,12 @@ extern PartitionPruneInfo *make_partition_pruneinfo_ext(struct PlannerInfo *root
 														struct RelOptInfo *parentrel,
 														List *subpaths,
 														List *prunequal, Bitmapset *available_relids);
+=======
+extern int	make_partition_pruneinfo(struct PlannerInfo *root,
+									 struct RelOptInfo *parentrel,
+									 List *subpaths,
+									 List *prunequal);
+>>>>>>> REL_18_BETA1_branch
 extern Bitmapset *prune_append_rel_partitions(struct RelOptInfo *rel);
 extern Bitmapset *get_matching_partitions(PartitionPruneContext *context,
 										  List *pruning_steps);

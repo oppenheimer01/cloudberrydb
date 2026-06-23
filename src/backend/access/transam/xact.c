@@ -5,7 +5,7 @@
  *
  * See src/backend/access/transam/README for more information.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -60,7 +60,7 @@
 #include "replication/origin.h"
 #include "replication/snapbuild.h"
 #include "replication/syncrep.h"
-#include "replication/walsender.h"
+#include "storage/aio_subsys.h"
 #include "storage/condition_variable.h"
 #include "storage/fd.h"
 #include "storage/freespace.h"
@@ -72,7 +72,6 @@
 #include "storage/sinvaladt.h"
 #include "storage/smgr.h"
 #include "utils/builtins.h"
-#include "utils/catcache.h"
 #include "utils/combocid.h"
 #include "utils/faultinjector.h"
 #include "utils/guc.h"
@@ -86,6 +85,7 @@
 #include "utils/snapmgr.h"
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
+<<<<<<< HEAD
 #include "pg_trace.h"
 
 #include "access/distributedlog.h"
@@ -102,6 +102,9 @@
 #include "postmaster/autovacuum.h"
 
 #include "cdb/cdbdisp_query.h" /* Extend Protocol Data */
+=======
+#include "utils/typcache.h"
+>>>>>>> REL_18_BETA1_branch
 
 /*
  *	User-tweakable parameters
@@ -189,7 +192,7 @@ typedef enum TransState
 	TRANS_INPROGRESS,			/* inside a valid transaction */
 	TRANS_COMMIT,				/* commit in progress */
 	TRANS_ABORT,				/* abort in progress */
-	TRANS_PREPARE				/* prepare in progress */
+	TRANS_PREPARE,				/* prepare in progress */
 } TransState;
 
 /*
@@ -224,11 +227,15 @@ typedef enum TBlockState
 	TBLOCK_SUBABORT_END,		/* failed subxact, ROLLBACK received */
 	TBLOCK_SUBABORT_PENDING,	/* live subxact, ROLLBACK received */
 	TBLOCK_SUBRESTART,			/* live subxact, ROLLBACK TO received */
-	TBLOCK_SUBABORT_RESTART		/* failed subxact, ROLLBACK TO received */
+	TBLOCK_SUBABORT_RESTART,	/* failed subxact, ROLLBACK TO received */
 } TBlockState;
 
 /*
  *	transaction state structure
+ *
+ * Note: parallelModeLevel counts the number of unmatched EnterParallelMode
+ * calls done at this transaction level.  parallelChildXact is true if any
+ * upper transaction level has nonzero parallelModeLevel.
  */
 typedef struct TransactionStateData
 {
@@ -242,6 +249,7 @@ typedef struct TransactionStateData
 	int			gucNestLevel;	/* GUC context nesting depth */
 	MemoryContext curTransactionContext;	/* my xact-lifetime context */
 	ResourceOwner curTransactionOwner;	/* my query resources */
+	MemoryContext priorContext; /* CurrentMemoryContext before xact started */
 	TransactionId *childXids;	/* subcommitted child XIDs, in XID order */
 	int			nChildXids;		/* # of subcommitted child XIDs */
 	int			maxChildXids;	/* allocated size of childXids[] */
@@ -251,6 +259,7 @@ typedef struct TransactionStateData
 	bool		startedInRecovery;	/* did we start in recovery? */
 	bool		didLogXid;		/* has xid been included in WAL record? */
 	int			parallelModeLevel;	/* Enter/ExitParallelMode counter */
+	bool		parallelChildXact;	/* is any parent transaction parallel? */
 	bool		chain;			/* start a new block after this one */
 	bool		topXidLogged;	/* for a subxact: is top-level XID logged? */
 	bool		assigned;		/* assigned to top-level XID */
@@ -409,6 +418,9 @@ static void CheckTransactionBlock(bool isTopLevel, bool throwError,
 static void CommitTransaction(void);
 static TransactionId RecordTransactionAbort(bool isSubXact);
 static void StartTransaction(void);
+
+static bool CommitTransactionCommandInternal(void);
+static bool AbortCurrentTransactionInternal(void);
 
 static void StartSubTransaction(void);
 static void CommitSubTransaction(void);
@@ -716,9 +728,9 @@ GetStableLatestTransactionId(void)
 	static LocalTransactionId lxid = InvalidLocalTransactionId;
 	static TransactionId stablexid = InvalidTransactionId;
 
-	if (lxid != MyProc->lxid)
+	if (lxid != MyProc->vxid.lxid)
 	{
-		lxid = MyProc->lxid;
+		lxid = MyProc->vxid.lxid;
 		stablexid = GetTopTransactionIdIfAny();
 		if (!TransactionIdIsValid(stablexid))
 			stablexid = ReadNextTransactionId();
@@ -761,7 +773,9 @@ AssignTransactionId(TransactionState s)
 	 * operation, so we can't account for new XIDs at this point.
 	 */
 	if (IsInParallelMode() || IsParallelWorker())
-		elog(ERROR, "cannot assign XIDs during a parallel operation");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
+				 errmsg("cannot assign transaction IDs during a parallel operation")));
 
 	/*
 	 * Ensure parent(s) have XIDs, so that a child always has an XID later
@@ -892,8 +906,8 @@ AssignTransactionId(TransactionState s)
 			xlrec.nsubxacts = nUnreportedXids;
 
 			XLogBeginInsert();
-			XLogRegisterData((char *) &xlrec, MinSizeOfXactAssignment);
-			XLogRegisterData((char *) unreportedXids,
+			XLogRegisterData(&xlrec, MinSizeOfXactAssignment);
+			XLogRegisterData(unreportedXids,
 							 nUnreportedXids * sizeof(TransactionId));
 
 			(void) XLogInsert(RM_XACT_ID, XLOG_XACT_ASSIGNMENT);
@@ -958,7 +972,11 @@ GetCurrentCommandId(bool used)
 		 * could relax this restriction when currentCommandIdUsed was already
 		 * true at the start of the parallel operation.
 		 */
-		Assert(!IsParallelWorker());
+		if (IsParallelWorker())
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
+					 errmsg("cannot modify data in a parallel worker")));
+
 		currentCommandIdUsed = true;
 	}
 	return currentCommandId;
@@ -1330,7 +1348,8 @@ ExitParallelMode(void)
 	TransactionState s = CurrentTransactionState;
 
 	Assert(s->parallelModeLevel > 0);
-	Assert(s->parallelModeLevel > 1 || !ParallelContextActive());
+	Assert(s->parallelModeLevel > 1 || s->parallelChildXact ||
+		   !ParallelContextActive());
 
 	--s->parallelModeLevel;
 }
@@ -1343,11 +1362,17 @@ ExitParallelMode(void)
  * match across all workers.  Mere caches usually don't require such a
  * restriction.  State modified in a strict push/pop fashion, such as the
  * active snapshot stack, is often fine.
+ *
+ * We say we are in parallel mode if we are in a subxact of a transaction
+ * that's initiated a parallel operation; for most purposes that context
+ * has all the same restrictions.
  */
 bool
 IsInParallelMode(void)
 {
-	return CurrentTransactionState->parallelModeLevel != 0;
+	TransactionState s = CurrentTransactionState;
+
+	return s->parallelModeLevel != 0 || s->parallelChildXact;
 }
 
 /*
@@ -1370,7 +1395,9 @@ CommandCounterIncrement(void)
 		 * point.
 		 */
 		if (IsInParallelMode() || IsParallelWorker())
-			elog(ERROR, "cannot start commands during a parallel operation");
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
+					 errmsg("cannot start commands during a parallel operation")));
 
 		currentCommandId += 1;
 		if (currentCommandId == InvalidCommandId)
@@ -1433,6 +1460,11 @@ AtStart_Memory(void)
 	TransactionState s = CurrentTransactionState;
 
 	/*
+	 * Remember the memory context that was active prior to transaction start.
+	 */
+	s->priorContext = CurrentMemoryContext;
+
+	/*
 	 * If this is the first time through, create a private context for
 	 * AbortTransaction to work in.  By reserving some space now, we can
 	 * insulate AbortTransaction from out-of-memory scenarios.  Like
@@ -1448,17 +1480,15 @@ AtStart_Memory(void)
 								  32 * 1024);
 
 	/*
-	 * We shouldn't have a transaction context already.
+	 * Likewise, if this is the first time through, create a top-level context
+	 * for transaction-local data.  This context will be reset at transaction
+	 * end, and then re-used in later transactions.
 	 */
-	Assert(TopTransactionContext == NULL);
-
-	/*
-	 * Create a toplevel context for the transaction.
-	 */
-	TopTransactionContext =
-		AllocSetContextCreate(TopMemoryContext,
-							  "TopTransactionContext",
-							  ALLOCSET_DEFAULT_SIZES);
+	if (TopTransactionContext == NULL)
+		TopTransactionContext =
+			AllocSetContextCreate(TopMemoryContext,
+								  "TopTransactionContext",
+								  ALLOCSET_DEFAULT_SIZES);
 
 	/*
 	 * In a top-level transaction, CurTransactionContext is the same as
@@ -1508,6 +1538,11 @@ AtSubStart_Memory(void)
 	TransactionState s = CurrentTransactionState;
 
 	Assert(CurTransactionContext != NULL);
+
+	/*
+	 * Remember the context that was active prior to subtransaction start.
+	 */
+	s->priorContext = CurrentMemoryContext;
 
 	/*
 	 * Create a CurTransactionContext, which will be used to hold data that
@@ -1633,14 +1668,24 @@ RecordTransactionCommit(void)
 
 		/*
 		 * Transactions without an assigned xid can contain invalidation
-		 * messages (e.g. explicit relcache invalidations or catcache
-		 * invalidations for inplace updates); standbys need to process those.
-		 * We can't emit a commit record without an xid, and we don't want to
-		 * force assigning an xid, because that'd be problematic for e.g.
-		 * vacuum.  Hence we emit a bespoke record for the invalidations. We
-		 * don't want to use that in case a commit record is emitted, so they
-		 * happen synchronously with commits (besides not wanting to emit more
-		 * WAL records).
+		 * messages.  While inplace updates do this, this is not known to be
+		 * necessary; see comment at inplace CacheInvalidateHeapTuple().
+		 * Extensions might still rely on this capability, and standbys may
+		 * need to process those invals.  We can't emit a commit record
+		 * without an xid, and we don't want to force assigning an xid,
+		 * because that'd be problematic for e.g. vacuum.  Hence we emit a
+		 * bespoke record for the invalidations. We don't want to use that in
+		 * case a commit record is emitted, so they happen synchronously with
+		 * commits (besides not wanting to emit more WAL records).
+		 *
+		 * XXX Every known use of this capability is a defect.  Since an XID
+		 * isn't controlling visibility of the change that prompted invals,
+		 * other sessions need the inval even if this transactions aborts.
+		 *
+		 * ON COMMIT DELETE ROWS does a nontransactional index_build(), which
+		 * queues a relcache inval, including in transactions without an xid
+		 * that had read the (empty) table.  Standbys don't need any ON COMMIT
+		 * DELETE ROWS invals, but we've not done the work to withhold them.
 		 */
 		if (nmsgs != 0)
 		{
@@ -1918,20 +1963,30 @@ AtCCI_LocalCache(void)
 static void
 AtCommit_Memory(void)
 {
-	/*
-	 * Now that we're "out" of a transaction, have the system allocate things
-	 * in the top memory context instead of per-transaction contexts.
-	 */
-	MemoryContextSwitchTo(TopMemoryContext);
+	TransactionState s = CurrentTransactionState;
 
 	/*
-	 * Release all transaction-local memory.
+	 * Return to the memory context that was current before we started the
+	 * transaction.  (In principle, this could not be any of the contexts we
+	 * are about to delete.  If it somehow is, assertions in mcxt.c will
+	 * complain.)
+	 */
+	MemoryContextSwitchTo(s->priorContext);
+
+	/*
+	 * Release all transaction-local memory.  TopTransactionContext survives
+	 * but becomes empty; any sub-contexts go away.
 	 */
 	Assert(TopTransactionContext != NULL);
-	MemoryContextDelete(TopTransactionContext);
-	TopTransactionContext = NULL;
+	MemoryContextReset(TopTransactionContext);
+
+	/*
+	 * Clear these pointers as a pro-forma matter.  (Notionally, while
+	 * TopTransactionContext still exists, it's currently not associated with
+	 * this TransactionState struct.)
+	 */
 	CurTransactionContext = NULL;
-	CurrentTransactionState->curTransactionContext = NULL;
+	s->curTransactionContext = NULL;
 }
 
 
@@ -2314,28 +2369,40 @@ AtSubAbort_childXids(void)
 static void
 AtCleanup_Memory(void)
 {
-	Assert(CurrentTransactionState->parent == NULL);
+	TransactionState s = CurrentTransactionState;
+
+	/* Should be at top level */
+	Assert(s->parent == NULL);
 
 	/*
-	 * Now that we're "out" of a transaction, have the system allocate things
-	 * in the top memory context instead of per-transaction contexts.
+	 * Return to the memory context that was current before we started the
+	 * transaction.  (In principle, this could not be any of the contexts we
+	 * are about to delete.  If it somehow is, assertions in mcxt.c will
+	 * complain.)
 	 */
-	MemoryContextSwitchTo(TopMemoryContext);
+	MemoryContextSwitchTo(s->priorContext);
 
 	/*
 	 * Clear the special abort context for next time.
 	 */
 	if (TransactionAbortContext != NULL)
-		MemoryContextResetAndDeleteChildren(TransactionAbortContext);
+		MemoryContextReset(TransactionAbortContext);
 
 	/*
-	 * Release all transaction-local memory.
+	 * Release all transaction-local memory, the same as in AtCommit_Memory,
+	 * except we must cope with the possibility that we didn't get as far as
+	 * creating TopTransactionContext.
 	 */
 	if (TopTransactionContext != NULL)
-		MemoryContextDelete(TopTransactionContext);
-	TopTransactionContext = NULL;
+		MemoryContextReset(TopTransactionContext);
+
+	/*
+	 * Clear these pointers as a pro-forma matter.  (Notionally, while
+	 * TopTransactionContext still exists, it's currently not associated with
+	 * this TransactionState struct.)
+	 */
 	CurTransactionContext = NULL;
-	CurrentTransactionState->curTransactionContext = NULL;
+	s->curTransactionContext = NULL;
 }
 
 
@@ -2354,15 +2421,22 @@ AtSubCleanup_Memory(void)
 
 	Assert(s->parent != NULL);
 
-	/* Make sure we're not in an about-to-be-deleted context */
-	MemoryContextSwitchTo(s->parent->curTransactionContext);
+	/*
+	 * Return to the memory context that was current before we started the
+	 * subtransaction.  (In principle, this could not be any of the contexts
+	 * we are about to delete.  If it somehow is, assertions in mcxt.c will
+	 * complain.)
+	 */
+	MemoryContextSwitchTo(s->priorContext);
+
+	/* Update CurTransactionContext (might not be same as priorContext) */
 	CurTransactionContext = s->parent->curTransactionContext;
 
 	/*
 	 * Clear the special abort context for next time.
 	 */
 	if (TransactionAbortContext != NULL)
-		MemoryContextResetAndDeleteChildren(TransactionAbortContext);
+		MemoryContextReset(TransactionAbortContext);
 
 	/*
 	 * Delete the subxact local memory contexts. Its CurTransactionContext can
@@ -2541,6 +2615,7 @@ StartTransaction(void)
 	AtStart_ResourceOwner();
 
 	/*
+<<<<<<< HEAD
 	 * Transactions may be started while recovery is in progress, if
 	 * hot standby is enabled.
 	 */
@@ -2731,9 +2806,12 @@ StartTransaction(void)
 
 	/*
 	 * Assign a new LocalTransactionId, and combine it with the backendId to
+=======
+	 * Assign a new LocalTransactionId, and combine it with the proc number to
+>>>>>>> REL_18_BETA1_branch
 	 * form a virtual transaction id.
 	 */
-	vxid.backendId = MyBackendId;
+	vxid.procNumber = MyProcNumber;
 	vxid.localTransactionId = GetNextLocalTransactionId();
 
 	/*
@@ -2743,10 +2821,11 @@ StartTransaction(void)
 
 	/*
 	 * Advertise it in the proc array.  We assume assignment of
-	 * localTransactionId is atomic, and the backendId should be set already.
+	 * localTransactionId is atomic, and the proc number should be set
+	 * already.
 	 */
-	Assert(MyProc->backendId == vxid.backendId);
-	MyProc->lxid = vxid.localTransactionId;
+	Assert(MyProc->vxid.procNumber == vxid.procNumber);
+	MyProc->vxid.lxid = vxid.localTransactionId;
 
 	TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
 
@@ -2785,6 +2864,7 @@ StartTransaction(void)
 	 */
 	s->state = TRANS_INPROGRESS;
 
+<<<<<<< HEAD
 	/*
 	 * Update the snapshot of gp_segment_configuration, it's not changed
 	 * until the end of transaction, do this update inside a transaction
@@ -2797,6 +2877,14 @@ StartTransaction(void)
 	 */
 	if (Gp_role == GP_ROLE_DISPATCH && OidIsValid(MyDatabaseId))
 		cdbcomponent_updateCdbComponents();
+=======
+	/* Schedule transaction timeout */
+	if (TransactionTimeout > 0)
+		enable_timeout_after(TRANSACTION_TIMEOUT, TransactionTimeout);
+
+	ShowTransactionState("StartTransaction");
+}
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Acquire a resource group slot.
@@ -2894,11 +2982,34 @@ CommitTransaction(void)
 	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
 					  : XACT_EVENT_PRE_COMMIT);
 
+<<<<<<< HEAD
 	AtEOXact_ExtendProtocolData();
 
 	/* If we might have parallel workers, clean them up now. */
 	if (IsInParallelMode())
 		AtEOXact_Parallel(true);
+=======
+	/*
+	 * If this xact has started any unfinished parallel operation, clean up
+	 * its workers, warning about leaked resources.  (But we don't actually
+	 * reset parallelModeLevel till entering TRANS_COMMIT, a bit below.  This
+	 * keeps parallel mode restrictions active as long as possible in a
+	 * parallel worker.)
+	 */
+	AtEOXact_Parallel(true);
+	if (is_parallel_worker)
+	{
+		if (s->parallelModeLevel != 1)
+			elog(WARNING, "parallelModeLevel is %d not 1 at end of parallel worker transaction",
+				 s->parallelModeLevel);
+	}
+	else
+	{
+		if (s->parallelModeLevel != 0)
+			elog(WARNING, "parallelModeLevel is %d not 0 at end of transaction",
+				 s->parallelModeLevel);
+	}
+>>>>>>> REL_18_BETA1_branch
 
 	/* Clean up CBDB style parallel workers which we might have. */
 	AtEOXact_CBDB_Parallel();
@@ -2986,6 +3097,11 @@ CommitTransaction(void)
 	 */
 	s->state = TRANS_COMMIT;
 	s->parallelModeLevel = 0;
+	s->parallelChildXact = false;	/* should be false already */
+
+	/* Disable transaction timeout */
+	if (TransactionTimeout > 0)
+		disable_timeout(TRANSACTION_TIMEOUT, false);
 
 	if (!is_parallel_worker)
 	{
@@ -3010,7 +3126,7 @@ CommitTransaction(void)
 		ParallelWorkerReportLastRecEnd(XactLastRecEnd);
 	}
 
-	TRACE_POSTGRESQL_TRANSACTION_COMMIT(MyProc->lxid);
+	TRACE_POSTGRESQL_TRANSACTION_COMMIT(MyProc->vxid.lxid);
 
 	/*
 	 * Do 2nd phase of commit to all QE. NOTE: we can't process
@@ -3055,18 +3171,26 @@ CommitTransaction(void)
 					  : XACT_EVENT_COMMIT);
 	CallXactCallbacksOnce(XACT_EVENT_COMMIT);
 
+	CurrentResourceOwner = NULL;
 	ResourceOwnerRelease(TopTransactionResourceOwner,
 						 RESOURCE_RELEASE_BEFORE_LOCKS,
 						 true, true);
 
+<<<<<<< HEAD
 	/* detach combocid dsm */
 	AtEOXact_ComboCid_Dsm_Detach();
+=======
+	AtEOXact_Aio(true);
+>>>>>>> REL_18_BETA1_branch
 
 	/* Check we've released all buffer pins */
 	AtEOXact_Buffers(true);
 
 	/* Clean up the relation cache */
 	AtEOXact_RelationCache(true);
+
+	/* Clean up the type cache */
+	AtEOXact_TypeCache();
 
 	/*
 	 * Make catalog changes visible to all backends.  This has to happen after
@@ -3141,7 +3265,6 @@ CommitTransaction(void)
 	AtEOXact_LogicalRepWorkers(true);
 	pgstat_report_xact_timestamp(0);
 
-	CurrentResourceOwner = NULL;
 	ResourceOwnerDelete(TopTransactionResourceOwner);
 	s->curTransactionOwner = NULL;
 	CurTransactionResourceOwner = NULL;
@@ -3335,6 +3458,10 @@ PrepareTransaction(void)
 	 */
 	s->state = TRANS_PREPARE;
 
+	/* Disable transaction timeout */
+	if (TransactionTimeout > 0)
+		disable_timeout(TRANSACTION_TIMEOUT, false);
+
 	prepared_at = GetCurrentTimestamp();
 
 	/*
@@ -3425,13 +3552,21 @@ PrepareTransaction(void)
 						 RESOURCE_RELEASE_BEFORE_LOCKS,
 						 true, true);
 
+<<<<<<< HEAD
 	/* detach combocid dsm */
 	AtEOXact_ComboCid_Dsm_Detach();
+=======
+	AtEOXact_Aio(true);
+
+>>>>>>> REL_18_BETA1_branch
 	/* Check we've released all buffer pins */
 	AtEOXact_Buffers(true);
 
 	/* Clean up the relation cache */
 	AtEOXact_RelationCache(true);
+
+	/* Clean up the type cache */
+	AtEOXact_TypeCache();
 
 	/* notify doesn't need a postprepare call */
 
@@ -3533,6 +3668,10 @@ AbortTransaction(void)
 	/* Prevent cancel/die interrupt while cleaning up */
 	HOLD_INTERRUPTS();
 
+	/* Disable transaction timeout */
+	if (TransactionTimeout > 0)
+		disable_timeout(TRANSACTION_TIMEOUT, false);
+
 	/* Make sure we have a valid memory context and resource owner */
 	AtAbort_Memory();
 
@@ -3553,7 +3692,9 @@ AbortTransaction(void)
 	pgstat_report_wait_end();
 	pgstat_progress_end_command();
 
-	/* Clean up buffer context locks, too */
+	pgaio_error_cleanup();
+
+	/* Clean up buffer content locks, too */
 	UnlockBuffers();
 
 	/* Reset WAL record construction state */
@@ -3622,12 +3763,13 @@ AbortTransaction(void)
 	/* Reset snapshot export state. */
 	SnapBuildResetExportedSnapshotState();
 
-	/* If in parallel mode, clean up workers and exit parallel mode. */
-	if (IsInParallelMode())
-	{
-		AtEOXact_Parallel(false);
-		s->parallelModeLevel = 0;
-	}
+	/*
+	 * If this xact has started any unfinished parallel operation, clean up
+	 * its workers and exit parallel mode.  Don't warn about leaked resources.
+	 */
+	AtEOXact_Parallel(false);
+	s->parallelModeLevel = 0;
+	s->parallelChildXact = false;	/* should be false already */
 
 	/* Clean up CBDB style parallel workers which we might have. */
 	AtEOXact_CBDB_Parallel();
@@ -3675,7 +3817,7 @@ AbortTransaction(void)
 		XLogSetAsyncXactLSN(XactLastRecEnd);
 	}
 
-	TRACE_POSTGRESQL_TRANSACTION_ABORT(MyProc->lxid);
+	TRACE_POSTGRESQL_TRANSACTION_ABORT(MyProc->vxid.lxid);
 
 	/*
 	 * Do abort to all QE. NOTE: we don't process
@@ -3709,6 +3851,7 @@ AbortTransaction(void)
 		ResourceOwnerRelease(TopTransactionResourceOwner,
 							 RESOURCE_RELEASE_BEFORE_LOCKS,
 							 false, true);
+<<<<<<< HEAD
 		AtEOXact_ComboCid_Dsm_Detach();
 		AtEOXact_Buffers(false);
 		AtEOXact_RelationCache(false);
@@ -3726,6 +3869,13 @@ AbortTransaction(void)
 		bool need_inval_even_for_abort = ((Gp_role == GP_ROLE_EXECUTE && Gp_is_writer) ||
 										  Gp_role == GP_ROLE_DISPATCH); /* test QD to invalidate entryDB's catcache */
 		AtEOXact_Inval(need_inval_even_for_abort);
+=======
+		AtEOXact_Aio(false);
+		AtEOXact_Buffers(false);
+		AtEOXact_RelationCache(false);
+		AtEOXact_TypeCache();
+		AtEOXact_Inval(false);
+>>>>>>> REL_18_BETA1_branch
 		AtEOXact_MultiXact();
 
 		ResourceOwnerRelease(TopTransactionResourceOwner,
@@ -3839,7 +3989,11 @@ CleanupTransaction(void)
 	s->nChildXids = 0;
 	s->maxChildXids = 0;
 	s->parallelModeLevel = 0;
+<<<<<<< HEAD
 	s->executorSaysXactDoesWrites = false;
+=======
+	s->parallelChildXact = false;
+>>>>>>> REL_18_BETA1_branch
 
 	XactTopFullTransactionId = InvalidFullTransactionId;
 	nParallelCurrentXids = 0;
@@ -4003,20 +4157,42 @@ RestoreTransactionCharacteristics(const SavedTransactionCharacteristics *s)
 	XactDeferrable = s->save_XactDeferrable;
 }
 
-
 /*
- *	CommitTransactionCommand
+ *	CommitTransactionCommand -- a wrapper function handling the
+ *		loop over subtransactions to avoid a potentially dangerous recursion
+ *		in CommitTransactionCommandInternal().
  */
 void
 CommitTransactionCommand(void)
 {
+	/*
+	 * Repeatedly call CommitTransactionCommandInternal() until all the work
+	 * is done.
+	 */
+	while (!CommitTransactionCommandInternal())
+	{
+	}
+}
+
+/*
+ *	CommitTransactionCommandInternal - a function doing an iteration of work
+ *		regarding handling the commit transaction command.  In the case of
+ *		subtransactions more than one iterations could be required.  Returns
+ *		true when no more iterations required, false otherwise.
+ */
+static bool
+CommitTransactionCommandInternal(void)
+{
 	TransactionState s = CurrentTransactionState;
 	SavedTransactionCharacteristics savetc;
 
+<<<<<<< HEAD
 	if (Gp_role == GP_ROLE_EXECUTE && !Gp_is_writer)
 		elog(DEBUG1,"CommitTransactionCommand: called as segment Reader in state %s",
 		     BlockStateAsString(s->blockState));
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	/* Must save in case we need to restore below */
 	SaveTransactionCharacteristics(&savetc);
 
@@ -4216,11 +4392,12 @@ CommitTransactionCommand(void)
 			 * The current already-failed subtransaction is ending due to a
 			 * ROLLBACK or ROLLBACK TO command, so pop it and recursively
 			 * examine the parent (which could be in any of several states).
+			 * As we need to examine the parent, return false to request the
+			 * caller to do the next iteration.
 			 */
 		case TBLOCK_SUBABORT_END:
 			CleanupSubTransaction();
-			CommitTransactionCommand();
-			break;
+			return false;
 
 			/*
 			 * As above, but it's not dead yet, so abort first.
@@ -4228,8 +4405,7 @@ CommitTransactionCommand(void)
 		case TBLOCK_SUBABORT_PENDING:
 			AbortSubTransaction();
 			CleanupSubTransaction();
-			CommitTransactionCommand();
-			break;
+			return false;
 
 			/*
 			 * The current subtransaction is the target of a ROLLBACK TO
@@ -4302,13 +4478,36 @@ CommitTransactionCommand(void)
 			}
 			break;
 	}
+
+	/* Done, no more iterations required */
+	return true;
 }
 
 /*
- *	AbortCurrentTransaction
+ *	AbortCurrentTransaction -- a wrapper function handling the
+ *		loop over subtransactions to avoid potentially dangerous recursion in
+ *		AbortCurrentTransactionInternal().
  */
 void
 AbortCurrentTransaction(void)
+{
+	/*
+	 * Repeatedly call AbortCurrentTransactionInternal() until all the work is
+	 * done.
+	 */
+	while (!AbortCurrentTransactionInternal())
+	{
+	}
+}
+
+/*
+ *	AbortCurrentTransactionInternal - a function doing an iteration of work
+ *		regarding handling the current transaction abort.  In the case of
+ *		subtransactions more than one iterations could be required.  Returns
+ *		true when no more iterations required, false otherwise.
+ */
+static bool
+AbortCurrentTransactionInternal(void)
 {
 	TransactionState s = CurrentTransactionState;
 
@@ -4446,7 +4645,9 @@ AbortCurrentTransaction(void)
 			/*
 			 * If we failed while trying to create a subtransaction, clean up
 			 * the broken subtransaction and abort the parent.  The same
-			 * applies if we get a failure while ending a subtransaction.
+			 * applies if we get a failure while ending a subtransaction.  As
+			 * we need to abort the parent, return false to request the caller
+			 * to do the next iteration.
 			 */
 		case TBLOCK_SUBBEGIN:
 		case TBLOCK_SUBRELEASE:
@@ -4455,8 +4656,7 @@ AbortCurrentTransaction(void)
 		case TBLOCK_SUBRESTART:
 			AbortSubTransaction();
 			CleanupSubTransaction();
-			AbortCurrentTransaction();
-			break;
+			return false;
 
 			/*
 			 * Same as above, except the Abort() was already done.
@@ -4464,9 +4664,11 @@ AbortCurrentTransaction(void)
 		case TBLOCK_SUBABORT_END:
 		case TBLOCK_SUBABORT_RESTART:
 			CleanupSubTransaction();
-			AbortCurrentTransaction();
-			break;
+			return false;
 	}
+
+	/* Done, no more iterations required */
+	return true;
 }
 
 /*
@@ -4514,16 +4716,6 @@ PreventInTransactionBlock(bool isTopLevel, const char *stmtType)
 				(errcode(ERRCODE_ACTIVE_SQL_TRANSACTION),
 		/* translator: %s represents an SQL statement name */
 				 errmsg("%s cannot run inside a subtransaction",
-						stmtType)));
-
-	/*
-	 * inside a pipeline that has started an implicit transaction?
-	 */
-	if (MyXactFlags & XACT_FLAGS_PIPELINING)
-		ereport(ERROR,
-				(errcode(ERRCODE_ACTIVE_SQL_TRANSACTION),
-		/* translator: %s represents an SQL statement name */
-				 errmsg("%s cannot be executed within a pipeline",
 						stmtType)));
 
 	/*
@@ -4635,9 +4827,6 @@ IsInTransactionBlock(bool isTopLevel)
 		return true;
 
 	if (IsSubTransaction())
-		return true;
-
-	if (MyXactFlags & XACT_FLAGS_PIPELINING)
 		return true;
 
 	if (!isTopLevel)
@@ -5341,7 +5530,7 @@ DefineSavepoint(const char *name)
 	 * is TBLOCK_PARALLEL_INPROGRESS, so we can treat that as an invalid case
 	 * below.)
 	 */
-	if (IsInParallelMode())
+	if (IsInParallelMode() || IsParallelWorker())
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 				 errmsg("cannot define savepoints during a parallel operation")));
@@ -5428,7 +5617,7 @@ ReleaseSavepoint(const char *name)
 	 * is TBLOCK_PARALLEL_INPROGRESS, so we can treat that as an invalid case
 	 * below.)
 	 */
-	if (IsInParallelMode())
+	if (IsInParallelMode() || IsParallelWorker())
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 				 errmsg("cannot release savepoints during a parallel operation")));
@@ -5553,7 +5742,7 @@ RollbackToSavepoint(const char *name)
 	 * is TBLOCK_PARALLEL_INPROGRESS, so we can treat that as an invalid case
 	 * below.)
 	 */
-	if (IsInParallelMode())
+	if (IsInParallelMode() || IsParallelWorker())
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
 				 errmsg("cannot rollback to savepoints during a parallel operation")));
@@ -5680,17 +5869,18 @@ DispatchRollbackToSavepoint(char *name)
 /*
  * BeginInternalSubTransaction
  *		This is the same as DefineSavepoint except it allows TBLOCK_STARTED,
- *		TBLOCK_IMPLICIT_INPROGRESS, TBLOCK_END, and TBLOCK_PREPARE states,
- *		and therefore it can safely be used in functions that might be called
- *		when not inside a BEGIN block or when running deferred triggers at
- *		COMMIT/PREPARE time.  Also, it automatically does
- *		CommitTransactionCommand/StartTransactionCommand instead of expecting
- *		the caller to do it.
+ *		TBLOCK_IMPLICIT_INPROGRESS, TBLOCK_PARALLEL_INPROGRESS, TBLOCK_END,
+ *		and TBLOCK_PREPARE states, and therefore it can safely be used in
+ *		functions that might be called when not inside a BEGIN block or when
+ *		running deferred triggers at COMMIT/PREPARE time.  Also, it
+ *		automatically does CommitTransactionCommand/StartTransactionCommand
+ *		instead of expecting the caller to do it.
  */
 void
 BeginInternalSubTransaction(const char *name)
 {
 	TransactionState s = CurrentTransactionState;
+<<<<<<< HEAD
 	SIMPLE_FAULT_INJECTOR("begin_internal_sub_transaction");
 
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -5702,27 +5892,31 @@ BeginInternalSubTransaction(const char *name)
 				"Could not BeginInternalSubTransaction dispatch failed");
 		}
 	}
+=======
+	bool		save_ExitOnAnyError = ExitOnAnyError;
+>>>>>>> REL_18_BETA1_branch
 
 	/*
-	 * Workers synchronize transaction state at the beginning of each parallel
-	 * operation, so we can't account for new subtransactions after that
-	 * point. We might be able to make an exception for the type of
-	 * subtransaction established by this function, which is typically used in
-	 * contexts where we're going to release or roll back the subtransaction
-	 * before proceeding further, so that no enduring change to the
-	 * transaction state occurs. For now, however, we prohibit this case along
-	 * with all the others.
+	 * Errors within this function are improbable, but if one does happen we
+	 * force a FATAL exit.  Callers generally aren't prepared to handle losing
+	 * control, and moreover our transaction state is probably corrupted if we
+	 * fail partway through; so an ordinary ERROR longjmp isn't okay.
 	 */
-	if (IsInParallelMode())
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
-				 errmsg("cannot start subtransactions during a parallel operation")));
+	ExitOnAnyError = true;
+
+	/*
+	 * We do not check for parallel mode here.  It's permissible to start and
+	 * end "internal" subtransactions while in parallel mode, so long as no
+	 * new XIDs or command IDs are assigned.  Enforcement of that occurs in
+	 * AssignTransactionId() and CommandCounterIncrement().
+	 */
 
 	switch (s->blockState)
 	{
 		case TBLOCK_STARTED:
 		case TBLOCK_INPROGRESS:
 		case TBLOCK_IMPLICIT_INPROGRESS:
+		case TBLOCK_PARALLEL_INPROGRESS:
 		case TBLOCK_END:
 		case TBLOCK_PREPARE:
 		case TBLOCK_SUBINPROGRESS:
@@ -5741,7 +5935,6 @@ BeginInternalSubTransaction(const char *name)
 			/* These cases are invalid. */
 		case TBLOCK_DEFAULT:
 		case TBLOCK_BEGIN:
-		case TBLOCK_PARALLEL_INPROGRESS:
 		case TBLOCK_SUBBEGIN:
 		case TBLOCK_SUBRELEASE:
 		case TBLOCK_SUBCOMMIT:
@@ -5760,6 +5953,8 @@ BeginInternalSubTransaction(const char *name)
 
 	CommitTransactionCommand();
 	StartTransactionCommand();
+
+	ExitOnAnyError = save_ExitOnAnyError;
 }
 
 /*
@@ -5775,16 +5970,10 @@ ReleaseCurrentSubTransaction(void)
 	TransactionState s = CurrentTransactionState;
 
 	/*
-	 * Workers synchronize transaction state at the beginning of each parallel
-	 * operation, so we can't account for commit of subtransactions after that
-	 * point.  This should not happen anyway.  Code calling this would
-	 * typically have called BeginInternalSubTransaction() first, failing
-	 * there.
+	 * We do not check for parallel mode here.  It's permissible to start and
+	 * end "internal" subtransactions while in parallel mode, so long as no
+	 * new XIDs or command IDs are assigned.
 	 */
-	if (IsInParallelMode())
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
-				 errmsg("cannot commit subtransactions during a parallel operation")));
 
 	if (s->blockState != TBLOCK_SUBINPROGRESS)
 		elog(ERROR, "ReleaseCurrentSubTransaction: unexpected state %s",
@@ -5820,11 +6009,9 @@ RollbackAndReleaseCurrentSubTransaction(void)
 	TransactionState s = CurrentTransactionState;
 
 	/*
-	 * Unlike ReleaseCurrentSubTransaction(), this is nominally permitted
-	 * during parallel operations.  That's because we may be in the leader,
-	 * recovering from an error thrown while we were in parallel mode.  We
-	 * won't reach here in a worker, because BeginInternalSubTransaction()
-	 * will have failed.
+	 * We do not check for parallel mode here.  It's permissible to start and
+	 * end "internal" subtransactions while in parallel mode, so long as no
+	 * new XIDs or command IDs are assigned.
 	 */
 
 	switch (s->blockState)
@@ -5868,6 +6055,7 @@ RollbackAndReleaseCurrentSubTransaction(void)
 	CleanupSubTransaction();
 
 	s = CurrentTransactionState;	/* changed by pop */
+<<<<<<< HEAD
 	AssertState(s->blockState == TBLOCK_SUBINPROGRESS ||
 				s->blockState == TBLOCK_INPROGRESS ||
 				s->blockState == TBLOCK_IMPLICIT_INPROGRESS ||
@@ -5882,6 +6070,13 @@ RollbackAndReleaseCurrentSubTransaction(void)
 							errmsg("DTX RollbackAndReleaseCurrentSubTransaction dispatch failed")));
 		}
 	}
+=======
+	Assert(s->blockState == TBLOCK_SUBINPROGRESS ||
+		   s->blockState == TBLOCK_INPROGRESS ||
+		   s->blockState == TBLOCK_IMPLICIT_INPROGRESS ||
+		   s->blockState == TBLOCK_PARALLEL_INPROGRESS ||
+		   s->blockState == TBLOCK_STARTED);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -6001,8 +6196,13 @@ AbortOutOfAnyTransaction(void)
 	/* Should be out of all subxacts now */
 	Assert(s->parent == NULL);
 
-	/* If we didn't actually have anything to do, revert to TopMemoryContext */
-	AtCleanup_Memory();
+	/*
+	 * Revert to TopMemoryContext, to ensure we exit in a well-defined state
+	 * whether there were any transactions to close or not.  (Callers that
+	 * don't intend to exit soon should switch to some other context to avoid
+	 * long-term memory leaks.)
+	 */
+	MemoryContextSwitchTo(TopMemoryContext);
 }
 
 /*
@@ -6183,10 +6383,15 @@ CommitSubTransaction(void)
 	CallSubXactCallbacks(SUBXACT_EVENT_PRE_COMMIT_SUB, s->subTransactionId,
 						 s->parent->subTransactionId);
 
-	/* If in parallel mode, clean up workers and exit parallel mode. */
-	if (IsInParallelMode())
+	/*
+	 * If this subxact has started any unfinished parallel operation, clean up
+	 * its workers and exit parallel mode.  Warn about leaked resources.
+	 */
+	AtEOSubXact_Parallel(true, s->subTransactionId);
+	if (s->parallelModeLevel != 0)
 	{
-		AtEOSubXact_Parallel(true, s->subTransactionId);
+		elog(WARNING, "parallelModeLevel is %d not 0 at end of subtransaction",
+			 s->parallelModeLevel);
 		s->parallelModeLevel = 0;
 	}
 
@@ -6222,6 +6427,7 @@ CommitSubTransaction(void)
 						 true, false);
 	AtEOSubXact_RelationCache(true, s->subTransactionId,
 							  s->parent->subTransactionId);
+	AtEOSubXact_TypeCache();
 	AtEOSubXact_Inval(true);
 	AtSubCommit_smgr();
 
@@ -6301,6 +6507,9 @@ AbortSubTransaction(void)
 
 	pgstat_report_wait_end();
 	pgstat_progress_end_command();
+
+	pgaio_error_cleanup();
+
 	UnlockBuffers();
 
 	/* Clean up hash entries for incremental view maintenance */
@@ -6362,12 +6571,12 @@ AbortSubTransaction(void)
 	 * exports are not supported in subtransactions.
 	 */
 
-	/* Exit from parallel mode, if necessary. */
-	if (IsInParallelMode())
-	{
-		AtEOSubXact_Parallel(false, s->subTransactionId);
-		s->parallelModeLevel = 0;
-	}
+	/*
+	 * If this subxact has started any unfinished parallel operation, clean up
+	 * its workers and exit parallel mode.  Don't warn about leaked resources.
+	 */
+	AtEOSubXact_Parallel(false, s->subTransactionId);
+	s->parallelModeLevel = 0;
 
 	/*
 	 * We can skip all this stuff if the subxact failed before creating a
@@ -6399,8 +6608,11 @@ AbortSubTransaction(void)
 		ResourceOwnerRelease(s->curTransactionOwner,
 							 RESOURCE_RELEASE_BEFORE_LOCKS,
 							 false, false);
+
+		AtEOXact_Aio(false);
 		AtEOSubXact_RelationCache(false, s->subTransactionId,
 								  s->parent->subTransactionId);
+		AtEOSubXact_TypeCache();
 		AtEOSubXact_Inval(false);
 		ResourceOwnerRelease(s->curTransactionOwner,
 							 RESOURCE_RELEASE_LOCKS,
@@ -6525,6 +6737,7 @@ PushTransaction(void)
 	s->prevXactReadOnly = XactReadOnly;
 	s->startedInRecovery = p->startedInRecovery;
 	s->parallelModeLevel = 0;
+	s->parallelChildXact = (p->parallelModeLevel != 0 || p->parallelChildXact);
 	s->topXidLogged = false;
 
 	fastNodeCount++;
@@ -6754,8 +6967,22 @@ ShowTransactionStateRec(const char *str, TransactionState s)
 {
 	StringInfoData buf;
 
-	initStringInfo(&buf);
+	if (s->parent)
+	{
+		/*
+		 * Since this function recurses, it could be driven to stack overflow.
+		 * This is just a debugging aid, so we can leave out some details
+		 * instead of erroring out with check_stack_depth().
+		 */
+		if (stack_is_too_deep())
+			ereport(DEBUG5,
+					(errmsg_internal("%s(%d): parent omitted to avoid stack overflow",
+									 str, s->nestingLevel)));
+		else
+			ShowTransactionStateRec(str, s->parent);
+	}
 
+	initStringInfo(&buf);
 	if (s->nChildXids > 0)
 	{
 		int			i;
@@ -6764,10 +6991,6 @@ ShowTransactionStateRec(const char *str, TransactionState s)
 		for (i = 1; i < s->nChildXids; i++)
 			appendStringInfo(&buf, " %u", s->childXids[i]);
 	}
-
-	if (s->parent)
-		ShowTransactionStateRec(str, s->parent);
-
 	ereport(DEBUG5,
 			(errmsg_internal("%s(%d) name: %s; blockState: %s; state: %s, xid/subid/cid: %u/%u/%u%s%s",
 							 str, s->nestingLevel,
@@ -6779,7 +7002,6 @@ ShowTransactionStateRec(const char *str, TransactionState s)
 							 (unsigned int) currentCommandId,
 							 currentCommandIdUsed ? " (used)" : "",
 							 buf.data)));
-
 	pfree(buf.data);
 }
 
@@ -7096,41 +7318,51 @@ XactLogCommitRecord(TimestampTz commit_time,
 
 	XLogBeginInsert();
 
-	XLogRegisterData((char *) (&xlrec), sizeof(xl_xact_commit));
+	XLogRegisterData(&xlrec, sizeof(xl_xact_commit));
 
+<<<<<<< HEAD
 	XLogRegisterData((char *) (&xl_xinfo.xinfo), sizeof(xl_xinfo.xinfo));
+=======
+	if (xl_xinfo.xinfo != 0)
+		XLogRegisterData(&xl_xinfo.xinfo, sizeof(xl_xinfo.xinfo));
+>>>>>>> REL_18_BETA1_branch
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DBINFO)
-		XLogRegisterData((char *) (&xl_dbinfo), sizeof(xl_dbinfo));
+		XLogRegisterData(&xl_dbinfo, sizeof(xl_dbinfo));
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_SUBXACTS)
 	{
-		XLogRegisterData((char *) (&xl_subxacts),
+		XLogRegisterData(&xl_subxacts,
 						 MinSizeOfXactSubxacts);
-		XLogRegisterData((char *) subxacts,
+		XLogRegisterData(subxacts,
 						 nsubxacts * sizeof(TransactionId));
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_RELFILELOCATORS)
 	{
-		XLogRegisterData((char *) (&xl_relfilelocators),
+		XLogRegisterData(&xl_relfilelocators,
 						 MinSizeOfXactRelfileLocators);
+<<<<<<< HEAD
 		XLogRegisterData((char *) rels,
 						 nrels * sizeof(RelFileNodePendingDelete));
+=======
+		XLogRegisterData(rels,
+						 nrels * sizeof(RelFileLocator));
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DROPPED_STATS)
 	{
-		XLogRegisterData((char *) (&xl_dropped_stats),
+		XLogRegisterData(&xl_dropped_stats,
 						 MinSizeOfXactStatsItems);
-		XLogRegisterData((char *) droppedstats,
+		XLogRegisterData(droppedstats,
 						 ndroppedstats * sizeof(xl_xact_stats_item));
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_INVALS)
 	{
-		XLogRegisterData((char *) (&xl_invals), MinSizeOfXactInvals);
-		XLogRegisterData((char *) msgs,
+		XLogRegisterData(&xl_invals, MinSizeOfXactInvals);
+		XLogRegisterData(msgs,
 						 nmsgs * sizeof(SharedInvalidationMessage));
 	}
 
@@ -7143,13 +7375,13 @@ XactLogCommitRecord(TimestampTz commit_time,
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_TWOPHASE)
 	{
-		XLogRegisterData((char *) (&xl_twophase), sizeof(xl_xact_twophase));
+		XLogRegisterData(&xl_twophase, sizeof(xl_xact_twophase));
 		if (xl_xinfo.xinfo & XACT_XINFO_HAS_GID)
-			XLogRegisterData(unconstify(char *, twophase_gid), strlen(twophase_gid) + 1);
+			XLogRegisterData(twophase_gid, strlen(twophase_gid) + 1);
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_ORIGIN)
-		XLogRegisterData((char *) (&xl_origin), sizeof(xl_xact_origin));
+		XLogRegisterData(&xl_origin, sizeof(xl_xact_origin));
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DISTRIB)
 		XLogRegisterData((char *) (&xl_distrib), sizeof(xl_xact_distrib));
@@ -7276,34 +7508,44 @@ XactLogAbortRecord(TimestampTz abort_time,
 
 	XLogBeginInsert();
 
-	XLogRegisterData((char *) (&xlrec), MinSizeOfXactAbort);
+	XLogRegisterData(&xlrec, MinSizeOfXactAbort);
 
+<<<<<<< HEAD
 	XLogRegisterData((char *) (&xl_xinfo), sizeof(xl_xinfo));
+=======
+	if (xl_xinfo.xinfo != 0)
+		XLogRegisterData(&xl_xinfo, sizeof(xl_xinfo));
+>>>>>>> REL_18_BETA1_branch
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DBINFO)
-		XLogRegisterData((char *) (&xl_dbinfo), sizeof(xl_dbinfo));
+		XLogRegisterData(&xl_dbinfo, sizeof(xl_dbinfo));
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_SUBXACTS)
 	{
-		XLogRegisterData((char *) (&xl_subxacts),
+		XLogRegisterData(&xl_subxacts,
 						 MinSizeOfXactSubxacts);
-		XLogRegisterData((char *) subxacts,
+		XLogRegisterData(subxacts,
 						 nsubxacts * sizeof(TransactionId));
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_RELFILELOCATORS)
 	{
-		XLogRegisterData((char *) (&xl_relfilelocators),
+		XLogRegisterData(&xl_relfilelocators,
 						 MinSizeOfXactRelfileLocators);
+<<<<<<< HEAD
 		XLogRegisterData((char *) rels,
 						 nrels * sizeof(RelFileNodePendingDelete));
+=======
+		XLogRegisterData(rels,
+						 nrels * sizeof(RelFileLocator));
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DROPPED_STATS)
 	{
-		XLogRegisterData((char *) (&xl_dropped_stats),
+		XLogRegisterData(&xl_dropped_stats,
 						 MinSizeOfXactStatsItems);
-		XLogRegisterData((char *) droppedstats,
+		XLogRegisterData(droppedstats,
 						 ndroppedstats * sizeof(xl_xact_stats_item));
 	}
 
@@ -7318,13 +7560,13 @@ XactLogAbortRecord(TimestampTz abort_time,
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_TWOPHASE)
 	{
-		XLogRegisterData((char *) (&xl_twophase), sizeof(xl_xact_twophase));
+		XLogRegisterData(&xl_twophase, sizeof(xl_xact_twophase));
 		if (xl_xinfo.xinfo & XACT_XINFO_HAS_GID)
-			XLogRegisterData(unconstify(char *, twophase_gid), strlen(twophase_gid) + 1);
+			XLogRegisterData(twophase_gid, strlen(twophase_gid) + 1);
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_ORIGIN)
-		XLogRegisterData((char *) (&xl_origin), sizeof(xl_xact_origin));
+		XLogRegisterData(&xl_origin, sizeof(xl_xact_origin));
 
 	/* Include the replication origin */
 	XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);

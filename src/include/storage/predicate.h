@@ -4,7 +4,7 @@
  *	  POSTGRES public predicate locking definitions.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/predicate.h
@@ -14,6 +14,7 @@
 #ifndef PREDICATE_H
 #define PREDICATE_H
 
+#include "storage/itemptr.h"
 #include "storage/lock.h"
 #include "utils/relcache.h"
 #include "utils/snapshot.h"
@@ -26,10 +27,6 @@ extern PGDLLIMPORT int max_predicate_locks_per_xact;
 extern PGDLLIMPORT int max_predicate_locks_per_relation;
 extern PGDLLIMPORT int max_predicate_locks_per_page;
 
-
-/* Number of SLRU buffers to use for Serial SLRU */
-#define NUM_SERIAL_BUFFERS		16
-
 /*
  * A handle used for sharing SERIALIZABLEXACT objects between the participants
  * in a parallel query.
@@ -41,7 +38,7 @@ typedef void *SerializableXactHandle;
  */
 
 /* housekeeping for shared memory predicate lock structures */
-extern void InitPredicateLocks(void);
+extern void PredicateLockShmemInit(void);
 extern Size PredicateLockShmemSize(void);
 
 extern void CheckPointPredicate(void);

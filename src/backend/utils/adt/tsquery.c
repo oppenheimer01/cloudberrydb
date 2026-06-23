@@ -3,7 +3,7 @@
  * tsquery.c
  *	  I/O functions for tsquery
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -41,7 +41,7 @@ typedef enum
 {
 	WAITOPERAND = 1,
 	WAITOPERATOR = 2,
-	WAITFIRSTOPERAND = 3
+	WAITFIRSTOPERAND = 3,
 } ts_parserstate;
 
 /*
@@ -54,7 +54,7 @@ typedef enum
 	PT_VAL = 2,
 	PT_OPR = 3,
 	PT_OPEN = 4,
-	PT_CLOSE = 5
+	PT_CLOSE = 5,
 } ts_tokentype;
 
 /*
@@ -197,7 +197,11 @@ parse_phrase_operator(TSQueryParserState pstate, int16 *distance)
 					continue;
 				}
 
+<<<<<<< HEAD
 				if (!t_isdigit_cstr(ptr))
+=======
+				if (!isdigit((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 					return false;
 
 				errno = 0;
@@ -274,7 +278,11 @@ parse_or_operator(TSQueryParserState pstate)
 		 * So we still treat OR literal as operation with possibly incorrect
 		 * operand and will not search it as lexeme
 		 */
+<<<<<<< HEAD
 		if (!t_isspace_cstr(ptr))
+=======
+		if (!isspace((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 			break;
 	}
 
@@ -315,7 +323,11 @@ gettoken_query_standard(TSQueryParserState state, int8 *operator,
 					/* generic syntax error message is fine */
 					return PT_ERR;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(state->buf))
+=======
+				else if (!isspace((unsigned char) *state->buf))
+>>>>>>> REL_18_BETA1_branch
 				{
 					/*
 					 * We rely on the tsvector parser to parse the value for
@@ -383,7 +395,11 @@ gettoken_query_standard(TSQueryParserState state, int8 *operator,
 				{
 					return (state->count) ? PT_ERR : PT_END;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(state->buf))
+=======
+				else if (!isspace((unsigned char) *state->buf))
+>>>>>>> REL_18_BETA1_branch
 				{
 					return PT_ERR;
 				}
@@ -444,7 +460,11 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 					state->state = WAITOPERAND;
 					continue;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(state->buf))
+=======
+				else if (!isspace((unsigned char) *state->buf))
+>>>>>>> REL_18_BETA1_branch
 				{
 					/*
 					 * We rely on the tsvector parser to parse the value for
@@ -492,7 +512,11 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 					state->buf++;
 					continue;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(state->buf))
+=======
+				else if (!isspace((unsigned char) *state->buf))
+>>>>>>> REL_18_BETA1_branch
 				{
 					/* insert implicit AND between operands */
 					state->state = WAITOPERAND;

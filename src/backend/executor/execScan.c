@@ -7,7 +7,7 @@
  *	  stuff - checking the qualification and projecting the tuple
  *	  appropriately.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -19,7 +19,9 @@
 #include "postgres.h"
 
 #include "executor/executor.h"
+#include "executor/execScan.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "utils/faultinjector.h"
 #include "utils/memutils.h"
 
@@ -135,6 +137,8 @@ ExecScanFetch(ScanState *node,
 	 */
 	return (*accessMtd) (node);
 }
+=======
+>>>>>>> REL_18_BETA1_branch
 
 /* ----------------------------------------------------------------
  *		ExecScan
@@ -162,19 +166,23 @@ ExecScan(ScanState *node,
 		 ExecScanAccessMtd accessMtd,	/* function returning a tuple */
 		 ExecScanRecheckMtd recheckMtd)
 {
-	ExprContext *econtext;
+	EPQState   *epqstate;
 	ExprState  *qual;
 	ProjectionInfo *projInfo;
 
+<<<<<<< HEAD
 	SIMPLE_FAULT_INJECTOR("before_exec_scan");
 
 	/*
 	 * Fetch data from node
 	 */
+=======
+	epqstate = node->ps.state->es_epq_active;
+>>>>>>> REL_18_BETA1_branch
 	qual = node->ps.qual;
 	projInfo = node->ps.ps_ProjInfo;
-	econtext = node->ps.ps_ExprContext;
 
+<<<<<<< HEAD
 	/* interrupt checks are in ExecScanFetch */
 
 	/*
@@ -267,6 +275,14 @@ ExecScan(ScanState *node,
 		 */
 		ResetExprContext(econtext);
 	}
+=======
+	return ExecScanExtended(node,
+							accessMtd,
+							recheckMtd,
+							epqstate,
+							qual,
+							projInfo);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*

@@ -4,7 +4,7 @@
  *	  magnetic disk storage manager public interface declarations.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/md.h
@@ -14,10 +14,13 @@
 #ifndef MD_H
 #define MD_H
 
+#include "storage/aio_types.h"
 #include "storage/block.h"
 #include "storage/relfilelocator.h"
 #include "storage/smgr.h"
 #include "storage/sync.h"
+
+extern PGDLLIMPORT const PgAioHandleCallbacks aio_md_readv_cb;
 
 /* md storage manager functionality */
 extern void mdinit(void);
@@ -32,17 +35,29 @@ extern void mdextend(SMgrRelation reln, ForkNumber forknum,
 extern void mdzeroextend(SMgrRelation reln, ForkNumber forknum,
 						 BlockNumber blocknum, int nblocks, bool skipFsync);
 extern bool mdprefetch(SMgrRelation reln, ForkNumber forknum,
-					   BlockNumber blocknum);
-extern void mdread(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
-				   void *buffer);
-extern void mdwrite(SMgrRelation reln, ForkNumber forknum,
-					BlockNumber blocknum, const void *buffer, bool skipFsync);
+					   BlockNumber blocknum, int nblocks);
+extern uint32 mdmaxcombine(SMgrRelation reln, ForkNumber forknum,
+						   BlockNumber blocknum);
+extern void mdreadv(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
+					void **buffers, BlockNumber nblocks);
+extern void mdstartreadv(PgAioHandle *ioh,
+						 SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
+						 void **buffers, BlockNumber nblocks);
+extern void mdwritev(SMgrRelation reln, ForkNumber forknum,
+					 BlockNumber blocknum,
+					 const void **buffers, BlockNumber nblocks, bool skipFsync);
 extern void mdwriteback(SMgrRelation reln, ForkNumber forknum,
 						BlockNumber blocknum, BlockNumber nblocks);
 extern BlockNumber mdnblocks(SMgrRelation reln, ForkNumber forknum);
 extern void mdtruncate(SMgrRelation reln, ForkNumber forknum,
+<<<<<<< HEAD
 					   BlockNumber old_blocks, BlockNumber nblocks);
+=======
+					   BlockNumber curnblk, BlockNumber nblocks);
+>>>>>>> REL_18_BETA1_branch
 extern void mdimmedsync(SMgrRelation reln, ForkNumber forknum);
+extern void mdregistersync(SMgrRelation reln, ForkNumber forknum);
+extern int	mdfd(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum, uint32 *off);
 
 extern void ForgetDatabaseSyncRequests(Oid dbid);
 extern void DropRelationFiles(RelFileNodePendingDelete *delrels, int ndelrels, bool isRedo);

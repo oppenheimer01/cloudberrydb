@@ -1,10 +1,10 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Verify that pg_verifybackup handles hex-encoded filenames correctly.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -15,11 +15,19 @@ $primary->start;
 my $backup_path = $primary->backup_dir . '/test_encoding';
 $primary->command_ok(
 	[
+<<<<<<< HEAD
 		'pg_basebackup', '-D',
 		$backup_path, '--no-sync',
 		'-cfast', '--manifest-force-encode'
 		'--target-gp-dbid', '123',
 		'--manifest-force-encode'
+=======
+		'pg_basebackup',
+		'--pgdata' => $backup_path,
+		'--no-sync',
+		'--checkpoint' => 'fast',
+		'--manifest-force-encode',
+>>>>>>> REL_18_BETA1_branch
 	],
 	"backup ok with forced hex encoding");
 
@@ -29,7 +37,7 @@ cmp_ok($count_of_encoded_path_in_manifest,
 	'>', 100, "many paths are encoded in the manifest");
 
 command_like(
-	[ 'pg_verifybackup', '-s', $backup_path ],
+	[ 'pg_verifybackup', '--skip-checksums', $backup_path ],
 	qr/backup successfully verified/,
 	'backup with forced encoding verified');
 

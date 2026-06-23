@@ -1,12 +1,41 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
+
+# Check the initial state of the data generated.  Tables for tellers and
+# branches use NULL for their filler attribute.  The table accounts uses
+# a non-NULL filler.  The history table should have no data.
+sub check_data_state
+{
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+	my $node = shift;
+	my $type = shift;
+
+	my $sql_result = $node->safe_psql('postgres',
+		'SELECT count(*) AS null_count FROM pgbench_accounts WHERE filler IS NULL LIMIT 10;'
+	);
+	is($sql_result, '0',
+		"$type: filler column of pgbench_accounts has no NULL data");
+	$sql_result = $node->safe_psql('postgres',
+		'SELECT count(*) AS null_count FROM pgbench_branches WHERE filler IS NULL;'
+	);
+	is($sql_result, '1',
+		"$type: filler column of pgbench_branches has only NULL data");
+	$sql_result = $node->safe_psql('postgres',
+		'SELECT count(*) AS null_count FROM pgbench_tellers WHERE filler IS NULL;'
+	);
+	is($sql_result, '10',
+		"$type: filler column of pgbench_tellers has only NULL data");
+	$sql_result = $node->safe_psql('postgres',
+		'SELECT count(*) AS data_count FROM pgbench_history;');
+	is($sql_result, '0', "$type: pgbench_history has no data");
+}
 
 # start a pgbench specific server
 my $node = PostgreSQL::Test::Cluster->new('main');
@@ -95,6 +124,9 @@ $node->pgbench(
 	],
 	'pgbench scale 1 initialization',);
 
+# Check data state, after client-side data generation.
+check_data_state($node, 'client-side');
+
 # Again, with all possible options
 $node->pgbench(
 	'--initialize --init-steps=dtpvg --scale=1 --unlogged-tables --fillfactor=98 --foreign-keys --quiet --tablespace=regress_pgbench_tap_1_ts --index-tablespace=regress_pgbench_tap_1_ts --partitions=2 --partition-method=hash',
@@ -129,6 +161,7 @@ $node->pgbench(
 	],
 	'pgbench --init-steps');
 
+<<<<<<< HEAD
 
 # Test interaction of --init-steps with legacy step-selection options
 $node->pgbench(
@@ -141,6 +174,10 @@ $node->pgbench(
 		qr{done in \d+\.\d\d s }
 	],
 	'pgbench --use-non-unique-keys');
+=======
+# Check data state, after server-side data generation.
+check_data_state($node, 'server-side');
+>>>>>>> REL_18_BETA1_branch
 
 # Run all builtin scripts, for a few transactions each
 $node->pgbench(
@@ -191,7 +228,7 @@ my $nthreads = 2;
 
 {
 	my ($stderr);
-	run_log([ 'pgbench', '-j', '2', '--bad-option' ], '2>', \$stderr);
+	run_log([ 'pgbench', '--jobs' => '2', '--bad-option' ], '2>' => \$stderr);
 	$nthreads = 1 if $stderr =~ m/threads are not supported on this platform/;
 }
 
@@ -296,7 +333,7 @@ select column1::jsonb from (values (:value), (:long)) as q;
 my $log = PostgreSQL::Test::Utils::slurp_file($node->logfile);
 unlike(
 	$log,
-	qr[DETAIL:  parameters: \$1 = '\{ invalid ',],
+	qr[DETAIL:  Parameters: \$1 = '\{ invalid ',],
 	"no parameters logged");
 $log = undef;
 
@@ -337,7 +374,7 @@ select column1::jsonb from (values (:value), (:long)) as q;
 $log = PostgreSQL::Test::Utils::slurp_file($node->logfile);
 like(
 	$log,
-	qr[DETAIL:  parameters: \$1 = '\{ invalid ', \$2 = '''Valame Dios!'' dijo Sancho; ''no le dije yo a vuestra merced que mirase bien lo que hacia\?'''],
+	qr[DETAIL:  Parameters: \$1 = '\{ invalid ', \$2 = '''Valame Dios!'' dijo Sancho; ''no le dije yo a vuestra merced que mirase bien lo que hacia\?'''],
 	"parameter report does not truncate");
 $log = undef;
 
@@ -382,7 +419,7 @@ select column1::jsonb from (values (:value), (:long)) as q;
 $log = PostgreSQL::Test::Utils::slurp_file($node->logfile);
 like(
 	$log,
-	qr[DETAIL:  parameters: \$1 = '\{ inval\.\.\.', \$2 = '''Valame\.\.\.'],
+	qr[DETAIL:  Parameters: \$1 = '\{ inval\.\.\.', \$2 = '''Valame\.\.\.'],
 	"parameter report truncates");
 $log = undef;
 
@@ -648,7 +685,11 @@ SELECT :v0, :v1, :v2, :v3;
 
 # test nested \if constructs
 $node->pgbench(
+<<<<<<< HEAD
 	'--no-vacuum --client=1 --transactions=1',
+=======
+	'--no-vacuum --client=1 --exit-on-abort --transactions=1',
+>>>>>>> REL_18_BETA1_branch
 	0,
 	[qr{actually processed}],
 	[qr{^$}],
@@ -870,6 +911,27 @@ $node->pgbench(
 }
 	});
 
+# Working \startpipeline with \syncpipeline
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[ qr{type: .*/001_pgbench_pipeline_sync}, qr{actually processed: 1/1} ],
+	[],
+	'working \startpipeline with \syncpipeline',
+	{
+		'001_pgbench_pipeline_sync' => q{
+-- test startpipeline
+\startpipeline
+select 1;
+\syncpipeline
+\syncpipeline
+select 2;
+\syncpipeline
+select 3;
+\endpipeline
+}
+	});
+
 # Working \startpipeline in prepared query mode
 $node->pgbench(
 	'-t 1 -n -M prepared',
@@ -960,6 +1022,198 @@ $node->pgbench(
 }
 	});
 
+<<<<<<< HEAD
+=======
+# Try \startpipeline with \syncpipeline without \endpipeline
+$node->pgbench(
+	'-t 2 -n -M extended',
+	2,
+	[],
+	[qr{end of script reached with pipeline open}],
+	'error: call \startpipeline and \syncpipeline without \endpipeline',
+	{
+		'001_pgbench_pipeline_7' => q{
+-- startpipeline with \syncpipeline only
+\startpipeline
+\syncpipeline
+}
+	});
+
+# Try SET LOCAL as first pipeline command.  This succeeds and the first
+# command is not executed inside an implicit transaction block, causing
+# a WARNING.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[qr{WARNING:  SET LOCAL can only be used in transaction blocks}],
+	'SET LOCAL outside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_set_local_1' => q{
+\startpipeline
+SET LOCAL statement_timeout='1h';
+\endpipeline
+}
+	});
+
+# Try SET LOCAL as second pipeline command.  This succeeds and the second
+# command does not cause a WARNING to be generated.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[qr{^$}],
+	'SET LOCAL inside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_set_local_2' => q{
+\startpipeline
+SELECT 1;
+SET LOCAL statement_timeout='1h';
+\endpipeline
+}
+	});
+
+# Try SET LOCAL with \syncpipeline.  This succeeds and the command
+# launched after the sync is outside the implicit transaction block
+# of the pipeline, causing a WARNING.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[qr{WARNING:  SET LOCAL can only be used in transaction blocks}],
+	'SET LOCAL and \syncpipeline',
+	{
+		'001_pgbench_pipeline_set_local_3' => q{
+\startpipeline
+SELECT 1;
+\syncpipeline
+SET LOCAL statement_timeout='1h';
+\endpipeline
+}
+	});
+
+# Try REINDEX CONCURRENTLY as first pipeline command.  This succeeds
+# as the first command is outside the implicit transaction block of
+# a pipeline.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[],
+	'REINDEX CONCURRENTLY outside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_reindex_1' => q{
+\startpipeline
+REINDEX TABLE CONCURRENTLY pgbench_accounts;
+SELECT 1;
+\endpipeline
+}
+	});
+
+# Try REINDEX CONCURRENTLY as second pipeline command.  This fails
+# as the second command is inside an implicit transaction block.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	2,
+	[],
+	[],
+	'error: REINDEX CONCURRENTLY inside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_reindex_2' => q{
+\startpipeline
+SELECT 1;
+REINDEX TABLE CONCURRENTLY pgbench_accounts;
+\endpipeline
+}
+	});
+
+# Try VACUUM as first pipeline command.  Like REINDEX CONCURRENTLY, this
+# succeeds as this is outside the implicit transaction block of a pipeline.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[],
+	'VACUUM outside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_vacuum_1' => q{
+\startpipeline
+VACUUM pgbench_accounts;
+\endpipeline
+}
+	});
+
+# Try VACUUM as second pipeline command.  This fails, as the second command
+# of a pipeline is inside an implicit transaction block.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	2,
+	[],
+	[],
+	'error: VACUUM inside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_vacuum_2' => q{
+\startpipeline
+SELECT 1;
+VACUUM pgbench_accounts;
+\endpipeline
+}
+	});
+
+# Try subtransactions in a pipeline.  These are forbidden in implicit
+# transaction blocks.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	2,
+	[],
+	[],
+	'error: subtransactions not allowed in pipeline',
+	{
+		'001_pgbench_pipeline_subtrans' => q{
+\startpipeline
+SAVEPOINT a;
+SELECT 1;
+ROLLBACK TO SAVEPOINT a;
+SELECT 2;
+\endpipeline
+}
+	});
+
+# Try LOCK TABLE as first pipeline command.  This fails as LOCK is outside
+# an implicit transaction block.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	2,
+	[],
+	[],
+	'error: LOCK TABLE outside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_lock_1' => q{
+\startpipeline
+LOCK pgbench_accounts;
+SELECT 1;
+\endpipeline
+}
+	});
+
+# Try LOCK TABLE as second pipeline command.  This succeeds as LOCK is inside
+# an implicit transaction block.
+$node->pgbench(
+	'-t 1 -n -M extended',
+	0,
+	[],
+	[],
+	'LOCK TABLE inside implicit transaction block of pipeline',
+	{
+		'001_pgbench_pipeline_lock_2' => q{
+\startpipeline
+SELECT 1;
+LOCK pgbench_accounts;
+\endpipeline
+}
+	});
+
+>>>>>>> REL_18_BETA1_branch
 # Working \startpipeline in prepared query mode with serializable
 $node->pgbench(
 	'-c4 -t 10 -n -M prepared',
@@ -1372,7 +1626,7 @@ my $err_pattern =
   . "\\1";
 
 $node->pgbench(
-	"-n -c 2 -t 1 -d --verbose-errors --max-tries 2",
+	"-n -c 2 -t 1 --debug --verbose-errors --max-tries 2",
 	0,
 	[
 		qr{processed: 2/2\b},
@@ -1559,6 +1813,27 @@ SELECT pg_advisory_unlock_all();
 # Clean up
 $node->safe_psql('postgres', 'DROP TABLE first_client_table, xy;');
 
+# Test --exit-on-abort
+$node->safe_psql('postgres',
+	'CREATE TABLE counter(i int); ' . 'INSERT INTO counter VALUES (0);');
+
+$node->pgbench(
+	'-t 10 -c 2 -j 2 --exit-on-abort',
+	2,
+	[],
+	[ qr{division by zero}, qr{Run was aborted due to an error in thread} ],
+	'test --exit-on-abort',
+	{
+		'001_exit_on_abort' => q{
+update counter set i = i+1 returning i \gset
+\if :i = 5
+\set y 1/0
+\endif
+}
+	});
+
+# Clean up
+$node->safe_psql('postgres', 'DROP TABLE counter;');
 
 # done
 $node->safe_psql('postgres', 'DROP TABLESPACE regress_pgbench_tap_1_ts');

@@ -152,6 +152,15 @@ ORDER BY ctid DESC LIMIT 5;
 ROLLBACK;
 
 ----
+-- test sorting of large datums VALUES
+----
+
+-- Ensure the order is correct and values look intact
+SELECT LEFT(a,10),b FROM
+    (VALUES(REPEAT('a', 512 * 1024),1),(REPEAT('b', 512 * 1024),2)) v(a,b)
+ORDER BY v.a DESC;
+
+----
 -- test forward and backward scans for in-memory and disk based tuplesort
 ----
 
@@ -167,6 +176,7 @@ DECLARE c SCROLL CURSOR FOR SELECT noabort_decreasing FROM abbrev_abort_uuids OR
 FETCH NEXT FROM c;
 FETCH NEXT FROM c;
 
+<<<<<<< HEAD
 --start_ignore
 --GDPB doesn't support backward fetch.
 /*
@@ -187,6 +197,23 @@ FETCH NEXT FROM c;
  * FETCH NEXT FROM c;
  */
 --end_ignore
+=======
+-- scroll beyond beginning
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+
+-- scroll beyond end
+FETCH LAST FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+FETCH NEXT FROM c;
+FETCH NEXT FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+>>>>>>> REL_18_BETA1_branch
 
 COMMIT;
 
@@ -204,6 +231,7 @@ FETCH NEXT FROM c;
 FETCH NEXT FROM c;
 --start_ignore
 -- scroll beyond beginning
+<<<<<<< HEAD
 /*
  * FETCH BACKWARD FROM c;
  * FETCH BACKWARD FROM c;
@@ -221,6 +249,22 @@ FETCH NEXT FROM c;
  * FETCH NEXT FROM c;
  */
 --end_ignore
+=======
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+
+-- scroll beyond end
+FETCH LAST FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+FETCH NEXT FROM c;
+FETCH NEXT FROM c;
+FETCH BACKWARD FROM c;
+FETCH NEXT FROM c;
+>>>>>>> REL_18_BETA1_branch
 
 COMMIT;
 

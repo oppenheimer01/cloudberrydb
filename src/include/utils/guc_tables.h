@@ -5,9 +5,13 @@
  *
  * See src/backend/utils/misc/README for design notes.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  *
  *	  src/include/utils/guc_tables.h
  *
@@ -29,7 +33,7 @@ enum config_type
 	PGC_INT,
 	PGC_REAL,
 	PGC_STRING,
-	PGC_ENUM
+	PGC_ENUM,
 };
 
 union config_var_val
@@ -71,19 +75,24 @@ enum config_group
 	RESOURCES_MEM,
 	RESOURCES_DISK,
 	RESOURCES_KERNEL,
-	RESOURCES_VACUUM_DELAY,
 	RESOURCES_BGWRITER,
+<<<<<<< HEAD
 	RESOURCES_ASYNCHRONOUS,
 
 	RESOURCES_MGM,
 	WAL,
 
+=======
+	RESOURCES_IO,
+	RESOURCES_WORKER_PROCESSES,
+>>>>>>> REL_18_BETA1_branch
 	WAL_SETTINGS,
 	WAL_CHECKPOINTS,
 	WAL_ARCHIVING,
 	WAL_RECOVERY,
 	WAL_ARCHIVE_RECOVERY,
 	WAL_RECOVERY_TARGET,
+	WAL_SUMMARIZATION,
 	REPLICATION_SENDING,
 	REPLICATION_PRIMARY,
 	REPLICATION_STANDBY,
@@ -101,8 +110,15 @@ enum config_group
 	STATS_MONITORING,
 	ENCRYPTION,
 	STATS_CUMULATIVE,
+<<<<<<< HEAD
 	AUTOVACUUM,
 
+=======
+	VACUUM_AUTOVACUUM,
+	VACUUM_COST_DELAY,
+	VACUUM_DEFAULT,
+	VACUUM_FREEZING,
+>>>>>>> REL_18_BETA1_branch
 	CLIENT_CONN_STATEMENT,
 	CLIENT_CONN_LOCALE,
 	CLIENT_CONN_PRELOAD,
@@ -112,8 +128,12 @@ enum config_group
 	COMPAT_OPTIONS,
 
 	COMPAT_OPTIONS_PREVIOUS,
+<<<<<<< HEAD
 	COMPAT_OPTIONS_CLIENT,
     COMPAT_OPTIONS_IGNORED,             /*CDB*/
+=======
+	COMPAT_OPTIONS_OTHER,
+>>>>>>> REL_18_BETA1_branch
 	ERROR_HANDLING_OPTIONS,
     GP_ARRAY_CONFIGURATION,            /*CDB*/
     GP_ARRAY_TUNING,                   /*CDB*/
@@ -123,6 +143,7 @@ enum config_group
 	PRESET_OPTIONS,
 	CUSTOM_OPTIONS,
 	DEVELOPER_OPTIONS,
+<<<<<<< HEAD
 
 	TASK_SCHEDULE_OPTIONS,
 
@@ -145,6 +166,8 @@ enum config_group
 
 
 	___CONFIG_GROUP_COUNT /* sentinel to indicate end of enumeration */
+=======
+>>>>>>> REL_18_BETA1_branch
 };
 
 /*
@@ -157,7 +180,7 @@ typedef enum
 	GUC_SAVE,					/* entry caused by function SET option */
 	GUC_SET,					/* entry caused by plain SET command */
 	GUC_LOCAL,					/* entry caused by SET LOCAL command */
-	GUC_SET_LOCAL				/* entry caused by SET then SET LOCAL */
+	GUC_SET_LOCAL,				/* entry caused by SET then SET LOCAL */
 } GucStackState;
 
 typedef struct guc_stack
@@ -181,6 +204,21 @@ typedef struct guc_stack
  * The short description should be less than 80 chars in length. Some
  * applications may use the long description as well, and will append
  * it to the short description. (separated by a newline or '. ')
+ *
+ * If the GUC accepts a special value like -1 to disable the feature, use a
+ * system default, etc., it should be mentioned in the long description with
+ * the following style:
+ *
+ *  - Special values should be listed at the end of the long description.
+ *  - Descriptions should use numerals (e.g., "0") instead of words (e.g.,
+ *    "zero").
+ *  - Special value mentions should be concise and direct (e.g., "0 disables
+ *    the timeout.", "An empty string means use the operating system
+ *    setting.").
+ *  - Multiple special values should be listed in ascending order.
+ *
+ * As an exception, special values should _not_ be mentioned if the description
+ * would be too complex or if the meaning is sufficiently obvious.
  *
  * srole is the role that set the current value, or BOOTSTRAP_SUPERUSERID
  * if the value came from an internal source or the config file.  Similarly

@@ -8,7 +8,7 @@
  * pager open/close functions, all that stuff came with it.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/fe_utils/print.c
@@ -1401,7 +1401,7 @@ print_aligned_vertical(const printTableContent *cont,
 	}
 
 	/* find longest data cell */
-	for (i = 0, ptr = cont->cells; *ptr; ptr++, i++)
+	for (ptr = cont->cells; *ptr; ptr++)
 	{
 		int			width,
 					height,
@@ -3172,7 +3172,11 @@ void
 printTableInit(printTableContent *const content, const printTableOpt *opt,
 			   const char *title, const int ncolumns, const int nrows)
 {
+<<<<<<< HEAD
 	long total_cells;
+=======
+	uint64		total_cells;
+>>>>>>> REL_18_BETA1_branch
 
 	content->opt = opt;
 	content->title = title;
@@ -3181,7 +3185,19 @@ printTableInit(printTableContent *const content, const printTableOpt *opt,
 
 	content->headers = pg_malloc0((ncolumns + 1) * sizeof(*content->headers));
 
+<<<<<<< HEAD
 	total_cells = (long)ncolumns * (long)nrows;
+=======
+	total_cells = (uint64) ncolumns * nrows;
+	/* Catch possible overflow.  Using >= here allows adding 1 below */
+	if (total_cells >= SIZE_MAX / sizeof(*content->cells))
+	{
+		fprintf(stderr, _("Cannot print table contents: number of cells %" PRIu64 " is equal to or exceeds maximum %zu.\n"),
+				total_cells,
+				SIZE_MAX / sizeof(*content->cells));
+		exit(EXIT_FAILURE);
+	}
+>>>>>>> REL_18_BETA1_branch
 	content->cells = pg_malloc0((total_cells + 1) * sizeof(*content->cells));
 
 	content->cellmustfree = NULL;
@@ -3252,11 +3268,17 @@ void
 printTableAddCell(printTableContent *const content, char *cell,
 				  const bool translate, const bool mustfree)
 {
+<<<<<<< HEAD
 	long total_cells;
+=======
+	uint64		total_cells;
+
+>>>>>>> REL_18_BETA1_branch
 #ifndef ENABLE_NLS
 	(void) translate;			/* unused parameter */
 #endif
 
+<<<<<<< HEAD
 	/* product of cols and rows, using long type to prevent the int overflow */
 	total_cells = (long)content->ncolumns * (long)content->nrows;
 	if (content->cellsadded >= total_cells)
@@ -3264,6 +3286,13 @@ printTableAddCell(printTableContent *const content, char *cell,
 		fprintf(stderr, _("Cannot add cell to table content: "
 						  "total cell count of %ld exceeded, cells added: %ld.\n"),
 				total_cells, content->cellsadded);
+=======
+	total_cells = (uint64) content->ncolumns * content->nrows;
+	if (content->cellsadded >= total_cells)
+	{
+		fprintf(stderr, _("Cannot add cell to table content: total cell count of %" PRIu64 " exceeded.\n"),
+				total_cells);
+>>>>>>> REL_18_BETA1_branch
 		exit(EXIT_FAILURE);
 	}
 
@@ -3347,10 +3376,17 @@ printTableCleanup(printTableContent *const content)
 {
 	if (content->cellmustfree)
 	{
+<<<<<<< HEAD
 		long		i;
 		long		total_cells;
 		total_cells = (long)content->ncolumns * (long)content->nrows;
 		for (i = 0; i < total_cells; i++)
+=======
+		uint64		total_cells;
+
+		total_cells = (uint64) content->ncolumns * content->nrows;
+		for (uint64 i = 0; i < total_cells; i++)
+>>>>>>> REL_18_BETA1_branch
 		{
 			if (content->cellmustfree[i])
 				free(unconstify(char *, content->cells[i]));

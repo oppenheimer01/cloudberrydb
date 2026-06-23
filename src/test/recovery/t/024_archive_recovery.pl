@@ -1,9 +1,9 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test for archive recovery of WAL generated with wal_level=minimal
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -72,11 +72,23 @@ sub test_recovery_wal_level_minimal
 		has_restoring => 1,
 		standby => $standby_setting);
 
+<<<<<<< HEAD
 	# Cloudberry: use start() instead of raw pg_ctl to get proper gp options.
 	# Cloudberry emits a WARNING (not FATAL) for wal_level=minimal WAL and
 	# continues recovery, so we start the node, wait for it to be ready,
 	# check for the warning, then stop it.
 	$recovery_node->start;
+=======
+	# Use run_log instead of recovery_node->start because this test expects
+	# that the server ends with an error during recovery.
+	run_log(
+		[
+			'pg_ctl',
+			'--pgdata' => $recovery_node->data_dir,
+			'--log' => $recovery_node->logfile,
+			'start',
+		]);
+>>>>>>> REL_18_BETA1_branch
 
 	# Wait a moment for WAL replay to process the wal_level change record
 	sleep(2);
@@ -84,8 +96,13 @@ sub test_recovery_wal_level_minimal
 	# Confirm that the archive recovery logs a warning about wal_level=minimal
 	my $logfile = slurp_file($recovery_node->logfile());
 	ok( $logfile =~
+<<<<<<< HEAD
 		  qr/WARNING: .* WAL was generated with wal_level=minimal/,
 		"$node_text logs a warning because it finds WAL generated with wal_level=minimal"
+=======
+		  qr/FATAL: .* WAL was generated with "wal_level=minimal", cannot continue recovering/,
+		"$node_text ends with an error because it finds WAL generated with \"wal_level=minimal\""
+>>>>>>> REL_18_BETA1_branch
 	);
 
 	$recovery_node->stop;

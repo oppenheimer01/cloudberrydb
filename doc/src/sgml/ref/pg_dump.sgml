@@ -36,16 +36,20 @@ PostgreSQL documentation
   <title>Description</title>
 
   <para>
-   <application>pg_dump</application> is a utility for backing up a
+   <application>pg_dump</application> is a utility for exporting a
    <productname>PostgreSQL</productname> database. It makes consistent
-   backups even if the database is being used concurrently.
+   exports even if the database is being used concurrently.
    <application>pg_dump</application> does not block other users
    accessing the database (readers or writers).
+   Note, however, that except in simple cases,
+   <application>pg_dump</application> is generally not the right choice for
+   taking regular backups of production databases.  See <xref
+   linkend="backup"/> for further discussion.
   </para>
 
   <para>
    <application>pg_dump</application> only dumps a single database.
-   To back up an entire cluster, or to back up global objects that are
+   To export an entire cluster, or to export global objects that are
    common to all databases in a cluster (such as roles and tablespaces),
    use <xref linkend="app-pg-dumpall"/>.
   </para>
@@ -76,7 +80,7 @@ PostgreSQL documentation
    <application>pg_restore</application>,
    <application>pg_dump</application> provides a flexible archival and
    transfer mechanism. <application>pg_dump</application> can be used to
-   backup an entire database, then <application>pg_restore</application>
+   export an entire database, then <application>pg_restore</application>
    can be used to examine the archive and/or select which parts of the
    database are to be restored. The most flexible output file formats are
    the <quote>custom</quote> format (<option>-Fc</option>) and the
@@ -131,7 +135,7 @@ PostgreSQL documentation
       <term><option>--data-only</option></term>
       <listitem>
        <para>
-        Dump only the data, not the schema (data definitions).
+        Dump only the data, not the schema (data definitions) or statistics.
         Table data, large objects, and sequence values are dumped.
        </para>
 
@@ -149,13 +153,15 @@ PostgreSQL documentation
       <listitem>
        <para>
         Include large objects in the dump.  This is the default behavior
-        except when <option>--schema</option>, <option>--table</option>, or
-        <option>--schema-only</option> is specified.  The <option>-b</option>
-        switch is therefore only useful to add large objects to dumps
-        where a specific schema or table has been requested.  Note that
-        large objects are considered data and therefore will be included when
-        <option>--data-only</option> is used, but not
-        when <option>--schema-only</option> is.
+        except when <option>--schema</option>, <option>--table</option>,
+        <option>--schema-only</option>, <option>--statistics-only</option>, or
+        <option>--no-data</option> is specified.  The <option>-b</option>
+        switch is therefore only useful to add large objects to dumps where a
+        specific schema or table has been requested.  Note that large objects
+        are considered data and therefore will be included when
+        <option>--data-only</option> is used, but not when
+        <option>--schema-only</option> or <option>--statistics-only</option>
+        is.
        </para>
       </listitem>
      </varlistentry>
@@ -524,10 +530,11 @@ PostgreSQL documentation
       <term><option>--schema-only</option></term>
       <listitem>
        <para>
-        Dump only the object definitions (schema), not data.
+        Dump only the object definitions (schema), not data or statistics.
        </para>
        <para>
-        This option is the inverse of <option>--data-only</option>.
+        This option cannot be used with <option>--data-only</option>
+        or <option>--statistics-only</option>.
         It is similar to, but for historical reasons not identical to,
         specifying
         <option>--section=pre-data --section=post-data</option>.
@@ -749,7 +756,8 @@ PostgreSQL documentation
       <term><option>--disable-triggers</option></term>
       <listitem>
        <para>
-        This option is relevant only when creating a data-only dump.
+        This option is relevant only when creating a dump that includes data
+        but does not include schema.
         It instructs <application>pg_dump</application> to include commands
         to temporarily disable triggers on the target tables while
         the data is restored.  Use this if you have referential
@@ -795,6 +803,27 @@ PostgreSQL documentation
      </varlistentry>
 
      <varlistentry>
+      <term><option>--exclude-extension=<replaceable class="parameter">pattern</replaceable></option></term>
+      <listitem>
+       <para>
+        Do not dump any extensions matching <replaceable
+        class="parameter">pattern</replaceable>.  The pattern is
+        interpreted according to the same rules as for <option>-e</option>.
+        <option>--exclude-extension</option> can be given more than once to exclude extensions
+        matching any of several patterns.
+       </para>
+
+       <para>
+        When both <option>-e</option> and <option>--exclude-extension</option> are given, the behavior
+        is to dump just the extensions that match at least one <option>-e</option>
+        switch but no <option>--exclude-extension</option> switches.  If <option>--exclude-extension</option>
+        appears without <option>-e</option>, then extensions matching <option>--exclude-extension</option> are
+        excluded from what is otherwise a normal dump.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><option>--exclude-table-and-children=<replaceable class="parameter">pattern</replaceable></option></term>
       <listitem>
        <para>
@@ -820,7 +849,8 @@ PostgreSQL documentation
         though you do not need the data in it.
        </para>
        <para>
-        To exclude data for all tables in the database, see <option>--schema-only</option>.
+        To exclude data for all tables in the database, see <option>--schema-only</option>
+        or <option>--statistics-only</option>.
        </para>
       </listitem>
      </varlistentry>
@@ -845,6 +875,114 @@ PostgreSQL documentation
         floating-point data, instead of the maximum available precision.
         Routine dumps made for backup purposes should not use this option.
        </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--filter=<replaceable class="parameter">filename</replaceable></option></term>
+      <listitem>
+       <para>
+        Specify a filename from which to read patterns for objects to include
+        or exclude from the dump. The patterns are interpreted according to the
+        same rules as the corresponding options:
+        <option>-t</option>/<option>--table</option>,
+        <option>--table-and-children</option>,
+        <option>-T</option>/<option>--exclude-table</option>, and
+        <option>--exclude-table-and-children</option> for tables,
+        <option>-n</option>/<option>--schema</option> and
+        <option>-N</option>/<option>--exclude-schema</option> for schemas,
+        <option>--include-foreign-data</option> for data on foreign servers,
+        <option>--exclude-table-data</option> and
+        <option>--exclude-table-data-and-children</option> for table data, and
+        <option>-e</option>/<option>--extension</option> and
+        <option>--exclude-extension</option> for extensions.
+        To read from <literal>STDIN</literal>, use <filename>-</filename> as the
+        filename.  The <option>--filter</option> option can be specified in
+        conjunction with the above listed options for including or excluding
+        objects, and can also be specified more than once for multiple filter
+        files.
+       </para>
+
+       <para>
+        The file lists one object pattern per row, with the following format:
+<synopsis>
+{ include | exclude } { extension | foreign_data | table | table_and_children | table_data | table_data_and_children | schema } <replaceable class="parameter">PATTERN</replaceable>
+</synopsis>
+       </para>
+
+       <para>
+        The first keyword specifies whether the objects matched by the pattern
+        are to be included or excluded. The second keyword specifies the type
+        of object to be filtered using the pattern:
+        <itemizedlist>
+         <listitem>
+          <para>
+           <literal>extension</literal>: extensions. This works like the
+           <option>-e</option>/<option>--extension</option> or
+           <option>--exclude-extension</option> option.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>foreign_data</literal>: data on foreign servers. This works like
+           the <option>--include-foreign-data</option> option. This keyword can
+           only be used with the <literal>include</literal> keyword.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>table</literal>: tables. This works like the
+           <option>-t</option>/<option>--table</option> or
+           <option>-T</option>/<option>--exclude-table</option> option.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>table_and_children</literal>: tables including any partitions
+           or inheritance child tables. This works like the
+           <option>--table-and-children</option> or
+           <option>--exclude-table-and-children</option> option.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>table_data</literal>: table data of any tables matching
+           <replaceable>pattern</replaceable>. This works like the
+           <option>--exclude-table-data</option> option. This keyword can only
+           be used with the <literal>exclude</literal> keyword.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>table_data_and_children</literal>: table data of any tables
+           matching <replaceable>pattern</replaceable> as well as any partitions
+           or inheritance children of the table(s). This works like the
+           <option>--exclude-table-data-and-children</option> option. This
+           keyword can only be used with the <literal>exclude</literal> keyword.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           <literal>schema</literal>: schemas. This works like the
+           <option>-n</option>/<option>--schema</option> or
+           <option>-N</option>/<option>--exclude-schema</option> option.
+          </para>
+         </listitem>
+        </itemizedlist>
+       </para>
+
+       <para>
+        Lines starting with <literal>#</literal> are considered comments and
+        ignored. Comments can be placed after an object pattern row as well.
+        Blank lines are also ignored. See <xref linkend="app-psql-patterns"/>
+        for how to perform quoting in patterns.
+       </para>
+
+       <para>
+        Example files are listed below in the <xref linkend="pg-dump-examples"/>
+        section.
+       </para>
+
       </listitem>
      </varlistentry>
 
@@ -954,7 +1092,25 @@ PostgreSQL documentation
       <term><option>--no-comments</option></term>
       <listitem>
        <para>
-        Do not dump comments.
+        Do not dump <command>COMMENT</command> commands.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-data</option></term>
+      <listitem>
+       <para>
+        Do not dump data.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-policies</option></term>
+      <listitem>
+       <para>
+        Do not dump row security policies.
        </para>
       </listitem>
      </varlistentry>
@@ -969,10 +1125,28 @@ PostgreSQL documentation
      </varlistentry>
 
      <varlistentry>
+      <term><option>--no-schema</option></term>
+      <listitem>
+       <para>
+        Do not dump schema (data definitions).
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><option>--no-security-labels</option></term>
       <listitem>
        <para>
         Do not dump security labels.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--no-statistics</option></term>
+      <listitem>
+       <para>
+        Do not dump statistics.
        </para>
       </listitem>
      </varlistentry>
@@ -1138,12 +1312,25 @@ PostgreSQL documentation
          </para>
          <para>
           The data section contains actual table data, large-object
-          contents, and sequence values.
+          contents, statistics for tables and materialized views and
+          sequence values.
           Post-data items include definitions of indexes, triggers, rules,
-          and constraints other than validated check constraints.
+          statistics for indexes, and constraints other than validated check
+          constraints.
           Pre-data items include all other data definition items.
          </para>
        </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--sequence-data</option></term>
+      <listitem>
+       <para>
+        Include sequence data in the dump.  This is the default behavior except
+        when <option>--no-data</option>, <option>--schema-only</option>, or
+        <option>--statistics-only</option> is specified.
+       </para>
+      </listitem>
      </varlistentry>
 
      <varlistentry>
@@ -1203,6 +1390,16 @@ PostgreSQL documentation
      </varlistentry>
 
      <varlistentry>
+      <term><option>--statistics-only</option></term>
+      <listitem>
+       <para>
+        Dump only the statistics, not the schema (data definitions) or data.
+        Statistics for tables, materialized views, and indexes are dumped.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><option>--strict-names</option></term>
       <listitem>
        <para>
@@ -1211,16 +1408,40 @@ PostgreSQL documentation
         schema (<option>-n</option>/<option>--schema</option>) and
         table (<option>-t</option>/<option>--table</option>) pattern
         match at least one extension/schema/table in the database to be dumped.
+        This also applies to filters used with <option>--filter</option>.
         Note that if none of the extension/schema/table patterns find
         matches, <application>pg_dump</application> will generate an error
         even without <option>--strict-names</option>.
        </para>
        <para>
         This option has no effect
-        on <option>-N</option>/<option>--exclude-schema</option>,
+        on <option>--exclude-extension</option>,
+        <option>-N</option>/<option>--exclude-schema</option>,
         <option>-T</option>/<option>--exclude-table</option>,
         or <option>--exclude-table-data</option>.  An exclude pattern failing
         to match any objects is not considered an error.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--sync-method=<replaceable class="parameter">method</replaceable></option></term>
+      <listitem>
+       <para>
+        When set to <literal>fsync</literal>, which is the default,
+        <command>pg_dump --format=directory</command> will recursively open and
+        synchronize all files in the archive directory.
+       </para>
+       <para>
+        On Linux, <literal>syncfs</literal> may be used instead to ask the
+        operating system to synchronize the whole file system that contains the
+        archive directory.  See <xref linkend="guc-recovery-init-sync-method"/>
+        for information about the caveats to be aware of when using
+        <literal>syncfs</literal>.
+       </para>
+       <para>
+        This option has no effect when <option>--no-sync</option> is used or
+        <option>--format</option> is not set to <literal>directory</literal>.
        </para>
       </listitem>
      </varlistentry>
@@ -1249,6 +1470,33 @@ PostgreSQL documentation
         properly.  Also, a dump using <command>SET SESSION AUTHORIZATION</command>
         will certainly require superuser privileges to restore correctly,
         whereas <command>ALTER OWNER</command> requires lesser privileges.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--with-data</option></term>
+      <listitem>
+       <para>
+        Dump data. This is the default.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--with-schema</option></term>
+      <listitem>
+       <para>
+        Dump schema (data definitions). This is the default.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--with-statistics</option></term>
+      <listitem>
+       <para>
+        Dump statistics. This is the default.
        </para>
       </listitem>
      </varlistentry>
@@ -1459,7 +1707,7 @@ CREATE DATABASE foo WITH TEMPLATE template0;
   </para>
 
   <para>
-   When a data-only dump is chosen and the option <option>--disable-triggers</option>
+   When a dump without schema is chosen and the option <option>--disable-triggers</option>
    is used, <application>pg_dump</application> emits commands
    to disable triggers on user tables before inserting the data,
    and then commands to re-enable them after the data has been
@@ -1468,12 +1716,14 @@ CREATE DATABASE foo WITH TEMPLATE template0;
   </para>
 
   <para>
-   The dump file produced by <application>pg_dump</application>
-   does not contain the statistics used by the optimizer to make
-   query planning decisions.  Therefore, it is wise to run
-   <command>ANALYZE</command> after restoring from a dump file
-   to ensure optimal performance; see <xref linkend="vacuum-for-statistics"/>
-   and <xref linkend="autovacuum"/> for more information.
+   By default, <command>pg_dump</command> will include most optimizer
+   statistics in the resulting dump file.  However, some statistics may not be
+   included, such as those created explicitly with <xref
+   linkend="sql-createstatistics"/> or custom statistics added by an
+   extension.  Therefore, it may be useful to run <command>ANALYZE</command>
+   after restoring from a dump file to ensure optimal performance; see <xref
+   linkend="vacuum-for-statistics"/> and <xref linkend="autovacuum"/> for more
+   information.
   </para>
 
   <para>
@@ -1510,7 +1760,7 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    truncate the target tables before initiating a new full table copy.  If users
    intend to copy initial data during refresh they must create the slot with
    <literal>two_phase = false</literal>.  After the initial sync, the
-   <link linkend="sql-createsubscription-with-two-phase"><literal>two_phase</literal></link>
+   <link linkend="sql-createsubscription-params-with-two-phase"><literal>two_phase</literal></link>
    option will be automatically enabled by the subscriber if the subscription
    had been originally created with <literal>two_phase = true</literal> option.
   </para>
@@ -1522,12 +1772,15 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    restore process and prevent potential conflicts with
    non-default <application>psql</application> configurations.
   </para>
+<<<<<<< HEAD
 
   <para>
    <application>pg_dump</application> also supports a
    <literal>--binary-upgrade</> option for upgrade utility usage.
   </para>
 
+=======
+>>>>>>> REL_18_BETA1_branch
  </refsect1>
 
  <refsect1 id="pg-dump-examples" xreflabel="Examples">
@@ -1647,6 +1900,19 @@ CREATE DATABASE foo WITH TEMPLATE template0;
 
 <screen>
 <prompt>$</prompt> <userinput>pg_dump -t "\"MixedCaseName\"" mydb &gt; mytab.sql</userinput>
+</screen></para>
+
+  <para>
+   To dump all tables whose names start with <literal>mytable</literal>, except
+   for table <literal>mytable2</literal>, specify a filter file
+   <filename>filter.txt</filename> like:
+<programlisting>
+include table mytable*
+exclude table mytable2
+</programlisting>
+
+<screen>
+<prompt>$</prompt> <userinput>pg_dump --filter=filter.txt mydb &gt; db.sql</userinput>
 </screen></para>
 
  </refsect1>

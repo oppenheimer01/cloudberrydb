@@ -54,7 +54,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
   <title>Parameters</title>
 
   <variablelist>
-   <varlistentry id="sql-createpublication-name">
+   <varlistentry id="sql-createpublication-params-name">
     <term><replaceable class="parameter">name</replaceable></term>
     <listitem>
      <para>
@@ -63,7 +63,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
     </listitem>
    </varlistentry>
 
-   <varlistentry id="sql-createpublication-for-table">
+   <varlistentry id="sql-createpublication-params-for-table">
     <term><literal>FOR TABLE</literal></term>
     <listitem>
      <para>
@@ -89,8 +89,11 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
 
      <para>
       When a column list is specified, only the named columns are replicated.
-      If no column list is specified, all columns of the table are replicated
-      through this publication, including any columns added later. It has no
+      The column list can contain stored generated columns as well. If the
+      column list is omitted, the publication will replicate all non-generated
+      columns (including any added in the future) by default. Stored generated
+      columns can also be replicated if <literal>publish_generated_columns</literal>
+      is set to <literal>stored</literal>. Specifying a column list has no
       effect on <literal>TRUNCATE</literal> commands. See
       <xref linkend="logical-replication-col-lists"/> for details about column
       lists.
@@ -117,7 +120,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
     </listitem>
    </varlistentry>
 
-   <varlistentry id="sql-createpublication-for-all-tables">
+   <varlistentry id="sql-createpublication-params-for-all-tables">
     <term><literal>FOR ALL TABLES</literal></term>
     <listitem>
      <para>
@@ -127,7 +130,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
     </listitem>
    </varlistentry>
 
-   <varlistentry id="sql-createpublication-for-tables-in-schema">
+   <varlistentry id="sql-createpublication-params-for-tables-in-schema">
     <term><literal>FOR TABLES IN SCHEMA</literal></term>
     <listitem>
      <para>
@@ -158,7 +161,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
     </listitem>
    </varlistentry>
 
-   <varlistentry id="sql-createpublication-with">
+   <varlistentry id="sql-createpublication-params-with">
     <term><literal>WITH ( <replaceable class="parameter">publication_parameter</replaceable> [= <replaceable class="parameter">value</replaceable>] [, ... ] )</literal></term>
     <listitem>
      <para>
@@ -166,7 +169,7 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
       following parameters are supported:
 
       <variablelist>
-       <varlistentry id="sql-createpublication-with-publish">
+       <varlistentry id="sql-createpublication-params-with-publish">
         <term><literal>publish</literal> (<type>string</type>)</term>
         <listitem>
          <para>
@@ -188,7 +191,43 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
         </listitem>
        </varlistentry>
 
-       <varlistentry id="sql-createpublication-with-publish-via-partition-root">
+       <varlistentry id="sql-createpublication-params-with-publish-generated-columns">
+        <term><literal>publish_generated_columns</literal> (<type>enum</type>)</term>
+        <listitem>
+         <para>
+          Specifies whether the generated columns present in the tables
+          associated with the publication should be replicated. Possible values
+          are <literal>none</literal> and <literal>stored</literal>.
+         </para>
+
+         <para>
+          The default is <literal>none</literal> meaning the generated
+          columns present in the tables associated with publication will not be
+          replicated.
+         </para>
+
+         <para>
+          If set to <literal>stored</literal>, the stored generated columns
+          present in the tables associated with publication will be replicated.
+         </para>
+
+         <note>
+          <para>
+           If the subscriber is from a release prior to 18, then initial table
+           synchronization won't copy generated columns even if parameter
+           <literal>publish_generated_columns</literal> is <literal>stored</literal>
+           in the publisher.
+          </para>
+         </note>
+
+         <para>
+          See <xref linkend="logical-replication-gencols"/> for more details about
+          logical replication of generated columns.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry id="sql-createpublication-params-with-publish-via-partition-root">
         <term><literal>publish_via_partition_root</literal> (<type>boolean</type>)</term>
         <listitem>
          <para>
@@ -288,6 +327,14 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
    user-defined functions, user-defined operators, user-defined types,
    user-defined collations, non-immutable built-in functions, or references to
    system columns.
+  </para>
+
+  <para>
+   The generated columns that are part of <literal>REPLICA IDENTITY</literal>
+   must be published explicitly either by listing them in the column list or
+   by enabling the <literal>publish_generated_columns</literal> option, in
+   order for <command>UPDATE</command> and <command>DELETE</command> operations
+   to be published.
   </para>
 
   <para>

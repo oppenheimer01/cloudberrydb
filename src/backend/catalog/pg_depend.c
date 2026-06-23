@@ -3,7 +3,7 @@
  * pg_depend.c
  *	  routines to support manipulation of the pg_depend relation
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -23,7 +23,11 @@
 #include "catalog/pg_constraint.h"
 #include "catalog/pg_depend.h"
 #include "catalog/pg_extension.h"
+<<<<<<< HEAD
 #include "catalog/pg_type.h"
+=======
+#include "catalog/partition.h"
+>>>>>>> REL_18_BETA1_branch
 #include "commands/extension.h"
 #include "miscadmin.h"
 #include "utils/fmgroids.h"
@@ -36,7 +40,7 @@ static bool isObjectPinned(const ObjectAddress *object);
 
 
 /*
- * Record a dependency between 2 objects via their respective objectAddress.
+ * Record a dependency between 2 objects via their respective ObjectAddress.
  * The first argument is the dependent object, the second the one it
  * references.
  *
@@ -1014,10 +1018,29 @@ getOwnedSequences(Oid relid)
  * Get owned identity sequence, error if not exactly one.
  */
 Oid
-getIdentitySequence(Oid relid, AttrNumber attnum, bool missing_ok)
+getIdentitySequence(Relation rel, AttrNumber attnum, bool missing_ok)
 {
-	List	   *seqlist = getOwnedSequences_internal(relid, attnum, DEPENDENCY_INTERNAL);
+	Oid			relid = RelationGetRelid(rel);
+	List	   *seqlist;
 
+	/*
+	 * The identity sequence is associated with the topmost partitioned table,
+	 * which might have column order different than the given partition.
+	 */
+	if (RelationGetForm(rel)->relispartition)
+	{
+		List	   *ancestors = get_partition_ancestors(relid);
+		const char *attname = get_attname(relid, attnum, false);
+
+		relid = llast_oid(ancestors);
+		attnum = get_attnum(relid, attname);
+		if (attnum == InvalidAttrNumber)
+			elog(ERROR, "cache lookup failed for attribute \"%s\" of relation %u",
+				 attname, relid);
+		list_free(ancestors);
+	}
+
+	seqlist = getOwnedSequences_internal(relid, attnum, DEPENDENCY_INTERNAL);
 	if (list_length(seqlist) > 1)
 		elog(ERROR, "more than one owned sequence found");
 	else if (seqlist == NIL)

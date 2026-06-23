@@ -18,9 +18,13 @@
  * everything that should be freed.  See utils/mmgr/README for more info.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/palloc.h
@@ -129,7 +133,6 @@ extern volatile OOMTimeType alreadyReportedOOMTime;
  */
 extern void *MemoryContextAlloc(MemoryContext context, Size size);
 extern void *MemoryContextAllocZero(MemoryContext context, Size size);
-extern void *MemoryContextAllocZeroAligned(MemoryContext context, Size size);
 extern void *MemoryContextAllocExtended(MemoryContext context,
 										Size size, int flags);
 extern void *MemoryContextAllocAligned(MemoryContext context,
@@ -139,10 +142,10 @@ extern void *palloc(Size size);
 extern void *palloc0(Size size);
 extern void *palloc_extended(Size size, int flags);
 extern void *palloc_aligned(Size size, Size alignto, int flags);
-extern pg_nodiscard void *repalloc(void *pointer, Size size);
-extern pg_nodiscard void *repalloc_extended(void *pointer,
+pg_nodiscard extern void *repalloc(void *pointer, Size size);
+pg_nodiscard extern void *repalloc_extended(void *pointer,
 											Size size, int flags);
-extern pg_nodiscard void *repalloc0(void *pointer, Size oldsize, Size size);
+pg_nodiscard extern void *repalloc0(void *pointer, Size oldsize, Size size);
 extern void pfree(void *pointer);
 
 /*
@@ -182,22 +185,9 @@ pg_nodiscard extern void *repalloc_mul_extended(void *p, Size s1, Size s2,
 #define repalloc0_array(pointer, type, oldcount, count) ((type *) repalloc0(pointer, mul_size(sizeof(type), oldcount), mul_size(sizeof(type), count)))
 #define repalloc_array_extended(pointer, type, count, flags) ((type *) repalloc_mul_extended(pointer, sizeof(type), count, flags))
 
-/*
- * The result of palloc() is always word-aligned, so we can skip testing
- * alignment of the pointer when deciding which MemSet variant to use.
- * Note that this variant does not offer any advantage, and should not be
- * used, unless its "sz" argument is a compile-time constant; therefore, the
- * issue that it evaluates the argument multiple times isn't a problem in
- * practice.
- */
-#define palloc0fast(sz) \
-	( MemSetTest(0, sz) ? \
-		MemoryContextAllocZeroAligned(CurrentMemoryContext, sz) : \
-		MemoryContextAllocZero(CurrentMemoryContext, sz) )
-
 /* Higher-limit allocators. */
 extern void *MemoryContextAllocHuge(MemoryContext context, Size size);
-extern pg_nodiscard void *repalloc_huge(void *pointer, Size size);
+pg_nodiscard extern void *repalloc_huge(void *pointer, Size size);
 
 /*
  * Although this header file is nominally backend-only, certain frontend

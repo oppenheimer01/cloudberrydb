@@ -12,6 +12,12 @@
 -- row in the linked-to table.  However, if we want to enforce that a link
 -- field can't be 0, we have to check it here.
 
+-- directory paths and dlsuffix are passed to us in environment variables
+\getenv libdir PG_LIBDIR
+\getenv dlsuffix PG_DLSUFFIX
+
+\set regresslib :libdir '/regress' :dlsuffix
+
 -- **************** pg_type ****************
 
 -- Look for illegal values in pg_type fields.
@@ -375,26 +381,28 @@ ORDER BY 1;
 
 SELECT c1.oid, c1.relname
 FROM pg_class as c1
-WHERE relkind NOT IN ('r', 'i', 'S', 't', 'v', 'm', 'c', 'f', 'p') OR
+WHERE relkind NOT IN ('r', 'i', 'S', 't', 'v', 'm', 'c', 'f', 'p', 'I') OR
     relpersistence NOT IN ('p', 'u', 't') OR
     relreplident NOT IN ('d', 'n', 'f', 'i');
 
--- All tables and indexes should have an access method.
+-- All tables, indexes, partitioned indexes and matviews should have an
+-- access method.
 SELECT c1.oid, c1.relname
 FROM pg_class as c1
-WHERE c1.relkind NOT IN ('S', 'v', 'f', 'c') and
+WHERE c1.relkind NOT IN ('S', 'v', 'f', 'c', 'p') and
     c1.relam = 0;
 
--- Conversely, sequences, views, types shouldn't have them
+-- Conversely, sequences, views, foreign tables, types and partitioned
+-- tables shouldn't have them.
 SELECT c1.oid, c1.relname
 FROM pg_class as c1
-WHERE c1.relkind IN ('S', 'v', 'f', 'c') and
+WHERE c1.relkind IN ('S', 'v', 'f', 'c', 'p') and
     c1.relam != 0;
 
--- Indexes should have AMs of type 'i'
+-- Indexes and partitioned indexes should have AMs of type 'i'.
 SELECT pc.oid, pc.relname, pa.amname, pa.amtype
 FROM pg_class as pc JOIN pg_am AS pa ON (pc.relam = pa.oid)
-WHERE pc.relkind IN ('i') and
+WHERE pc.relkind IN ('i', 'I') and
     pa.amtype != 'i';
 
 -- Tables, matviews etc should have AMs of type 't'
@@ -410,8 +418,7 @@ WHERE pc.relkind IN ('r', 't', 'm') and
 SELECT a1.attrelid, a1.attname
 FROM pg_attribute as a1
 WHERE a1.attrelid = 0 OR a1.atttypid = 0 OR a1.attnum = 0 OR
-    a1.attcacheoff != -1 OR a1.attinhcount < 0 OR
-    (a1.attinhcount = 0 AND NOT a1.attislocal);
+    a1.attinhcount < 0 OR (a1.attinhcount = 0 AND NOT a1.attislocal);
 
 -- Cross-check attnum against parent relation
 
@@ -446,6 +453,20 @@ WHERE a1.atttypid = t1.oid AND
      a1.attalign != t1.typalign OR
      a1.attbyval != t1.typbyval OR
      (a1.attstorage != t1.typstorage AND a1.attstorage != 'p'));
+
+-- Look for IsCatalogTextUniqueIndexOid() omissions.
+
+CREATE FUNCTION is_catalog_text_unique_index_oid(oid) RETURNS bool
+    AS :'regresslib', 'is_catalog_text_unique_index_oid'
+    LANGUAGE C STRICT;
+
+SELECT indexrelid::regclass
+FROM pg_index
+WHERE (is_catalog_text_unique_index_oid(indexrelid) <>
+       (indisunique AND
+        indexrelid < 16384 AND
+        EXISTS (SELECT 1 FROM pg_attribute
+                WHERE attrelid = indexrelid AND atttypid = 'text'::regtype)));
 
 -- **************** pg_range ****************
 

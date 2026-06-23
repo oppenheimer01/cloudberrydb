@@ -3,7 +3,7 @@
  *
  * Functions for generating WAL records
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/access/xloginsert.h
@@ -15,6 +15,7 @@
 #include "access/xlogdefs.h"
 #include "storage/block.h"
 #include "storage/buf.h"
+#include "storage/bufpage.h"
 #include "storage/relfilelocator.h"
 #include "utils/relcache.h"
 
@@ -37,6 +38,7 @@
 									 * will be skipped) */
 #define REGBUF_KEEP_DATA	0x10	/* include data even if a full-page image
 									 * is taken */
+#define REGBUF_NO_CHANGE	0x20	/* intentionally register clean buffer */
 
 typedef void * (*RecordAssembleFunc)(RmgrId rmid, uint8 info,
                                 XLogRecPtr RedoRecPtr, bool doPageWrites,
@@ -54,19 +56,19 @@ extern void XLogBeginInsert(void);
 extern void XLogSetRecordFlags(uint8 flags);
 extern XLogRecPtr XLogInsert(RmgrId rmid, uint8 info);
 extern void XLogEnsureRecordSpace(int max_block_id, int ndatas);
-extern void XLogRegisterData(char *data, uint32 len);
+extern void XLogRegisterData(const void *data, uint32 len);
 extern void XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags);
 extern void XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator,
-							  ForkNumber forknum, BlockNumber blknum, char *page,
+							  ForkNumber forknum, BlockNumber blknum, const PageData *page,
 							  uint8 flags);
-extern void XLogRegisterBufData(uint8 block_id, char *data, uint32 len);
+extern void XLogRegisterBufData(uint8 block_id, const void *data, uint32 len);
 extern void XLogResetInsertion(void);
 extern bool XLogCheckBufferNeedsBackup(Buffer buffer);
 
 extern XLogRecPtr log_newpage(RelFileLocator *rlocator, ForkNumber forknum,
-							  BlockNumber blkno, char *page, bool page_std);
+							  BlockNumber blkno, Page page, bool page_std);
 extern void log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
-						 BlockNumber *blknos, char **pages, bool page_std);
+						 BlockNumber *blknos, Page *pages, bool page_std);
 extern XLogRecPtr log_newpage_buffer(Buffer buffer, bool page_std);
 extern void log_newpage_range(Relation rel, ForkNumber forknum,
 							  BlockNumber startblk, BlockNumber endblk, bool page_std);

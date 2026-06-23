@@ -8,10 +8,17 @@
 #
 msgid ""
 msgstr ""
+<<<<<<< HEAD
 "Project-Id-Version: PostgreSQL 16\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
 "POT-Creation-Date: 2024-07-20 21:27+0000\n"
 "PO-Revision-Date: 2024-09-16 16:35+0200\n"
+=======
+"Project-Id-Version: PostgreSQL 17\n"
+"Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+"POT-Creation-Date: 2024-08-23 14:08+0000\n"
+"PO-Revision-Date: 2024-09-16 16:28+0200\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Guillaume Lelarge <guillaume@lelarge.info>\n"
 "Language-Team: French <guillaume@lelarge.info>\n"
 "Language: fr\n"
@@ -106,22 +113,38 @@ msgstr "les fonctions PL/Tcl ne peuvent pas accepter le type %s"
 msgid "could not create internal procedure \"%s\": %s"
 msgstr "n'a pas pu créer la procédure interne « %s » : %s"
 
+<<<<<<< HEAD
 #: pltcl.c:3206
+=======
+#: pltcl.c:3207
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list must have even number of elements"
 msgstr "la liste de nom de colonne/valeur doit avoir un nombre pair d'éléments"
 
+<<<<<<< HEAD
 #: pltcl.c:3224
+=======
+#: pltcl.c:3225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list contains nonexistent column name \"%s\""
 msgstr "la liste de nom de colonne/valeur contient des noms de colonne inexistantes (« %s »)"
 
+<<<<<<< HEAD
 #: pltcl.c:3231
+=======
+#: pltcl.c:3232
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set system attribute \"%s\""
 msgstr "ne peut pas initialiser l'attribut système « %s »"
 
+<<<<<<< HEAD
 #: pltcl.c:3237
+=======
+#: pltcl.c:3238
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set generated column \"%s\""
 msgstr "ne peut pas initialiser la colonne générée « %s »"

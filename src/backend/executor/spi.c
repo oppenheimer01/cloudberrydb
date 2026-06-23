@@ -3,7 +3,7 @@
  * spi.c
  *				Server Programming Interface
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -23,7 +23,6 @@
 #include "commands/trigger.h"
 #include "executor/executor.h"
 #include "executor/spi_priv.h"
-#include "miscadmin.h"
 #include "tcop/pquery.h"
 #include "tcop/utility.h"
 #include "utils/builtins.h"
@@ -83,9 +82,14 @@ static int	_SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 static ParamListInfo _SPI_convert_params(int nargs, Oid *argtypes,
 										 Datum *Values, const char *Nulls);
 
+<<<<<<< HEAD
 static void _SPI_assign_query_mem(QueryDesc *queryDesc);
 
 static int	_SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount);
+=======
+static int	_SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount,
+						CachedPlanSource *plansource, int query_index);
+>>>>>>> REL_18_BETA1_branch
 
 static void _SPI_error_callback(void *arg);
 
@@ -569,7 +573,7 @@ AtEOSubXact_SPI(bool isCommit, SubTransactionId mySubid)
 		if (_SPI_current->execSubid >= mySubid)
 		{
 			_SPI_current->execSubid = InvalidSubTransactionId;
-			MemoryContextResetAndDeleteChildren(_SPI_current->execCxt);
+			MemoryContextReset(_SPI_current->execCxt);
 		}
 
 		/* throw away any tuple tables created within current subxact */
@@ -1718,7 +1722,8 @@ SPI_cursor_open_internal(const char *name, SPIPlanPtr plan,
 					  T_SelectStmt,
 					  plansource->commandTag,
 					  stmt_list,
-					  cplan);
+					  cplan,
+					  plansource);
 
 	/*
 	 * Set up options for portal.  Default SCROLL type is chosen the same way
@@ -2083,6 +2088,8 @@ SPI_result_code_string(int code)
 			return "SPI_OK_TD_REGISTER";
 		case SPI_OK_MERGE:
 			return "SPI_OK_MERGE";
+		case SPI_OK_MERGE_RETURNING:
+			return "SPI_OK_MERGE_RETURNING";
 	}
 	/* Unrecognized code ... return something useful ... */
 	sprintf(buf, "Unrecognized SPI code %d", code);
@@ -2529,6 +2536,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 	 */
 	if (snapshot != InvalidSnapshot)
 	{
+		/* this intentionally tests the options field not the derived value */
 		Assert(!options->allow_nonatomic);
 		if (options->read_only)
 		{
@@ -2568,6 +2576,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 		CachedPlanSource *plansource = (CachedPlanSource *) lfirst(lc1);
 		List	   *stmt_list;
 		ListCell   *lc2;
+		int			query_index = 0;
 
 		spicallbackarg.query = plansource->query_string;
 
@@ -2688,7 +2697,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 			 * Skip it when doing non-atomic execution, though (we rely
 			 * entirely on the Portal snapshot in that case).
 			 */
-			if (!options->read_only && !options->allow_nonatomic)
+			if (!options->read_only && !allow_nonatomic)
 			{
 				if (pushed_active_snap)
 					PopActiveSnapshot();
@@ -2775,6 +2784,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 					snap = InvalidSnapshot;
 
 				qdesc = CreateQueryDesc(stmt,
+										cplan,
 										plansource->query_string,
 										snap, crosscheck_snapshot,
 										dest,
@@ -2782,12 +2792,17 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 										_SPI_current->queryEnv,
 										0);
 
+<<<<<<< HEAD
 				/* GPDB hook for collecting query info */
 				if (query_info_collect_hook)
 					(*query_info_collect_hook)(METRICS_QUERY_SUBMIT, qdesc);
 			
 				res = _SPI_pquery(qdesc, fire_triggers,
 								  canSetTag ? options->tcount : 0);
+=======
+				res = _SPI_pquery(qdesc, fire_triggers, canSetTag ? options->tcount : 0,
+								  plansource, query_index);
+>>>>>>> REL_18_BETA1_branch
 				FreeQueryDesc(qdesc);
 			}
 			else
@@ -2799,10 +2814,10 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 				 * If we're not allowing nonatomic operations, tell
 				 * ProcessUtility this is an atomic execution context.
 				 */
-				if (_SPI_current->atomic || !options->allow_nonatomic)
-					context = PROCESS_UTILITY_QUERY;
-				else
+				if (allow_nonatomic)
 					context = PROCESS_UTILITY_QUERY_NONATOMIC;
+				else
+					context = PROCESS_UTILITY_QUERY;
 
 				InitializeQueryCompletion(&qc);
 				ProcessUtility(stmt,
@@ -2884,6 +2899,8 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
 				my_res = res;
 				goto fail;
 			}
+
+			query_index++;
 		}
 
 		/* Done with this plan, so release refcount */
@@ -2993,7 +3010,8 @@ _SPI_assign_query_mem(QueryDesc * queryDesc)
 }
 
 static int
-_SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
+_SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount,
+			CachedPlanSource *plansource, int query_index)
 {
 	int			operation = queryDesc->operation;
 	int			eflags;
@@ -3068,7 +3086,10 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 				res = SPI_OK_UPDATE;
 			break;
 		case CMD_MERGE:
-			res = SPI_OK_MERGE;
+			if (queryDesc->plannedstmt->hasReturning)
+				res = SPI_OK_MERGE_RETURNING;
+			else
+				res = SPI_OK_MERGE;
 			break;
 		default:
 			return SPI_ERROR_OPUNKNOWN;
@@ -3085,7 +3106,27 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 	else
 		eflags = EXEC_FLAG_SKIP_TRIGGERS;
 
+<<<<<<< HEAD
 	PG_TRY();
+=======
+	if (queryDesc->cplan)
+	{
+		ExecutorStartCachedPlan(queryDesc, eflags, plansource, query_index);
+		Assert(queryDesc->planstate);
+	}
+	else
+	{
+		if (!ExecutorStart(queryDesc, eflags))
+			elog(ERROR, "ExecutorStart() failed unexpectedly");
+	}
+
+	ExecutorRun(queryDesc, ForwardScanDirection, tcount);
+
+	_SPI_current->processed = queryDesc->estate->es_processed;
+
+	if ((res == SPI_OK_SELECT || queryDesc->plannedstmt->hasReturning) &&
+		queryDesc->dest->mydest == DestSPI)
+>>>>>>> REL_18_BETA1_branch
 	{
 		Oid			relationOid = InvalidOid; 	/* relation that is modified */
 		AutoStatsCmdType cmdType = AUTOSTATS_CMDTYPE_SENTINEL; 	/* command type */
@@ -3194,7 +3235,7 @@ _SPI_error_callback(void *arg)
 		switch (carg->mode)
 		{
 			case RAW_PARSE_PLPGSQL_EXPR:
-				errcontext("SQL expression \"%s\"", query);
+				errcontext("PL/pgSQL expression \"%s\"", query);
 				break;
 			case RAW_PARSE_PLPGSQL_ASSIGN1:
 			case RAW_PARSE_PLPGSQL_ASSIGN2:
@@ -3317,7 +3358,7 @@ _SPI_end_call(bool use_exec)
 		/* mark Executor context no longer in use */
 		_SPI_current->execSubid = InvalidSubTransactionId;
 		/* and free Executor memory */
-		MemoryContextResetAndDeleteChildren(_SPI_current->execCxt);
+		MemoryContextReset(_SPI_current->execCxt);
 	}
 
 	return 0;

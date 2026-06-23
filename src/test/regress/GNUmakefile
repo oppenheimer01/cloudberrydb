@@ -3,7 +3,7 @@
 # GNUmakefile--
 #    Makefile for src/test/regress (the regression tests)
 #
-# Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+# Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/test/regress/GNUmakefile
@@ -42,6 +42,7 @@ EXTRADEFS = '-DHOST_TUPLE="$(host_tuple)"' \
 all: pg_regress$(X) twophase_pqexecparams extended_protocol_resqueue
 
 pg_regress$(X): pg_regress.o pg_regress_main.o $(WIN32RES) | submake-libpgport
+<<<<<<< HEAD
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) $(LDFLAGS_EX) $(LIBS) -o $@
 extended_protocol_resqueue: extended_protocol_resqueue.c
 	$(CC) $(CPPFLAGS) -I../../../src/interfaces/libpq -L$(GPHOME)/lib -L../../../src/interfaces/libpq  -o $@ $< -lpq
@@ -54,6 +55,13 @@ regress_gp.o: override LDFLAGS += -L$(top_builddir)/src/interfaces/libpq
 
 twophase_pqexecparams: twophase_pqexecparams.c
 	$(CC) $(CPPFLAGS) $(rpath) -I$(top_builddir)/src/interfaces/libpq -L$(GPHOME)/lib -L$(top_builddir)/src/interfaces/libpq  -o $@ $< -lpq
+=======
+	$(CC) $(CFLAGS) $^ $(libpq_pgport) $(LDFLAGS) $(LDFLAGS_EX) $(LIBS) -o $@
+
+# dependencies ensure that path changes propagate
+pg_regress.o: pg_regress.c $(top_builddir)/src/port/pg_config_paths.h
+pg_regress.o: override CPPFLAGS := -I$(top_builddir)/src/port -I$(libpq_srcdir) $(EXTRADEFS) $(CPPFLAGS)
+>>>>>>> REL_18_BETA1_branch
 
 # note: because of the submake dependency, this rule's action is really a no-op
 $(top_builddir)/src/port/pg_config_paths.h: | submake-libpgport
@@ -134,6 +142,7 @@ installdirs-tests: installdirs
 	$(MKDIR_P)  $(patsubst $(srcdir)/%/,'$(DESTDIR)$(pkglibdir)/regress/%',$(sort $(dir $(regress_data_files))))
 
 
+<<<<<<< HEAD
 # Get some extra C modules from contrib/spi
 
 all: refint$(DLSUFFIX) autoinc$(DLSUFFIX) hooktest query_info_hook_test
@@ -186,6 +195,8 @@ hooktest:
 query_info_hook_test:
 	$(MAKE) -C $< $@
 
+=======
+>>>>>>> REL_18_BETA1_branch
 ##
 ## Run tests
 ##
@@ -272,9 +283,13 @@ bigcheck: all | temp-install
 ## Clean up
 ##
 
+<<<<<<< HEAD
 clean maintainer-clean: clean-lib
+=======
+clean distclean: clean-lib
+>>>>>>> REL_18_BETA1_branch
 # things built by `all' target
-	rm -f $(OBJS) refint$(DLSUFFIX) autoinc$(DLSUFFIX)
+	rm -f $(OBJS)
 	rm -f pg_regress_main.o pg_regress.o pg_regress$(X)
 	rm -f twophase_pqexecparams
 	$(MAKE) -C $(top_builddir)/contrib/spi clean

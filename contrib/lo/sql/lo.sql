@@ -67,4 +67,10 @@ DELETE FROM image;
 
 SELECT lo_get(43225);  -- gone
 
+<<<<<<< HEAD
+=======
+
+SELECT lo_oid(1::lo);
+
+>>>>>>> REL_18_BETA1_branch
 DROP TABLE image;

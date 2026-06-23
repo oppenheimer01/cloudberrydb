@@ -3,7 +3,7 @@
  * postgres_fdw.h
  *		  Foreign-data wrapper for remote PostgreSQL servers
  *
- * Portions Copyright (c) 2012-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2012-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  contrib/postgres_fdw/postgres_fdw.h
@@ -89,6 +89,7 @@ typedef struct PgFdwRelationInfo
 	/* Estimated size and cost for a scan, join, or grouping/aggregation. */
 	double		rows;
 	int			width;
+	int			disabled_nodes;
 	Cost		startup_cost;
 	Cost		total_cost;
 
@@ -145,6 +146,10 @@ typedef struct PgFdwRelationInfo
 										 * subquery? */
 	Relids		lower_subquery_rels;	/* all relids appearing in lower
 										 * subqueries */
+	Relids		hidden_subquery_rels;	/* relids, which can't be referred to
+										 * from upper relations, used
+										 * internally for equivalence member
+										 * search */
 
 	/*
 	 * Index of the relation.  It is used to create an alias to a subquery
@@ -170,7 +175,7 @@ typedef enum PgFdwSamplingMethod
 	ANALYZE_SAMPLE_AUTO,		/* choose by server version */
 	ANALYZE_SAMPLE_RANDOM,		/* remote random() */
 	ANALYZE_SAMPLE_SYSTEM,		/* TABLESAMPLE system */
-	ANALYZE_SAMPLE_BERNOULLI	/* TABLESAMPLE bernoulli */
+	ANALYZE_SAMPLE_BERNOULLI,	/* TABLESAMPLE bernoulli */
 } PgFdwSamplingMethod;
 
 /* in postgres_fdw.c */
@@ -185,7 +190,7 @@ extern void ReleaseConnection(PGconn *conn);
 extern unsigned int GetCursorNumber(PGconn *conn);
 extern unsigned int GetPrepStmtNumber(PGconn *conn);
 extern void do_sql_command(PGconn *conn, const char *sql);
-extern PGresult *pgfdw_get_result(PGconn *conn, const char *query);
+extern PGresult *pgfdw_get_result(PGconn *conn);
 extern PGresult *pgfdw_exec_query(PGconn *conn, const char *query,
 								  PgFdwConnState *state);
 extern void pgfdw_report_error(int elevel, PGresult *res, PGconn *conn,

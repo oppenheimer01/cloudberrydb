@@ -206,6 +206,10 @@ PREPARE p1 AS SELECT $1a;
 ERROR:  trailing junk after parameter at or near "$1a"
 LINE 1: PREPARE p1 AS SELECT $1a;
                              ^
+PREPARE p1 AS SELECT $2147483648;
+ERROR:  parameter number too large at or near "$2147483648"
+LINE 1: PREPARE p1 AS SELECT $2147483648;
+                             ^
 SELECT 0b;
 ERROR:  invalid binary integer at or near "0b"
 LINE 1: SELECT 0b;
@@ -345,6 +349,7 @@ PREPARE p1 AS SELECT $0_1;
 ERROR:  trailing junk after parameter at or near "$0_1"
 LINE 1: PREPARE p1 AS SELECT $0_1;
                              ^
+<<<<<<< HEAD
 --
 -- create required tables
 --
@@ -372,6 +377,8 @@ INSERT INTO INT4_NUMER_TBL(f1) VALUES ('123456     ');
 INSERT INTO INT4_NUMER_TBL(f1) VALUES ('    -123456');
 INSERT INTO INT4_NUMER_TBL(f1) VALUES ('2147483647');
 INSERT INTO INT4_NUMER_TBL(f1) VALUES ('-2147483647');
+=======
+>>>>>>> REL_18_BETA1_branch
 --
 -- Test implicit type conversions
 -- This fails for Postgres v6.1 (and earlier?)

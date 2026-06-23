@@ -36,7 +36,7 @@
  * to look like NO SCROLL cursors.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/portal.h
@@ -64,9 +64,9 @@
  * supports holdable cursors (the Executor results can be dumped into a
  * tuplestore for access after transaction completion).
  *
- * PORTAL_ONE_RETURNING: the portal contains a single INSERT/UPDATE/DELETE
- * query with a RETURNING clause (plus possibly auxiliary queries added by
- * rule rewriting).  On first execution, we run the portal to completion
+ * PORTAL_ONE_RETURNING: the portal contains a single INSERT/UPDATE/DELETE/
+ * MERGE query with a RETURNING clause (plus possibly auxiliary queries added
+ * by rule rewriting).  On first execution, we run the portal to completion
  * and dump the primary query's results into the portal tuplestore; the
  * results are then returned to the client as demanded.  (We can't support
  * suspension of the query partway through, because the AFTER TRIGGER code
@@ -92,7 +92,7 @@ typedef enum PortalStrategy
 	PORTAL_ONE_RETURNING,
 	PORTAL_ONE_MOD_WITH,
 	PORTAL_UTIL_SELECT,
-	PORTAL_MULTI_QUERY
+	PORTAL_MULTI_QUERY,
 } PortalStrategy;
 
 /*
@@ -108,7 +108,7 @@ typedef enum PortalStatus
 	PORTAL_QUEUE, 				/* portal is queued (cannot delete it) */
 	PORTAL_ACTIVE,				/* portal is running (can't delete it) */
 	PORTAL_DONE,				/* portal is finished (don't re-run it) */
-	PORTAL_FAILED				/* portal got error (can't re-run it) */
+	PORTAL_FAILED,				/* portal got error (can't re-run it) */
 } PortalStatus;
 
 typedef struct PortalData *Portal;
@@ -148,6 +148,7 @@ typedef struct PortalData
 	QueryCompletion qc;			/* command completion data for executed query */
 	List	   *stmts;			/* list of PlannedStmts */
 	CachedPlan *cplan;			/* CachedPlan, if stmts are from one */
+	CachedPlanSource *plansource;	/* CachedPlanSource, for cplan */
 
 	ParamListInfo portalParams; /* params to pass to query */
 	QueryEnvironment *queryEnv; /* environment for query */
@@ -155,7 +156,10 @@ typedef struct PortalData
 	/* Features/options */
 	PortalStrategy strategy;	/* see above */
 	int			cursorOptions;	/* DECLARE CURSOR option bits */
+<<<<<<< HEAD
 	bool		run_once;		/* unused */
+=======
+>>>>>>> REL_18_BETA1_branch
 
 	/* Status data */
 	PortalStatus status;		/* see above */
@@ -269,7 +273,8 @@ extern void PortalDefineQuery(Portal portal,
 							  NodeTag	  sourceTag, /* GPDB */
 							  CommandTag commandTag,
 							  List *stmts,
-							  CachedPlan *cplan);
+							  CachedPlan *cplan,
+							  CachedPlanSource *plansource);
 extern PlannedStmt *PortalGetPrimaryStmt(Portal portal);
 extern void PortalCreateHoldStore(Portal portal);
 extern void PortalHashTableDeleteAll(void);

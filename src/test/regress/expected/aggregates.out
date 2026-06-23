@@ -272,6 +272,31 @@ SELECT stddev_pop('nan'::numeric), stddev_samp('nan'::numeric);
         NaN |            
 (1 row)
 
+-- verify correct results for min(record) and max(record) aggregates
+SELECT max(row(a,b)) FROM aggtest;
+     max      
+--------------
+ (100,99.097)
+(1 row)
+
+SELECT max(row(b,a)) FROM aggtest;
+     max     
+-------------
+ (324.78,42)
+(1 row)
+
+SELECT min(row(a,b)) FROM aggtest;
+     min     
+-------------
+ (0,0.09561)
+(1 row)
+
+SELECT min(row(b,a)) FROM aggtest;
+     min     
+-------------
+ (0.09561,0)
+(1 row)
+
 -- verify correct results for null and NaN inputs
 select sum(null::int4) from generate_series(1,3);
  sum 
@@ -744,7 +769,7 @@ select array(select sum(x+y) s
                             QUERY PLAN                             
 -------------------------------------------------------------------
  Function Scan on pg_catalog.generate_series x
-   Output: (SubPlan 1)
+   Output: ARRAY(SubPlan 1)
    Function Call: generate_series(1, 3)
    SubPlan 1
      ->  Sort
@@ -921,7 +946,11 @@ explain (costs off)
                             QUERY PLAN                            
 ------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique1
@@ -941,7 +970,11 @@ explain (costs off)
                                 QUERY PLAN                                 
 ---------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique1
@@ -961,7 +994,11 @@ explain (costs off)
                                   QUERY PLAN                                  
 ------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique1
@@ -981,7 +1018,11 @@ explain (costs off)
                                   QUERY PLAN                                  
 ------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique1
@@ -1010,7 +1051,11 @@ explain (costs off)
                                    QUERY PLAN                                    
 ---------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique1
@@ -1032,7 +1077,11 @@ explain (costs off)
                                     QUERY PLAN                                    
 ----------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.tenthous
@@ -1052,7 +1101,11 @@ explain (costs off)
                                    QUERY PLAN                                   
 --------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.tenthous
@@ -1073,6 +1126,7 @@ select min(tenthous) from tenk1 where thousand = 33;
 explain (costs off)
   select f1, (select min(unique1) from tenk1 where unique1 > f1) AS gt
     from int4_tbl;
+<<<<<<< HEAD
                                  QUERY PLAN                                  
 -----------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -1086,6 +1140,18 @@ explain (costs off)
                                    ->  Seq Scan on tenk1
  Optimizer: Postgres query optimizer
 (10 rows)
+=======
+                                       QUERY PLAN                                        
+-----------------------------------------------------------------------------------------
+ Seq Scan on int4_tbl
+   SubPlan 2
+     ->  Result
+           InitPlan 1
+             ->  Limit
+                   ->  Index Only Scan using tenk1_unique1 on tenk1
+                         Index Cond: ((unique1 IS NOT NULL) AND (unique1 > int4_tbl.f1))
+(7 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select f1, (select min(unique1) from tenk1 where unique1 > f1) AS gt
   from int4_tbl;
@@ -1101,10 +1167,18 @@ select f1, (select min(unique1) from tenk1 where unique1 > f1) AS gt
 -- check some cases that were handled incorrectly in 8.3.0
 explain (costs off)
   select distinct max(unique2) from tenk1;
+<<<<<<< HEAD
                                 QUERY PLAN                                 
 ---------------------------------------------------------------------------
  Result
    InitPlan 1 (returns $0)  (slice1)
+=======
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ HashAggregate
+   Group Key: (InitPlan 1).col1
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique2
@@ -1121,10 +1195,18 @@ select distinct max(unique2) from tenk1;
 
 explain (costs off)
   select max(unique2) from tenk1 order by 1;
+<<<<<<< HEAD
                                 QUERY PLAN                                 
 ---------------------------------------------------------------------------
  Result
    InitPlan 1 (returns $0)  (slice1)
+=======
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Sort
+   Sort Key: ((InitPlan 1).col1)
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique2
@@ -1141,10 +1223,18 @@ select max(unique2) from tenk1 order by 1;
 
 explain (costs off)
   select max(unique2) from tenk1 order by max(unique2);
+<<<<<<< HEAD
                                 QUERY PLAN                                 
 ---------------------------------------------------------------------------
  Result
    InitPlan 1 (returns $0)  (slice1)
+=======
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Sort
+   Sort Key: ((InitPlan 1).col1)
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique2
@@ -1161,10 +1251,18 @@ select max(unique2) from tenk1 order by max(unique2);
 
 explain (costs off)
   select max(unique2) from tenk1 order by max(unique2)+1;
+<<<<<<< HEAD
                                 QUERY PLAN                                 
 ---------------------------------------------------------------------------
  Result
    InitPlan 1 (returns $0)  (slice1)
+=======
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Sort
+   Sort Key: (((InitPlan 1).col1 + 1))
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique2
@@ -1185,7 +1283,11 @@ explain (costs off)
 ---------------------------------------------------------------------------
  Sort
    Sort Key: (generate_series(1, 3)) DESC
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: tenk1.unique2
@@ -1210,7 +1312,11 @@ explain (costs off)
                         QUERY PLAN                        
 ----------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  ->  Result
@@ -1248,6 +1354,7 @@ explain (costs off)
                                             QUERY PLAN                                             
 ---------------------------------------------------------------------------------------------------
  Result
+<<<<<<< HEAD
    InitPlan 1 (returns $0)  (slice1)
      ->  Limit
            ->  Gather Motion 3:1  (slice2; segments: 3)
@@ -1262,6 +1369,20 @@ explain (costs off)
                              Index Cond: (f1 IS NOT NULL)
                        ->  Index Only Scan using minmaxtest3i on minmaxtest3 minmaxtest_4
    InitPlan 2 (returns $1)  (slice3)
+=======
+   InitPlan 1
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest.f1
+                 ->  Index Only Scan using minmaxtesti on minmaxtest minmaxtest_1
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest1i on minmaxtest1 minmaxtest_2
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest2i on minmaxtest2 minmaxtest_3
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest3i on minmaxtest3 minmaxtest_4
+   InitPlan 2
+>>>>>>> REL_18_BETA1_branch
      ->  Limit
            ->  Gather Motion 3:1  (slice4; segments: 3)
                  Merge Key: minmaxtest_5.f1
@@ -1287,6 +1408,7 @@ reset enable_seqscan;
 -- DISTINCT doesn't do anything useful here, but it shouldn't fail
 explain (costs off)
   select distinct min(f1), max(f1) from minmaxtest;
+<<<<<<< HEAD
                           QUERY PLAN                          
 --------------------------------------------------------------
  Finalize Aggregate
@@ -1299,6 +1421,37 @@ explain (costs off)
                      ->  Seq Scan on minmaxtest3 minmaxtest_4
  Optimizer: Postgres query optimizer
 (9 rows)
+=======
+                                         QUERY PLAN                                          
+---------------------------------------------------------------------------------------------
+ Unique
+   InitPlan 1
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest.f1
+                 ->  Index Only Scan using minmaxtesti on minmaxtest minmaxtest_1
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest1i on minmaxtest1 minmaxtest_2
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest2i on minmaxtest2 minmaxtest_3
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest3i on minmaxtest3 minmaxtest_4
+   InitPlan 2
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest_5.f1 DESC
+                 ->  Index Only Scan Backward using minmaxtesti on minmaxtest minmaxtest_6
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest1i on minmaxtest1 minmaxtest_7
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest2i on minmaxtest2 minmaxtest_8
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest3i on minmaxtest3 minmaxtest_9
+   ->  Sort
+         Sort Key: ((InitPlan 1).col1), ((InitPlan 2).col1)
+         ->  Result
+(26 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select distinct min(f1), max(f1) from minmaxtest;
  min | max 
@@ -1317,6 +1470,7 @@ set local enable_sort = off;
 explain (costs off)
   select f1, (select distinct min(t1.f1) from int4_tbl t1 where t1.f1 = t0.f1)
   from int4_tbl t0;
+<<<<<<< HEAD
                                  QUERY PLAN                                  
 -----------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -1330,6 +1484,20 @@ explain (costs off)
                                    ->  Seq Scan on int4_tbl t1
  Optimizer: Postgres query optimizer
 (10 rows)
+=======
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Seq Scan on int4_tbl t0
+   SubPlan 2
+     ->  HashAggregate
+           Group Key: (InitPlan 1).col1
+           InitPlan 1
+             ->  Limit
+                   ->  Seq Scan on int4_tbl t1
+                         Filter: ((f1 IS NOT NULL) AND (f1 = t0.f1))
+           ->  Result
+(9 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select f1, (select distinct min(t1.f1) from int4_tbl t1 where t1.f1 = t0.f1)
 from int4_tbl t0;
@@ -1481,6 +1649,73 @@ explain (costs off) select * from p_t1 group by a,b,c,d;
                ->  Seq Scan on p_t1_2
  Optimizer: Postgres query optimizer
 (7 rows)
+
+create unique index t2_z_uidx on t2(z);
+-- Ensure we don't remove any columns from the GROUP BY for a unique
+-- index on a NULLable column.
+explain (costs off) select y,z from t2 group by y,z;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: y, z
+   ->  Seq Scan on t2
+(3 rows)
+
+-- Make the column NOT NULL and ensure we remove the redundant column
+alter table t2 alter column z set not null;
+explain (costs off) select y,z from t2 group by y,z;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: z
+   ->  Seq Scan on t2
+(3 rows)
+
+-- When there are multiple supporting unique indexes and the GROUP BY contains
+-- columns to cover all of those, ensure we pick the index with the least
+-- number of columns so that we can remove more columns from the GROUP BY.
+explain (costs off) select x,y,z from t2 group by x,y,z;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: z
+   ->  Seq Scan on t2
+(3 rows)
+
+-- As above but try ordering the columns differently to ensure we get the
+-- same result.
+explain (costs off) select x,y,z from t2 group by z,x,y;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: z
+   ->  Seq Scan on t2
+(3 rows)
+
+-- Ensure we don't use a partial index as proof of functional dependency
+drop index t2_z_uidx;
+create index t2_z_uidx on t2 (z) where z > 0;
+explain (costs off) select y,z from t2 group by y,z;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: y, z
+   ->  Seq Scan on t2
+(3 rows)
+
+-- A unique index defined as NULLS NOT DISTINCT does not need a supporting NOT
+-- NULL constraint on the indexed columns.  Ensure the redundant columns are
+-- removed from the GROUP BY for such a table.
+drop index t2_z_uidx;
+alter table t2 alter column z drop not null;
+create unique index t2_z_uidx on t2(z) nulls not distinct;
+explain (costs off) select y,z from t2 group by y,z;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: z
+   ->  Seq Scan on t2
+(3 rows)
 
 drop table t1 cascade;
 NOTICE:  drop cascades to table t1c
@@ -1657,10 +1892,18 @@ reset enable_presorted_aggregate;
 -- Ensure we presort when the aggregate contains plain Vars
 explain (costs off)
 select sum(two order by two) filter (where two > 1) from tenk1;
+<<<<<<< HEAD
                    QUERY PLAN                   
 ------------------------------------------------
  Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
+=======
+          QUERY PLAN           
+-------------------------------
+ Aggregate
+   ->  Sort
+         Sort Key: two
+>>>>>>> REL_18_BETA1_branch
          ->  Seq Scan on tenk1
 (4 rows)
 
@@ -1668,6 +1911,7 @@ select sum(two order by two) filter (where two > 1) from tenk1;
 explain (costs off)
 select string_agg(distinct f1, ',') filter (where length(f1) > 1)
 from varchar_tbl;
+<<<<<<< HEAD
                    QUERY PLAN                   
 ------------------------------------------------
  Finalize Aggregate
@@ -1676,12 +1920,22 @@ from varchar_tbl;
                ->  Seq Scan on varchar_tbl
  Optimizer: Postgres query optimizer
 (5 rows)
+=======
+             QUERY PLAN              
+-------------------------------------
+ Aggregate
+   ->  Sort
+         Sort Key: f1
+         ->  Seq Scan on varchar_tbl
+(4 rows)
+>>>>>>> REL_18_BETA1_branch
 
 -- Ensure we don't presort when the aggregate's argument contains an
 -- explicit cast.
 explain (costs off)
 select string_agg(distinct f1::varchar(2), ',') filter (where length(f1) > 1)
 from varchar_tbl;
+<<<<<<< HEAD
                    QUERY PLAN                   
 ------------------------------------------------
  Aggregate
@@ -1689,6 +1943,13 @@ from varchar_tbl;
          ->  Seq Scan on varchar_tbl
  Optimizer: Postgres query optimizer
 (4 rows)
+=======
+          QUERY PLAN           
+-------------------------------
+ Aggregate
+   ->  Seq Scan on varchar_tbl
+(2 rows)
+>>>>>>> REL_18_BETA1_branch
 
 --
 -- Test combinations of DISTINCT and/or ORDER BY
@@ -2029,6 +2290,7 @@ select string_agg(distinct f1::text, ',' order by f1::text) from varchar_tbl;  -
  a,ab,abcd
 (1 row)
 
+<<<<<<< HEAD
 -- FILTER tests
 select min(unique1) filter (where unique1 > 100) from tenk1;
  min 
@@ -2397,6 +2659,10 @@ select least_agg(variadic array[q1,q2]) from int8_tbl;
 create table bytea_test_table(gpDistKey int, v bytea);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'gpdistkey' as the Apache Cloudberry data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+=======
+-- string_agg, min, max bytea tests
+create table bytea_test_table(v bytea);
+>>>>>>> REL_18_BETA1_branch
 select string_agg(v, '') from bytea_test_table;
  string_agg 
 ------------
@@ -2427,6 +2693,32 @@ select string_agg(v, decode('ee', 'hex')) from bytea_test_table;
  string_agg 
 ------------
  \xffeeaa
+(1 row)
+
+select min(v) from bytea_test_table;
+ min  
+------
+ \xaa
+(1 row)
+
+select max(v) from bytea_test_table;
+ max  
+------
+ \xff
+(1 row)
+
+insert into bytea_test_table values(decode('ffff','hex'));
+insert into bytea_test_table values(decode('aaaa','hex'));
+select min(v) from bytea_test_table;
+ min  
+------
+ \xaa
+(1 row)
+
+select max(v) from bytea_test_table;
+  max   
+--------
+ \xffff
 (1 row)
 
 drop table bytea_test_table;
@@ -2524,17 +2816,29 @@ select * from v_pagg_test order by y;
  9 |   19 | 4999 |        250 | 1019 | 999  |        250 |   19 | 4999 |        250 |    19 |  4999 |         250
 (10 rows)
 
+<<<<<<< HEAD
 -- end_ignore
+=======
+>>>>>>> REL_18_BETA1_branch
 -- Check that we don't fail on anonymous record types.
 set max_parallel_workers_per_gather = 2;
 explain (costs off)
 select array_dims(array_agg(s)) from (select * from pagg_test) s;
+<<<<<<< HEAD
                    QUERY PLAN                   
 ------------------------------------------------
  Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Seq Scan on pagg_test
  Optimizer: Postgres query optimizer
+=======
+                 QUERY PLAN                 
+--------------------------------------------
+ Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Parallel Seq Scan on pagg_test
+>>>>>>> REL_18_BETA1_branch
 (4 rows)
 
 select array_dims(array_agg(s)) from (select * from pagg_test) s;
@@ -3262,6 +3566,243 @@ SELECT balk(hundred) FROM tenk1;
 (1 row)
 
 ROLLBACK;
+-- GROUP BY optimization by reordering GROUP BY clauses
+CREATE TABLE btg AS SELECT
+  i % 10 AS x,
+  i % 10 AS y,
+  'abc' || i % 10 AS z,
+  i AS w
+FROM generate_series(1, 100) AS i;
+CREATE INDEX btg_x_y_idx ON btg(x, y);
+ANALYZE btg;
+SET enable_hashagg = off;
+SET enable_seqscan = off;
+-- Utilize the ordering of index scan to avoid a Sort operation
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY y, x;
+                   QUERY PLAN                   
+------------------------------------------------
+ GroupAggregate
+   Group Key: x, y
+   ->  Index Only Scan using btg_x_y_idx on btg
+(3 rows)
+
+-- Engage incremental sort
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY z, y, w, x;
+                   QUERY PLAN                    
+-------------------------------------------------
+ GroupAggregate
+   Group Key: x, y, z, w
+   ->  Incremental Sort
+         Sort Key: x, y, z, w
+         Presorted Key: x, y
+         ->  Index Scan using btg_x_y_idx on btg
+(6 rows)
+
+-- Utilize the ordering of subquery scan to avoid a Sort operation
+EXPLAIN (COSTS OFF) SELECT count(*)
+FROM (SELECT * FROM btg ORDER BY x, y, w, z) AS q1
+GROUP BY w, x, z, y;
+                   QUERY PLAN                    
+-------------------------------------------------
+ GroupAggregate
+   Group Key: btg.x, btg.y, btg.w, btg.z
+   ->  Incremental Sort
+         Sort Key: btg.x, btg.y, btg.w, btg.z
+         Presorted Key: btg.x, btg.y
+         ->  Index Scan using btg_x_y_idx on btg
+(6 rows)
+
+-- Utilize the ordering of merge join to avoid a Sort operation
+SET enable_hashjoin = off;
+SET enable_nestloop = off;
+EXPLAIN (COSTS OFF)
+SELECT count(*)
+  FROM btg t1 JOIN btg t2 ON t1.w = t2.w AND t1.x = t2.x AND t1.z = t2.z
+  GROUP BY t1.w, t1.z, t1.x;
+                               QUERY PLAN                                
+-------------------------------------------------------------------------
+ GroupAggregate
+   Group Key: t1.x, t1.w, t1.z
+   ->  Merge Join
+         Merge Cond: ((t1.x = t2.x) AND (t1.w = t2.w) AND (t1.z = t2.z))
+         ->  Incremental Sort
+               Sort Key: t1.x, t1.w, t1.z
+               Presorted Key: t1.x
+               ->  Index Scan using btg_x_y_idx on btg t1
+         ->  Sort
+               Sort Key: t2.x, t2.w, t2.z
+               ->  Index Scan using btg_x_y_idx on btg t2
+(11 rows)
+
+RESET enable_nestloop;
+RESET enable_hashjoin;
+-- Should work with and without GROUP-BY optimization
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY w, x, z, y ORDER BY y, x, z, w;
+                   QUERY PLAN                    
+-------------------------------------------------
+ GroupAggregate
+   Group Key: y, x, z, w
+   ->  Sort
+         Sort Key: y, x, z, w
+         ->  Index Scan using btg_x_y_idx on btg
+(5 rows)
+
+-- Utilize incremental sort to make the ORDER BY rule a bit cheaper
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY w, x, y, z ORDER BY x*x, z;
+                      QUERY PLAN                       
+-------------------------------------------------------
+ Sort
+   Sort Key: ((x * x)), z
+   ->  GroupAggregate
+         Group Key: x, y, w, z
+         ->  Incremental Sort
+               Sort Key: x, y, w, z
+               Presorted Key: x, y
+               ->  Index Scan using btg_x_y_idx on btg
+(8 rows)
+
+-- Test the case where the number of incoming subtree path keys is more than
+-- the number of grouping keys.
+CREATE INDEX btg_y_x_w_idx ON btg(y, x, w);
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT y, x, array_agg(distinct w)
+  FROM btg WHERE y < 0 GROUP BY x, y;
+                       QUERY PLAN                        
+---------------------------------------------------------
+ GroupAggregate
+   Output: y, x, array_agg(DISTINCT w)
+   Group Key: btg.y, btg.x
+   ->  Index Only Scan using btg_y_x_w_idx on public.btg
+         Output: y, x, w
+         Index Cond: (btg.y < 0)
+(6 rows)
+
+-- Ensure that we do not select the aggregate pathkeys instead of the grouping
+-- pathkeys
+CREATE TABLE group_agg_pk AS SELECT
+  i % 10 AS x,
+  i % 2 AS y,
+  i % 2 AS z,
+  2 AS w,
+  i % 10 AS f
+FROM generate_series(1,100) AS i;
+ANALYZE group_agg_pk;
+SET enable_nestloop = off;
+SET enable_hashjoin = off;
+EXPLAIN (COSTS OFF)
+SELECT avg(c1.f ORDER BY c1.x, c1.y)
+FROM group_agg_pk c1 JOIN group_agg_pk c2 ON c1.x = c2.x
+GROUP BY c1.w, c1.z;
+                     QUERY PLAN                      
+-----------------------------------------------------
+ GroupAggregate
+   Group Key: c1.w, c1.z
+   ->  Sort
+         Sort Key: c1.w, c1.z, c1.x, c1.y
+         ->  Merge Join
+               Merge Cond: (c1.x = c2.x)
+               ->  Sort
+                     Sort Key: c1.x
+                     ->  Seq Scan on group_agg_pk c1
+                           Disabled: true
+               ->  Sort
+                     Sort Key: c2.x
+                     ->  Seq Scan on group_agg_pk c2
+                           Disabled: true
+(14 rows)
+
+SELECT avg(c1.f ORDER BY c1.x, c1.y)
+FROM group_agg_pk c1 JOIN group_agg_pk c2 ON c1.x = c2.x
+GROUP BY c1.w, c1.z;
+        avg         
+--------------------
+ 4.0000000000000000
+ 5.0000000000000000
+(2 rows)
+
+-- Pathkeys, built in a subtree, can be used to optimize GROUP-BY clause
+-- ordering.  Also, here we check that it doesn't depend on the initial clause
+-- order in the GROUP-BY list.
+EXPLAIN (COSTS OFF)
+SELECT c1.y,c1.x FROM group_agg_pk c1
+  JOIN group_agg_pk c2
+  ON c1.x = c2.x
+GROUP BY c1.y,c1.x,c2.x;
+                     QUERY PLAN                      
+-----------------------------------------------------
+ Group
+   Group Key: c1.x, c1.y
+   ->  Incremental Sort
+         Sort Key: c1.x, c1.y
+         Presorted Key: c1.x
+         ->  Merge Join
+               Merge Cond: (c1.x = c2.x)
+               ->  Sort
+                     Sort Key: c1.x
+                     ->  Seq Scan on group_agg_pk c1
+                           Disabled: true
+               ->  Sort
+                     Sort Key: c2.x
+                     ->  Seq Scan on group_agg_pk c2
+                           Disabled: true
+(15 rows)
+
+EXPLAIN (COSTS OFF)
+SELECT c1.y,c1.x FROM group_agg_pk c1
+  JOIN group_agg_pk c2
+  ON c1.x = c2.x
+GROUP BY c1.y,c2.x,c1.x;
+                     QUERY PLAN                      
+-----------------------------------------------------
+ Group
+   Group Key: c2.x, c1.y
+   ->  Incremental Sort
+         Sort Key: c2.x, c1.y
+         Presorted Key: c2.x
+         ->  Merge Join
+               Merge Cond: (c1.x = c2.x)
+               ->  Sort
+                     Sort Key: c1.x
+                     ->  Seq Scan on group_agg_pk c1
+                           Disabled: true
+               ->  Sort
+                     Sort Key: c2.x
+                     ->  Seq Scan on group_agg_pk c2
+                           Disabled: true
+(15 rows)
+
+RESET enable_nestloop;
+RESET enable_hashjoin;
+DROP TABLE group_agg_pk;
+-- Test the case where the ordering of the scan matches the ordering within the
+-- aggregate but cannot be found in the group-by list
+CREATE TABLE agg_sort_order (c1 int PRIMARY KEY, c2 int);
+CREATE UNIQUE INDEX agg_sort_order_c2_idx ON agg_sort_order(c2);
+INSERT INTO agg_sort_order SELECT i, i FROM generate_series(1,100)i;
+ANALYZE agg_sort_order;
+EXPLAIN (COSTS OFF)
+SELECT array_agg(c1 ORDER BY c2),c2
+FROM agg_sort_order WHERE c2 < 100 GROUP BY c1 ORDER BY 2;
+                                 QUERY PLAN                                 
+----------------------------------------------------------------------------
+ Sort
+   Sort Key: c2
+   ->  GroupAggregate
+         Group Key: c1
+         ->  Sort
+               Sort Key: c1, c2
+               ->  Index Scan using agg_sort_order_c2_idx on agg_sort_order
+                     Index Cond: (c2 < 100)
+(8 rows)
+
+DROP TABLE agg_sort_order CASCADE;
+DROP TABLE btg;
+RESET enable_hashagg;
+RESET enable_seqscan;
 -- Secondly test the case of a parallel aggregate combiner function
 -- returning NULL. For that use normal transition function, but a
 -- combiner function returning NULL.

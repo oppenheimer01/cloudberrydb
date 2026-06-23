@@ -238,10 +238,18 @@ DROP ROLE regress_user_mvtest;
 
 -- Concurrent refresh requires a unique index on the materialized
 -- view. Test what happens if it's dropped during the refresh.
+<<<<<<< HEAD
 CREATE OR REPLACE FUNCTION mvtest_drop_the_index()
   RETURNS bool AS $$
 BEGIN
   EXECUTE 'DROP INDEX IF EXISTS mvtest_drop_idx';
+=======
+SET search_path = mvtest_mvschema, public;
+CREATE OR REPLACE FUNCTION mvtest_drop_the_index()
+  RETURNS bool AS $$
+BEGIN
+  EXECUTE 'DROP INDEX IF EXISTS mvtest_mvschema.mvtest_drop_idx';
+>>>>>>> REL_18_BETA1_branch
   RETURN true;
 END;
 $$ LANGUAGE plpgsql;
@@ -252,6 +260,10 @@ CREATE MATERIALIZED VIEW drop_idx_matview AS
 CREATE UNIQUE INDEX mvtest_drop_idx ON drop_idx_matview (i);
 REFRESH MATERIALIZED VIEW CONCURRENTLY drop_idx_matview;
 DROP MATERIALIZED VIEW drop_idx_matview; -- clean up
+<<<<<<< HEAD
+=======
+RESET search_path;
+>>>>>>> REL_18_BETA1_branch
 
 -- make sure that create WITH NO DATA works via SPI
 BEGIN;
@@ -298,14 +310,19 @@ GRANT ALL ON SCHEMA matview_schema TO public;
 
 SET SESSION AUTHORIZATION regress_matview_user;
 CREATE MATERIALIZED VIEW matview_schema.mv_withdata1 (a) AS
+<<<<<<< HEAD
   SELECT generate_series(1, 10) WITH DATA DISTRIBUTED BY (a);
 EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+=======
+  SELECT generate_series(1, 10) WITH DATA;
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
+>>>>>>> REL_18_BETA1_branch
   CREATE MATERIALIZED VIEW matview_schema.mv_withdata2 (a) AS
   SELECT generate_series(1, 10) WITH DATA DISTRIBUTED BY (a);
 REFRESH MATERIALIZED VIEW matview_schema.mv_withdata2;
 CREATE MATERIALIZED VIEW matview_schema.mv_nodata1 (a) AS
   SELECT generate_series(1, 10) WITH NO DATA;
-EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
   CREATE MATERIALIZED VIEW matview_schema.mv_nodata2 (a) AS
   SELECT generate_series(1, 10) WITH NO DATA;
 REFRESH MATERIALIZED VIEW matview_schema.mv_nodata2;
@@ -326,16 +343,16 @@ CREATE MATERIALIZED VIEW matview_ine_tab AS
   SELECT 1 / 0 WITH NO DATA; -- error
 CREATE MATERIALIZED VIEW IF NOT EXISTS matview_ine_tab AS
   SELECT 1 / 0 WITH NO DATA; -- ok
-EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
   CREATE MATERIALIZED VIEW matview_ine_tab AS
     SELECT 1 / 0; -- error
-EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
   CREATE MATERIALIZED VIEW IF NOT EXISTS matview_ine_tab AS
     SELECT 1 / 0; -- ok
-EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
   CREATE MATERIALIZED VIEW matview_ine_tab AS
     SELECT 1 / 0 WITH NO DATA; -- error
-EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF)
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
   CREATE MATERIALIZED VIEW IF NOT EXISTS matview_ine_tab AS
     SELECT 1 / 0 WITH NO DATA; -- ok
 DROP MATERIALIZED VIEW matview_ine_tab;

@@ -3,7 +3,11 @@
  * win32gai_strerror.c
  *	  Thread-safe gai_strerror() for Windows.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2024, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 2024-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  *
  * IDENTIFICATION
  *    src/port/win32gai_strerror.c

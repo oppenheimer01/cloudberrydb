@@ -4,7 +4,7 @@
  *	  POSTGRES generalized index access method definitions.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/access/genam.h
@@ -14,15 +14,38 @@
 #ifndef GENAM_H
 #define GENAM_H
 
+#include "access/htup.h"
 #include "access/sdir.h"
 #include "access/skey.h"
 #include "nodes/tidbitmap.h"
+#include "storage/buf.h"
 #include "storage/lockdefs.h"
 #include "utils/relcache.h"
 #include "utils/snapshot.h"
 
 /* We don't want this file to depend on execnodes.h. */
 struct IndexInfo;
+
+/*
+ * Struct for statistics maintained by amgettuple and amgetbitmap
+ *
+ * Note: IndexScanInstrumentation can't contain any pointers, since it is
+ * copied into a SharedIndexScanInstrumentation during parallel scans
+ */
+typedef struct IndexScanInstrumentation
+{
+	/* Index search count (incremented with pgstat_count_index_scan call) */
+	uint64		nsearches;
+} IndexScanInstrumentation;
+
+/*
+ * Struct for every worker's IndexScanInstrumentation, stored in shared memory
+ */
+typedef struct SharedIndexScanInstrumentation
+{
+	int			num_workers;
+	IndexScanInstrumentation winstrument[FLEXIBLE_ARRAY_MEMBER];
+} SharedIndexScanInstrumentation;
 
 /*
  * Struct for statistics returned by ambuild
@@ -117,7 +140,7 @@ typedef enum IndexUniqueCheck
 	UNIQUE_CHECK_NO,			/* Don't do any uniqueness checking */
 	UNIQUE_CHECK_YES,			/* Enforce uniqueness at insertion time */
 	UNIQUE_CHECK_PARTIAL,		/* Test uniqueness, but no error */
-	UNIQUE_CHECK_EXISTING		/* Check if existing tuple is unique */
+	UNIQUE_CHECK_EXISTING,		/* Check if existing tuple is unique */
 } IndexUniqueCheck;
 
 
@@ -149,13 +172,17 @@ extern bool index_insert(Relation indexRelation,
 						 IndexUniqueCheck checkUnique,
 						 bool indexUnchanged,
 						 struct IndexInfo *indexInfo);
+extern void index_insert_cleanup(Relation indexRelation,
+								 struct IndexInfo *indexInfo);
 
 extern IndexScanDesc index_beginscan(Relation heapRelation,
 									 Relation indexRelation,
 									 Snapshot snapshot,
+									 IndexScanInstrumentation *instrument,
 									 int nkeys, int norderbys);
 extern IndexScanDesc index_beginscan_bitmap(Relation indexRelation,
 											Snapshot snapshot,
+											IndexScanInstrumentation *instrument,
 											int nkeys);
 extern void index_rescan(IndexScanDesc scan,
 						 ScanKey keys, int nkeys,
@@ -163,13 +190,21 @@ extern void index_rescan(IndexScanDesc scan,
 extern void index_endscan(IndexScanDesc scan);
 extern void index_markpos(IndexScanDesc scan);
 extern void index_restrpos(IndexScanDesc scan);
-extern Size index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot);
+extern Size index_parallelscan_estimate(Relation indexRelation,
+										int nkeys, int norderbys, Snapshot snapshot,
+										bool instrument, bool parallel_aware,
+										int nworkers);
 extern void index_parallelscan_initialize(Relation heapRelation,
 										  Relation indexRelation, Snapshot snapshot,
+										  bool instrument, bool parallel_aware,
+										  int nworkers,
+										  SharedIndexScanInstrumentation **sharedinfo,
 										  ParallelIndexScanDesc target);
 extern void index_parallelrescan(IndexScanDesc scan);
 extern IndexScanDesc index_beginscan_parallel(Relation heaprel,
-											  Relation indexrel, int nkeys, int norderbys,
+											  Relation indexrel,
+											  IndexScanInstrumentation *instrument,
+											  int nkeys, int norderbys,
 											  ParallelIndexScanDesc pscan);
 extern ItemPointer index_getnext_tid(IndexScanDesc scan,
 									 ScanDirection direction);
@@ -206,7 +241,7 @@ extern IndexScanDesc RelationGetIndexScan(Relation indexRelation,
 										  int nkeys, int norderbys);
 extern void IndexScanEnd(IndexScanDesc scan);
 extern char *BuildIndexValueDescription(Relation indexRelation,
-										Datum *values, bool *isnull);
+										const Datum *values, const bool *isnull);
 extern TransactionId index_compute_xid_horizon_for_tuples(Relation irel,
 														  Relation hrel,
 														  Buffer ibuf,

@@ -2,8 +2,13 @@ msgid ""
 msgstr ""
 "Project-Id-Version: postgresql\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2025-03-29 10:56+0000\n"
 "PO-Revision-Date: 2025-04-01 13:11\n"
+=======
+"POT-Creation-Date: 2024-08-31 06:21+0000\n"
+"PO-Revision-Date: 2024-09-23 19:38\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: \n"
 "Language-Team: Ukrainian\n"
 "Language: uk_UA\n"
@@ -14,8 +19,13 @@ msgstr ""
 "X-Crowdin-Project: postgresql\n"
 "X-Crowdin-Project-ID: 324573\n"
 "X-Crowdin-Language: uk\n"
+<<<<<<< HEAD
 "X-Crowdin-File: /REL_16_STABLE/initdb.pot\n"
 "X-Crowdin-File-ID: 943\n"
+=======
+"X-Crowdin-File: /REL_17_STABLE/initdb.pot\n"
+"X-Crowdin-File-ID: 1034\n"
+>>>>>>> REL_18_BETA1_branch
 
 #: ../../../src/common/logging.c:276
 #, c-format
@@ -37,33 +47,74 @@ msgstr "деталі: "
 msgid "hint: "
 msgstr "підказка: "
 
+<<<<<<< HEAD
 #: ../../common/exec.c:172
 #, c-format
 msgid "invalid binary \"%s\": %m"
 msgstr "неприпустима двійкова система \"%s\": %m"
 
 #: ../../common/exec.c:215
+=======
+#: ../../common/exec.c:174
+#, c-format
+msgid "invalid binary \"%s\": %m"
+msgstr "невірний бінарний файл \"%s\": %m"
+
+#: ../../common/exec.c:217
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read binary \"%s\": %m"
 msgstr "не вдалося прочитати бінарний файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:223
+=======
+#: ../../common/exec.c:225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find a \"%s\" to execute"
 msgstr "неможливо знайти \"%s\" для виконання"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:250
+=======
+#: ../../common/exec.c:252
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not resolve path \"%s\" to absolute form: %m"
 msgstr "не вдалося знайти абсолютний шлях \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:412
+=======
+#: ../../common/exec.c:382 initdb.c:695
+#, c-format
+msgid "could not execute command \"%s\": %m"
+msgstr "не вдалося виконати команду \"%s\": %m"
+
+#: ../../common/exec.c:394
+#, c-format
+msgid "could not read from command \"%s\": %m"
+msgstr "не вдалося прочитати висновок команди \"%s\": %m"
+
+#: ../../common/exec.c:397
+#, c-format
+msgid "no data was returned by command \"%s\""
+msgstr "команда \"%s\" не повернула жодних даних"
+
+#: ../../common/exec.c:424
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s() failed: %m"
 msgstr "%s() помилка: %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:550 ../../common/exec.c:595 ../../common/exec.c:687
 #: initdb.c:368 initdb.c:404
+=======
+#: ../../common/exec.c:562 ../../common/exec.c:607 ../../common/exec.c:699
+#: initdb.c:353
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory"
 msgstr "недостатньо пам'яті"
@@ -79,6 +130,7 @@ msgstr "недостатньо пам'яті\n"
 msgid "cannot duplicate null pointer (internal error)\n"
 msgstr "неможливо дублювати нульовий покажчик (внутрішня помилка)\n"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:87 ../../common/file_utils.c:447
 #, c-format
 msgid "could not stat file \"%s\": %m"
@@ -98,16 +150,56 @@ msgstr "не вдалося прочитати каталог \"%s\": %m"
 
 #: ../../common/file_utils.c:228 ../../common/file_utils.c:287
 #: ../../common/file_utils.c:361
+=======
+#: ../../common/file_utils.c:70 ../../common/file_utils.c:347
+#: ../../common/file_utils.c:406 ../../common/file_utils.c:480
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\": %m"
 msgstr "не можливо відкрити файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:299 ../../common/file_utils.c:369
+=======
+#: ../../common/file_utils.c:76
+#, c-format
+msgid "could not synchronize file system for file \"%s\": %m"
+msgstr "не вдалося синхронізувати файлову систему для файлу \"%s\": %m"
+
+#: ../../common/file_utils.c:120 ../../common/file_utils.c:566
+#, c-format
+msgid "could not stat file \"%s\": %m"
+msgstr "не вдалося отримати інформацію від файлу \"%s\": %m"
+
+#: ../../common/file_utils.c:130 ../../common/file_utils.c:227
+#: ../../fe_utils/option_utils.c:99
+#, c-format
+msgid "this build does not support sync method \"%s\""
+msgstr "ця збірка не підтримує метод синхронізації \"%s\""
+
+#: ../../common/file_utils.c:151 ../../common/file_utils.c:281
+#: ../../common/pgfnames.c:48 ../../common/rmtree.c:63
+#, c-format
+msgid "could not open directory \"%s\": %m"
+msgstr "не вдалося відкрити каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:169 ../../common/file_utils.c:315
+#: ../../common/pgfnames.c:69 ../../common/rmtree.c:106
+#, c-format
+msgid "could not read directory \"%s\": %m"
+msgstr "не вдалося прочитати каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:418 ../../common/file_utils.c:488
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not fsync file \"%s\": %m"
 msgstr "не вдалося fsync файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:379
+=======
+#: ../../common/file_utils.c:498
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not rename file \"%s\" to \"%s\": %m"
 msgstr "не вдалося перейменувати файл \"%s\" на \"%s\": %m"
@@ -147,12 +239,20 @@ msgstr "не вдалося перезапустити з обмеженим т�
 msgid "could not get exit code from subprocess: error code %lu"
 msgstr "не вдалося отримати код завершення підпроцесу: код помилки %lu"
 
+<<<<<<< HEAD
 #: ../../common/rmtree.c:95
+=======
+#: ../../common/rmtree.c:97
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not remove file \"%s\": %m"
 msgstr "не можливо видалити файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/rmtree.c:122
+=======
+#: ../../common/rmtree.c:124
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not remove directory \"%s\": %m"
 msgstr "не вдалося видалити каталог \"%s\": %m"
@@ -201,6 +301,34 @@ msgstr "дочірній процес перервано через сигнал
 msgid "child process exited with unrecognized status %d"
 msgstr "дочірній процес завершився з невизнаним статусом %d"
 
+<<<<<<< HEAD
+=======
+#: ../../fe_utils/option_utils.c:69
+#, c-format
+msgid "invalid value \"%s\" for option %s"
+msgstr "неприпустиме значення \"%s\" для параметра %s"
+
+#: ../../fe_utils/option_utils.c:76
+#, c-format
+msgid "%s must be in range %d..%d"
+msgstr "%s має бути в діапазоні %d..%d"
+
+#: ../../fe_utils/option_utils.c:106
+#, c-format
+msgid "unrecognized sync method: %s"
+msgstr "нерозпізнаний метод синхронізації: %s"
+
+#: ../../fe_utils/string_utils.c:434
+#, c-format
+msgid "shell command argument contains a newline or carriage return: \"%s\"\n"
+msgstr "аргумент командної оболонки містить символ нового рядка або повернення каретки: \"%s\"\n"
+
+#: ../../fe_utils/string_utils.c:607
+#, c-format
+msgid "database name contains a newline or carriage return: \"%s\"\n"
+msgstr "назва бази даних містить символ нового рядка або повернення каретки: \"%s\"\n"
+
+>>>>>>> REL_18_BETA1_branch
 #: ../../port/dirmod.c:287
 #, c-format
 msgid "could not set junction for \"%s\": %s\n"
@@ -211,6 +339,7 @@ msgstr "не вдалося встановити сполучення для \"%
 msgid "could not get junction for \"%s\": %s\n"
 msgstr "не вдалося встановити сполучення для \"%s\": %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:365
 #, c-format
 msgid "_wsetlocale() failed"
@@ -232,160 +361,280 @@ msgid "failed to restore old locale \"%s\""
 msgstr "не вдалося відновити стару локаль \"%s\""
 
 #: initdb.c:678 initdb.c:1665
+=======
+#: initdb.c:627 initdb.c:1619
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\" for reading: %m"
 msgstr "не вдалося відкрити файл \"%s\" для читання: %m"
 
+<<<<<<< HEAD
 #: initdb.c:722 initdb.c:1026 initdb.c:1046
+=======
+#: initdb.c:671 initdb.c:975 initdb.c:995
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\" for writing: %m"
 msgstr "не вдалося відкрити файл \"%s\" для запису: %m"
 
+<<<<<<< HEAD
 #: initdb.c:726 initdb.c:1029 initdb.c:1048
+=======
+#: initdb.c:675 initdb.c:978 initdb.c:997
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write file \"%s\": %m"
 msgstr "не вдалося записати файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:730
+=======
+#: initdb.c:679
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not close file \"%s\": %m"
 msgstr "неможливо закрити файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:746
 #, c-format
 msgid "could not execute command \"%s\": %m"
 msgstr "не вдалося виконати команду \"%s\": %m"
 
 #: initdb.c:764
+=======
+#: initdb.c:713
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing data directory \"%s\""
 msgstr "видалення даних з директорії \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:766
+=======
+#: initdb.c:715
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove data directory"
 msgstr "не вдалося видалити дані директорії"
 
+<<<<<<< HEAD
 #: initdb.c:770
+=======
+#: initdb.c:719
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of data directory \"%s\""
 msgstr "видалення даних з директорії \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:773
+=======
+#: initdb.c:722
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of data directory"
 msgstr "не вдалося видалити дані директорії"
 
+<<<<<<< HEAD
 #: initdb.c:778
+=======
+#: initdb.c:727
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing WAL directory \"%s\""
 msgstr "видалення WAL директорії \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:780
+=======
+#: initdb.c:729
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove WAL directory"
 msgstr "не вдалося видалити директорію WAL"
 
+<<<<<<< HEAD
 #: initdb.c:784
+=======
+#: initdb.c:733
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of WAL directory \"%s\""
 msgstr "видалення даних з директорії WAL \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:786
+=======
+#: initdb.c:735
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of WAL directory"
 msgstr "не вдалося видалити дані директорії WAL"
 
+<<<<<<< HEAD
 #: initdb.c:793
+=======
+#: initdb.c:742
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "data directory \"%s\" not removed at user's request"
 msgstr "директорія даних \"%s\" не видалена за запитом користувача"
 
+<<<<<<< HEAD
 #: initdb.c:797
+=======
+#: initdb.c:746
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory \"%s\" not removed at user's request"
 msgstr "директорія WAL \"%s\" не видалена за запитом користувача"
 
+<<<<<<< HEAD
 #: initdb.c:815
+=======
+#: initdb.c:764
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot be run as root"
 msgstr "не може виконуватись як root"
 
+<<<<<<< HEAD
 #: initdb.c:816
+=======
+#: initdb.c:765
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Please log in (using, e.g., \"su\") as the (unprivileged) user that will own the server process."
 msgstr "Будь ласка, увійдіть (за допомогою, наприклад, \"su\") як (непривілейований) користувач, від імені якого буде запущено серверний процес."
 
+<<<<<<< HEAD
 #: initdb.c:848
+=======
+#: initdb.c:797
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"%s\" is not a valid server encoding name"
 msgstr "\"%s\" невірне ім'я серверного кодування"
 
+<<<<<<< HEAD
 #: initdb.c:992
+=======
+#: initdb.c:941
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "file \"%s\" does not exist"
 msgstr "файл \"%s\" не існує"
 
+<<<<<<< HEAD
 #: initdb.c:993 initdb.c:998 initdb.c:1005
+=======
+#: initdb.c:942 initdb.c:947 initdb.c:954
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "This might mean you have a corrupted installation or identified the wrong directory with the invocation option -L."
 msgstr "Це означає, що ваша інсталяція пошкоджена або в параметрі -L задана неправильна директорія."
 
+<<<<<<< HEAD
 #: initdb.c:997
+=======
+#: initdb.c:946
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not access file \"%s\": %m"
 msgstr "немає доступу до файлу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1004
+=======
+#: initdb.c:953
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "file \"%s\" is not a regular file"
 msgstr "файл \"%s\" не є звичайним файлом"
 
+<<<<<<< HEAD
 #: initdb.c:1137
+=======
+#: initdb.c:1086
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "selecting dynamic shared memory implementation ... "
 msgstr "обирається реалізація динамічної спільної пам'яті ... "
 
+<<<<<<< HEAD
 #: initdb.c:1146
+=======
+#: initdb.c:1095
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "selecting default max_connections ... "
-msgstr "обирається значення max_connections ... \n"
+msgid "selecting default \"max_connections\" ... "
+msgstr "обирається значення \"max_connections\" за замовчуванням... \n"
 " "
 
+<<<<<<< HEAD
 #: initdb.c:1166
+=======
+#: initdb.c:1115
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "selecting default shared_buffers ... "
-msgstr "обирається значення shared_buffers... "
+msgid "selecting default \"shared_buffers\" ... "
+msgstr "обирається значення \"shared_buffers\" за замовчуванням... "
 
+<<<<<<< HEAD
 #: initdb.c:1189
+=======
+#: initdb.c:1138
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "selecting default time zone ... "
 msgstr "обирається часовий пояс за замовчуванням ... "
 
+<<<<<<< HEAD
 #: initdb.c:1266
 msgid "creating configuration files ... "
 msgstr "створення конфігураційних файлів... "
 
 #: initdb.c:1419 initdb.c:1433 initdb.c:1500 initdb.c:1511
+=======
+#: initdb.c:1217
+msgid "creating configuration files ... "
+msgstr "створення конфігураційних файлів... "
+
+#: initdb.c:1370 initdb.c:1384 initdb.c:1451 initdb.c:1462
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not change permissions of \"%s\": %m"
 msgstr "неможливо змінити дозволи \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1529
+=======
+#: initdb.c:1481
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "running bootstrap script ... "
 msgstr "виконуємо сценарій ініціалізації ... "
 
+<<<<<<< HEAD
 #: initdb.c:1541
+=======
+#: initdb.c:1493
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "input file \"%s\" does not belong to PostgreSQL %s"
 msgstr "вхідний файл \"%s\" не належить PostgreSQL %s"
 
+<<<<<<< HEAD
 #: initdb.c:1543
+=======
+#: initdb.c:1495
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Specify the correct path using the option -L."
 msgstr "Вкажіть правильний шлях за допомогою параметру -L."
 
+<<<<<<< HEAD
 #: initdb.c:1643
 msgid "Enter new superuser password: "
 msgstr "Введіть новий пароль для superuser: "
@@ -395,178 +644,336 @@ msgid "Enter it again: "
 msgstr "Введіть знову: "
 
 #: initdb.c:1647
+=======
+#: initdb.c:1597
+msgid "Enter new superuser password: "
+msgstr "Введіть новий пароль для superuser: "
+
+#: initdb.c:1598
+msgid "Enter it again: "
+msgstr "Введіть знову: "
+
+#: initdb.c:1601
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Passwords didn't match.\n"
 msgstr "Паролі не співпадають.\n"
 
+<<<<<<< HEAD
 #: initdb.c:1671
+=======
+#: initdb.c:1625
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read password from file \"%s\": %m"
 msgstr "не вдалося прочитати пароль з файлу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1674
+=======
+#: initdb.c:1628
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "password file \"%s\" is empty"
 msgstr "файл з паролями \"%s\" є порожнім"
 
+<<<<<<< HEAD
 #: initdb.c:2086
+=======
+#: initdb.c:2040
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "caught signal\n"
 msgstr "отримано сигнал\n"
 
+<<<<<<< HEAD
 #: initdb.c:2092
+=======
+#: initdb.c:2046
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write to child process: %s\n"
 msgstr "не вдалося написати у дочірній процес: %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2100
+=======
+#: initdb.c:2054
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "ok\n"
 msgstr "ok\n"
 
+<<<<<<< HEAD
 #: initdb.c:2182 initdb.c:2228
+=======
+#: initdb.c:2143
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale name \"%s\" contains non-ASCII characters"
 msgstr "назва локалі \"%s\" містить не-ASCII символи"
 
+<<<<<<< HEAD
 #: initdb.c:2208
+=======
+#: initdb.c:2161
+#, c-format
+msgid "failed to restore old locale \"%s\""
+msgstr "не вдалося відновити стару локаль \"%s\""
+
+#: initdb.c:2169
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid locale name \"%s\""
 msgstr "не допустиме ім'я локалі \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2209
+=======
+#: initdb.c:2170
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "If the locale name is specific to ICU, use --icu-locale."
 msgstr "Якщо ім'я локалі характерне для ICU, використовуйте --icu-locale."
 
+<<<<<<< HEAD
 #: initdb.c:2222
+=======
+#: initdb.c:2183
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid locale settings; check LANG and LC_* environment variables"
 msgstr "неприпустимі параметри локалі; перевірте LANG та LC_* змінні середовища"
 
+<<<<<<< HEAD
 #: initdb.c:2253 initdb.c:2277
+=======
+#: initdb.c:2209 initdb.c:2233
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "encoding mismatch"
 msgstr "невідповідність кодування"
 
+<<<<<<< HEAD
 #: initdb.c:2254
+=======
+#: initdb.c:2210
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The encoding you selected (%s) and the encoding that the selected locale uses (%s) do not match. This would lead to misbehavior in various character string processing functions."
 msgstr "Вибране вами кодування (%s) і кодування, яке використовує обрана локаль (%s) не збігаються. Це призведе до неправильної поведінки у різних функціях обробки символьних рядків."
 
+<<<<<<< HEAD
 #: initdb.c:2259 initdb.c:2280
+=======
+#: initdb.c:2215 initdb.c:2236
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Rerun %s and either do not specify an encoding explicitly, or choose a matching combination."
 msgstr "Перезапустіть %s і або не вказуйте кодування прямо або виберіть відповідну комбінацію."
 
+<<<<<<< HEAD
 #: initdb.c:2278
+=======
+#: initdb.c:2234
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The encoding you selected (%s) is not supported with the ICU provider."
 msgstr "Обране вами кодування (%s) не підтримується провайдером ICU."
 
+<<<<<<< HEAD
 #: initdb.c:2329
+=======
+#: initdb.c:2285
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not convert locale name \"%s\" to language tag: %s"
 msgstr "не вдалося перетворити локальну назву \"%s\" на мітку мови: %s"
 
+<<<<<<< HEAD
 #: initdb.c:2335 initdb.c:2387 initdb.c:2466
+=======
+#: initdb.c:2291 initdb.c:2343 initdb.c:2435
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "ICU is not supported in this build"
 msgstr "ICU не підтримується в цій збірці"
 
+<<<<<<< HEAD
 #: initdb.c:2358
+=======
+#: initdb.c:2314
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not get language from locale \"%s\": %s"
 msgstr "не вдалося отримати мову з локалі \"%s\": %s"
 
+<<<<<<< HEAD
 #: initdb.c:2384
+=======
+#: initdb.c:2340
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale \"%s\" has unknown language \"%s\""
 msgstr "locale \"%s\" має невідому мову \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2450
 #, c-format
 msgid "ICU locale must be specified"
 msgstr "Необхідно вказати локаль ICU"
 
 #: initdb.c:2454
+=======
+#: initdb.c:2401
+#, c-format
+msgid "locale must be specified if provider is %s"
+msgstr "потрібно вказати локаль для провайдера %s"
+
+#: initdb.c:2412
+#, c-format
+msgid "invalid locale name \"%s\" for builtin provider"
+msgstr "неприпустиме ім'я локалі \"%s\" для вбудованого провайдера"
+
+#: initdb.c:2423
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Using language tag \"%s\" for ICU locale \"%s\".\n"
 msgstr "Використання мітки мови \"%s\" для локалі ICU \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2477
+=======
+#: initdb.c:2446
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s initializes a PostgreSQL database cluster.\n\n"
 msgstr "%s ініціалізує кластер баз даних PostgreSQL.\n\n"
 
+<<<<<<< HEAD
 #: initdb.c:2478
+=======
+#: initdb.c:2447
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Usage:\n"
 msgstr "Використання:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2479
+=======
+#: initdb.c:2448
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  %s [OPTION]... [DATADIR]\n"
 msgstr "  %s [OPTION]... [DATADIR]\n"
 
+<<<<<<< HEAD
 #: initdb.c:2480
+=======
+#: initdb.c:2449
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Options:\n"
 msgstr "\n"
 "Параметри:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2481
+=======
+#: initdb.c:2450
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -A, --auth=METHOD         default authentication method for local connections\n"
 msgstr "  -A, -- auth=METHOD метод аутентифікації за замовчуванням для локальних підключень\n"
 
+<<<<<<< HEAD
 #: initdb.c:2482
+=======
+#: initdb.c:2451
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --auth-host=METHOD    default authentication method for local TCP/IP connections\n"
 msgstr "      --auth-host=METHOD     метод аутентифікації за замовчуванням для локального TCP/IP підключення\n"
 
+<<<<<<< HEAD
 #: initdb.c:2483
+=======
+#: initdb.c:2452
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --auth-local=METHOD   default authentication method for local-socket connections\n"
 msgstr "      --auth-local=METHOD   метод аутентифікації за замовчуванням для локального під'єднання через сокет\n"
 
+<<<<<<< HEAD
 #: initdb.c:2484
+=======
+#: initdb.c:2453
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid " [-D, --pgdata=]DATADIR     location for this database cluster\n"
 msgstr " [-D - pgdata =] DATADIR розташування кластеру цієї бази даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2485
+=======
+#: initdb.c:2454
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -E, --encoding=ENCODING   set default encoding for new databases\n"
 msgstr "  -E, --encoding=ENCODING встановлення кодування за замовчуванням для нової бази даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2486
+=======
+#: initdb.c:2455
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -g, --allow-group-access  allow group read/execute on data directory\n"
 msgstr "  -g, --allow-group-access дозволити читати/виконувати у каталозі даних для групи\n"
 
+<<<<<<< HEAD
 #: initdb.c:2487
+=======
+#: initdb.c:2456
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --icu-locale=LOCALE   set ICU locale ID for new databases\n"
 msgstr "      --icu-locale=LOCALE встановлює ідентифікатор мови ICU для нових баз даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2488
+=======
+#: initdb.c:2457
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --icu-rules=RULES     set additional ICU collation rules for new databases\n"
 msgstr "      --icu-rules=RULES встановити додаткові правила сортування в ICU для нових баз даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2489
+=======
+#: initdb.c:2458
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -k, --data-checksums      use data page checksums\n"
 msgstr "  -k, --data-checksums      використовувати контрольні суми сторінок\n"
 
+<<<<<<< HEAD
 #: initdb.c:2490
+=======
+#: initdb.c:2459
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --locale=LOCALE       set default locale for new databases\n"
 msgstr "      --locale=LOCALE       встановлює локаль за замовчуванням для нових баз даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2491
+=======
+#: initdb.c:2460
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --lc-collate=, --lc-ctype=, --lc-messages=LOCALE\n"
 "      --lc-monetary=, --lc-numeric=, --lc-time=LOCALE\n"
@@ -577,120 +984,220 @@ msgstr "      --lc-collate=, --lc-ctype=, --lc-messages=LOCALE\n"
 "                            встановлення локалі за замовчуванням для відповідної категорії в\n"
 "                            нових базах даних (замість значення з середовища)\n"
 
+<<<<<<< HEAD
 #: initdb.c:2495
+=======
+#: initdb.c:2464
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-locale           equivalent to --locale=C\n"
 msgstr "      --no-locale           еквівалентно --locale=C\n"
 
+<<<<<<< HEAD
 #: initdb.c:2496
+=======
+#: initdb.c:2465
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "      --locale-provider={libc|icu}\n"
+msgid "      --builtin-locale=LOCALE\n"
+"                            set builtin locale name for new databases\n"
+msgstr "      --builtin-locale=LOCALE\n"
+"                            встановити ім'я вбудованої локалі для нових баз даних\n"
+
+#: initdb.c:2467
+#, c-format
+msgid "      --locale-provider={builtin|libc|icu}\n"
 "                            set default locale provider for new databases\n"
-msgstr "      --locale-provider={libc|icu}\n"
+msgstr "      --locale-provider={builtin|libc|icu}\n"
 "                            встановлює провайдер локалі за замовченням для нових баз даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2498
+=======
+#: initdb.c:2469
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --pwfile=FILE         read password for the new superuser from file\n"
 msgstr "      --pwfile=FILE         прочитати пароль для нового суперкористувача з файлу\n"
 
+<<<<<<< HEAD
 #: initdb.c:2499
+=======
+#: initdb.c:2470
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -T, --text-search-config=CFG\n"
 "                            default text search configuration\n"
 msgstr "  -T, --text-search-config=CFG                             конфігурація текстового пошуку за замовчуванням\n"
 
+<<<<<<< HEAD
 #: initdb.c:2501
+=======
+#: initdb.c:2472
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -U, --username=NAME       database superuser name\n"
 msgstr "  -U, --username=NAME         ім'я суперкористувача бази даних\n"
 
+<<<<<<< HEAD
 #: initdb.c:2502
+=======
+#: initdb.c:2473
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -W, --pwprompt            prompt for a password for the new superuser\n"
 msgstr "  -W, --pwprompt           запитувати пароль нового суперкористувача\n"
 
+<<<<<<< HEAD
 #: initdb.c:2503
+=======
+#: initdb.c:2474
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -X, --waldir=WALDIR       location for the write-ahead log directory\n"
 msgstr "  -X, --waldir=WALDIR       розташування журналу попереднього запису\n"
 
+<<<<<<< HEAD
 #: initdb.c:2504
+=======
+#: initdb.c:2475
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --wal-segsize=SIZE    size of WAL segments, in megabytes\n"
 msgstr "      --wal-segsize=SIZE     розмір сегментів WAL у мегабайтах\n"
 
+<<<<<<< HEAD
 #: initdb.c:2505
+=======
+#: initdb.c:2476
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Less commonly used options:\n"
 msgstr "\n"
 "Рідковживані параметри:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2506
+=======
+#: initdb.c:2477
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -c, --set NAME=VALUE      override default setting for server parameter\n"
 msgstr "  -c, --set NAME=VALUE перевизначити параметр за замовчуванням для параметра сервера\n"
 
+<<<<<<< HEAD
 #: initdb.c:2507
+=======
+#: initdb.c:2478
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -d, --debug               generate lots of debugging output\n"
 msgstr "  -d, --debug             генерувати багато налагоджувальних повідомлень\n"
 
+<<<<<<< HEAD
 #: initdb.c:2508
+=======
+#: initdb.c:2479
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --discard-caches      set debug_discard_caches=1\n"
 msgstr "      --discard-caches встановити debug_discard_caches=1\n"
 
+<<<<<<< HEAD
 #: initdb.c:2509
+=======
+#: initdb.c:2480
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -L DIRECTORY              where to find the input files\n"
 msgstr "  -L DIRECTORY              розташування вхідних файлів\n"
 
+<<<<<<< HEAD
 #: initdb.c:2510
+=======
+#: initdb.c:2481
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -n, --no-clean            do not clean up after errors\n"
 msgstr "  -n, --no-clean             не очищувати після помилок\n"
 " \n"
 
+<<<<<<< HEAD
 #: initdb.c:2511
+=======
+#: initdb.c:2482
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -N, --no-sync             do not wait for changes to be written safely to disk\n"
 msgstr "  -N, --no-sync          не чекати на безпечний запис змін на диск\n"
 
+<<<<<<< HEAD
 #: initdb.c:2512
+=======
+#: initdb.c:2483
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-instructions     do not print instructions for next steps\n"
 msgstr "      --no-instructions не друкувати інструкції для наступних кроків\n"
 
+<<<<<<< HEAD
 #: initdb.c:2513
+=======
+#: initdb.c:2484
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  -s, --show                show internal settings\n"
-msgstr "  -s, --show                показати внутрішні налаштування\n"
+msgid "  -s, --show                show internal settings, then exit\n"
+msgstr "  -s, --show                показати внутрішні налаштування і вийти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2514
+=======
+#: initdb.c:2485
+#, c-format
+msgid "      --sync-method=METHOD  set method for syncing files to disk\n"
+msgstr "      --sync-method=METHOD  встановити метод синхронізації файлів на диск\n"
+
+#: initdb.c:2486
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -S, --sync-only           only sync database files to disk, then exit\n"
 msgstr "  -S, --sync-only           лише синхронізувати файли бази даних на диск, потім вийти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2515
+=======
+#: initdb.c:2487
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Other options:\n"
 msgstr "\n"
 "Інші параметри:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2516
+=======
+#: initdb.c:2488
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -V, --version             output version information, then exit\n"
 msgstr "  -V, --version            вивести інформацію про версію і вийти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2517
+=======
+#: initdb.c:2489
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -?, --help                show this help, then exit\n"
 msgstr "  -?, --help               показати цю довідку, потім вийти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2518
+=======
+#: initdb.c:2490
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "If the data directory is not specified, the environment variable PGDATA\n"
@@ -698,79 +1205,139 @@ msgid "\n"
 msgstr "\n"
 "Якщо каталог даних не вказано, використовується змінна середовища PGDATA.\n"
 
+<<<<<<< HEAD
 #: initdb.c:2520
+=======
+#: initdb.c:2492
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Report bugs to <%s>.\n"
 msgstr "\n"
 "Повідомляти про помилки на <%s>.\n"
 
+<<<<<<< HEAD
 #: initdb.c:2521
+=======
+#: initdb.c:2493
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s home page: <%s>\n"
 msgstr "Домашня сторінка %s: <%s>\n"
 
+<<<<<<< HEAD
 #: initdb.c:2549
+=======
+#: initdb.c:2517
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid authentication method \"%s\" for \"%s\" connections"
 msgstr "неприпустимий спосіб автентифікації \"%s\" для \"%s\" підключення"
 
+<<<<<<< HEAD
 #: initdb.c:2563
+=======
+#: initdb.c:2531
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "must specify a password for the superuser to enable password authentication"
 msgstr "необхідно вказати пароль суперкористувача для активації автентифікації за допомогою пароля"
 
+<<<<<<< HEAD
 #: initdb.c:2582
+=======
+#: initdb.c:2550
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no data directory specified"
 msgstr "каталог даних не вказано"
 
+<<<<<<< HEAD
 #: initdb.c:2583
+=======
+#: initdb.c:2551
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "You must identify the directory where the data for this database system will reside.  Do this with either the invocation option -D or the environment variable PGDATA."
 msgstr "Ви повинні зазначити каталог, де будуть зберігатися дані цієї системи баз даних. Зробіть це або параметром -D, або змінною середовища PGDATA."
 
+<<<<<<< HEAD
 #: initdb.c:2600
+=======
+#: initdb.c:2568
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set environment"
 msgstr "не вдалося встановити середовище"
 
+<<<<<<< HEAD
 #: initdb.c:2618
+=======
+#: initdb.c:2586
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "program \"%s\" is needed by %s but was not found in the same directory as \"%s\""
 msgstr "програма \"%s\" потрібна для %s, але не знайдена в тому ж каталозі, що й \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2621
+=======
+#: initdb.c:2589
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "program \"%s\" was found by \"%s\" but was not the same version as %s"
 msgstr "програма \"%s\" знайдена для \"%s\", але має відмінну версію від %s"
 
+<<<<<<< HEAD
 #: initdb.c:2636
+=======
+#: initdb.c:2604
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "input file location must be an absolute path"
 msgstr "розташування вхідного файлу має бути абсолютним шляхом"
 
+<<<<<<< HEAD
 #: initdb.c:2653
+=======
+#: initdb.c:2621
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The database cluster will be initialized with locale \"%s\".\n"
 msgstr "Кластер бази даних буде ініціалізовано з локалізацією \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2656
+=======
+#: initdb.c:2624
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The database cluster will be initialized with this locale configuration:\n"
 msgstr "Кластер бази даних буде ініціалізовано з локалізацією:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2657
+=======
+#: initdb.c:2625
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  provider:    %s\n"
-msgstr "  постачальник:    %s\n"
+msgid "  locale provider:   %s\n"
+msgstr "  провайдер локалі:   %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2659
+=======
+#: initdb.c:2627
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  ICU locale:  %s\n"
-msgstr "  Локаль ICU:  %s\n"
+msgid "  default collation: %s\n"
+msgstr "  стандартне сортування: %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2660
+=======
+#: initdb.c:2628
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  LC_COLLATE:  %s\n"
 "  LC_CTYPE:    %s\n"
@@ -785,216 +1352,385 @@ msgstr "  LC_COLLATE:  %s\n"
 "  LC_NUMERIC:  %s\n"
 "  LC_TIME:     %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2690
+=======
+#: initdb.c:2658
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find suitable encoding for locale \"%s\""
 msgstr "не вдалося знайти відповідне кодування для локалі \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2692
+=======
+#: initdb.c:2660
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Rerun %s with the -E option."
 msgstr "Перезапустіть %s з параметром -E."
 
+<<<<<<< HEAD
 #: initdb.c:2693 initdb.c:3226 initdb.c:3334 initdb.c:3354
+=======
+#: initdb.c:2661 initdb.c:3204 initdb.c:3324 initdb.c:3344
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Try \"%s --help\" for more information."
 msgstr "Спробуйте \"%s --help\" для додаткової інформації."
 
+<<<<<<< HEAD
 #: initdb.c:2705
+=======
+#: initdb.c:2673
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Encoding \"%s\" implied by locale is not allowed as a server-side encoding.\n"
 "The default database encoding will be set to \"%s\" instead.\n"
 msgstr "Кодування \"%s\", що очікується локалізацією, не дозволено у якості кодування сервера.\n"
 "Замість нього буде встановлене кодування \"%s\" за замовчуванням.\n"
 
+<<<<<<< HEAD
 #: initdb.c:2710
+=======
+#: initdb.c:2678
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale \"%s\" requires unsupported encoding \"%s\""
 msgstr "локалізація \"%s\" потребує кодування \"%s\", що не підтримується"
 
+<<<<<<< HEAD
 #: initdb.c:2712
+=======
+#: initdb.c:2680
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Encoding \"%s\" is not allowed as a server-side encoding."
 msgstr "Кодування \"%s\" не допускається як кодування сервера."
 
+<<<<<<< HEAD
 #: initdb.c:2714
+=======
+#: initdb.c:2682
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Rerun %s with a different locale selection."
 msgstr "Перезапустіть %s з іншим вибором локалі."
 
+<<<<<<< HEAD
 #: initdb.c:2722
+=======
+#: initdb.c:2690
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The default database encoding has accordingly been set to \"%s\".\n"
 msgstr "Кодування бази даних за замовчуванням встановлено: \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2791
+=======
+#: initdb.c:2704
+#, c-format
+msgid "builtin provider locale \"%s\" requires encoding \"%s\""
+msgstr "локаль вбудованого провайдера \"%s\" вимагає кодування \"%s\""
+
+#: initdb.c:2766
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find suitable text search configuration for locale \"%s\""
 msgstr "не вдалося знайти відповідну конфігурацію текстового пошуку для локалі\"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2802
+=======
+#: initdb.c:2777
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "suitable text search configuration for locale \"%s\" is unknown"
 msgstr "відповідна конфігурація текстового пошуку для локалі \"%s\" невідома"
 
+<<<<<<< HEAD
 #: initdb.c:2807
+=======
+#: initdb.c:2782
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "specified text search configuration \"%s\" might not match locale \"%s\""
 msgstr "вказана конфігурація текстового пошуку \"%s\" може не підходити локалі \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2812
+=======
+#: initdb.c:2787
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The default text search configuration will be set to \"%s\".\n"
 msgstr "Конфігурація текстового пошуку за замовчуванням буде встановлена в \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2855 initdb.c:2926
+=======
+#: initdb.c:2830 initdb.c:2901
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "creating directory %s ... "
 msgstr "створення каталогу %s... "
 
+<<<<<<< HEAD
 #: initdb.c:2860 initdb.c:2931 initdb.c:2979 initdb.c:3035
+=======
+#: initdb.c:2835 initdb.c:2906 initdb.c:2954 initdb.c:3011
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create directory \"%s\": %m"
 msgstr "не вдалося створити каталог \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2869 initdb.c:2941
+=======
+#: initdb.c:2844 initdb.c:2916
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "fixing permissions on existing directory %s ... "
 msgstr "виправляю дозволи для створеного каталогу %s... "
 
+<<<<<<< HEAD
 #: initdb.c:2874 initdb.c:2946
+=======
+#: initdb.c:2849 initdb.c:2921
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not change permissions of directory \"%s\": %m"
 msgstr "не вдалося змінити дозволи каталогу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2886 initdb.c:2958
+=======
+#: initdb.c:2861 initdb.c:2933
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "directory \"%s\" exists but is not empty"
 msgstr "каталог \"%s\" існує, але він не порожній"
 
+<<<<<<< HEAD
 #: initdb.c:2890
+=======
+#: initdb.c:2865
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "If you want to create a new database system, either remove or empty the directory \"%s\" or run %s with an argument other than \"%s\"."
 msgstr "Якщо ви хочете створити нову систему бази даних, видаліть або очистіть каталог \"%s\", або запустіть %s з аргументом, відмінним від \"%s\"."
 
+<<<<<<< HEAD
 #: initdb.c:2898 initdb.c:2968 initdb.c:3375
+=======
+#: initdb.c:2873 initdb.c:2943 initdb.c:3369
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not access directory \"%s\": %m"
 msgstr "немає доступу до каталогу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2919
+=======
+#: initdb.c:2894
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory location must be an absolute path"
 msgstr "розташування WAL каталогу має бути абсолютним шляхом"
 
+<<<<<<< HEAD
 #: initdb.c:2962
+=======
+#: initdb.c:2937
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "If you want to store the WAL there, either remove or empty the directory \"%s\"."
 msgstr "Якщо ви хочете зберігати дані з WAL там, потрібно видалити або очистити директорію \"%s\"."
 
+<<<<<<< HEAD
 #: initdb.c:2972
+=======
+#: initdb.c:2947
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create symbolic link \"%s\": %m"
 msgstr "не вдалося створити символічне послання \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2991
+=======
+#: initdb.c:2966
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "It contains a dot-prefixed/invisible file, perhaps due to it being a mount point."
 msgstr "Він містить файл з крапкою або невидимий файл, можливо це точка під'єднання."
 
+<<<<<<< HEAD
 #: initdb.c:2993
+=======
+#: initdb.c:2968
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "It contains a lost+found directory, perhaps due to it being a mount point."
 msgstr "Він містить каталог lost+found, можливо це точка під'єднання."
 
+<<<<<<< HEAD
 #: initdb.c:2995
+=======
+#: initdb.c:2970
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Using a mount point directly as the data directory is not recommended.\n"
 "Create a subdirectory under the mount point."
 msgstr "Не рекомендується використовувати точку під'єднання у якості каталогу даних.\n"
 "Створіть підкаталог і використайте його."
 
+<<<<<<< HEAD
 #: initdb.c:3021
+=======
+#: initdb.c:2997
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "creating subdirectories ... "
 msgstr "створення підкаталогів... "
 
+<<<<<<< HEAD
 #: initdb.c:3064
 msgid "performing post-bootstrap initialization ... "
 msgstr "виконується кінцева фаза ініціалізації ... "
 
 #: initdb.c:3225
+=======
+#: initdb.c:3040
+msgid "performing post-bootstrap initialization ... "
+msgstr "виконується кінцева фаза ініціалізації ... "
+
+#: initdb.c:3203
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "-c %s requires a value"
 msgstr "-c %s необхідне значення"
 
+<<<<<<< HEAD
 #: initdb.c:3250
+=======
+#: initdb.c:3228
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Running in debug mode.\n"
 msgstr "Виконується у режимі налагодження.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3254
+=======
+#: initdb.c:3232
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Running in no-clean mode.  Mistakes will not be cleaned up.\n"
 msgstr "Виконується у режимі 'no-clean'. Помилки не будуть виправлені.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3324
+=======
+#: initdb.c:3305
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized locale provider: %s"
 msgstr "нерозпізнаний постачальник локалів: %s"
 
+<<<<<<< HEAD
 #: initdb.c:3352
+=======
+#: initdb.c:3342
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many command-line arguments (first is \"%s\")"
 msgstr "забагато аргументів у командному рядку (перший \"%s\")"
 
+<<<<<<< HEAD
 #: initdb.c:3359 initdb.c:3363
+=======
+#: initdb.c:3349 initdb.c:3353 initdb.c:3357
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s cannot be specified unless locale provider \"%s\" is chosen"
 msgstr "%s не може бути вказано, поки не буде обрано постачальник локалі \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:3377 initdb.c:3454
 msgid "syncing data to disk ... "
 msgstr "синхронізація даних з диском ... "
 
 #: initdb.c:3385
+=======
+#: initdb.c:3371 initdb.c:3434
+msgid "syncing data to disk ... "
+msgstr "синхронізація даних з диском ... "
+
+#: initdb.c:3379
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "password prompt and password file cannot be specified together"
 msgstr "неможливо вказати одночасно пароль і файл паролю"
 
+<<<<<<< HEAD
 #: initdb.c:3407
+=======
+#: initdb.c:3390
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "argument of --wal-segsize must be a number"
-msgstr "аргумент --wal-segsize повинен бути числом"
+msgid "argument of %s must be a power of two between 1 and 1024"
+msgstr "аргумент %s має бути ступенем двійки в діапазоні від 1 до 1024"
 
+<<<<<<< HEAD
 #: initdb.c:3409
 #, c-format
 msgid "argument of --wal-segsize must be a power of two between 1 and 1024"
 msgstr "аргумент --wal-segsize повинен бути ступенем 2 між 1 і 1024"
 
 #: initdb.c:3423
+=======
+#: initdb.c:3403
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "superuser name \"%s\" is disallowed; role names cannot begin with \"pg_\""
 msgstr "неприпустиме ім'я суперкористувача \"%s\"; імена ролей не можуть починатися на \"pg_\""
 
+<<<<<<< HEAD
 #: initdb.c:3425
+=======
+#: initdb.c:3405
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The files belonging to this database system will be owned by user \"%s\".\n"
 "This user must also own the server process.\n\n"
 msgstr "Файли цієї бази даних будуть належати користувачеві \"%s\".\n"
 "Від імені цього користувача повинен запускатися процес сервера.\n\n"
 
+<<<<<<< HEAD
 #: initdb.c:3441
+=======
+#: initdb.c:3421
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Data page checksums are enabled.\n"
 msgstr "Контроль цілісності сторінок даних увімкнено.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3443
+=======
+#: initdb.c:3423
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Data page checksums are disabled.\n"
 msgstr "Контроль цілісності сторінок даних вимкнено.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3460
+=======
+#: initdb.c:3440
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Sync to disk skipped.\n"
@@ -1003,22 +1739,38 @@ msgstr "\n"
 "Синхронізація з диском пропущена.\n"
 "Каталог з даними може бути пошкоджено під час аварійного завершення роботи операційної системи.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3465
+=======
+#: initdb.c:3445
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "enabling \"trust\" authentication for local connections"
 msgstr "увімкнення автентифікації \"довіри\" для локальних підключень"
 
+<<<<<<< HEAD
 #: initdb.c:3466
+=======
+#: initdb.c:3446
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb."
 msgstr "Ви можете змінити це, змінивши pg_hba.conf або скориставшись опцією -A, або --auth-local і --auth-host, наступного разу, коли ви запускаєте initdb."
 
 #. translator: This is a placeholder in a shell command.
+<<<<<<< HEAD
 #: initdb.c:3496
 msgid "logfile"
 msgstr "logfile"
 
 #: initdb.c:3498
+=======
+#: initdb.c:3476
+msgid "logfile"
+msgstr "logfile"
+
+#: initdb.c:3478
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\n"
 "Success. You can now start the database server using:\n\n"

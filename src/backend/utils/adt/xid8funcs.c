@@ -15,7 +15,7 @@
  * to users.  The txid_XXX variants should eventually be dropped.
  *
  *
- *	Copyright (c) 2003-2023, PostgreSQL Global Development Group
+ *	Copyright (c) 2003-2025, PostgreSQL Global Development Group
  *	Author: Jan Wieck, Afilias USA INC.
  *	64-bit txids: Marko Kreen, Skype Technologies
  *
@@ -26,17 +26,15 @@
 
 #include "postgres.h"
 
-#include "access/clog.h"
 #include "access/transam.h"
 #include "access/xact.h"
-#include "access/xlog.h"
 #include "funcapi.h"
 #include "lib/qunique.h"
 #include "libpq/pqformat.h"
 #include "miscadmin.h"
-#include "postmaster/postmaster.h"
 #include "storage/lwlock.h"
 #include "storage/procarray.h"
+#include "storage/procnumber.h"
 #include "utils/builtins.h"
 #include "utils/memutils.h"
 #include "utils/snapmgr.h"
@@ -94,15 +92,16 @@ static bool
 TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 {
 	TransactionId xid = XidFromFullTransactionId(fxid);
-	uint32		now_epoch;
-	TransactionId now_epoch_next_xid;
 	FullTransactionId now_fullxid;
+<<<<<<< HEAD
 	TransactionId oldest_xid;
 	FullTransactionId oldest_fxid;
+=======
+	TransactionId oldest_clog_xid;
+	FullTransactionId oldest_clog_fxid;
+>>>>>>> REL_18_BETA1_branch
 
 	now_fullxid = ReadNextFullTransactionId();
-	now_epoch_next_xid = XidFromFullTransactionId(now_fullxid);
-	now_epoch = EpochFromFullTransactionId(now_fullxid);
 
 	if (extracted_xid != NULL)
 		*extracted_xid = xid;
@@ -118,12 +117,12 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 	if (!FullTransactionIdPrecedes(fxid, now_fullxid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("transaction ID %llu is in the future",
-						(unsigned long long) U64FromFullTransactionId(fxid))));
+				 errmsg("transaction ID %" PRIu64 " is in the future",
+						U64FromFullTransactionId(fxid))));
 
 	/*
-	 * ShmemVariableCache->oldestClogXid is protected by XactTruncationLock,
-	 * but we don't acquire that lock here.  Instead, we require the caller to
+	 * TransamVariables->oldestClogXid is protected by XactTruncationLock, but
+	 * we don't acquire that lock here.  Instead, we require the caller to
 	 * acquire it, because the caller is presumably going to look up the
 	 * returned XID.  If we took and released the lock within this function, a
 	 * CLOG truncation could occur before the caller finished with the XID.
@@ -131,6 +130,7 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 	Assert(LWLockHeldByMe(XactTruncationLock));
 
 	/*
+<<<<<<< HEAD
 	 * If fxid is not older than ShmemVariableCache->oldestClogXid, the
 	 * relevant CLOG entry is guaranteed to still exist.  Convert
 	 * ShmemVariableCache->oldestClogXid into a FullTransactionId to compare
@@ -178,6 +178,22 @@ widen_snapshot_xid(TransactionId xid, FullTransactionId next_fxid)
 		epoch--;
 
 	return FullTransactionIdFromEpochAndXid(epoch, xid);
+=======
+	 * If fxid is not older than TransamVariables->oldestClogXid, the relevant
+	 * CLOG entry is guaranteed to still exist.
+	 *
+	 * TransamVariables->oldestXid governs allowable XIDs.  Usually,
+	 * oldestClogXid==oldestXid.  It's also possible for oldestClogXid to
+	 * follow oldestXid, in which case oldestXid might advance after our
+	 * ReadNextFullTransactionId() call.  If oldestXid has advanced, that
+	 * advancement reinstated the usual oldestClogXid==oldestXid.  Whether or
+	 * not that happened, oldestClogXid is allowable relative to now_fullxid.
+	 */
+	oldest_clog_xid = TransamVariables->oldestClogXid;
+	oldest_clog_fxid =
+		FullTransactionIdFromAllowableAt(now_fullxid, oldest_clog_xid);
+	return !FullTransactionIdPrecedes(fxid, oldest_clog_fxid);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -555,12 +571,18 @@ pg_current_snapshot(PG_FUNCTION_ARGS)
 	nxip = cur->xcnt;
 	snap = palloc(PG_SNAPSHOT_SIZE(nxip));
 
-	/* fill */
-	snap->xmin = widen_snapshot_xid(cur->xmin, next_fxid);
-	snap->xmax = widen_snapshot_xid(cur->xmax, next_fxid);
+	/*
+	 * Fill.  This is the current backend's active snapshot, so MyProc->xmin
+	 * is <= all these XIDs.  As long as that remains so, oldestXid can't
+	 * advance past any of these XIDs.  Hence, these XIDs remain allowable
+	 * relative to next_fxid.
+	 */
+	snap->xmin = FullTransactionIdFromAllowableAt(next_fxid, cur->xmin);
+	snap->xmax = FullTransactionIdFromAllowableAt(next_fxid, cur->xmax);
 	snap->nxip = nxip;
 	for (i = 0; i < nxip; i++)
-		snap->xip[i] = widen_snapshot_xid(cur->xip[i], next_fxid);
+		snap->xip[i] =
+			FullTransactionIdFromAllowableAt(next_fxid, cur->xip[i]);
 
 	/*
 	 * We want them guaranteed to be in ascending order.  This also removes

@@ -6,7 +6,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pg_basebackup (PostgreSQL current)\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2023-09-11 15:31+0300\n"
+=======
+"POT-Creation-Date: 2024-11-09 07:47+0300\n"
+>>>>>>> REL_18_BETA1_branch
 "PO-Revision-Date: 2024-09-07 11:12+0300\n"
 "Last-Translator: Alexander Lakhin <exclusion@gmail.com>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
@@ -89,10 +93,109 @@ msgid "compression algorithm \"%s\" does not accept a worker count"
 msgstr "для алгоритма сжатия \"%s\" нельзя задать число потоков"
 
 #: ../../common/compression.c:408
+<<<<<<< HEAD
 #, c-format
 msgid "compression algorithm \"%s\" does not support long-distance mode"
 msgstr "алгоритм сжатия \"%s\" не поддерживает режим большой дистанции"
 
+#: ../../common/fe_memutils.c:35 ../../common/fe_memutils.c:75
+#: ../../common/fe_memutils.c:98 ../../common/fe_memutils.c:161
+=======
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "compression algorithm \"%s\" does not support long-distance mode"
+msgstr "алгоритм сжатия \"%s\" не поддерживает режим большой дистанции"
+
+<<<<<<< HEAD
+#: ../../common/fe_memutils.c:92 ../../common/fe_memutils.c:153
+=======
+#: ../../common/controldata_utils.c:97
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not open file \"%s\" for reading: %m"
+msgstr "не удалось открыть файл \"%s\" для чтения: %m"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:87 ../../common/file_utils.c:447
+#: pg_receivewal.c:319 pg_recvlogical.c:339
+=======
+#: ../../common/controldata_utils.c:110 pg_basebackup.c:1873
+#: pg_receivewal.c:402
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not read file \"%s\": %m"
+msgstr "не удалось прочитать файл \"%s\": %m"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:162 pg_receivewal.c:242
+=======
+#: ../../common/controldata_utils.c:119
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not read file \"%s\": read %d of %zu"
+msgstr "не удалось прочитать файл \"%s\" (прочитано байт: %d из %zu)"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:196 pg_receivewal.c:471
+=======
+#: ../../common/controldata_utils.c:132 ../../common/controldata_utils.c:280
+#: bbstreamer_file.c:138 pg_recvlogical.c:650
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not close file \"%s\": %m"
+msgstr "не удалось закрыть файл \"%s\": %m"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:228 ../../common/file_utils.c:287
+#: ../../common/file_utils.c:361 ../../fe_utils/recovery_gen.c:121
+#: pg_receivewal.c:386
+=======
+#: ../../common/controldata_utils.c:168
+msgid "byte ordering mismatch"
+msgstr "несоответствие порядка байт"
+
+#: ../../common/controldata_utils.c:170
+#, c-format
+msgid ""
+"possible byte ordering mismatch\n"
+"The byte ordering used to store the pg_control file might not match the one\n"
+"used by this program.  In that case the results below would be incorrect, "
+"and\n"
+"the PostgreSQL installation would be incompatible with this data directory."
+msgstr ""
+"возможно несоответствие порядка байт\n"
+"Порядок байт в файле pg_control может не соответствовать используемому\n"
+"этой программой. В этом случае результаты будут неверными и\n"
+"установленный PostgreSQL будет несовместим с этим каталогом данных."
+
+#: ../../common/controldata_utils.c:230 ../../common/file_utils.c:70
+#: ../../common/file_utils.c:347 ../../common/file_utils.c:406
+#: ../../common/file_utils.c:480 ../../fe_utils/recovery_gen.c:140
+#: pg_basebackup.c:1846 pg_receivewal.c:386
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not open file \"%s\": %m"
+msgstr "не удалось открыть файл \"%s\": %m"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:299 ../../common/file_utils.c:369
+#: pg_recvlogical.c:194
+=======
+#: ../../common/controldata_utils.c:249
+#, c-format
+msgid "could not write file \"%s\": %m"
+msgstr "не удалось записать файл \"%s\": %m"
+
+#: ../../common/controldata_utils.c:268 ../../common/file_utils.c:418
+#: ../../common/file_utils.c:488 pg_recvlogical.c:204
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid "could not fsync file \"%s\": %m"
+msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
+
+<<<<<<< HEAD
+#: ../../common/file_utils.c:379 pg_basebackup.c:2238 walmethods.c:462
+=======
 #: ../../common/fe_memutils.c:35 ../../common/fe_memutils.c:75
 #: ../../common/fe_memutils.c:98 ../../common/fe_memutils.c:161
 #, c-format
@@ -104,39 +207,70 @@ msgstr "нехватка памяти\n"
 msgid "cannot duplicate null pointer (internal error)\n"
 msgstr "попытка дублирования нулевого указателя (внутренняя ошибка)\n"
 
-#: ../../common/file_utils.c:87 ../../common/file_utils.c:447
-#: pg_receivewal.c:319 pg_recvlogical.c:339
+#: ../../common/file_utils.c:76
+#, c-format
+msgid "could not synchronize file system for file \"%s\": %m"
+msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
+
+#: ../../common/file_utils.c:120 ../../common/file_utils.c:566
+#: pg_receivewal.c:319 pg_recvlogical.c:352
 #, c-format
 msgid "could not stat file \"%s\": %m"
 msgstr "не удалось получить информацию о файле \"%s\": %m"
 
-#: ../../common/file_utils.c:162 pg_receivewal.c:242
+#: ../../common/file_utils.c:130 ../../common/file_utils.c:227
+#: ../../fe_utils/option_utils.c:99
+#, c-format
+msgid "this build does not support sync method \"%s\""
+msgstr "эта сборка программы не поддерживает метод синхронизации \"%s\""
+
+#: ../../common/file_utils.c:151 ../../common/file_utils.c:281
+#: pg_receivewal.c:242
 #, c-format
 msgid "could not open directory \"%s\": %m"
 msgstr "не удалось открыть каталог \"%s\": %m"
 
-#: ../../common/file_utils.c:196 pg_receivewal.c:471
+#: ../../common/file_utils.c:169 ../../common/file_utils.c:315
+#: pg_receivewal.c:471
 #, c-format
 msgid "could not read directory \"%s\": %m"
 msgstr "не удалось прочитать каталог \"%s\": %m"
 
-#: ../../common/file_utils.c:228 ../../common/file_utils.c:287
-#: ../../common/file_utils.c:361 ../../fe_utils/recovery_gen.c:121
-#: pg_receivewal.c:386
-#, c-format
-msgid "could not open file \"%s\": %m"
-msgstr "не удалось открыть файл \"%s\": %m"
-
-#: ../../common/file_utils.c:299 ../../common/file_utils.c:369
-#: pg_recvlogical.c:194
-#, c-format
-msgid "could not fsync file \"%s\": %m"
-msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
-
-#: ../../common/file_utils.c:379 pg_basebackup.c:2238 walmethods.c:462
+#: ../../common/file_utils.c:498 pg_basebackup.c:2344 walmethods.c:462
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not rename file \"%s\" to \"%s\": %m"
 msgstr "не удалось переименовать файл \"%s\" в \"%s\": %m"
+
+#: ../../common/restricted_token.c:60
+#, c-format
+msgid "could not open process token: error code %lu"
+msgstr "не удалось открыть маркер процесса (код ошибки: %lu)"
+
+#: ../../common/restricted_token.c:74
+#, c-format
+msgid "could not allocate SIDs: error code %lu"
+msgstr "не удалось подготовить структуры SID (код ошибки: %lu)"
+
+#: ../../common/restricted_token.c:94
+#, c-format
+msgid "could not create restricted token: error code %lu"
+msgstr "не удалось создать ограниченный маркер (код ошибки: %lu)"
+
+#: ../../common/restricted_token.c:115
+#, c-format
+msgid "could not start process for command \"%s\": error code %lu"
+msgstr "не удалось запустить процесс для команды \"%s\" (код ошибки: %lu)"
+
+#: ../../common/restricted_token.c:153
+#, c-format
+msgid "could not re-execute with restricted token: error code %lu"
+msgstr "не удалось перезапуститься с ограниченным маркером (код ошибки: %lu)"
+
+#: ../../common/restricted_token.c:168
+#, c-format
+msgid "could not get exit code from subprocess: error code %lu"
+msgstr "не удалось получить код выхода от подпроцесса (код ошибки: %lu)"
 
 #: ../../fe_utils/option_utils.c:69
 #, c-format
@@ -148,51 +282,101 @@ msgstr "неверное значение \"%s\" для параметра %s"
 msgid "%s must be in range %d..%d"
 msgstr "значение %s должно быть в диапазоне %d..%d"
 
+<<<<<<< HEAD
 #: ../../fe_utils/recovery_gen.c:34 ../../fe_utils/recovery_gen.c:45
 #: ../../fe_utils/recovery_gen.c:70 ../../fe_utils/recovery_gen.c:90
 #: ../../fe_utils/recovery_gen.c:149 pg_basebackup.c:1610
+=======
+#: ../../fe_utils/option_utils.c:106
+#, c-format
+msgid "unrecognized sync method: %s"
+msgstr "нераспознанный метод синхронизации: %s"
+
+#: ../../fe_utils/recovery_gen.c:39 ../../fe_utils/recovery_gen.c:50
+#: ../../fe_utils/recovery_gen.c:89 ../../fe_utils/recovery_gen.c:109
+#: ../../fe_utils/recovery_gen.c:168 pg_basebackup.c:1636 streamutil.c:334
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory"
 msgstr "нехватка памяти"
 
+<<<<<<< HEAD
 #: ../../fe_utils/recovery_gen.c:124 bbstreamer_file.c:121
 #: bbstreamer_file.c:258 pg_basebackup.c:1407 pg_basebackup.c:1701
+=======
+#: ../../fe_utils/recovery_gen.c:143 bbstreamer_file.c:121
+#: bbstreamer_file.c:258 pg_basebackup.c:1433 pg_basebackup.c:1727
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write to file \"%s\": %m"
 msgstr "не удалось записать в файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../fe_utils/recovery_gen.c:133 bbstreamer_file.c:93 bbstreamer_file.c:360
 #: pg_basebackup.c:1471 pg_basebackup.c:1680
+=======
+#: ../../fe_utils/recovery_gen.c:152 bbstreamer_file.c:93 bbstreamer_file.c:361
+#: pg_basebackup.c:1497 pg_basebackup.c:1706
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create file \"%s\": %m"
 msgstr "не удалось создать файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: bbstreamer_file.c:138 pg_recvlogical.c:633
+=======
+#: ../../fe_utils/string_utils.c:434
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "could not close file \"%s\": %m"
-msgstr "не удалось закрыть файл \"%s\": %m"
+msgid "shell command argument contains a newline or carriage return: \"%s\"\n"
+msgstr ""
+"аргумент команды оболочки содержит символ новой строки или перевода каретки: "
+"\"%s\"\n"
+
+#: ../../fe_utils/string_utils.c:607
+#, c-format
+msgid "database name contains a newline or carriage return: \"%s\"\n"
+msgstr ""
+"имя базы данных содержит символ новой строки или перевода каретки: \"%s\"\n"
 
 #: bbstreamer_file.c:275
 #, c-format
 msgid "unexpected state while extracting archive"
 msgstr "неожиданное состояние при извлечении архива"
 
+<<<<<<< HEAD
 #: bbstreamer_file.c:320 pg_basebackup.c:687 pg_basebackup.c:731
+=======
+#: bbstreamer_file.c:321 pg_basebackup.c:698 pg_basebackup.c:712
+#: pg_basebackup.c:757
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create directory \"%s\": %m"
 msgstr "не удалось создать каталог \"%s\": %m"
 
+<<<<<<< HEAD
 #: bbstreamer_file.c:325
+=======
+#: bbstreamer_file.c:326
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set permissions on directory \"%s\": %m"
 msgstr "не удалось установить права для каталога \"%s\": %m"
 
+<<<<<<< HEAD
 #: bbstreamer_file.c:344
+=======
+#: bbstreamer_file.c:345
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create symbolic link from \"%s\" to \"%s\": %m"
 msgstr "не удалось создать символическую ссылку \"%s\" в \"%s\": %m"
 
+<<<<<<< HEAD
 #: bbstreamer_file.c:364
+=======
+#: bbstreamer_file.c:365
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set permissions on file \"%s\": %m"
 msgstr "не удалось установить права доступа для файла \"%s\": %m"
@@ -227,7 +411,11 @@ msgstr "не удалось записать сжатый файл \"%s\": %s"
 msgid "could not close compressed file \"%s\": %m"
 msgstr "не удалось закрыть сжатый файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: bbstreamer_gzip.c:245 walmethods.c:876
+=======
+#: bbstreamer_gzip.c:245 walmethods.c:880
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not initialize compression library"
 msgstr "не удалось инициализировать библиотеку сжатия"
@@ -277,12 +465,12 @@ msgstr "окончание файла tar занимает больше 2 бло
 msgid "unexpected state while parsing tar archive"
 msgstr "неожиданное состояние при разборе архива tar"
 
-#: bbstreamer_tar.c:296
+#: bbstreamer_tar.c:292
 #, c-format
 msgid "tar member has empty name"
 msgstr "пустое имя у компонента tar"
 
-#: bbstreamer_tar.c:328
+#: bbstreamer_tar.c:326
 #, c-format
 msgid "COPY stream ended before last file was finished"
 msgstr "поток COPY закончился до завершения последнего файла"
@@ -312,93 +500,161 @@ msgstr "не удалось включить режим большой дист�
 msgid "could not create zstd decompression context"
 msgstr "не удалось создать контекст распаковки zstd"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:238
+=======
+#: pg_basebackup.c:245
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing data directory \"%s\""
 msgstr "удаление каталога данных \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:240
+=======
+#: pg_basebackup.c:247
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove data directory"
 msgstr "ошибка при удалении каталога данных"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:244
+=======
+#: pg_basebackup.c:251
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of data directory \"%s\""
 msgstr "удаление содержимого каталога данных \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:246
+=======
+#: pg_basebackup.c:253
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of data directory"
 msgstr "ошибка при удалении содержимого каталога данных"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:251
+=======
+#: pg_basebackup.c:258
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing WAL directory \"%s\""
 msgstr "удаление каталога WAL \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:253
+=======
+#: pg_basebackup.c:260
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove WAL directory"
 msgstr "ошибка при удалении каталога WAL"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:257
+=======
+#: pg_basebackup.c:264
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of WAL directory \"%s\""
 msgstr "удаление содержимого каталога WAL \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:259
+=======
+#: pg_basebackup.c:266
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of WAL directory"
 msgstr "ошибка при удалении содержимого каталога WAL"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:265
+=======
+#: pg_basebackup.c:272
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "data directory \"%s\" not removed at user's request"
 msgstr "каталог данных \"%s\" не был удалён по запросу пользователя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:268
+=======
+#: pg_basebackup.c:275
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory \"%s\" not removed at user's request"
 msgstr "каталог WAL \"%s\" не был удалён по запросу пользователя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:272
+=======
+#: pg_basebackup.c:279
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "changes to tablespace directories will not be undone"
 msgstr "изменения в каталогах табличных пространств не будут отменены"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:324
+=======
+#: pg_basebackup.c:331
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "directory name too long"
 msgstr "слишком длинное имя каталога"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:331
+=======
+#: pg_basebackup.c:338
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "multiple \"=\" signs in tablespace mapping"
 msgstr "несколько знаков \"=\" в сопоставлении табличного пространства"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:340
+=======
+#: pg_basebackup.c:347
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid tablespace mapping format \"%s\", must be \"OLDDIR=NEWDIR\""
 msgstr ""
 "сопоставление табл. пространства записано неверно: \"%s\"; должно быть "
 "\"СТАРЫЙ_КАТАЛОГ=НОВЫЙ_КАТАЛОГ\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:359
+=======
+#: pg_basebackup.c:366
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "old directory is not an absolute path in tablespace mapping: %s"
 msgstr ""
 "старый каталог в сопоставлении табл. пространства задан не абсолютным путём: "
 "%s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:363
+=======
+#: pg_basebackup.c:370
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "new directory is not an absolute path in tablespace mapping: %s"
 msgstr ""
 "новый каталог в сопоставлении табл. пространства задан не абсолютным путём: "
 "%s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:385
+=======
+#: pg_basebackup.c:392
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "%s takes a base backup of a running PostgreSQL server.\n"
@@ -407,17 +663,31 @@ msgstr ""
 "%s делает базовую резервную копию работающего сервера PostgreSQL.\n"
 "\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:387 pg_receivewal.c:79 pg_recvlogical.c:76
+=======
+#: pg_basebackup.c:394 pg_createsubscriber.c:221 pg_receivewal.c:79
+#: pg_recvlogical.c:86
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Usage:\n"
 msgstr "Использование:\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:388 pg_receivewal.c:80 pg_recvlogical.c:77
+=======
+#: pg_basebackup.c:395 pg_createsubscriber.c:222 pg_receivewal.c:80
+#: pg_recvlogical.c:87
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  %s [OPTION]...\n"
 msgstr "  %s [ПАРАМЕТР]...\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:389
+=======
+#: pg_basebackup.c:396
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -426,19 +696,40 @@ msgstr ""
 "\n"
 "Параметры, управляющие выводом:\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:390
+=======
+#: pg_basebackup.c:397
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -D, --pgdata=DIRECTORY receive base backup into directory\n"
 msgstr "  -D, --pgdata=КАТАЛОГ   сохранить базовую копию в указанный каталог\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:391
+=======
+#: pg_basebackup.c:398
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -F, --format=p|t       output format (plain (default), tar)\n"
 msgstr ""
 "  -F, --format=p|t       формат вывода (p (по умолчанию) - простой, t - "
 "tar)\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:392
+=======
+#: pg_basebackup.c:399
+#, c-format
+msgid ""
+"  -i, --incremental=OLDMANIFEST\n"
+"                         take incremental backup\n"
+msgstr ""
+"  -i, --incremental=СТАРЫЙ_МАНИФЕСТ\n"
+"                         создать инкрементальную копию\n"
+
+#: pg_basebackup.c:401
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -r, --max-rate=RATE    maximum transfer rate to transfer data directory\n"
@@ -447,7 +738,11 @@ msgstr ""
 "  -r, --max-rate=СКОРОСТЬ макс. скорость передачи данных в целевой каталог\n"
 "                         (в КБ/с, либо добавьте суффикс \"k\" или \"M\")\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:394
+=======
+#: pg_basebackup.c:403
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -R, --write-recovery-conf\n"
@@ -457,7 +752,11 @@ msgstr ""
 "                         записать конфигурацию для репликации\n"
 
 # well-spelled: ИНФО
+<<<<<<< HEAD
 #: pg_basebackup.c:396
+=======
+#: pg_basebackup.c:405
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -t, --target=TARGET[:DETAIL]\n"
@@ -466,7 +765,11 @@ msgstr ""
 "  -t, --target=ПОЛУЧАТЕЛЬ[:ДОП_ИНФО]\n"
 "                         получатель копии (если отличается от client)\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:398
+=======
+#: pg_basebackup.c:407
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -T, --tablespace-mapping=OLDDIR=NEWDIR\n"
@@ -477,14 +780,22 @@ msgstr ""
 "каталога\n"
 "                         в новый\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:400
+=======
+#: pg_basebackup.c:409
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --waldir=WALDIR    location for the write-ahead log directory\n"
 msgstr ""
 "      --waldir=КАТАЛОГ_WAL\n"
 "                         расположение каталога с журналом предзаписи\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:401
+=======
+#: pg_basebackup.c:410
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -X, --wal-method=none|fetch|stream\n"
@@ -494,13 +805,21 @@ msgstr ""
 "                         включить в копию требуемые файлы WAL, используя\n"
 "                         заданный метод\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:403
+=======
+#: pg_basebackup.c:412
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -z, --gzip             compress tar output\n"
 msgstr "  -z, --gzip             сжать выходной tar\n"
 
 # well-spelled: ИНФО
+<<<<<<< HEAD
 #: pg_basebackup.c:404
+=======
+#: pg_basebackup.c:413
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -Z, --compress=[{client|server}-]METHOD[:DETAIL]\n"
@@ -510,12 +829,20 @@ msgstr ""
 "                         выполнять сжатие на клиенте или сервере как "
 "указано\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:406
+=======
+#: pg_basebackup.c:415
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -Z, --compress=none    do not compress tar output\n"
 msgstr "  -Z, --compress=none    не сжимать вывод tar\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:407
+=======
+#: pg_basebackup.c:416
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -524,31 +851,52 @@ msgstr ""
 "\n"
 "Общие параметры:\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:408
+=======
+#: pg_basebackup.c:417
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -c, --checkpoint=fast|spread\n"
-"                         set fast or spread checkpointing\n"
+"                         set fast or spread (default) checkpointing\n"
 msgstr ""
 "  -c, --checkpoint=fast|spread\n"
-"                         режим быстрых или распределённых контрольных точек\n"
+"                         режим быстрых или распределённых (по умолчанию)\n"
+"                         контрольных точек\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:410
+=======
+#: pg_basebackup.c:419
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -C, --create-slot      create replication slot\n"
 msgstr "  -C, --create-slot      создать слот репликации\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:411
+=======
+#: pg_basebackup.c:420
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -l, --label=LABEL      set backup label\n"
 msgstr "  -l, --label=МЕТКА      установить метку резервной копии\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:412
+=======
+#: pg_basebackup.c:421
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -n, --no-clean         do not clean up after errors\n"
 msgstr "  -n, --no-clean         не очищать после ошибок\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:413
+=======
+#: pg_basebackup.c:422
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -N, --no-sync          do not wait for changes to be written safely to "
@@ -556,27 +904,47 @@ msgid ""
 msgstr ""
 "  -N, --no-sync          не ждать завершения сохранения данных на диске\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:414
+=======
+#: pg_basebackup.c:423
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -P, --progress         show progress information\n"
 msgstr "  -P, --progress         показывать прогресс операции\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:415 pg_receivewal.c:89
+=======
+#: pg_basebackup.c:424 pg_receivewal.c:89
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -S, --slot=SLOTNAME    replication slot to use\n"
 msgstr "  -S, --slot=ИМЯ_СЛОТА   использовать заданный слот репликации\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:416 pg_receivewal.c:91 pg_recvlogical.c:98
+=======
+#: pg_basebackup.c:425 pg_receivewal.c:91 pg_recvlogical.c:108
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -v, --verbose          output verbose messages\n"
 msgstr "  -v, --verbose          выводить подробные сообщения\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:417 pg_receivewal.c:92 pg_recvlogical.c:99
+=======
+#: pg_basebackup.c:426 pg_receivewal.c:92 pg_recvlogical.c:109
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -V, --version          output version information, then exit\n"
 msgstr "  -V, --version          показать версию и выйти\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:418
+=======
+#: pg_basebackup.c:427
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --manifest-checksums=SHA{224,256,384,512}|CRC32C|NONE\n"
@@ -587,7 +955,11 @@ msgstr ""
 
 # skip-rule: capital-letter-first
 # well-spelled: шестнадц
+<<<<<<< HEAD
 #: pg_basebackup.c:420
+=======
+#: pg_basebackup.c:429
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --manifest-force-encode\n"
@@ -597,25 +969,41 @@ msgstr ""
 "                         записывать все имена файлов в манифесте в шестнадц. "
 "виде\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:422
+=======
+#: pg_basebackup.c:431
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-estimate-size do not estimate backup size in server side\n"
 msgstr ""
 "      --no-estimate-size не рассчитывать размер копии на стороне сервера\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:423
+=======
+#: pg_basebackup.c:432
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-manifest      suppress generation of backup manifest\n"
 msgstr "      --no-manifest      отключить создание манифеста копии\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:424
+=======
+#: pg_basebackup.c:433
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --no-slot          prevent creation of temporary replication slot\n"
 msgstr ""
 "      --no-slot          предотвратить создание временного слота репликации\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:425
+=======
+#: pg_basebackup.c:434
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --no-verify-checksums\n"
@@ -624,12 +1012,30 @@ msgstr ""
 "      --no-verify-checksums\n"
 "                         не проверять контрольные суммы\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:427 pg_receivewal.c:95 pg_recvlogical.c:100
+=======
+# well-spelled: ИНФО
+#: pg_basebackup.c:436
+#, c-format
+msgid ""
+"      --sync-method=METHOD\n"
+"                         set method for syncing files to disk\n"
+msgstr ""
+"      --sync-method=МЕТОД\n"
+"                         метод синхронизации файлов с ФС\n"
+
+#: pg_basebackup.c:438 pg_receivewal.c:95 pg_recvlogical.c:110
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -?, --help             show this help, then exit\n"
 msgstr "  -?, --help             показать эту справку и выйти\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:428 pg_receivewal.c:96 pg_recvlogical.c:101
+=======
+#: pg_basebackup.c:439 pg_receivewal.c:96 pg_recvlogical.c:111
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -638,24 +1044,40 @@ msgstr ""
 "\n"
 "Параметры подключения:\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:429 pg_receivewal.c:97
+=======
+#: pg_basebackup.c:440 pg_receivewal.c:97
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -d, --dbname=CONNSTR   connection string\n"
 msgstr "  -d, --dbname=СТРОКА    строка подключения\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:430 pg_receivewal.c:98 pg_recvlogical.c:103
+=======
+#: pg_basebackup.c:441 pg_receivewal.c:98 pg_recvlogical.c:113
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -h, --host=HOSTNAME    database server host or socket directory\n"
 msgstr ""
 "  -h, --host=ИМЯ         компьютер с сервером баз данных или каталог "
 "сокетов\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:431 pg_receivewal.c:99 pg_recvlogical.c:104
+=======
+#: pg_basebackup.c:442 pg_receivewal.c:99 pg_recvlogical.c:114
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -p, --port=PORT        database server port number\n"
 msgstr "  -p, --port=ПОРТ        номер порта сервера БД\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:432
+=======
+#: pg_basebackup.c:443
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -s, --status-interval=INTERVAL\n"
@@ -666,19 +1088,31 @@ msgstr ""
 "                         интервал между передаваемыми серверу\n"
 "                         пакетами состояния (в секундах)\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:434 pg_receivewal.c:100 pg_recvlogical.c:105
+=======
+#: pg_basebackup.c:445 pg_receivewal.c:100 pg_recvlogical.c:115
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -U, --username=NAME    connect as specified database user\n"
 msgstr ""
 "  -U, --username=NAME    connect as specified database user\n"
 "  -U, --username=ИМЯ     имя пользователя баз данных\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:435 pg_receivewal.c:101 pg_recvlogical.c:106
+=======
+#: pg_basebackup.c:446 pg_receivewal.c:101 pg_recvlogical.c:116
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -w, --no-password      never prompt for password\n"
 msgstr "  -w, --no-password      не запрашивать пароль\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:436 pg_receivewal.c:102 pg_recvlogical.c:107
+=======
+#: pg_basebackup.c:447 pg_receivewal.c:102 pg_recvlogical.c:117
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -W, --password         force password prompt (should happen "
@@ -686,7 +1120,12 @@ msgid ""
 msgstr ""
 "  -W, --password         запрашивать пароль всегда (обычно не требуется)\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:437 pg_receivewal.c:106 pg_recvlogical.c:108
+=======
+#: pg_basebackup.c:448 pg_createsubscriber.c:240 pg_receivewal.c:106
+#: pg_recvlogical.c:118
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -695,63 +1134,113 @@ msgstr ""
 "\n"
 "Об ошибках сообщайте по адресу <%s>.\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:438 pg_receivewal.c:107 pg_recvlogical.c:109
+=======
+#: pg_basebackup.c:449 pg_createsubscriber.c:241 pg_receivewal.c:107
+#: pg_recvlogical.c:119
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s home page: <%s>\n"
 msgstr "Домашняя страница %s: <%s>\n"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:477
+=======
+#: pg_basebackup.c:488
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read from ready pipe: %m"
 msgstr "не удалось прочитать из готового канала: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:480 pg_basebackup.c:622 pg_basebackup.c:2152
 #: streamutil.c:441
+=======
+#: pg_basebackup.c:491 pg_basebackup.c:633 pg_basebackup.c:2258
+#: streamutil.c:521
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse write-ahead log location \"%s\""
 msgstr "не удалось разобрать положение в журнале предзаписи \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:585 pg_receivewal.c:600
+=======
+#: pg_basebackup.c:596 pg_receivewal.c:600
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not finish writing WAL files: %m"
 msgstr "не удалось завершить запись файлов WAL: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:631
+=======
+#: pg_basebackup.c:642
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create pipe for background process: %m"
 msgstr "не удалось создать канал для фонового процесса: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:665
+=======
+#: pg_basebackup.c:676
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "created temporary replication slot \"%s\""
 msgstr "создан временный слот репликации \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:668
+=======
+#: pg_basebackup.c:679
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "created replication slot \"%s\""
 msgstr "создан слот репликации \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:702
+=======
+#: pg_basebackup.c:728
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create background process: %m"
 msgstr "не удалось создать фоновый процесс: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:711
+=======
+#: pg_basebackup.c:737
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create background thread: %m"
 msgstr "не удалось создать фоновый поток выполнения: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:750
+=======
+#: pg_basebackup.c:776
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "directory \"%s\" exists but is not empty"
 msgstr "каталог \"%s\" существует, но он не пуст"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:756
+=======
+#: pg_basebackup.c:782 pg_createsubscriber.c:390
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not access directory \"%s\": %m"
 msgstr "ошибка при обращении к каталогу \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:832
+=======
+#: pg_basebackup.c:858
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%*s/%s kB (100%%), %d/%d tablespace %*s"
 msgid_plural "%*s/%s kB (100%%), %d/%d tablespaces %*s"
@@ -759,7 +1248,11 @@ msgstr[0] "%*s/%s КБ (100%%), табличное пространство %d/%
 msgstr[1] "%*s/%s КБ (100%%), табличное пространство %d/%d %*s"
 msgstr[2] "%*s/%s КБ (100%%), табличное пространство %d/%d %*s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:844
+=======
+#: pg_basebackup.c:870
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%*s/%s kB (%d%%), %d/%d tablespace (%s%-*.*s)"
 msgid_plural "%*s/%s kB (%d%%), %d/%d tablespaces (%s%-*.*s)"
@@ -767,7 +1260,11 @@ msgstr[0] "%*s/%s КБ (%d%%), табличное пространство %d/%d
 msgstr[1] "%*s/%s КБ (%d%%), табличное пространство %d/%d (%s%-*.*s)"
 msgstr[2] "%*s/%s КБ (%d%%), табличное пространство %d/%d (%s%-*.*s)"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:860
+=======
+#: pg_basebackup.c:886
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%*s/%s kB (%d%%), %d/%d tablespace"
 msgid_plural "%*s/%s kB (%d%%), %d/%d tablespaces"
@@ -775,58 +1272,102 @@ msgstr[0] "%*s/%s КБ (%d%%), табличное пространство %d/%d
 msgstr[1] "%*s/%s КБ (%d%%), табличное пространство %d/%d"
 msgstr[2] "%*s/%s КБ (%d%%), табличное пространство %d/%d"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:884
+=======
+#: pg_basebackup.c:910
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "transfer rate \"%s\" is not a valid value"
 msgstr "неверное значение (\"%s\") для скорости передачи данных"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:886
+=======
+#: pg_basebackup.c:912
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid transfer rate \"%s\": %m"
 msgstr "неверная скорость передачи данных \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:893
+=======
+#: pg_basebackup.c:919
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "transfer rate must be greater than zero"
 msgstr "скорость передачи должна быть больше 0"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:923
+=======
+#: pg_basebackup.c:949
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid --max-rate unit: \"%s\""
 msgstr "неверная единица измерения в --max-rate: \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:927
+=======
+#: pg_basebackup.c:953
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "transfer rate \"%s\" exceeds integer range"
 msgstr "скорость передачи \"%s\" вне целочисленного диапазона"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:934
+=======
+#: pg_basebackup.c:960
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "transfer rate \"%s\" is out of range"
 msgstr "скорость передачи \"%s\" вне диапазона"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:996
+=======
+#: pg_basebackup.c:1022
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not get COPY data stream: %s"
 msgstr "не удалось получить поток данных COPY: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1013 pg_recvlogical.c:436 pg_recvlogical.c:608
+=======
+#: pg_basebackup.c:1039 pg_recvlogical.c:449 pg_recvlogical.c:625
+>>>>>>> REL_18_BETA1_branch
 #: receivelog.c:973
 #, c-format
 msgid "could not read COPY data: %s"
 msgstr "не удалось прочитать данные COPY: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1017
+=======
+#: pg_basebackup.c:1043
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "background process terminated unexpectedly"
 msgstr "фоновый процесс завершился неожиданно"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1088
+=======
+#: pg_basebackup.c:1114
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot inject manifest into a compressed tar file"
 msgstr "манифест нельзя внедрить в сжатый архив tar"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1089
+=======
+#: pg_basebackup.c:1115
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Use client-side compression, send the output to a directory rather than "
@@ -835,24 +1376,40 @@ msgstr ""
 "Примените сжатие на стороне клиента, передайте вывод в каталог, а не в "
 "стандартный вывод, или используйте %s."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1105
+=======
+#: pg_basebackup.c:1131
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot parse archive \"%s\""
 msgstr "обработать архив \"%s\" невозможно"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1106
+=======
+#: pg_basebackup.c:1132
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Only tar archives can be parsed."
 msgstr "Возможна обработка только архивов tar."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1108
+=======
+#: pg_basebackup.c:1134
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Plain format requires pg_basebackup to parse the archive."
 msgstr ""
 "Когда используется простой формат, программа pg_basebackup должна обработать "
 "архив."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1110
+=======
+#: pg_basebackup.c:1136
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Using - as the output directory requires pg_basebackup to parse the archive."
@@ -860,76 +1417,166 @@ msgstr ""
 "Когда в качестве выходного каталога используется \"-\", программа "
 "pg_basebackup должна обработать архив."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1112
+=======
+#: pg_basebackup.c:1138
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The -R option requires pg_basebackup to parse the archive."
 msgstr ""
 "Когда используется ключ -R, программа pg_basebackup должна обработать архив."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1331
+=======
+#: pg_basebackup.c:1357
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "archives must precede manifest"
 msgstr "архивы должны предшествовать манифесту"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1346
+=======
+#: pg_basebackup.c:1372
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid archive name: \"%s\""
 msgstr "неверное имя архива: \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1418
+=======
+#: pg_basebackup.c:1444
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected payload data"
 msgstr "неожиданно получены данные"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1561
+=======
+#: pg_basebackup.c:1587
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "empty COPY message"
 msgstr "пустое сообщение COPY"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1563
+=======
+#: pg_basebackup.c:1589
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "malformed COPY message of type %d, length %zu"
 msgstr "неправильное сообщение COPY типа %d, длины %zu"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1761
+=======
+#: pg_basebackup.c:1789
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "incompatible server version %s"
 msgstr "несовместимая версия сервера %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1777
+=======
+#: pg_basebackup.c:1805
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Use -X none or -X fetch to disable log streaming."
 msgstr "Укажите -X none или -X fetch для отключения трансляции журнала."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1845
+=======
+#: pg_basebackup.c:1841
+#, c-format
+msgid "server does not support incremental backup"
+msgstr "сервер не поддерживает инкрементальное копирование"
+
+#: pg_basebackup.c:1850 pg_basebackup.c:2008 pg_recvlogical.c:272
+#: receivelog.c:543 receivelog.c:582 streamutil.c:367 streamutil.c:441
+#: streamutil.c:493 streamutil.c:581 streamutil.c:733 streamutil.c:778
+#, c-format
+msgid "could not send replication command \"%s\": %s"
+msgstr "не удалось передать команду репликации \"%s\": %s"
+
+#: pg_basebackup.c:1856 pg_basebackup.c:1883
+#, c-format
+msgid "could not upload manifest: %s"
+msgstr "не удалось загрузить манифест на сервер: %s"
+
+#: pg_basebackup.c:1859 pg_basebackup.c:1886
+#, c-format
+msgid "could not upload manifest: unexpected status %s"
+msgstr "не удалось загрузить манифест на сервер: неожиданное состояние %s"
+
+#: pg_basebackup.c:1867
+#, c-format
+msgid "could not send COPY data: %s"
+msgstr "не удалось отправить данные COPY: %s"
+
+#: pg_basebackup.c:1877
+#, c-format
+msgid "could not send end-of-COPY: %s"
+msgstr "не удалось отправить сообщение \"конец COPY\": %s"
+
+#: pg_basebackup.c:1892
+#, c-format
+msgid "unexpected extra result while sending manifest"
+msgstr "неожиданный лишний результат при передаче манифеста"
+
+#: pg_basebackup.c:1950
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "backup targets are not supported by this server version"
 msgstr "получатели копий не поддерживаются данной версией сервера"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1848
+=======
+#: pg_basebackup.c:1953
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "recovery configuration cannot be written when a backup target is used"
 msgstr ""
 "при использовании получателя копии записать конфигурацию восстановления "
 "нельзя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1875
+=======
+#: pg_basebackup.c:1980
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "server does not support server-side compression"
 msgstr "сервер не поддерживает сжатие на стороне сервера"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1885
+=======
+#: pg_basebackup.c:1990
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "initiating base backup, waiting for checkpoint to complete"
 msgstr ""
 "начинается базовое резервное копирование, ожидается завершение контрольной "
 "точки"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1889
+=======
+#: pg_basebackup.c:1994
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "waiting for checkpoint"
 msgstr "ожидание контрольной точки"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1902 pg_recvlogical.c:260 receivelog.c:543 receivelog.c:582
 #: streamutil.c:288 streamutil.c:361 streamutil.c:413 streamutil.c:501
 #: streamutil.c:653 streamutil.c:698
@@ -938,11 +1585,18 @@ msgid "could not send replication command \"%s\": %s"
 msgstr "не удалось передать команду репликации \"%s\": %s"
 
 #: pg_basebackup.c:1910
+=======
+#: pg_basebackup.c:2016
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not initiate base backup: %s"
 msgstr "не удалось инициализировать базовое резервное копирование: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1913
+=======
+#: pg_basebackup.c:2019
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "server returned unexpected response to BASE_BACKUP command; got %d rows and "
@@ -951,130 +1605,230 @@ msgstr ""
 "сервер вернул неожиданный ответ на команду BASE_BACKUP; получено строк: %d, "
 "полей: %d, а ожидалось строк: %d, полей: %d"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1919
+=======
+#: pg_basebackup.c:2025
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "checkpoint completed"
 msgstr "контрольная точка завершена"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1933
+=======
+#: pg_basebackup.c:2039
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "write-ahead log start point: %s on timeline %u"
 msgstr "стартовая точка в журнале предзаписи: %s на линии времени %u"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1941
+=======
+#: pg_basebackup.c:2047
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not get backup header: %s"
 msgstr "не удалось получить заголовок резервной копии: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1944
+=======
+#: pg_basebackup.c:2050
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no data returned from server"
 msgstr "сервер не вернул данные"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:1987
+=======
+#: pg_basebackup.c:2093
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "can only write single tablespace to stdout, database has %d"
 msgstr ""
 "в stdout можно вывести только одно табличное пространство, всего в СУБД их %d"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2000
+=======
+#: pg_basebackup.c:2106
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "starting background WAL receiver"
 msgstr "запуск фонового процесса считывания WAL"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2083
+=======
+#: pg_basebackup.c:2189
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "backup failed: %s"
 msgstr "ошибка при создании копии: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2086
+=======
+#: pg_basebackup.c:2192
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no write-ahead log end position returned from server"
 msgstr "сервер не передал конечную позицию в журнале предзаписи"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2089
+=======
+#: pg_basebackup.c:2195
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "write-ahead log end point: %s"
 msgstr "конечная точка в журнале предзаписи: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2100
+=======
+#: pg_basebackup.c:2206
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "checksum error occurred"
 msgstr "выявлена ошибка контрольной суммы"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2105
+=======
+#: pg_basebackup.c:2211
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "final receive failed: %s"
 msgstr "ошибка в конце передачи: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2129
+=======
+#: pg_basebackup.c:2235
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "waiting for background process to finish streaming ..."
 msgstr "ожидание завершения потоковой передачи фоновым процессом..."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2133
+=======
+#: pg_basebackup.c:2239
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not send command to background pipe: %m"
 msgstr "не удалось отправить команду в канал фонового процесса: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2138
+=======
+#: pg_basebackup.c:2244
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not wait for child process: %m"
 msgstr "сбой при ожидании дочернего процесса: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2140
+=======
+#: pg_basebackup.c:2246
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "child %d died, expected %d"
 msgstr "завершился дочерний процесс %d вместо ожидаемого %d"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2142 streamutil.c:91 streamutil.c:196
+=======
+#: pg_basebackup.c:2248 streamutil.c:92 streamutil.c:207 streamutil.c:319
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s"
 msgstr "%s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2162
+=======
+#: pg_basebackup.c:2268
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not wait for child thread: %m"
 msgstr "сбой при ожидании дочернего потока: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2167
+=======
+#: pg_basebackup.c:2273
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not get child thread exit status: %m"
 msgstr "не удалось получить состояние завершения дочернего потока: %m"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2170
+=======
+#: pg_basebackup.c:2276
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "child thread exited with error %u"
 msgstr "дочерний поток завершился с ошибкой %u"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2199
+=======
+#: pg_basebackup.c:2305
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "syncing data to disk ..."
 msgstr "сохранение данных на диске..."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2224
+=======
+#: pg_basebackup.c:2330
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "renaming backup_manifest.tmp to backup_manifest"
 msgstr "переименование backup_manifest.tmp в backup_manifest"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2244
+=======
+#: pg_basebackup.c:2350
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "base backup completed"
 msgstr "базовое резервное копирование завершено"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2327
+=======
+#: pg_basebackup.c:2436
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid checkpoint argument \"%s\", must be \"fast\" or \"spread\""
 msgstr ""
 "неверный аргумент режима контрольных точек \"%s\"; должен быть \"fast\" или "
 "\"spread\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2345
+=======
+#: pg_basebackup.c:2454
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid output format \"%s\", must be \"plain\" or \"tar\""
 msgstr "неверный формат вывода \"%s\", должен быть \"plain\" или \"tar\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2423
+=======
+#: pg_basebackup.c:2535
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "invalid wal-method option \"%s\", must be \"fetch\", \"stream\", or \"none\""
@@ -1082,6 +1836,7 @@ msgstr ""
 "неверный аргумент для wal-method — \"%s\", допускается только \"fetch\", "
 "\"stream\" или \"none\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2458 pg_basebackup.c:2470 pg_basebackup.c:2492
 #: pg_basebackup.c:2504 pg_basebackup.c:2510 pg_basebackup.c:2562
 #: pg_basebackup.c:2573 pg_basebackup.c:2583 pg_basebackup.c:2589
@@ -1094,102 +1849,924 @@ msgstr ""
 #: pg_recvlogical.c:857 pg_recvlogical.c:864 pg_recvlogical.c:871
 #: pg_recvlogical.c:878 pg_recvlogical.c:885 pg_recvlogical.c:892
 #: pg_recvlogical.c:899 pg_recvlogical.c:906
+=======
+#: pg_basebackup.c:2574 pg_basebackup.c:2586 pg_basebackup.c:2608
+#: pg_basebackup.c:2620 pg_basebackup.c:2626 pg_basebackup.c:2678
+#: pg_basebackup.c:2689 pg_basebackup.c:2699 pg_basebackup.c:2705
+#: pg_basebackup.c:2712 pg_basebackup.c:2724 pg_basebackup.c:2736
+#: pg_basebackup.c:2744 pg_basebackup.c:2757 pg_basebackup.c:2763
+#: pg_basebackup.c:2772 pg_basebackup.c:2784 pg_basebackup.c:2795
+#: pg_basebackup.c:2803 pg_createsubscriber.c:2037 pg_createsubscriber.c:2047
+#: pg_createsubscriber.c:2055 pg_createsubscriber.c:2083
+#: pg_createsubscriber.c:2115 pg_receivewal.c:748 pg_receivewal.c:760
+#: pg_receivewal.c:767 pg_receivewal.c:776 pg_receivewal.c:783
+#: pg_receivewal.c:793 pg_recvlogical.c:853 pg_recvlogical.c:865
+#: pg_recvlogical.c:875 pg_recvlogical.c:882 pg_recvlogical.c:889
+#: pg_recvlogical.c:896 pg_recvlogical.c:903 pg_recvlogical.c:910
+#: pg_recvlogical.c:917 pg_recvlogical.c:924
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Try \"%s --help\" for more information."
 msgstr "Для дополнительной информации попробуйте \"%s --help\"."
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2468 pg_receivewal.c:758 pg_recvlogical.c:845
+=======
+#: pg_basebackup.c:2584 pg_createsubscriber.c:2045 pg_receivewal.c:758
+#: pg_recvlogical.c:863
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many command-line arguments (first is \"%s\")"
 msgstr "слишком много аргументов командной строки (первый: \"%s\")"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2491
+=======
+#: pg_basebackup.c:2607
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot specify both format and backup target"
 msgstr "указать и формат, и получателя копии одновременно нельзя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2503
+=======
+#: pg_basebackup.c:2619
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "must specify output directory or backup target"
 msgstr "необходимо указать выходной каталог или получателя копии"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2509
+=======
+#: pg_basebackup.c:2625
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot specify both output directory and backup target"
 msgstr "указать и выходной каталог, и получателя копии одновременно нельзя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2539 pg_receivewal.c:802
+=======
+#: pg_basebackup.c:2655 pg_receivewal.c:802
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized compression algorithm: \"%s\""
 msgstr "нераспознанный алгоритм сжатия: \"%s\""
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2545 pg_receivewal.c:809
+=======
+#: pg_basebackup.c:2661 pg_receivewal.c:809
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid compression specification: %s"
 msgstr "неправильное указание сжатия: %s"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2561
+=======
+#: pg_basebackup.c:2677
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "client-side compression is not possible when a backup target is specified"
 msgstr "сжатие на стороне клиента невозможно при указании получателя копии"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2572
+=======
+#: pg_basebackup.c:2688
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "only tar mode backups can be compressed"
 msgstr "сжиматься могут только резервные копии в архиве tar"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2582
+=======
+#: pg_basebackup.c:2698
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL cannot be streamed when a backup target is specified"
 msgstr "потоковая передача WAL невозможна при указании получателя копии"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2588
+=======
+#: pg_basebackup.c:2704
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot stream write-ahead logs in tar mode to stdout"
 msgstr "транслировать журналы предзаписи в режиме tar в поток stdout нельзя"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2595
+=======
+#: pg_basebackup.c:2711
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "replication slots can only be used with WAL streaming"
 msgstr "слоты репликации можно использовать только при потоковой передаче WAL"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2607
+=======
+#: pg_basebackup.c:2723
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "--no-slot cannot be used with slot name"
 msgstr "--no-slot нельзя использовать с именем слота"
 
 #. translator: second %s is an option name
+<<<<<<< HEAD
 #: pg_basebackup.c:2618 pg_receivewal.c:774
+=======
+#: pg_basebackup.c:2734 pg_receivewal.c:774
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s needs a slot to be specified using --slot"
 msgstr "для %s необходимо задать слот с помощью параметра --slot"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2626 pg_basebackup.c:2666 pg_basebackup.c:2677
 #: pg_basebackup.c:2685
+=======
+#: pg_basebackup.c:2742 pg_basebackup.c:2782 pg_basebackup.c:2793
+#: pg_basebackup.c:2801
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s and %s are incompatible options"
 msgstr "параметры %s и %s несовместимы"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2640
+=======
+#: pg_basebackup.c:2756
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory location cannot be specified along with a backup target"
 msgstr "расположение каталога WAL нельзя указать вместе с получателем копии"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2646
+=======
+#: pg_basebackup.c:2762
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory location can only be specified in plain mode"
 msgstr "расположение каталога WAL можно указать только в режиме plain"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2655
+=======
+#: pg_basebackup.c:2771
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory location must be an absolute path"
 msgstr "расположение каталога WAL должно определяться абсолютным путём"
 
+<<<<<<< HEAD
 #: pg_basebackup.c:2755
+=======
+#: pg_basebackup.c:2871
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create symbolic link \"%s\": %m"
 msgstr "не удалось создать символическую ссылку \"%s\": %m"
+
+<<<<<<< HEAD
+#: pg_receivewal.c:77
+=======
+#: pg_createsubscriber.c:169
+#, c-format
+msgid "failed after the end of recovery"
+msgstr "ошибка после окончания восстановления"
+
+#: pg_createsubscriber.c:170
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid ""
+"The target server cannot be used as a physical replica anymore.  You must "
+"recreate the physical replica before continuing."
+msgstr ""
+"Целевой сервер больше не может использоваться как физическая реплика. Чтобы "
+"продолжить, физическую реплику необходимо пересоздать."
+
+#: pg_createsubscriber.c:198
+#, c-format
+msgid ""
+"publication \"%s\" created in database \"%s\" on primary was left behind"
+msgstr "на главном сервере осталась публикация \"%s\", созданная в базе \"%s\""
+
+#: pg_createsubscriber.c:200
+#, c-format
+msgid "Drop this publication before trying again."
+msgstr "Удалите эту публикацию и попробуйте повторить операцию."
+
+#: pg_createsubscriber.c:204
+#, c-format
+msgid ""
+"replication slot \"%s\" created in database \"%s\" on primary was left behind"
+msgstr ""
+"на главном сервере остался слот репликации \"%s\", созданный в базе \"%s\""
+
+#: pg_createsubscriber.c:206 pg_createsubscriber.c:1260
+#, c-format
+msgid "Drop this replication slot soon to avoid retention of WAL files."
+msgstr ""
+"Удалите этот слот репликации незамедлительно во избежание накопления файлов "
+"WAL."
+
+#: pg_createsubscriber.c:219
+#, c-format
+msgid ""
+"%s creates a new logical replica from a standby server.\n"
+"\n"
+msgstr ""
+"%s превращает резервный сервер в логическую реплику.\n"
+"\n"
+
+<<<<<<< HEAD
+#: pg_receivewal.c:81 pg_recvlogical.c:82
+=======
+#: pg_createsubscriber.c:223 pg_receivewal.c:81 pg_recvlogical.c:92
+>>>>>>> REL_18_BETA1_branch
+#, c-format
+msgid ""
+"\n"
+"Options:\n"
+msgstr ""
+"\n"
+"Параметры:\n"
+
+<<<<<<< HEAD
+=======
+#: pg_createsubscriber.c:224
+#, c-format
+msgid ""
+"  -d, --database=DBNAME           database in which to create a "
+"subscription\n"
+msgstr ""
+"  -d, --database=ИМЯ_БД           база, в которой будет создана подписка\n"
+
+#: pg_createsubscriber.c:225
+#, c-format
+msgid ""
+"  -D, --pgdata=DATADIR            location for the subscriber data "
+"directory\n"
+msgstr ""
+"  -D, --pgdata=КАТ_ДАННЫХ         расположение каталога данных подписчика\n"
+
+#: pg_createsubscriber.c:226
+#, c-format
+msgid ""
+"  -n, --dry-run                   dry run, just show what would be done\n"
+msgstr ""
+"  -n, --dry-run                   показать, какие действия будут выполнены,\n"
+"                                  но не выполнять их\n"
+
+#: pg_createsubscriber.c:227
+#, c-format
+msgid "  -p, --subscriber-port=PORT      subscriber port number (default %s)\n"
+msgstr ""
+"  -p, --subscriber-port=ПОРТ      номер порта подписчика (по умолчанию: %s)\n"
+
+#: pg_createsubscriber.c:228
+#, c-format
+msgid "  -P, --publisher-server=CONNSTR  publisher connection string\n"
+msgstr ""
+"  -P, --publisher-server=СТРОКА   строка подключения к серверу публикации\n"
+
+#: pg_createsubscriber.c:229
+#, c-format
+msgid ""
+"  -s, --socketdir=DIR             socket directory to use (default current "
+"dir.)\n"
+msgstr ""
+"  -s, --socketdir=КАТАЛОГ         каталог сокетов (по умолчанию текущий)\n"
+
+#: pg_createsubscriber.c:230
+#, c-format
+msgid "  -t, --recovery-timeout=SECS     seconds to wait for recovery to end\n"
+msgstr ""
+"  -t, --recovery-timeout=СЕК      время ожидания окончания восстановления\n"
+
+#: pg_createsubscriber.c:231
+#, c-format
+msgid "  -U, --subscriber-username=NAME  user name for subscriber connection\n"
+msgstr ""
+"  -U, --subscriber-username=ИМЯ   имя пользователя для подключения "
+"подписчика\n"
+
+#: pg_createsubscriber.c:232
+#, c-format
+msgid "  -v, --verbose                   output verbose messages\n"
+msgstr "  -v, --verbose                   выводить подробные сообщения\n"
+
+#: pg_createsubscriber.c:233
+#, c-format
+msgid ""
+"      --config-file=FILENAME      use specified main server configuration\n"
+"                                  file when running target cluster\n"
+msgstr ""
+"      --config-file=ИМЯ_ФАЙЛА     использовать указанный основной файл\n"
+"                                  конфигурации сервера при запуске целевого\n"
+"                                  кластера\n"
+
+#: pg_createsubscriber.c:235
+#, c-format
+msgid "      --publication=NAME          publication name\n"
+msgstr "      --publication=ИМЯ           имя публикации\n"
+
+#: pg_createsubscriber.c:236
+#, c-format
+msgid "      --replication-slot=NAME     replication slot name\n"
+msgstr "      --replication-slot=ИМЯ      имя слота репликации\n"
+
+#: pg_createsubscriber.c:237
+#, c-format
+msgid "      --subscription=NAME         subscription name\n"
+msgstr "      --subscription=ИМЯ          имя подписки\n"
+
+#: pg_createsubscriber.c:238
+#, c-format
+msgid ""
+"  -V, --version                   output version information, then exit\n"
+msgstr "  -V, --version                   показать версию и выйти\n"
+
+#: pg_createsubscriber.c:239
+#, c-format
+msgid "  -?, --help                      show this help, then exit\n"
+msgstr "  -?, --help                      показать эту справку и выйти\n"
+
+#: pg_createsubscriber.c:282
+#, c-format
+msgid "could not parse connection string: %s"
+msgstr "не удалось разобрать строку подключения: %s"
+
+#: pg_createsubscriber.c:359
+#, c-format
+msgid ""
+"program \"%s\" is needed by %s but was not found in the same directory as "
+"\"%s\""
+msgstr "программа \"%s\" нужна для %s, но она не найдена в каталоге \"%s\""
+
+#: pg_createsubscriber.c:362
+#, c-format
+msgid "program \"%s\" was found by \"%s\" but was not the same version as %s"
+msgstr ""
+"программа \"%s\" найдена программой \"%s\", но её версия отличается от "
+"версии %s"
+
+#: pg_createsubscriber.c:382
+#, c-format
+msgid "checking if directory \"%s\" is a cluster data directory"
+msgstr "проверяется, является ли каталог \"%s\" каталогом данных кластера"
+
+#: pg_createsubscriber.c:388
+#, c-format
+msgid "data directory \"%s\" does not exist"
+msgstr "каталог данных \"%s\" не существует"
+
+#: pg_createsubscriber.c:396
+#, c-format
+msgid "directory \"%s\" is not a database cluster directory"
+msgstr "каталог \"%s\" не является каталогом кластера баз данных"
+
+#: pg_createsubscriber.c:513
+#, c-format
+msgid "connection to database failed: %s"
+msgstr "не удалось подключиться к базе: %s"
+
+#: pg_createsubscriber.c:526
+#, c-format
+msgid "could not clear search_path: %s"
+msgstr "не удалось очистить search_path: %s"
+
+#: pg_createsubscriber.c:566
+#, c-format
+msgid "getting system identifier from publisher"
+msgstr "получение идентификатора системы с сервера публикации"
+
+#: pg_createsubscriber.c:573
+#, c-format
+msgid "could not get system identifier: %s"
+msgstr "не удалось получить идентификатор системы: %s"
+
+#: pg_createsubscriber.c:579
+#, c-format
+msgid "could not get system identifier: got %d rows, expected %d row"
+msgstr ""
+"не удалось получить идентификатор системы; получено строк: %d, ожидалось: %d"
+
+#: pg_createsubscriber.c:586
+#, c-format
+msgid "system identifier is %llu on publisher"
+msgstr "идентификатор системы на стороне публикации: %llu"
+
+#: pg_createsubscriber.c:607
+#, c-format
+msgid "getting system identifier from subscriber"
+msgstr "получение идентификатора системы с подписчика"
+
+#: pg_createsubscriber.c:611 pg_createsubscriber.c:641
+#, c-format
+msgid "control file appears to be corrupt"
+msgstr "управляющий файл, по-видимому, испорчен"
+
+#: pg_createsubscriber.c:615 pg_createsubscriber.c:656
+#, c-format
+msgid "system identifier is %llu on subscriber"
+msgstr "идентификатор системы на подписчике: %llu"
+
+#: pg_createsubscriber.c:637
+#, c-format
+msgid "modifying system identifier of subscriber"
+msgstr "изменение идентификатора системы на подписчике"
+
+#: pg_createsubscriber.c:659
+#, c-format
+msgid "running pg_resetwal on the subscriber"
+msgstr "запуск pg_resetwal на подписчике"
+
+#: pg_createsubscriber.c:671
+#, c-format
+msgid "subscriber successfully changed the system identifier"
+msgstr "идентификатор системы на подписчике успешно изменён"
+
+#: pg_createsubscriber.c:673
+#, c-format
+msgid "could not change system identifier of subscriber: %s"
+msgstr "изменить идентификатор системы на подписчике не удалось: %s"
+
+#: pg_createsubscriber.c:697
+#, c-format
+msgid "could not obtain database OID: %s"
+msgstr "получить OID базы данных не удалось: %s"
+
+#: pg_createsubscriber.c:704
+#, c-format
+msgid "could not obtain database OID: got %d rows, expected %d row"
+msgstr "получить OID базы данных не удалось; получено строк: %d, ожидалось: %d"
+
+#: pg_createsubscriber.c:776
+#, c-format
+msgid "create replication slot \"%s\" on publisher"
+msgstr "создаётся слот репликации \"%s\" на подписчике"
+
+#: pg_createsubscriber.c:796
+#, c-format
+msgid "could not write an additional WAL record: %s"
+msgstr "не удалось записать дополнительную запись WAL: %s"
+
+#: pg_createsubscriber.c:822
+#, c-format
+msgid "could not obtain recovery progress: %s"
+msgstr "не удалось получить состояние восстановления: %s"
+
+#: pg_createsubscriber.c:854
+#, c-format
+msgid "checking settings on publisher"
+msgstr "проверка параметров на стороне публикации"
+
+#: pg_createsubscriber.c:864
+#, c-format
+msgid "primary server cannot be in recovery"
+msgstr "главный сервер не должен быть в состоянии восстановления"
+
+#: pg_createsubscriber.c:888
+#, c-format
+msgid "could not obtain publisher settings: %s"
+msgstr "не удалось получить параметры с сервера публикации: %s"
+
+#: pg_createsubscriber.c:914
+#, c-format
+msgid "publisher requires wal_level >= \"logical\""
+msgstr "на стороне публикации требуется значение wal_level >= \"logical\""
+
+#: pg_createsubscriber.c:920
+#, c-format
+msgid "publisher requires %d replication slots, but only %d remain"
+msgstr ""
+"на стороне публикации требуется слотов репликации: %d, но доступно всего %d"
+
+#: pg_createsubscriber.c:922 pg_createsubscriber.c:931
+#: pg_createsubscriber.c:1028 pg_createsubscriber.c:1037
+#: pg_createsubscriber.c:1046
+#, c-format
+msgid "Increase the configuration parameter \"%s\" to at least %d."
+msgstr "Увеличьте значение параметра конфигурации \"%s\" как минимум до %d."
+
+#: pg_createsubscriber.c:929
+#, c-format
+msgid "publisher requires %d WAL sender processes, but only %d remain"
+msgstr ""
+"на стороне публикации требуется процессов-передатчиков WAL: %d, но доступно "
+"всего %d"
+
+#: pg_createsubscriber.c:938
+#, c-format
+msgid "two_phase option will not be enabled for replication slots"
+msgstr "параметр two_phase для слотов репликации не будет включён"
+
+#: pg_createsubscriber.c:939
+#, c-format
+msgid ""
+"Subscriptions will be created with the two_phase option disabled.  Prepared "
+"transactions will be replicated at COMMIT PREPARED."
+msgstr ""
+"Подписки будут созданы с отключённым параметром two_phase. Подготовленные "
+"транзакции будут реплицироваться в момент выполнения COMMIT PREPARED."
+
+#: pg_createsubscriber.c:971
+#, c-format
+msgid "checking settings on subscriber"
+msgstr "проверка параметров на подписчике"
+
+#: pg_createsubscriber.c:978
+#, c-format
+msgid "target server must be a standby"
+msgstr "целевой сервер должен быть резервным"
+
+#: pg_createsubscriber.c:1002
+#, c-format
+msgid "could not obtain subscriber settings: %s"
+msgstr "получить параметры подписчика не удалось: %s"
+
+#: pg_createsubscriber.c:1026
+#, c-format
+msgid "subscriber requires %d replication slots, but only %d remain"
+msgstr "подписчику требуется слотов репликации: %d, но доступно всего %d"
+
+#: pg_createsubscriber.c:1035
+#, c-format
+msgid "subscriber requires %d logical replication workers, but only %d remain"
+msgstr ""
+"подписчику требуется процессов логической репликации: %d, но доступно всего "
+"%d"
+
+#: pg_createsubscriber.c:1044
+#, c-format
+msgid "subscriber requires %d worker processes, but only %d remain"
+msgstr "подписчику требуется рабочих процессов: %d, но доступно всего %d"
+
+#: pg_createsubscriber.c:1079
+#, c-format
+msgid "dropping subscription \"%s\" in database \"%s\""
+msgstr "удаление подписки \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1088
+#, c-format
+msgid "could not drop subscription \"%s\": %s"
+msgstr "удалить подписку \"%s\" не получилось: %s"
+
+#: pg_createsubscriber.c:1123
+#, c-format
+msgid "could not obtain pre-existing subscriptions: %s"
+msgstr "получить уже существующие подписки не удалось: %s"
+
+#: pg_createsubscriber.c:1258
+#, c-format
+msgid "could not drop replication slot \"%s\" on primary"
+msgstr "удалить слот репликации \"%s\" на главном сервере не получилось"
+
+#: pg_createsubscriber.c:1292
+#, c-format
+msgid "could not obtain failover replication slot information: %s"
+msgstr "получить информацию о переносимом слоте репликации не удалось: %s"
+
+#: pg_createsubscriber.c:1294 pg_createsubscriber.c:1303
+#, c-format
+msgid ""
+"Drop the failover replication slots on subscriber soon to avoid retention of "
+"WAL files."
+msgstr ""
+"Удалите переносимые слоты репликации на подписчике незамедлительно во "
+"избежание накопления файлов WAL."
+
+#: pg_createsubscriber.c:1302
+#, c-format
+msgid "could not drop failover replication slot"
+msgstr "удалить переносимый слот репликации не получилось"
+
+#: pg_createsubscriber.c:1324
+#, c-format
+msgid "creating the replication slot \"%s\" in database \"%s\""
+msgstr "создание слота репликации \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1342
+#, c-format
+msgid "could not create replication slot \"%s\" in database \"%s\": %s"
+msgstr "создать слот репликации \"%s\" в базе \"%s\" не удалось: %s"
+
+#: pg_createsubscriber.c:1372
+#, c-format
+msgid "dropping the replication slot \"%s\" in database \"%s\""
+msgstr "удаление слота репликации \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1388
+#, c-format
+msgid "could not drop replication slot \"%s\" in database \"%s\": %s"
+msgstr "удалить слот репликации \"%s\" в базе \"%s\" не получилось: %s"
+
+#: pg_createsubscriber.c:1409
+#, c-format
+msgid "pg_ctl failed with exit code %d"
+msgstr "команда pg_ctl завершилась с кодом ошибки %d"
+
+#: pg_createsubscriber.c:1414
+#, c-format
+msgid "pg_ctl was terminated by exception 0x%X"
+msgstr "команда pg_ctl была прервана исключением 0x%X"
+
+#: pg_createsubscriber.c:1416
+#, c-format
+msgid ""
+"See C include file \"ntstatus.h\" for a description of the hexadecimal value."
+msgstr ""
+"Описание этого шестнадцатеричного значения ищите во включаемом C-файле "
+"\"ntstatus.h\""
+
+#: pg_createsubscriber.c:1418
+#, c-format
+msgid "pg_ctl was terminated by signal %d: %s"
+msgstr "команда pg_ctl была завершена сигналом %d: %s"
+
+#: pg_createsubscriber.c:1424
+#, c-format
+msgid "pg_ctl exited with unrecognized status %d"
+msgstr "команда pg_ctl завершилась с нераспознанным кодом состояния %d"
+
+#: pg_createsubscriber.c:1427
+#, c-format
+msgid "The failed command was: %s"
+msgstr "Ошибку вызвала команда: %s"
+
+#: pg_createsubscriber.c:1473
+#, c-format
+msgid "server was started"
+msgstr "сервер был запущен"
+
+#: pg_createsubscriber.c:1488
+#, c-format
+msgid "server was stopped"
+msgstr "сервер был остановлен"
+
+#: pg_createsubscriber.c:1507
+#, c-format
+msgid "waiting for the target server to reach the consistent state"
+msgstr "ожидание достижения целевым сервером согласованного состояния"
+
+#: pg_createsubscriber.c:1530
+#, c-format
+msgid "recovery timed out"
+msgstr "тайм-аут при восстановлении"
+
+#: pg_createsubscriber.c:1543
+#, c-format
+msgid "server did not end recovery"
+msgstr "сервер не завершил восстановление"
+
+#: pg_createsubscriber.c:1545
+#, c-format
+msgid "target server reached the consistent state"
+msgstr "целевой сервер достиг согласованного состояния"
+
+#: pg_createsubscriber.c:1546
+#, c-format
+msgid ""
+"If pg_createsubscriber fails after this point, you must recreate the "
+"physical replica before continuing."
+msgstr ""
+"Если в работе pg_createsubscriber произойдёт сбой после этого момента, "
+"продолжение возможно только после пересоздания физической реплики."
+
+#: pg_createsubscriber.c:1573
+#, c-format
+msgid "could not obtain publication information: %s"
+msgstr "получить информацию о публикации не удалось: %s"
+
+#: pg_createsubscriber.c:1587
+#, c-format
+msgid "publication \"%s\" already exists"
+msgstr "публикация \"%s\" уже существует"
+
+#: pg_createsubscriber.c:1588
+#, c-format
+msgid "Consider renaming this publication before continuing."
+msgstr "Чтобы продолжить, её можно переименовать."
+
+#: pg_createsubscriber.c:1595
+#, c-format
+msgid "creating publication \"%s\" in database \"%s\""
+msgstr "создаётся публикация \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1608
+#, c-format
+msgid "could not create publication \"%s\" in database \"%s\": %s"
+msgstr "создать публикацию \"%s\" в базе \"%s\" не удалось: %s"
+
+#: pg_createsubscriber.c:1637
+#, c-format
+msgid "dropping publication \"%s\" in database \"%s\""
+msgstr "удаляется публикация \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1651
+#, c-format
+msgid "could not drop publication \"%s\" in database \"%s\": %s"
+msgstr "удалить публикацию \"%s\" в базе \"%s\" не получилось: %s"
+
+#: pg_createsubscriber.c:1697
+#, c-format
+msgid "creating subscription \"%s\" in database \"%s\""
+msgstr "создаётся подписка \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1718
+#, c-format
+msgid "could not create subscription \"%s\" in database \"%s\": %s"
+msgstr "создать подписку \"%s\" в базе \"%s\" не удалось: %s"
+
+#: pg_createsubscriber.c:1763
+#, c-format
+msgid "could not obtain subscription OID: %s"
+msgstr "получить OID подписки не удалось: %s"
+
+#: pg_createsubscriber.c:1770
+#, c-format
+msgid "could not obtain subscription OID: got %d rows, expected %d row"
+msgstr "получить OID подписки не удалось; получено строк: %d, ожидалось: %d"
+
+#: pg_createsubscriber.c:1794
+#, c-format
+msgid ""
+"setting the replication progress (node name \"%s\", LSN %s) in database "
+"\"%s\""
+msgstr "отражение состояния репликации (имя узла \"%s\", LSN %s) в базе \"%s\""
+
+#: pg_createsubscriber.c:1809
+#, c-format
+msgid "could not set replication progress for subscription \"%s\": %s"
+msgstr "не удалось передать состояние репликации для подписки \"%s\": %s"
+
+#: pg_createsubscriber.c:1840
+#, c-format
+msgid "enabling subscription \"%s\" in database \"%s\""
+msgstr "включение подписки \"%s\" в базе \"%s\""
+
+#: pg_createsubscriber.c:1852
+#, c-format
+msgid "could not enable subscription \"%s\": %s"
+msgstr "включить подписку \"%s\" не удалось: %s"
+
+#: pg_createsubscriber.c:1944
+#, c-format
+msgid "cannot be executed by \"root\""
+msgstr "программу не должен запускать root"
+
+#: pg_createsubscriber.c:1945
+#, c-format
+msgid "You must run %s as the PostgreSQL superuser."
+msgstr "Запускать %s нужно от имени суперпользователя PostgreSQL."
+
+#: pg_createsubscriber.c:1966
+#, c-format
+msgid "database \"%s\" specified more than once"
+msgstr "база \"%s\" указана неоднократно"
+
+#: pg_createsubscriber.c:2007
+#, c-format
+msgid "publication \"%s\" specified more than once"
+msgstr "публикация \"%s\" указана неоднократно"
+
+#: pg_createsubscriber.c:2019
+#, c-format
+msgid "replication slot \"%s\" specified more than once"
+msgstr "слот репликации \"%s\" указан неоднократно"
+
+#: pg_createsubscriber.c:2031
+#, c-format
+msgid "subscription \"%s\" specified more than once"
+msgstr "подписка \"%s\" указана неоднократно"
+
+#: pg_createsubscriber.c:2054
+#, c-format
+msgid "no subscriber data directory specified"
+msgstr "каталог данных подписчика не указан"
+
+#: pg_createsubscriber.c:2065
+#, c-format
+msgid "could not determine current directory"
+msgstr "не удалось определить текущий каталог"
+
+#: pg_createsubscriber.c:2082
+#, c-format
+msgid "no publisher connection string specified"
+msgstr "строка подключения к серверу публикации не указана"
+
+#: pg_createsubscriber.c:2086
+#, c-format
+msgid "validating publisher connection string"
+msgstr "проверяется строка подключения к серверу публикации"
+
+#: pg_createsubscriber.c:2092
+#, c-format
+msgid "validating subscriber connection string"
+msgstr "проверяется строка подключения к подписчику"
+
+#: pg_createsubscriber.c:2097
+#, c-format
+msgid "no database was specified"
+msgstr "база данных не указана"
+
+#: pg_createsubscriber.c:2109
+#, c-format
+msgid "database name \"%s\" was extracted from the publisher connection string"
+msgstr "имя базы \"%s\" извлечено из строки подключения к серверу публикации"
+
+#: pg_createsubscriber.c:2114
+#, c-format
+msgid "no database name specified"
+msgstr "имя базы данных не указано"
+
+#: pg_createsubscriber.c:2124
+#, c-format
+msgid "wrong number of publication names specified"
+msgstr "указано неверное количество имён публикаций"
+
+#: pg_createsubscriber.c:2125
+#, c-format
+msgid ""
+"The number of specified publication names (%d) must match the number of "
+"specified database names (%d)."
+msgstr ""
+"Количество указанных имён публикаций (%d) должно совпадать с количеством "
+"указанных имён баз (%d)."
+
+#: pg_createsubscriber.c:2131
+#, c-format
+msgid "wrong number of subscription names specified"
+msgstr "указано неверное количество имён подписок"
+
+#: pg_createsubscriber.c:2132
+#, c-format
+msgid ""
+"The number of specified subscription names (%d) must match the number of "
+"specified database names (%d)."
+msgstr ""
+"Количество указанных имён подписок (%d) должно совпадать с количеством "
+"указанных имён баз (%d)."
+
+#: pg_createsubscriber.c:2138
+#, c-format
+msgid "wrong number of replication slot names specified"
+msgstr "указано неверное количество имён слотов репликации"
+
+#: pg_createsubscriber.c:2139
+#, c-format
+msgid ""
+"The number of specified replication slot names (%d) must match the number of "
+"specified database names (%d)."
+msgstr ""
+"Количество указанных имён слотов репликации (%d) должно совпадать с "
+"количеством указанных имён баз (%d)."
+
+#: pg_createsubscriber.c:2168
+#, c-format
+msgid "subscriber data directory is not a copy of the source database cluster"
+msgstr ""
+"каталог данных подписчика не является копией исходного кластера баз данных"
+
+#: pg_createsubscriber.c:2181
+#, c-format
+msgid "standby server is running"
+msgstr "резервный сервер запущен"
+
+#: pg_createsubscriber.c:2182
+#, c-format
+msgid "Stop the standby server and try again."
+msgstr "Остановите резервный сервер и повторите попытку."
+
+#: pg_createsubscriber.c:2191
+#, c-format
+msgid "starting the standby server with command-line options"
+msgstr "резервный сервер запускается с параметрами командной строки"
+
+#: pg_createsubscriber.c:2207 pg_createsubscriber.c:2242
+#, c-format
+msgid "stopping the subscriber"
+msgstr "подписчик останавливается"
+
+#: pg_createsubscriber.c:2221
+#, c-format
+msgid "starting the subscriber"
+msgstr "подписчик запускается"
+
+#: pg_createsubscriber.c:2250
+#, c-format
+msgid "Done!"
+msgstr "Готово!"
 
 #: pg_receivewal.c:77
 #, c-format
@@ -1200,15 +2777,7 @@ msgstr ""
 "%s получает транслируемые журналы предзаписи PostgreSQL.\n"
 "\n"
 
-#: pg_receivewal.c:81 pg_recvlogical.c:82
-#, c-format
-msgid ""
-"\n"
-"Options:\n"
-msgstr ""
-"\n"
-"Параметры:\n"
-
+>>>>>>> REL_18_BETA1_branch
 #: pg_receivewal.c:82
 #, c-format
 msgid ""
@@ -1217,14 +2786,22 @@ msgstr ""
 "  -D, --directory=ПУТЬ   сохранять файлы журнала предзаписи в данный "
 "каталог\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:83 pg_recvlogical.c:83
+=======
+#: pg_receivewal.c:83 pg_recvlogical.c:93
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -E, --endpos=LSN       exit after receiving the specified LSN\n"
 msgstr ""
 "  -E, --endpos=LSN       определяет позицию, после которой нужно "
 "остановиться\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:84 pg_recvlogical.c:87
+=======
+#: pg_receivewal.c:84 pg_recvlogical.c:97
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --if-not-exists    do not error if slot already exists when creating a "
@@ -1233,7 +2810,11 @@ msgstr ""
 "      --if-not-exists    не выдавать ошибку при попытке создать уже "
 "существующий слот\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:85 pg_recvlogical.c:89
+=======
+#: pg_receivewal.c:85 pg_recvlogical.c:99
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -n, --no-loop          do not loop on connection lost\n"
 msgstr "  -n, --no-loop          прерывать работу при потере соединения\n"
@@ -1246,7 +2827,11 @@ msgid ""
 msgstr ""
 "      --no-sync          не ждать надёжного сохранения изменений на диске\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:87 pg_recvlogical.c:94
+=======
+#: pg_receivewal.c:87 pg_recvlogical.c:104
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -s, --status-interval=SECS\n"
@@ -1283,7 +2868,11 @@ msgstr ""
 "\n"
 "Дополнительные действия:\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:104 pg_recvlogical.c:79
+=======
+#: pg_receivewal.c:104 pg_recvlogical.c:89
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --create-slot      create a new replication slot (for the slot's name "
@@ -1292,7 +2881,11 @@ msgstr ""
 "      --create-slot      создать новый слот репликации (имя слота задаёт "
 "параметр --slot)\n"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:105 pg_recvlogical.c:80
+=======
+#: pg_receivewal.c:105 pg_recvlogical.c:90
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --drop-slot        drop the replication slot (for the slot's name see "
@@ -1316,7 +2909,11 @@ msgstr "завершена передача журнала с позиции %X/
 msgid "switched to timeline %u at %X/%X"
 msgstr "переключение на линию времени %u (позиция %X/%X)"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:224
+=======
+#: pg_receivewal.c:224 pg_recvlogical.c:1053
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "received interrupt signal, exiting"
 msgstr "получен сигнал прерывания, работа завершается"
@@ -1364,11 +2961,14 @@ msgstr ""
 msgid "could not create LZ4 decompression context: %s"
 msgstr "не удалось создать контекст распаковки LZ4: %s"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:402
 #, c-format
 msgid "could not read file \"%s\": %m"
 msgstr "не удалось прочитать файл \"%s\": %m"
 
+=======
+>>>>>>> REL_18_BETA1_branch
 #: pg_receivewal.c:420
 #, c-format
 msgid "could not decompress file \"%s\": %s"
@@ -1400,7 +3000,11 @@ msgstr ""
 msgid "starting log streaming at %X/%X (timeline %u)"
 msgstr "начало передачи журнала с позиции %X/%X (линия времени %u)"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:693 pg_recvlogical.c:783
+=======
+#: pg_receivewal.c:693 pg_recvlogical.c:801
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse end position \"%s\""
 msgstr "не удалось разобрать конечную позицию \"%s\""
@@ -1433,28 +3037,48 @@ msgstr ""
 "подключение для репликации через слот \"%s\" оказалось привязано к базе "
 "данных"
 
+<<<<<<< HEAD
 #: pg_receivewal.c:878 pg_recvlogical.c:954
+=======
+#: pg_receivewal.c:878 pg_recvlogical.c:972
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "dropping replication slot \"%s\""
 msgstr "удаление слота репликации \"%s\""
 
+<<<<<<< HEAD
 #: pg_receivewal.c:889 pg_recvlogical.c:964
+=======
+#: pg_receivewal.c:889 pg_recvlogical.c:982
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "creating replication slot \"%s\""
 msgstr "создание слота репликации \"%s\""
 
+<<<<<<< HEAD
 #: pg_receivewal.c:918 pg_recvlogical.c:988
+=======
+#: pg_receivewal.c:918 pg_recvlogical.c:1006
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "disconnected"
 msgstr "отключение"
 
 #. translator: check source for value for %d
+<<<<<<< HEAD
 #: pg_receivewal.c:922 pg_recvlogical.c:992
+=======
+#: pg_receivewal.c:922 pg_recvlogical.c:1010
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "disconnected; waiting %d seconds to try again"
 msgstr "отключение; через %d сек. последует повторное подключение"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:74
+=======
+#: pg_recvlogical.c:84
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "%s controls PostgreSQL logical decoding streams.\n"
@@ -1463,7 +3087,11 @@ msgstr ""
 "%s управляет потоками логического декодирования PostgreSQL.\n"
 "\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:78
+=======
+#: pg_recvlogical.c:88
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -1472,7 +3100,11 @@ msgstr ""
 "\n"
 "Действие, которое будет выполнено:\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:81
+=======
+#: pg_recvlogical.c:91
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --start            start streaming in a replication slot (for the "
@@ -1481,13 +3113,21 @@ msgstr ""
 "      --start            начать передачу в слоте репликации (имя слота "
 "задаёт параметр --slot)\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:84
+=======
+#: pg_recvlogical.c:94
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -f, --file=FILE        receive log into this file, - for stdout\n"
 msgstr ""
 "  -f, --file=ФАЙЛ        сохранять журнал в этот файл, - обозначает stdout\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:85
+=======
+#: pg_recvlogical.c:95
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -F  --fsync-interval=SECS\n"
@@ -1498,7 +3138,11 @@ msgstr ""
 "                         периодичность сброса на диск выходного файла (по "
 "умолчанию: %d)\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:88
+=======
+#: pg_recvlogical.c:98
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -I, --startpos=LSN     where in an existing slot should the streaming "
@@ -1507,7 +3151,11 @@ msgstr ""
 "  -I, --startpos=LSN     определяет, с какой позиции в существующем слоте "
 "начнётся передача\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:90
+=======
+#: pg_recvlogical.c:100
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -o, --option=NAME[=VALUE]\n"
@@ -1519,19 +3167,31 @@ msgstr ""
 "необязательным\n"
 "                         значением модулю вывода\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:93
+=======
+#: pg_recvlogical.c:103
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -P, --plugin=PLUGIN    use output plugin PLUGIN (default: %s)\n"
 msgstr ""
 "  -P, --plugin=МОДУЛЬ    использовать заданный модуль вывода (по умолчанию: "
 "%s)\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:96
+=======
+#: pg_recvlogical.c:106
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -S, --slot=SLOTNAME    name of the logical replication slot\n"
 msgstr "  -S, --slot=ИМЯ_СЛОТА   имя слота логической репликации\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:97
+=======
+#: pg_recvlogical.c:107
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -t, --two-phase        enable decoding of prepared transactions when "
@@ -1540,129 +3200,229 @@ msgstr ""
 "  -t, --two-phase        включить декодирование подготовленных транзакций "
 "при создании слота\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:102
+=======
+#: pg_recvlogical.c:112
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -d, --dbname=DBNAME    database to connect to\n"
 msgstr "  -d, --dbname=ИМЯ_БД    целевая база данных\n"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:135
+=======
+#: pg_recvlogical.c:145
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "confirming write up to %X/%X, flush to %X/%X (slot %s)"
 msgstr "подтверждается запись до %X/%X, синхронизация с ФС до %X/%X (слот %s)"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:159 receivelog.c:360
+=======
+#: pg_recvlogical.c:169 receivelog.c:360
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not send feedback packet: %s"
 msgstr "не удалось отправить пакет ответа: %s"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:227
+=======
+#: pg_recvlogical.c:239
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "starting log streaming at %X/%X (slot %s)"
 msgstr "начало передачи журнала с позиции %X/%X (слот %s)"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:269
+=======
+#: pg_recvlogical.c:281
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "streaming initiated"
 msgstr "передача запущена"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:333
+=======
+#: pg_recvlogical.c:346
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open log file \"%s\": %m"
 msgstr "не удалось открыть файл протокола \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:362 receivelog.c:882
+=======
+#: pg_recvlogical.c:375 receivelog.c:882
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid socket: %s"
 msgstr "неверный сокет: %s"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:415 receivelog.c:910
+=======
+#: pg_recvlogical.c:428 receivelog.c:910
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s() failed: %m"
 msgstr "ошибка в %s(): %m"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:422 receivelog.c:959
+=======
+#: pg_recvlogical.c:435 receivelog.c:959
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not receive data from WAL stream: %s"
 msgstr "не удалось получить данные из потока WAL: %s"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:464 pg_recvlogical.c:515 receivelog.c:1003
+=======
+#: pg_recvlogical.c:477 pg_recvlogical.c:528 receivelog.c:1003
+>>>>>>> REL_18_BETA1_branch
 #: receivelog.c:1066
 #, c-format
 msgid "streaming header too small: %d"
 msgstr "заголовок потока слишком мал: %d"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:499 receivelog.c:843
+=======
+#: pg_recvlogical.c:512 receivelog.c:843
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized streaming header: \"%c\""
 msgstr "нераспознанный заголовок потока: \"%c\""
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:553 pg_recvlogical.c:565
+=======
+#: pg_recvlogical.c:566 pg_recvlogical.c:578
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write %d bytes to log file \"%s\": %m"
 msgstr "не удалось записать %d Б в файл журнала \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:619 receivelog.c:642 receivelog.c:679
+=======
+#: pg_recvlogical.c:636 receivelog.c:642 receivelog.c:679
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected termination of replication stream: %s"
 msgstr "неожиданный конец потока репликации: %s"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:778
+=======
+#: pg_recvlogical.c:796
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse start position \"%s\""
 msgstr "не удалось разобрать начальную позицию \"%s\""
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:856
+=======
+#: pg_recvlogical.c:874
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no slot specified"
 msgstr "слот не указан"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:863
+=======
+#: pg_recvlogical.c:881
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no target file specified"
 msgstr "целевой файл не задан"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:870
+=======
+#: pg_recvlogical.c:888
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no database specified"
 msgstr "база данных не задана"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:877
+=======
+#: pg_recvlogical.c:895
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "at least one action needs to be specified"
 msgstr "необходимо задать минимум одно действие"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:884
+=======
+#: pg_recvlogical.c:902
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot use --create-slot or --start together with --drop-slot"
 msgstr "--create-slot или --start нельзя применять вместе с --drop-slot"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:891
+=======
+#: pg_recvlogical.c:909
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot use --create-slot or --drop-slot together with --startpos"
 msgstr "--create-slot или --drop-slot нельзя применять вместе с --startpos"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:898
+=======
+#: pg_recvlogical.c:916
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "--endpos may only be specified with --start"
 msgstr "--endpos можно задать только вместе с --start"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:905
+=======
+#: pg_recvlogical.c:923
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "--two-phase may only be specified with --create-slot"
 msgstr "--two-phase можно задать только вместе с --create-slot"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:938
+=======
+#: pg_recvlogical.c:956
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not establish database-specific replication connection"
 msgstr ""
 "не удалось установить подключение для репликации к определённой базе данных"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:1032
+=======
+#: pg_recvlogical.c:1056
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end position %X/%X reached by keepalive"
 msgstr "конечная позиция %X/%X достигнута при обработке keepalive"
 
+<<<<<<< HEAD
 #: pg_recvlogical.c:1035
+=======
+#: pg_recvlogical.c:1061
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end position %X/%X reached by WAL record at %X/%X"
 msgstr "конечная позиция %X/%X достигнута при обработке записи WAL %X/%X"
@@ -1807,7 +3567,11 @@ msgstr ""
 msgid "could not parse next timeline's starting point \"%s\""
 msgstr "не удалось разобрать начальную точку следующей линии времени \"%s\""
 
+<<<<<<< HEAD
 #: receivelog.c:775 receivelog.c:1022 walmethods.c:1201
+=======
+#: receivelog.c:775 receivelog.c:1022 walmethods.c:1206
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not fsync file \"%s\": %s"
 msgstr "не удалось синхронизировать с ФС файл \"%s\": %s"
@@ -1832,31 +3596,56 @@ msgstr "не удалось записать %d Б в файл WAL \"%s\": %s"
 msgid "could not send copy-end packet: %s"
 msgstr "не удалось отправить пакет \"конец COPY\": %s"
 
+<<<<<<< HEAD
 #: streamutil.c:158
 msgid "Password: "
 msgstr "Пароль: "
 
 #: streamutil.c:181
+=======
+#: streamutil.c:165
+msgid "Password: "
+msgstr "Пароль: "
+
+#: streamutil.c:192
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not connect to server"
 msgstr "не удалось подключиться к серверу"
 
+<<<<<<< HEAD
 #: streamutil.c:222
+=======
+#: streamutil.c:233
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "could not clear search_path: %s"
-msgstr "не удалось очистить search_path: %s"
+msgid "could not clear \"search_path\": %s"
+msgstr "не удалось очистить \"search_path\": %s"
 
+<<<<<<< HEAD
 #: streamutil.c:238
+=======
+#: streamutil.c:249
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "could not determine server setting for integer_datetimes"
-msgstr "не удалось получить настройку сервера integer_datetimes"
+msgid "could not determine server setting for \"integer_datetimes\""
+msgstr "не удалось получить параметр сервера \"integer_datetimes\""
 
+<<<<<<< HEAD
 #: streamutil.c:245
+=======
+#: streamutil.c:256
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "integer_datetimes compile flag does not match server"
-msgstr "флаг компиляции integer_datetimes не соответствует настройке сервера"
+msgid "\"integer_datetimes\" compile flag does not match server"
+msgstr ""
+"флаг компиляции \"integer_datetimes\" не соответствует настройке сервера"
 
+<<<<<<< HEAD
 #: streamutil.c:296
+=======
+#: streamutil.c:375
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not fetch WAL segment size: got %d rows and %d fields, expected %d "
@@ -1865,30 +3654,38 @@ msgstr ""
 "не удалось извлечь размер сегмента WAL; получено строк: %d, полей: %d "
 "(ожидалось: %d и %d (или более))"
 
+<<<<<<< HEAD
 #: streamutil.c:306
+=======
+#: streamutil.c:385
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL segment size could not be parsed"
 msgstr "разобрать размер сегмента WAL не удалось"
 
+<<<<<<< HEAD
 #: streamutil.c:324
+=======
+#: streamutil.c:403
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid ""
-"WAL segment size must be a power of two between 1 MB and 1 GB, but the "
-"remote server reported a value of %d byte"
-msgid_plural ""
-"WAL segment size must be a power of two between 1 MB and 1 GB, but the "
-"remote server reported a value of %d bytes"
-msgstr[0] ""
-"размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но удалённый сервер сообщил значение: %d"
-msgstr[1] ""
-"размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но удалённый сервер сообщил значение: %d"
-msgstr[2] ""
-"размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но удалённый сервер сообщил значение: %d"
+msgid "remote server reported invalid WAL segment size (%d byte)"
+msgid_plural "remote server reported invalid WAL segment size (%d bytes)"
+msgstr[0] "удалённый сервер выдал неверный размер сегмента WAL: %d Б"
+msgstr[1] "удалённый сервер выдал неверный размер сегмента WAL: %d Б"
+msgstr[2] "удалённый сервер выдал неверный размер сегмента WAL: %d Б"
 
+<<<<<<< HEAD
 #: streamutil.c:369
+=======
+#: streamutil.c:407
+#, c-format
+msgid "The WAL segment size must be a power of two between 1 MB and 1 GB."
+msgstr ""
+"Размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 ГБ."
+
+#: streamutil.c:449
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not fetch group access flag: got %d rows and %d fields, expected %d "
@@ -1897,12 +3694,20 @@ msgstr ""
 "не удалось извлечь флаг доступа группы; получено строк: %d, полей: %d "
 "(ожидалось: %d и %d (или более))"
 
+<<<<<<< HEAD
 #: streamutil.c:378
+=======
+#: streamutil.c:458
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "group access flag could not be parsed: %s"
 msgstr "не удалось разобрать флаг доступа группы: %s"
 
+<<<<<<< HEAD
 #: streamutil.c:421 streamutil.c:458
+=======
+#: streamutil.c:501 streamutil.c:538
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not identify system: got %d rows and %d fields, expected %d rows and "
@@ -1911,7 +3716,11 @@ msgstr ""
 "не удалось идентифицировать систему; получено строк: %d, полей: %d "
 "(ожидалось: %d и %d (или более))"
 
+<<<<<<< HEAD
 #: streamutil.c:510
+=======
+#: streamutil.c:590
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not read replication slot \"%s\": got %d rows and %d fields, expected "
@@ -1920,23 +3729,39 @@ msgstr ""
 "прочитать из слота репликации \"%s\" не удалось; получено строк: %d, полей: "
 "%d (ожидалось: %d и %d)"
 
+<<<<<<< HEAD
 #: streamutil.c:522
+=======
+#: streamutil.c:602
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "replication slot \"%s\" does not exist"
 msgstr "слот репликации \"%s\" не существует"
 
+<<<<<<< HEAD
 #: streamutil.c:533
+=======
+#: streamutil.c:613
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected a physical replication slot, got type \"%s\" instead"
 msgstr "ожидался слот физической репликации, вместо этого получен тип \"%s\""
 
+<<<<<<< HEAD
 #: streamutil.c:547
+=======
+#: streamutil.c:627
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not parse restart_lsn \"%s\" for replication slot \"%s\""
 msgstr ""
 "не удалось разобрать позицию restart_lsn \"%s\" для слота репликации \"%s\""
 
+<<<<<<< HEAD
 #: streamutil.c:664
+=======
+#: streamutil.c:744
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not create replication slot \"%s\": got %d rows and %d fields, "
@@ -1945,7 +3770,11 @@ msgstr ""
 "создать слот репликации \"%s\" не удалось; получено строк: %d, полей: %d "
 "(ожидалось: %d и %d)"
 
+<<<<<<< HEAD
 #: streamutil.c:708
+=======
+#: streamutil.c:788
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not drop replication slot \"%s\": got %d rows and %d fields, expected "
@@ -1954,6 +3783,7 @@ msgstr ""
 "удалить слот репликации \"%s\" не получилось; получено строк: %d, полей: %d "
 "(ожидалось: %d и %d)"
 
+<<<<<<< HEAD
 #: walmethods.c:721 walmethods.c:1264
 msgid "could not compress data"
 msgstr "не удалось сжать данные"
@@ -1963,10 +3793,22 @@ msgid "could not reset compression stream"
 msgstr "не удалось сбросить поток сжатых данных"
 
 #: walmethods.c:888
+=======
+#: walmethods.c:726 walmethods.c:1269
+msgid "could not compress data"
+msgstr "не удалось сжать данные"
+
+#: walmethods.c:755
+msgid "could not reset compression stream"
+msgstr "не удалось сбросить поток сжатых данных"
+
+#: walmethods.c:892
+>>>>>>> REL_18_BETA1_branch
 msgid "implementation error: tar files can't have more than one open file"
 msgstr ""
 "ошибка реализации: в файлах tar не может быть больше одно открытого файла"
 
+<<<<<<< HEAD
 #: walmethods.c:903
 msgid "could not create tar header"
 msgstr "не удалось создать заголовок tar"
@@ -1980,6 +3822,21 @@ msgid "unlink not supported with compression"
 msgstr "со сжатием закрытие файла с удалением не поддерживается"
 
 #: walmethods.c:1288
+=======
+#: walmethods.c:907
+msgid "could not create tar header"
+msgstr "не удалось создать заголовок tar"
+
+#: walmethods.c:924 walmethods.c:965 walmethods.c:1171 walmethods.c:1184
+msgid "could not change compression parameters"
+msgstr "не удалось изменить параметры сжатия"
+
+#: walmethods.c:1056
+msgid "unlink not supported with compression"
+msgstr "со сжатием закрытие файла с удалением не поддерживается"
+
+#: walmethods.c:1293
+>>>>>>> REL_18_BETA1_branch
 msgid "could not close compression stream"
 msgstr "не удалось закрыть поток сжатых данных"
 
@@ -2016,9 +3873,6 @@ msgstr "не удалось закрыть поток сжатых данных"
 #~ msgstr ""
 #~ "для параметра --compress не задано значение, используется значение по "
 #~ "умолчанию"
-
-#~ msgid "could not find replication slot \"%s\""
-#~ msgstr "не удалось найти слот репликации \"%s\""
 
 #~ msgid "fatal: "
 #~ msgstr "важно: "
@@ -2057,9 +3911,6 @@ msgstr "не удалось закрыть поток сжатых данных"
 
 #~ msgid "--no-manifest and --manifest-force-encode are incompatible options"
 #~ msgstr "параметры --no-manifest и --manifest-force-encode несовместимы"
-
-#~ msgid "could not connect to server: %s"
-#~ msgstr "не удалось подключиться к серверу: %s"
 
 #~ msgid ""
 #~ "\n"
@@ -2144,13 +3995,6 @@ msgstr "не удалось закрыть поток сжатых данных"
 #~ msgid "%s: initializing replication slot \"%s\"\n"
 #~ msgstr "%s: инициализируется слот репликации \"%s\"\n"
 
-#~ msgid ""
-#~ "%s: could not init logical replication: got %d rows and %d fields, "
-#~ "expected %d rows and %d fields\n"
-#~ msgstr ""
-#~ "%s: не удалось инициализировать логическую репликацию; получено строк: "
-#~ "%d, полей: %d (ожидалось: %d и %d)\n"
-
 #~ msgid "%s: no start point returned from server\n"
 #~ msgstr "%s: сервер не вернул стартовую точку\n"
 
@@ -2168,9 +4012,6 @@ msgstr "не удалось закрыть поток сжатых данных"
 
 #~ msgid "%s: invalid format of xlog location: %s\n"
 #~ msgstr "%s: неверный формат позиции в xlog: %s\n"
-
-#~ msgid "%s: could not identify system: %s"
-#~ msgstr "%s: не удалось идентифицировать систему: %s"
 
 #~ msgid "%s: could not send base backup command: %s"
 #~ msgstr ""

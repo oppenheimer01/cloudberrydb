@@ -3,7 +3,7 @@
  * execAmi.c
  *	  miscellaneous executor access method routines
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *	src/backend/executor/execAmi.c
@@ -14,8 +14,13 @@
 
 #include "access/amapi.h"
 #include "access/htup_details.h"
+<<<<<<< HEAD
 #include "executor/execdebug.h"
 #include "executor/instrument.h"
+=======
+#include "catalog/pg_class.h"
+#include "executor/executor.h"
+>>>>>>> REL_18_BETA1_branch
 #include "executor/nodeAgg.h"
 #include "executor/nodeAppend.h"
 #include "executor/nodeBitmapAnd.h"
@@ -74,9 +79,7 @@
 #include "executor/nodePartitionSelector.h"
 #include "executor/nodeShareInputScan.h"
 #include "nodes/extensible.h"
-#include "nodes/nodeFuncs.h"
 #include "nodes/pathnodes.h"
-#include "utils/rel.h"
 #include "utils/syscache.h"
 
 

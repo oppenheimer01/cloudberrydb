@@ -3,7 +3,7 @@
  * windowfuncs.c
  *	  Standard window functions defined in SQL spec.
  *
- * Portions Copyright (c) 2000-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2000-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -13,9 +13,14 @@
  */
 #include "postgres.h"
 
+#include "nodes/parsenodes.h"
 #include "nodes/supportnodes.h"
+<<<<<<< HEAD
 #include "optimizer/optimizer.h"
 #include "utils/builtins.h"
+=======
+#include "utils/fmgrprotos.h"
+>>>>>>> REL_18_BETA1_branch
 #include "windowapi.h"
 
 /*

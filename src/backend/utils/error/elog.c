@@ -43,9 +43,13 @@
  * overflow.)
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -68,18 +72,22 @@
 #include <execinfo.h>
 #endif
 
+<<<<<<< HEAD
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
 
 #include "access/transam.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "access/xact.h"
+#include "common/ip.h"
 #include "libpq/libpq.h"
 #include "libpq/pqformat.h"
 #include "libpq/pqsignal.h"
 #include "mb/pg_wchar.h"
-#include "nodes/miscnodes.h"
 #include "miscadmin.h"
+#include "nodes/miscnodes.h"
 #include "pgstat.h"
 #include "postmaster/bgworker.h"
 #include "postmaster/postmaster.h"
@@ -116,8 +124,6 @@ ErrorContextCallback *error_context_stack = NULL;
 
 sigjmp_buf *PG_exception_stack = NULL;
 
-extern bool redirection_done;
-
 /*
  * Hook for intercepting messages before they are sent to the server log.
  * Note that the hook will not get called for messages that are suppressed
@@ -135,8 +141,8 @@ char	   *Log_destination_string = NULL;
 bool		syslog_sequence_numbers = true;
 bool		syslog_split_messages = true;
 
-/* Processed form of backtrace_symbols GUC */
-static char *backtrace_symbol_list;
+/* Processed form of backtrace_functions GUC */
+static char *backtrace_function_list;
 
 #ifdef HAVE_SYSLOG
 
@@ -159,8 +165,6 @@ static void write_syslog(int level, const char *line);
 #endif
 
 #ifdef WIN32
-extern char *event_source;
-
 static void write_eventlog(int level, const char *line, int len);
 #endif
 
@@ -199,7 +203,7 @@ static int	recursion_depth = 0;	/* to detect actual recursion */
 
 /*
  * Saved timeval and buffers for formatted timestamps that might be used by
- * both log_line_prefix and csv logs.
+ * log_line_prefix, csv logs and JSON logs.
  */
 static struct timeval saved_timeval;
 static bool saved_timeval_set = false;
@@ -1032,13 +1036,13 @@ matches_backtrace_functions(const char *funcname)
 {
 	const char *p;
 
-	if (!backtrace_symbol_list || funcname == NULL || funcname[0] == '\0')
+	if (!backtrace_function_list || funcname == NULL || funcname[0] == '\0')
 		return false;
 
-	p = backtrace_symbol_list;
+	p = backtrace_function_list;
 	for (;;)
 	{
-		if (*p == '\0')			/* end of backtrace_symbol_list */
+		if (*p == '\0')			/* end of backtrace_function_list */
 			break;
 
 		if (strcmp(funcname, p) == 0)
@@ -1114,9 +1118,7 @@ errcode_for_file_access(void)
 			/* Wrong object type or state */
 		case ENOTDIR:			/* Not a directory */
 		case EISDIR:			/* Is a directory */
-#if defined(ENOTEMPTY) && (ENOTEMPTY != EEXIST) /* same code on AIX */
 		case ENOTEMPTY:			/* Directory not empty */
-#endif
 			edata->sqlerrcode = ERRCODE_WRONG_OBJECT_TYPE;
 			break;
 
@@ -1137,6 +1139,10 @@ errcode_for_file_access(void)
 			/* Hardware failure */
 		case EIO:				/* I/O error */
 			edata->sqlerrcode = ERRCODE_IO_ERROR;
+			break;
+
+		case ENAMETOOLONG:		/* File name too long */
+			edata->sqlerrcode = ERRCODE_FILE_NAME_TOO_LONG;
 			break;
 
 			/* All else is classified as internal errors */
@@ -1561,6 +1567,27 @@ errhint(const char *fmt,...)
 	errno = edata->saved_errno; /*CDB*/
 }
 
+/*
+ * errhint_internal --- add a hint error message text to the current error
+ *
+ * Non-translated version of errhint(), see also errmsg_internal().
+ */
+int
+errhint_internal(const char *fmt,...)
+{
+	ErrorData  *edata = &errordata[errordata_stack_depth];
+	MemoryContext oldcontext;
+
+	recursion_depth++;
+	CHECK_STACK_DEPTH();
+	oldcontext = MemoryContextSwitchTo(edata->assoc_context);
+
+	EVALUATE_MESSAGE(edata->domain, hint, false, false);
+
+	MemoryContextSwitchTo(oldcontext);
+	recursion_depth--;
+	return 0;					/* return value does not matter */
+}
 
 /*
  * errhint_plural --- add a hint error message text to the current error,
@@ -1959,6 +1986,14 @@ EmitErrorReport(void)
 		cdb_tidy_message(edata);
 
 	/*
+	 * Reset the formatted timestamp fields before emitting any logs.  This
+	 * includes all the log destinations and emit_log_hook, as the latter
+	 * could use log_line_prefix or the formatted timestamps.
+	 */
+	saved_timeval_set = false;
+	formatted_log_time[0] = '\0';
+
+	/*
 	 * Call hook before sending message to log.  The hook function is allowed
 	 * to turn off edata->output_to_server, so we must recheck that afterward.
 	 * Making any other change in the content of edata is not considered
@@ -2132,18 +2167,21 @@ FlushErrorState(void)
 	errordata_stack_depth = -1;
 	recursion_depth = 0;
 	/* Delete all data in ErrorContext */
-	MemoryContextResetAndDeleteChildren(ErrorContext);
+	MemoryContextReset(ErrorContext);
 }
 
 /*
  * ThrowErrorData --- report an error described by an ErrorData structure
  *
- * This is somewhat like ReThrowError, but it allows elevels besides ERROR,
- * and the boolean flags such as output_to_server are computed via the
- * default rules rather than being copied from the given ErrorData.
- * This is primarily used to re-report errors originally reported by
- * background worker processes and then propagated (with or without
- * modification) to the backend responsible for them.
+ * This function should be called on an ErrorData structure that isn't stored
+ * on the errordata stack and hasn't been processed yet. It will call
+ * errstart() and errfinish() as needed, so those should not have already been
+ * called.
+ *
+ * ThrowErrorData() is useful for handling soft errors. It's also useful for
+ * re-reporting errors originally reported by background worker processes and
+ * then propagated (with or without modification) to the backend responsible
+ * for them.
  */
 void
 ThrowErrorData(ErrorData *edata)
@@ -2619,7 +2657,7 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 					  ", \n\t");
 	if (validlen != newvallen)
 	{
-		GUC_check_errdetail("invalid character");
+		GUC_check_errdetail("Invalid character.");
 		return false;
 	}
 
@@ -2634,7 +2672,9 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 	 * whitespace chars to save some memory, but it doesn't seem worth the
 	 * trouble.
 	 */
-	someval = guc_malloc(ERROR, newvallen + 1 + 1);
+	someval = guc_malloc(LOG, newvallen + 1 + 1);
+	if (!someval)
+		return false;
 	for (i = 0, j = 0; i < newvallen; i++)
 	{
 		if ((*newval)[i] == ',')
@@ -2661,7 +2701,7 @@ check_backtrace_functions(char **newval, void **extra, GucSource source)
 void
 assign_backtrace_functions(const char *newval, void *extra)
 {
-	backtrace_symbol_list = (char *) extra;
+	backtrace_function_list = (char *) extra;
 }
 
 /*
@@ -2719,9 +2759,11 @@ check_log_destination(char **newval, void **extra, GucSource source)
 	pfree(rawstring);
 	list_free(elemlist);
 
-	myextra = (int *) guc_malloc(ERROR, sizeof(int));
+	myextra = (int *) guc_malloc(LOG, sizeof(int));
+	if (!myextra)
+		return false;
 	*myextra = newlogdest;
-	*extra = (void *) myextra;
+	*extra = myextra;
 
 	return true;
 }
@@ -3203,7 +3245,7 @@ get_formatted_log_time(void)
 	/*
 	 * Note: we expect that guc.c will ensure that log_timezone is set up (at
 	 * least with a minimal GMT value) before Log_line_prefix can become
-	 * nonempty or CSV mode can be selected.
+	 * nonempty or CSV/JSON mode can be selected.
 	 */
 	pg_strftime(formatted_log_time, FORMATTED_TS_LEN,
 	/* leave room for microseconds... */
@@ -3244,7 +3286,7 @@ get_formatted_start_time(void)
 	/*
 	 * Note: we expect that guc.c will ensure that log_timezone is set up (at
 	 * least with a minimal GMT value) before Log_line_prefix can become
-	 * nonempty or CSV mode can be selected.
+	 * nonempty or CSV/JSON mode can be selected.
 	 */
 	pg_strftime(formatted_start_time, FORMATTED_TS_LEN,
 				"%Y-%m-%d %H:%M:%S %Z",
@@ -3476,12 +3518,20 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 				{
 					char		strfbuf[128];
 
+<<<<<<< HEAD
 					snprintf(strfbuf, sizeof(strfbuf) - 1, "%" INT64_MODIFIER "x.%x",
+=======
+					snprintf(strfbuf, sizeof(strfbuf) - 1, INT64_HEX_FORMAT ".%x",
+>>>>>>> REL_18_BETA1_branch
 							 MyStartTime, MyProcPid);
 					appendStringInfo(buf, "%*s", padding, strfbuf);
 				}
 				else
+<<<<<<< HEAD
 					appendStringInfo(buf, "%" INT64_MODIFIER "x.%x", MyStartTime, MyProcPid);
+=======
+					appendStringInfo(buf, INT64_HEX_FORMAT ".%x", MyStartTime, MyProcPid);
+>>>>>>> REL_18_BETA1_branch
 				break;
 			case 'p':
 				if (padding != 0)
@@ -3588,6 +3638,38 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 					appendStringInfoSpaces(buf,
 										   padding > 0 ? padding : -padding);
 				break;
+			case 'L':
+				{
+					const char *local_host;
+
+					if (MyProcPort)
+					{
+						if (MyProcPort->local_host[0] == '\0')
+						{
+							/*
+							 * First time through: cache the lookup, since it
+							 * might not have trivial cost.
+							 */
+							(void) pg_getnameinfo_all(&MyProcPort->laddr.addr,
+													  MyProcPort->laddr.salen,
+													  MyProcPort->local_host,
+													  sizeof(MyProcPort->local_host),
+													  NULL, 0,
+													  NI_NUMERICHOST | NI_NUMERICSERV);
+						}
+						local_host = MyProcPort->local_host;
+					}
+					else
+					{
+						/* Background process, or connection not yet made */
+						local_host = "[none]";
+					}
+					if (padding != 0)
+						appendStringInfo(buf, "%*s", padding, local_host);
+					else
+						appendStringInfoString(buf, local_host);
+				}
+				break;
 			case 'r':
 				if (MyProcPort && MyProcPort->remote_host)
 				{
@@ -3646,18 +3728,18 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 				break;
 			case 'v':
 				/* keep VXID format in sync with lockfuncs.c */
-				if (MyProc != NULL && MyProc->backendId != InvalidBackendId)
+				if (MyProc != NULL && MyProc->vxid.procNumber != INVALID_PROC_NUMBER)
 				{
 					if (padding != 0)
 					{
 						char		strfbuf[128];
 
 						snprintf(strfbuf, sizeof(strfbuf) - 1, "%d/%u",
-								 MyProc->backendId, MyProc->lxid);
+								 MyProc->vxid.procNumber, MyProc->vxid.lxid);
 						appendStringInfo(buf, "%*s", padding, strfbuf);
 					}
 					else
-						appendStringInfo(buf, "%d/%u", MyProc->backendId, MyProc->lxid);
+						appendStringInfo(buf, "%d/%u", MyProc->vxid.procNumber, MyProc->vxid.lxid);
 				}
 				else if (padding != 0)
 					appendStringInfoSpaces(buf,
@@ -3768,11 +3850,11 @@ log_status_format(StringInfo buf, const char *format, ErrorData *edata)
 				break;
 			case 'Q':
 				if (padding != 0)
-					appendStringInfo(buf, "%*lld", padding,
-									 (long long) pgstat_get_my_query_id());
+					appendStringInfo(buf, "%*" PRId64, padding,
+									 pgstat_get_my_query_id());
 				else
-					appendStringInfo(buf, "%lld",
-									 (long long) pgstat_get_my_query_id());
+					appendStringInfo(buf, "%" PRId64,
+									 pgstat_get_my_query_id());
 				break;
 			default:
 				/* format error - ignore it */
@@ -4520,9 +4602,6 @@ send_message_to_server_log(ErrorData *edata)
 	/* Format message prefix. */
 	initStringInfo(&buf);
 
-	saved_timeval_set = false;
-	formatted_log_time[0] = '\0';
-
 	log_line_prefix(&buf, edata);
 	nc = buf.len;
 	appendStringInfo(&buf, "%s:  ", _(error_severity(edata->elevel)));
@@ -4912,7 +4991,10 @@ send_message_to_frontend(ErrorData *edata)
 		char		tbuf[12];
 
 		/* 'N' (Notice) is for nonfatal conditions, 'E' is for errors */
-		pq_beginmessage(&msgbuf, (edata->elevel < ERROR) ? 'N' : 'E');
+		if (edata->elevel < ERROR)
+			pq_beginmessage(&msgbuf, PqMsg_NoticeResponse);
+		else
+			pq_beginmessage(&msgbuf, PqMsg_ErrorResponse);
 
 		sev = error_severity(edata->elevel);
 		pq_sendbyte(&msgbuf, PG_DIAG_SEVERITY);
@@ -5221,6 +5303,7 @@ write_stderr(const char *fmt,...)
 #endif
 	va_end(ap);
 }
+<<<<<<< HEAD
 
 /*
  * Write a message to STDERR using only async-signal-safe functions.  This can
@@ -5546,3 +5629,5 @@ StandardHandlerForSigillSigsegvSigbus_OnMainThread(char *processName, SIGNAL_ARG
 	/* re-raise the signal to OS */
 	raise(postgres_signal_arg);
 }
+=======
+>>>>>>> REL_18_BETA1_branch

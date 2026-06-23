@@ -3,7 +3,7 @@
  * partdesc.c
  *		Support routines for manipulating partition descriptors
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -21,8 +21,6 @@
 #include "catalog/pg_inherits.h"
 #include "partitioning/partbounds.h"
 #include "partitioning/partdesc.h"
-#include "storage/bufmgr.h"
-#include "storage/sinval.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/hsearch.h"
@@ -31,6 +29,7 @@
 #include "utils/memutils.h"
 #include "utils/partcache.h"
 #include "utils/rel.h"
+#include "utils/snapmgr.h"
 #include "utils/syscache.h"
 
 typedef struct PartitionDirectoryData
@@ -163,6 +162,7 @@ RelationBuildPartitionDesc(Relation rel, bool omit_detached)
 
 retry:
 
+<<<<<<< HEAD
 	/*
 	 * GPDB: Bring back the temporary memory context which gets removed in
 	 * upstream commit d3f48dfae42f9655425d1f58f396e495c7fb7812.
@@ -184,6 +184,8 @@ retry:
 									  ALLOCSET_DEFAULT_SIZES);
 	saved_cxt = MemoryContextSwitchTo(rbcontext);
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	/*
 	 * Get partition oids from pg_inherits.  This uses a single snapshot to
 	 * fetch the list of children, so while more children may be getting added
@@ -216,7 +218,7 @@ retry:
 		PartitionBoundSpec *boundspec = NULL;
 
 		/* Try fetching the tuple from the catcache, for speed. */
-		tuple = SearchSysCache1(RELOID, inhrelid);
+		tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(inhrelid));
 		if (HeapTupleIsValid(tuple))
 		{
 			Datum		datum;
@@ -272,19 +274,29 @@ retry:
 			 * tuples if the table has been dropped meanwhile.
 			 */
 			tuple = systable_getnext(scan);
+<<<<<<< HEAD
 
+=======
+			if (HeapTupleIsValid(tuple))
+>>>>>>> REL_18_BETA1_branch
 			{
 				Datum		datum;
 				bool		isnull;
 
+<<<<<<< HEAD
 				if (!tuple)
 					elog(ERROR, "could not find pg_class entry for oid %u", inhrelid);
+=======
+>>>>>>> REL_18_BETA1_branch
 				datum = heap_getattr(tuple, Anum_pg_class_relpartbound,
 									 RelationGetDescr(pg_class), &isnull);
 				if (!isnull)
 					boundspec = stringToNode(TextDatumGetCString(datum));
 			}
+<<<<<<< HEAD
 
+=======
+>>>>>>> REL_18_BETA1_branch
 			systable_endscan(scan);
 			table_close(pg_class, AccessShareLock);
 

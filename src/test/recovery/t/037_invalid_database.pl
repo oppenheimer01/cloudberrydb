@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 # Copyright (c) 2023, PostgreSQL Global Development Group
+=======
+# Copyright (c) 2023-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
 #
 # Test we handle interrupted DROP DATABASE correctly.
 
 use strict;
+<<<<<<< HEAD
 use warnings;
+=======
+use warnings FATAL => 'all';
+>>>>>>> REL_18_BETA1_branch
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -17,7 +25,10 @@ max_prepared_transactions=5
 log_min_duration_statement=0
 log_connections=on
 log_disconnections=on
+<<<<<<< HEAD
 allow_system_table_mods=on
+=======
+>>>>>>> REL_18_BETA1_branch
 ));
 
 $node->start;
@@ -43,11 +54,23 @@ like(
 	qr/FATAL:\s+cannot connect to invalid database "regression_invalid"/,
 	"can't connect to invalid database - error message");
 
+<<<<<<< HEAD
 is($node->psql('postgres', 'ALTER DATABASE regression_invalid CONNECTION LIMIT 10'),
 	2, "can't ALTER invalid database");
 
 # check invalid database can't be used as a template
 is( $node->psql('postgres', 'CREATE DATABASE copy_invalid TEMPLATE regression_invalid'),
+=======
+is( $node->psql(
+		'postgres', 'ALTER DATABASE regression_invalid CONNECTION LIMIT 10'),
+	2,
+	"can't ALTER invalid database");
+
+# check invalid database can't be used as a template
+is( $node->psql(
+		'postgres',
+		'CREATE DATABASE copy_invalid TEMPLATE regression_invalid'),
+>>>>>>> REL_18_BETA1_branch
 	3,
 	"can't use invalid database as template");
 
@@ -82,6 +105,7 @@ is($node->psql('postgres', 'DROP DATABASE regression_invalid'),
 	3, "can't drop already dropped database");
 
 
+<<<<<<< HEAD
 # Cloudberry: PREPARE TRANSACTION is not supported in utility mode.
 # Skip the DROP DATABASE interruption test that relies on 2PC.
 SKIP:
@@ -127,5 +151,60 @@ SKIP:
 
 	$bgpsql->quit();
 }
+=======
+# Test that interruption of DROP DATABASE is handled properly. To ensure the
+# interruption happens at the appropriate moment, we lock pg_tablespace. DROP
+# DATABASE scans pg_tablespace once it has reached the "irreversible" part of
+# dropping the database, making it a suitable point to wait.  Since relcache
+# init reads pg_tablespace, establish each connection before locking.  This
+# avoids a connection-time hang with debug_discard_caches.
+my $cancel = $node->background_psql('postgres', on_error_stop => 1);
+my $bgpsql = $node->background_psql('postgres', on_error_stop => 0);
+my $pid = $bgpsql->query('SELECT pg_backend_pid()');
+
+# create the database, prevent drop database via lock held by a 2PC transaction
+$bgpsql->query_safe(
+	qq(
+  CREATE DATABASE regression_invalid_interrupt;
+  BEGIN;
+  LOCK pg_tablespace;
+  PREPARE TRANSACTION 'lock_tblspc';));
+
+# Try to drop. This will wait due to the still held lock.
+$bgpsql->query_until(qr//, "DROP DATABASE regression_invalid_interrupt;\n");
+
+
+# Once the DROP DATABASE is waiting for the lock, interrupt it.
+ok( $cancel->query_safe(
+		qq(
+	DO \$\$
+	BEGIN
+		WHILE NOT EXISTS(SELECT * FROM pg_locks WHERE NOT granted AND relation = 'pg_tablespace'::regclass AND mode = 'AccessShareLock') LOOP
+			PERFORM pg_sleep(.1);
+		END LOOP;
+	END\$\$;
+	SELECT pg_cancel_backend($pid);)),
+	"canceling DROP DATABASE");
+$cancel->quit();
+
+# wait for cancellation to be processed
+ok( pump_until(
+		$bgpsql->{run}, $bgpsql->{timeout},
+		\$bgpsql->{stderr}, qr/canceling statement due to user request/),
+	"cancel processed");
+$bgpsql->{stderr} = '';
+
+# Verify that connections to the database aren't allowed.  The backend checks
+# this before relcache init, so the lock won't interfere.
+is($node->psql('regression_invalid_interrupt', ''),
+	2, "can't connect to invalid_interrupt database");
+
+# To properly drop the database, we need to release the lock previously preventing
+# doing so.
+$bgpsql->query_safe(qq(ROLLBACK PREPARED 'lock_tblspc'));
+$bgpsql->query_safe(qq(DROP DATABASE regression_invalid_interrupt));
+
+$bgpsql->quit();
+>>>>>>> REL_18_BETA1_branch
 
 done_testing();

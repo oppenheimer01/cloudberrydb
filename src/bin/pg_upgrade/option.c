@@ -3,7 +3,7 @@
  *
  *	options functions
  *
- *	Copyright (c) 2010-2023, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2025, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/option.c
  */
 
@@ -14,6 +14,7 @@
 #endif
 
 #include "common/string.h"
+#include "fe_utils/option_utils.h"
 #include "getopt_long.h"
 #include "pg_upgrade.h"
 #include "utils/pidfile.h"
@@ -59,6 +60,11 @@ parseCommandLine(int argc, char *argv[])
 		{"verbose", no_argument, NULL, 'v'},
 		{"clone", no_argument, NULL, 1},
 		{"copy", no_argument, NULL, 2},
+		{"copy-file-range", no_argument, NULL, 3},
+		{"sync-method", required_argument, NULL, 4},
+		{"no-statistics", no_argument, NULL, 5},
+		{"set-char-signedness", required_argument, NULL, 6},
+		{"swap", no_argument, NULL, 7},
 
 		/* Cloudberry specific parameters */
 		GREENPLUM_OPTIONS
@@ -68,9 +74,12 @@ parseCommandLine(int argc, char *argv[])
 	int			option;			/* Command line option */
 	int			optindex = 0;	/* used by getopt_long */
 	int			os_user_effective_id;
+	DataDirSyncMethod unused;
 
 	user_opts.do_sync = true;
 	user_opts.transfer_mode = TRANSFER_MODE_COPY;
+	user_opts.do_statistics = true;
+	user_opts.char_signedness = -1;
 
 	os_info.progname = get_progname(argv[0]);
 
@@ -211,6 +220,32 @@ parseCommandLine(int argc, char *argv[])
 				user_opts.transfer_mode = TRANSFER_MODE_COPY;
 				break;
 
+			case 3:
+				user_opts.transfer_mode = TRANSFER_MODE_COPY_FILE_RANGE;
+				break;
+			case 4:
+				if (!parse_sync_method(optarg, &unused))
+					exit(1);
+				user_opts.sync_method = pg_strdup(optarg);
+				break;
+
+			case 5:
+				user_opts.do_statistics = false;
+				break;
+
+			case 6:
+				if (pg_strcasecmp(optarg, "signed") == 0)
+					user_opts.char_signedness = 1;
+				else if (pg_strcasecmp(optarg, "unsigned") == 0)
+					user_opts.char_signedness = 0;
+				else
+					pg_fatal("invalid argument for option %s", "--set-char-signedness");
+				break;
+
+			case 7:
+				user_opts.transfer_mode = TRANSFER_MODE_SWAP;
+				break;
+
 			default:
 				if (!process_greenplum_option(option))
 				{
@@ -224,6 +259,9 @@ parseCommandLine(int argc, char *argv[])
 
 	if (optind < argc)
 		pg_fatal("too many command-line arguments (first is \"%s\")", argv[optind]);
+
+	if (!user_opts.sync_method)
+		user_opts.sync_method = pg_strdup("fsync");
 
 	if (log_opts.verbose)
 		pg_log(PG_REPORT, "Running in verbose mode");
@@ -312,6 +350,12 @@ usage(void)
 	printf(_("  --continue-check-on-fatal     goes through all pg_upgrade checks; should be used with -c\n"));
 	printf(_("  --skip-target-check           skip all checks and comparisons of new cluster; should be used with -c\n"));
 	printf(_("  --copy                        copy files to new cluster (default)\n"));
+	printf(_("  --copy-file-range             copy files to new cluster with copy_file_range\n"));
+	printf(_("  --no-statistics               do not import statistics from old cluster\n"));
+	printf(_("  --set-char-signedness=OPTION  set new cluster char signedness to \"signed\" or\n"
+			 "                                \"unsigned\"\n"));
+	printf(_("  --swap                        move data directories to new cluster\n"));
+	printf(_("  --sync-method=METHOD          set method for syncing files to disk\n"));
 	printf(_("  -?, --help                    show this help, then exit\n"));
 	printf(_("\n"
 			 "Before running pg_upgrade you must:\n"
@@ -450,8 +494,7 @@ adjust_data_dir(ClusterInfo *cluster)
 
 	if ((output = popen(cmd, "r")) == NULL ||
 		fgets(cmd_output, sizeof(cmd_output), output) == NULL)
-		pg_fatal("could not get data directory using %s: %s",
-				 cmd, strerror(errno));
+		pg_fatal("could not get data directory using %s: %m", cmd);
 
 	rc = pclose(output);
 	if (rc != 0)
@@ -476,10 +519,10 @@ adjust_data_dir(ClusterInfo *cluster)
  * directory.
  */
 void
-get_sock_dir(ClusterInfo *cluster, bool live_check)
+get_sock_dir(ClusterInfo *cluster)
 {
 #if !defined(WIN32)
-	if (!live_check)
+	if (!user_opts.live_check || cluster == &new_cluster)
 		cluster->sockdir = user_opts.socketdir;
 	else
 	{
@@ -496,16 +539,15 @@ get_sock_dir(ClusterInfo *cluster, bool live_check)
 		snprintf(filename, sizeof(filename), "%s/postmaster.pid",
 				 cluster->pgdata);
 		if ((fp = fopen(filename, "r")) == NULL)
-			pg_fatal("could not open file \"%s\": %s",
-					 filename, strerror(errno));
+			pg_fatal("could not open file \"%s\": %m", filename);
 
 		for (lineno = 1;
 			 lineno <= Max(LOCK_FILE_LINE_PORT, LOCK_FILE_LINE_SOCKET_DIR);
 			 lineno++)
 		{
 			if (fgets(line, sizeof(line), fp) == NULL)
-				pg_fatal("could not read line %d from file \"%s\": %s",
-						 lineno, filename, strerror(errno));
+				pg_fatal("could not read line %d from file \"%s\": %m",
+						 lineno, filename);
 
 			/* potentially overwrite user-supplied value */
 			if (lineno == LOCK_FILE_LINE_PORT)

@@ -8,7 +8,7 @@
  *	  Structs that need to be client-visible are in pqcomm.h.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/libpq/libpq-be.h
@@ -18,6 +18,8 @@
 #ifndef LIBPQ_BE_H
 #define LIBPQ_BE_H
 
+#include "common/scram-common.h"
+
 #include <sys/time.h>
 #ifdef USE_OPENSSL
 #include <openssl/ssl.h>
@@ -25,13 +27,7 @@
 #endif
 #include <netinet/tcp.h>
 
-#ifdef ENABLE_GSS
-#if defined(HAVE_GSSAPI_H)
-#include <gssapi.h>
-#else
-#include <gssapi/gssapi.h>
-#endif							/* HAVE_GSSAPI_H */
-#endif							/* ENABLE_GSS */
+#include "libpq/pg-gssapi.h"
 
 #ifdef ENABLE_SSPI
 #define SECURITY_WIN32
@@ -61,6 +57,7 @@ typedef struct
 #include "libpq/pqcomm.h"
 
 
+<<<<<<< HEAD
 typedef enum CAC_state
 {
 	CAC_OK,
@@ -75,6 +72,8 @@ typedef enum CAC_state
 } CAC_state;
 
 
+=======
+>>>>>>> REL_18_BETA1_branch
 /*
  * GSSAPI specific state information
  */
@@ -127,12 +126,9 @@ typedef struct ClientConnectionInfo
 } ClientConnectionInfo;
 
 /*
- * This is used by the postmaster in its communication with frontends.  It
- * contains all state information needed during this communication before the
- * backend is run.  The Port structure is kept in malloc'd memory and is
- * still available when a backend is running (see MyProcPort).  The data
- * it points to must also be malloc'd, or else palloc'd in TopMemoryContext,
- * so that it survives into PostgresMain execution!
+ * The Port structure holds state information about a client connection in a
+ * backend process.  It is available in the global variable MyProcPort.  The
+ * struct and all the data it points are kept in TopMemoryContext.
  *
  * remote_hostname is set if we did a successful reverse lookup of the
  * client's IP address during connection setup.
@@ -162,7 +158,9 @@ typedef struct Port
 	int			remote_hostname_resolv; /* see above */
 	int			remote_hostname_errcode;	/* see above */
 	char	   *remote_port;	/* text rep of remote port */
-	CAC_state	canAcceptConnections;	/* postmaster connection status */
+
+	/* local_host is filled only if needed (see log_status_format) */
+	char		local_host[64]; /* ip addr of local socket for client conn */
 
 	/*
 	 * Information that needs to be saved from the startup packet and passed
@@ -204,6 +202,13 @@ typedef struct Port
 	int			tcp_user_timeout;
 
 	/*
+	 * SCRAM structures.
+	 */
+	uint8		scram_ClientKey[SCRAM_MAX_KEY_LEN];
+	uint8		scram_ServerKey[SCRAM_MAX_KEY_LEN];
+	bool		has_scram_keys; /* true if the above two are valid */
+
+	/*
 	 * GSSAPI structures.
 	 */
 #if defined(ENABLE_GSS) || defined(ENABLE_SSPI)
@@ -225,16 +230,47 @@ typedef struct Port
 	char	   *peer_cn;
 	char	   *peer_dn;
 	bool		peer_cert_valid;
+	bool		alpn_used;
+	bool		last_read_was_eof;
 
 	/*
-	 * OpenSSL structures. (Keep these last so that the locations of other
-	 * fields are the same whether or not you build with SSL enabled.)
+	 * OpenSSL structures.  As with GSSAPI above, to keep struct offsets
+	 * constant, NULL pointers are stored when SSL support is not enabled.
+	 * (Although extensions should have no business accessing the raw_buf
+	 * fields anyway.)
 	 */
 #ifdef USE_OPENSSL
 	SSL		   *ssl;
 	X509	   *peer;
+#else
+	void	   *ssl;
+	void	   *peer;
 #endif
+
+	/*
+	 * This is a bit of a hack. raw_buf is data that was previously read and
+	 * buffered in a higher layer but then "unread" and needs to be read again
+	 * while establishing an SSL connection via the SSL library layer.
+	 *
+	 * There's no API to "unread", the upper layer just places the data in the
+	 * Port structure in raw_buf and sets raw_buf_remaining to the amount of
+	 * bytes unread and raw_buf_consumed to 0.
+	 */
+	char	   *raw_buf;
+	ssize_t		raw_buf_consumed,
+				raw_buf_remaining;
 } Port;
+
+/*
+ * ClientSocket holds a socket for an accepted connection, along with the
+ * information about the remote endpoint.  This is passed from postmaster to
+ * the backend process.
+ */
+typedef struct ClientSocket
+{
+	pgsocket	sock;			/* File descriptor */
+	SockAddr	raddr;			/* remote addr (client) */
+} ClientSocket;
 
 #ifdef USE_SSL
 /*
@@ -294,7 +330,7 @@ extern ssize_t be_tls_read(Port *port, void *ptr, size_t len, int *waitfor);
 /*
  * Write data to a secure connection.
  */
-extern ssize_t be_tls_write(Port *port, void *ptr, size_t len, int *waitfor);
+extern ssize_t be_tls_write(Port *port, const void *ptr, size_t len, int *waitfor);
 
 /*
  * Return information about the SSL connection.
@@ -312,14 +348,8 @@ extern void be_tls_get_peer_serial(Port *port, char *ptr, size_t len);
  *
  * The result is a palloc'd hash of the server certificate with its
  * size, and NULL if there is no certificate available.
- *
- * This is not supported with old versions of OpenSSL that don't have
- * the X509_get_signature_nid() function.
  */
-#if defined(USE_OPENSSL) && (defined(HAVE_X509_GET_SIGNATURE_NID) || defined(HAVE_X509_GET_SIGNATURE_INFO))
-#define HAVE_BE_TLS_GET_CERTIFICATE_HASH
 extern char *be_tls_get_certificate_hash(Port *port, size_t *len);
-#endif
 
 /* init hook for SSL, the default sets the password callback if appropriate */
 #ifdef USE_OPENSSL
@@ -340,7 +370,7 @@ extern bool be_gssapi_get_delegation(Port *port);
 
 /* Read and write to a GSSAPI-encrypted connection. */
 extern ssize_t be_gssapi_read(Port *port, void *ptr, size_t len);
-extern ssize_t be_gssapi_write(Port *port, void *ptr, size_t len);
+extern ssize_t be_gssapi_write(Port *port, const void *ptr, size_t len);
 #endif							/* ENABLE_GSS */
 
 extern PGDLLIMPORT ProtocolVersion FrontendProtocol;

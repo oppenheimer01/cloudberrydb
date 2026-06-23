@@ -4,7 +4,7 @@
  *	  various support functions for SP-GiST
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -28,11 +28,11 @@
 #include "parser/parse_coerce.h"
 #include "storage/bufmgr.h"
 #include "storage/indexfsm.h"
-#include "storage/lmgr.h"
-#include "utils/builtins.h"
 #include "utils/catcache.h"
+#include "utils/fmgrprotos.h"
 #include "utils/index_selfuncs.h"
 #include "utils/lsyscache.h"
+#include "utils/rel.h"
 #include "utils/syscache.h"
 
 /*
@@ -49,6 +49,9 @@ spghandler(PG_FUNCTION_ARGS)
 	amroutine->amoptsprocnum = SPGIST_OPTIONS_PROC;
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = true;
+	amroutine->amcanhash = false;
+	amroutine->amconsistentequality = false;
+	amroutine->amconsistentordering = false;
 	amroutine->amcanbackward = false;
 	amroutine->amcanunique = false;
 	amroutine->amcanmulticol = false;
@@ -59,6 +62,7 @@ spghandler(PG_FUNCTION_ARGS)
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
 	amroutine->amcanparallel = false;
+	amroutine->amcanbuildparallel = false;
 	amroutine->amcaninclude = true;
 	amroutine->amusemaintenanceworkmem = false;
 	amroutine->amsummarizing = false;
@@ -69,10 +73,12 @@ spghandler(PG_FUNCTION_ARGS)
 	amroutine->ambuild = spgbuild;
 	amroutine->ambuildempty = spgbuildempty;
 	amroutine->aminsert = spginsert;
+	amroutine->aminsertcleanup = NULL;
 	amroutine->ambulkdelete = spgbulkdelete;
 	amroutine->amvacuumcleanup = spgvacuumcleanup;
 	amroutine->amcanreturn = spgcanreturn;
 	amroutine->amcostestimate = spgcostestimate;
+	amroutine->amgettreeheight = NULL;
 	amroutine->amoptions = spgoptions;
 	amroutine->amproperty = spgproperty;
 	amroutine->ambuildphasename = NULL;
@@ -88,6 +94,8 @@ spghandler(PG_FUNCTION_ARGS)
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
+	amroutine->amtranslatestrategy = NULL;
+	amroutine->amtranslatecmptype = NULL;
 
 	PG_RETURN_POINTER(amroutine);
 }
@@ -271,11 +279,17 @@ spgGetCache(Relation index)
 					 RelationGetRelationName(index));
 
 			cache->lastUsedPages = metadata->lastUsedPages;
+<<<<<<< HEAD
+
+			UnlockReleaseBuffer(metabuffer);
+		}
+=======
+>>>>>>> REL_18_BETA1_branch
 
 			UnlockReleaseBuffer(metabuffer);
 		}
 
-		index->rd_amcache = (void *) cache;
+		index->rd_amcache = cache;
 	}
 	else
 	{
@@ -327,7 +341,9 @@ getSpGistTupleDesc(Relation index, SpGistTypeDesc *keyType)
 		att->attcollation = InvalidOid;
 		/* In case we changed typlen, we'd better reset following offsets */
 		for (int i = spgFirstIncludeColumn; i < outTupDesc->natts; i++)
-			TupleDescAttr(outTupDesc, i)->attcacheoff = -1;
+			TupleDescCompactAttr(outTupDesc, i)->attcacheoff = -1;
+
+		populate_compact_attribute(outTupDesc, spgKeyColumn);
 	}
 	return outTupDesc;
 }
@@ -367,7 +383,11 @@ initSpGistState(SpGistState *state, Relation index)
 	 * for VACUUM to immediately expire a redirection tuple that contains an
 	 * invalid xid.
 	 */
+<<<<<<< HEAD
 	state->myXid = GetTopTransactionIdIfAny();
+=======
+	state->redirectXid = GetTopTransactionIdIfAny();
+>>>>>>> REL_18_BETA1_branch
 
 	/* Assume we're not in an index build (spgbuild will override) */
 	state->isBuild = false;
@@ -805,7 +825,7 @@ memcpyInnerDatum(void *target, SpGistTypeDesc *att, Datum datum)
  */
 Size
 SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
-					   Datum *datums, bool *isnulls)
+					   const Datum *datums, const bool *isnulls)
 {
 	Size		size;
 	Size		data_size;
@@ -858,7 +878,7 @@ SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
  */
 SpGistLeafTuple
 spgFormLeafTuple(SpGistState *state, ItemPointer heapPtr,
-				 Datum *datums, bool *isnulls)
+				 const Datum *datums, const bool *isnulls)
 {
 	SpGistLeafTuple tup;
 	TupleDesc	tupleDescriptor = state->leafTupDesc;
@@ -1083,7 +1103,11 @@ spgFormDeadTuple(SpGistState *state, int tupstate,
 	if (tupstate == SPGIST_REDIRECT)
 	{
 		ItemPointerSet(&tuple->pointer, blkno, offnum);
+<<<<<<< HEAD
 		tuple->xid = state->myXid;
+=======
+		tuple->xid = state->redirectXid;
+>>>>>>> REL_18_BETA1_branch
 	}
 	else
 	{

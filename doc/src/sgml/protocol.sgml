@@ -18,22 +18,10 @@
  </para>
 
  <para>
-  This document describes version 3.0 of the protocol, implemented in
-  <productname>PostgreSQL</productname> 7.4 and later.  For descriptions
-  of the earlier protocol versions, see previous releases of the
-  <productname>PostgreSQL</productname> documentation.  A single server
-  can support multiple protocol versions.  The initial startup-request
-  message tells the server which protocol version the client is attempting to
-  use.  If the major version requested by the client is not supported by
-  the server, the connection will be rejected (for example, this would occur
-  if the client requested protocol version 4.0, which does not exist as of
-  this writing).  If the minor version requested by the client is not
-  supported by the server (e.g., the client requests version 3.1, but the
-  server supports only 3.0), the server may either reject the connection or
-  may respond with a NegotiateProtocolVersion message containing the highest
-  minor protocol version which it supports.  The client may then choose either
-  to continue with the connection using the specified protocol version or
-  to abort the connection.
+  This document describes version 3.2 of the protocol, introduced in
+  <productname>PostgreSQL</productname> version 18. The server and the libpq
+  client library are backwards compatible with protocol version 3.0,
+  implemented in <productname>PostgreSQL</productname> 7.4 and later.
  </para>
 
   <para>
@@ -199,6 +187,85 @@
     server versions; the text format is usually the more portable choice.
    </para>
   </sect2>
+
+  <sect2 id="protocol-versions">
+   <title>Protocol versions</title>
+
+   <para>
+    The current, latest version of the protocol is version 3.2. However, for
+    backwards compatibility with old server versions and middleware that don't
+    support the version negotiation yet, libpq still uses protocol version 3.0
+    by default.
+   </para>
+
+   <para>
+    A single server can support multiple protocol versions.  The initial
+    startup-request message tells the server which protocol version the client
+    is attempting to use.  If the major version requested by the client is not
+    supported by the server, the connection will be rejected (for example,
+    this would occur if the client requested protocol version 4.0, which does
+    not exist as of this writing).  If the minor version requested by the
+    client is not supported by the server (e.g., the client requests version
+    3.2, but the server supports only 3.0), the server may either reject the
+    connection or may respond with a NegotiateProtocolVersion message
+    containing the highest minor protocol version which it supports.  The
+    client may then choose either to continue with the connection using the
+    specified protocol version or to abort the connection.
+   </para>
+
+   <para>
+    The protocol negotiation was introduced in
+    <productname>PostgreSQL</productname> version 9.3.21. Earlier versions
+    would reject the connection if the client requested a minor version that
+    was not supported by the server.
+   </para>
+
+   <table>
+    <title>Protocol versions</title>
+
+    <tgroup cols="3">
+     <thead>
+      <row>
+       <entry>Version</entry>
+       <entry>Supported by</entry>
+       <entry>Description</entry>
+      </row>
+     </thead>
+
+     <tbody>
+      <row>
+      <entry>3.2</entry>
+      <entry>PostgreSQL 18 and later</entry>
+      <entry>Current latest version. The secret key used in query
+        cancellation was enlarged from 4 bytes to a variable length field. The
+        BackendKeyData message was changed to accommodate that, and the CancelRequest
+        message was redefined to have a variable length payload.
+      </entry>
+      </row>
+      <row>
+      <entry>3.1</entry>
+      <entry>-</entry>
+      <entry>Reserved. Version 3.1 has not been used by any PostgreSQL
+        version, but it was skipped because old versions of the popular
+        pgbouncer application had a bug in the protocol negotiation which made
+        it incorrectly claim that it supported version 3.1.
+      </entry>
+      </row>
+      <row>
+      <entry>3.0</entry>
+      <entry>PostgreSQL 7.4 and later</entry>
+      </row>
+      <row>
+      <entry>2.0</entry>
+      <entry>up to PostgreSQL 13</entry>
+      <entry>See previous releases of
+      the <productname>PostgreSQL</productname> documentation for
+      details</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+  </sect2>
  </sect1>
 
  <sect1 id="protocol-flow">
@@ -312,6 +379,14 @@
         (Keep in mind the <function>md5()</function> function returns its
         result as a hex string.)
        </para>
+        <warning>
+         <para>
+          Support for MD5-encrypted passwords is deprecated and will be removed
+          in a future release of <productname>PostgreSQL</productname>.  Refer
+          to <xref linkend="auth-password"/> for details about migrating to
+          another password type.
+         </para>
+        </warning>
       </listitem>
      </varlistentry>
 
@@ -405,8 +480,14 @@
         this message indicates the highest supported minor version.  This
         message will also be sent if the client requested unsupported protocol
         options (i.e., beginning with <literal>_pq_.</literal>) in the
-        startup packet.  This message will be followed by an ErrorResponse or
-        a message indicating the success or failure of authentication.
+        startup packet.
+       </para>
+       <para>
+        After this message, the authentication will continue using the version
+        indicated by the server.  If the client does not support the older
+        version, it should immediately close the connection.  If the server
+        does not send this message, it supports the client's requested
+        protocol version and all the protocol options.
        </para>
       </listitem>
      </varlistentry>
@@ -1070,16 +1151,17 @@ SELCT 1/0;<!-- this typo is intentional -->
 
    <para>
     If the client has not issued an explicit <command>BEGIN</command>,
-    then each Sync ordinarily causes an implicit <command>COMMIT</command>
-    if the preceding step(s) succeeded, or an
-    implicit <command>ROLLBACK</command> if they failed.  However, there
-    are a few DDL commands (such as <command>CREATE DATABASE</command>)
-    that cannot be executed inside a transaction block.  If one of
-    these is executed in a pipeline, it will fail unless it is the first
-    command in the pipeline.  Furthermore, upon success it will force an
-    immediate commit to preserve database consistency.  Thus a Sync
-    immediately following one of these commands has no effect except to
-    respond with ReadyForQuery.
+    then an implicit transaction block is started and each Sync ordinarily
+    causes an implicit <command>COMMIT</command> if the preceding step(s)
+    succeeded, or an implicit <command>ROLLBACK</command> if they failed.
+    This implicit transaction block will only be detected by the server
+    when the first command ends without a sync.  There are a few DDL
+    commands (such as <command>CREATE DATABASE</command>) that cannot be
+    executed inside a transaction block. If one of these is executed in a
+    pipeline, it will fail unless it is the first command after a Sync.
+    Furthermore, upon success it will force an immediate commit to preserve
+    database consistency. Thus a Sync immediately following one of these
+    commands has no effect except to respond with ReadyForQuery.
    </para>
 
    <para>
@@ -1325,12 +1407,17 @@ SELCT 1/0;<!-- this typo is intentional -->
      <member><varname>IntervalStyle</varname></member>
      <member><varname>is_superuser</varname></member>
      <member><varname>scram_iterations</varname></member>
+<<<<<<< HEAD
+=======
+     <member><varname>search_path</varname></member>
+>>>>>>> REL_18_BETA1_branch
      <member><varname>server_encoding</varname></member>
      <member><varname>server_version</varname></member>
      <member><varname>session_authorization</varname></member>
      <member><varname>standard_conforming_strings</varname></member>
      <member><varname>TimeZone</varname></member>
     </simplelist>
+<<<<<<< HEAD
     (<varname>server_encoding</varname>, <varname>TimeZone</varname>, and
     <varname>integer_datetimes</varname> were not reported by releases before 8.0;
     <varname>standard_conforming_strings</varname> was not reported by releases
@@ -1342,6 +1429,13 @@ SELCT 1/0;<!-- this typo is intentional -->
     <varname>in_hot_standby</varname> were not reported by releases before
     14; <varname>scram_iterations</varname> was not reported by releases
     before 16.)
+=======
+    (<varname>default_transaction_read_only</varname> and
+    <varname>in_hot_standby</varname> were not reported by releases before
+    14; <varname>scram_iterations</varname> was not reported by releases
+    before 16; <varname>search_path</varname> was not reported by releases
+    before 18.)
+>>>>>>> REL_18_BETA1_branch
     Note that
     <varname>server_version</varname>,
     <varname>server_encoding</varname> and
@@ -1537,8 +1631,44 @@ SELCT 1/0;<!-- this typo is intentional -->
    </para>
 
    <para>
+     Likewise the server expects the client to not begin
+     the <acronym>SSL</acronym> negotiation until it receives the server's
+     single byte response to the <acronym>SSL</acronym> request.  If the
+     client begins the <acronym>SSL</acronym> negotiation immediately without
+     waiting for the server response to be received it can reduce connection
+     latency by one round-trip.  However this comes at the cost of not being
+     able to handle the case where the server sends a negative response to the
+     <acronym>SSL</acronym> request.  In that case instead of continuing with either GSSAPI or an
+     unencrypted connection or a protocol error the server will simply
+     disconnect.
+   </para>
+
+   <para>
     An initial SSLRequest can also be used in a connection that is being
     opened to send a CancelRequest message.
+   </para>
+
+   <para>
+     A second alternate way to initiate <acronym>SSL</acronym> encryption is
+     available.  The server will recognize connections which immediately
+     begin <acronym>SSL</acronym> negotiation without any previous SSLRequest
+     packets.  Once the <acronym>SSL</acronym> connection is established the
+     server will expect a normal startup-request packet and continue
+     negotiation over the encrypted channel.  In this case any other requests
+     for encryption will be refused.  This method is not preferred for general
+     purpose tools as it cannot negotiate the best connection encryption
+     available or handle unencrypted connections.  However it is useful for
+     environments where both the server and client are controlled together.
+     In that case it avoids one round trip of latency and allows the use of
+     network tools that depend on standard <acronym>SSL</acronym> connections.
+     When using <acronym>SSL</acronym> connections in this style the client is
+     required to use the ALPN extension defined
+     by <ulink url="https://tools.ietf.org/html/rfc7301">RFC 7301</ulink> to
+     protect against protocol confusion attacks.
+     The <productname>PostgreSQL</productname> protocol is "postgresql" as
+     registered
+     at <ulink url="https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids">IANA
+     TLS ALPN Protocol IDs</ulink> registry.
    </para>
 
    <para>
@@ -1597,6 +1727,7 @@ SELCT 1/0;<!-- this typo is intentional -->
     In this case the connection must be closed, but the frontend might choose
     to open a fresh connection and proceed without requesting
     <acronym>GSSAPI</acronym> encryption.
+<<<<<<< HEAD
    </para>
 
    <para>
@@ -1611,6 +1742,8 @@ SELCT 1/0;<!-- this typo is intentional -->
     socket before turning the socket over to their GSSAPI library, or to
     treat it as a protocol violation if they find they have read additional
     bytes.
+=======
+>>>>>>> REL_18_BETA1_branch
    </para>
 
    <para>
@@ -1662,11 +1795,11 @@ SELCT 1/0;<!-- this typo is intentional -->
 
   <para>
    <firstterm>SASL</firstterm> is a framework for authentication in connection-oriented
-   protocols. At the moment, <productname>PostgreSQL</productname> implements two SASL
-   authentication mechanisms, SCRAM-SHA-256 and SCRAM-SHA-256-PLUS. More
-   might be added in the future. The below steps illustrate how SASL
-   authentication is performed in general, while the next subsection gives
-   more details on SCRAM-SHA-256 and SCRAM-SHA-256-PLUS.
+   protocols. At the moment, <productname>PostgreSQL</productname> implements three
+   SASL authentication mechanisms: SCRAM-SHA-256, SCRAM-SHA-256-PLUS, and
+   OAUTHBEARER. More might be added in the future. The below steps illustrate how SASL
+   authentication is performed in general, while the next subsections give
+   more details on particular mechanisms.
   </para>
 
   <procedure>
@@ -1701,7 +1834,7 @@ SELCT 1/0;<!-- this typo is intentional -->
    <step id="sasl-auth-end">
     <para>
      Finally, when the authentication exchange is completed successfully, the
-     server sends an AuthenticationSASLFinal message, followed
+     server sends an optional AuthenticationSASLFinal message, followed
      immediately by an AuthenticationOk message. The AuthenticationSASLFinal
      contains additional server-to-client data, whose content is particular to the
      selected authentication mechanism. If the authentication mechanism doesn't
@@ -1720,9 +1853,15 @@ SELCT 1/0;<!-- this typo is intentional -->
    <title>SCRAM-SHA-256 Authentication</title>
 
    <para>
+<<<<<<< HEAD
     The implemented SASL mechanisms at the moment
     are <literal>SCRAM-SHA-256</literal> and its variant with channel
     binding <literal>SCRAM-SHA-256-PLUS</literal>. They are described in
+=======
+    <literal>SCRAM-SHA-256</literal>, and its variant with channel
+    binding <literal>SCRAM-SHA-256-PLUS</literal>, are password-based
+    authentication mechanisms. They are described in
+>>>>>>> REL_18_BETA1_branch
     detail in <ulink url="https://datatracker.ietf.org/doc/html/rfc7677">RFC 7677</ulink>
     and <ulink url="https://datatracker.ietf.org/doc/html/rfc5802">RFC 5802</ulink>.
    </para>
@@ -1820,6 +1959,121 @@ SELCT 1/0;<!-- this typo is intentional -->
       Server sends an AuthenticationSASLFinal message, with the SCRAM
       <structname>server-final-message</structname>, followed immediately by
       an AuthenticationOk message.
+     </para>
+    </step>
+   </procedure>
+  </sect2>
+
+  <sect2 id="sasl-oauthbearer">
+   <title>OAUTHBEARER Authentication</title>
+
+   <para>
+    <literal>OAUTHBEARER</literal> is a token-based mechanism for federated
+    authentication. It is described in detail in
+    <ulink url="https://datatracker.ietf.org/doc/html/rfc7628">RFC 7628</ulink>.
+   </para>
+
+   <para>
+    A typical exchange differs depending on whether or not the client already
+    has a bearer token cached for the current user. If it does not, the exchange
+    will take place over two connections: the first "discovery" connection to
+    obtain OAuth metadata from the server, and the second connection to send
+    the token after the client has obtained it. (libpq does not currently
+    implement a caching method as part of its builtin flow, so it uses the
+    two-connection exchange.)
+   </para>
+
+   <para>
+    This mechanism is client-initiated, like SCRAM. The client initial response
+    consists of the standard "GS2" header used by SCRAM, followed by a list of
+    <literal>key=value</literal> pairs. The only key currently supported by
+    the server is <literal>auth</literal>, which contains the bearer token.
+    <literal>OAUTHBEARER</literal> additionally specifies three optional
+    components of the client initial response (the <literal>authzid</literal> of
+    the GS2 header, and the <structfield>host</structfield> and
+    <structfield>port</structfield> keys) which are currently ignored by the
+    server.
+   </para>
+
+   <para>
+    <literal>OAUTHBEARER</literal> does not support channel binding, and there
+    is no "OAUTHBEARER-PLUS" mechanism. This mechanism does not make use of
+    server data during a successful authentication, so the
+    AuthenticationSASLFinal message is not used in the exchange.
+   </para>
+
+   <procedure>
+    <title>Example</title>
+    <step>
+     <para>
+      During the first exchange, the server sends an AuthenticationSASL message
+      with the <literal>OAUTHBEARER</literal> mechanism advertised.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      The client responds by sending a SASLInitialResponse message which
+      indicates the <literal>OAUTHBEARER</literal> mechanism. Assuming the
+      client does not already have a valid bearer token for the current user,
+      the <structfield>auth</structfield> field is empty, indicating a discovery
+      connection.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      Server sends an AuthenticationSASLContinue message containing an error
+      <literal>status</literal> alongside a well-known URI and scopes that the
+      client should use to conduct an OAuth flow.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      Client sends a SASLResponse message containing the empty set (a single
+      <literal>0x01</literal> byte) to finish its half of the discovery
+      exchange.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      Server sends an ErrorMessage to fail the first exchange.
+     </para>
+     <para>
+      At this point, the client conducts one of many possible OAuth flows to
+      obtain a bearer token, using any metadata that it has been configured with
+      in addition to that provided by the server. (This description is left
+      deliberately vague; <literal>OAUTHBEARER</literal> does not specify or
+      mandate any particular method for obtaining a token.)
+     </para>
+     <para>
+      Once it has a token, the client reconnects to the server for the final
+      exchange:
+     </para>
+    </step>
+
+    <step>
+     <para>
+      The server once again sends an AuthenticationSASL message with the
+      <literal>OAUTHBEARER</literal> mechanism advertised.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      The client responds by sending a SASLInitialResponse message, but this
+      time the <structfield>auth</structfield> field in the message contains the
+      bearer token that was obtained during the client flow.
+     </para>
+    </step>
+
+    <step>
+     <para>
+      The server validates the token according to the instructions of the
+      token provider. If the client is authorized to connect, it sends an
+      AuthenticationOk message to end the SASL exchange.
      </para>
     </step>
    </procedure>
@@ -2079,6 +2333,17 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
          </para>
         </listitem>
        </varlistentry>
+
+       <varlistentry>
+        <term><literal>FAILOVER [ <replaceable class="parameter">boolean</replaceable> ]</literal></term>
+        <listitem>
+         <para>
+          If true, the slot is enabled to be synced to the standbys
+          so that logical replication can be resumed after failover.
+          The default is false.
+         </para>
+        </listitem>
+       </varlistentry>
       </variablelist>
 
       <para>
@@ -2140,6 +2405,63 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
        For compatibility with older releases, this alternative syntax for
        the <literal>CREATE_REPLICATION_SLOT</literal> command is still supported.
       </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="protocol-replication-alter-replication-slot" xreflabel="ALTER_REPLICATION_SLOT">
+     <term><literal>ALTER_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</replaceable> ( <replaceable class="parameter">option</replaceable> [, ...] )
+      <indexterm><primary>ALTER_REPLICATION_SLOT</primary></indexterm>
+     </term>
+     <listitem>
+      <para>
+       Change the definition of a replication slot.
+       See <xref linkend="streaming-replication-slots"/> for more about
+       replication slots. This command is currently only supported for logical
+       replication slots.
+      </para>
+
+      <variablelist>
+       <varlistentry>
+        <term><replaceable class="parameter">slot_name</replaceable></term>
+        <listitem>
+         <para>
+          The name of the slot to alter. Must be a valid replication slot
+          name (see <xref linkend="streaming-replication-slots-manipulation"/>).
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+
+      <para>The following options are supported:</para>
+
+      <variablelist>
+       <varlistentry>
+        <term><literal>TWO_PHASE [ <replaceable class="parameter">boolean</replaceable> ]</literal></term>
+        <listitem>
+         <para>
+          If true, this logical replication slot supports decoding of two-phase
+          commit. With this option, commands related to two-phase commit such as
+          <literal>PREPARE TRANSACTION</literal>, <literal>COMMIT PREPARED</literal>
+          and <literal>ROLLBACK PREPARED</literal> are decoded and transmitted.
+          The transaction will be decoded and transmitted at
+          <literal>PREPARE TRANSACTION</literal> time.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+
+      <variablelist>
+       <varlistentry>
+        <term><literal>FAILOVER [ <replaceable class="parameter">boolean</replaceable> ]</literal></term>
+        <listitem>
+         <para>
+          If true, the slot is enabled to be synced to the standbys
+          so that logical replication can be resumed after failover.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+
      </listitem>
     </varlistentry>
 
@@ -2241,8 +2563,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
       </para>
 
       <para>
-       WAL data is sent as a series of CopyData messages.  (This allows
-       other information to be intermixed; in particular the server can send
+       WAL data is sent as a series of CopyData messages;
+       see <xref linkend="protocol-message-types"/> and <xref
+       linkend="protocol-message-formats"/> for details.
+       (This allows other information to be intermixed; in particular the server can send
        an ErrorResponse message if it encounters a failure after beginning
        to stream.)  The payload of each CopyData message from server to the
        client contains a message of one of the following formats:
@@ -2456,11 +2780,12 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The standby's current global xmin, excluding the catalog_xmin from any
-             replication slots. If both this value and the following
-             catalog_xmin are 0 this is treated as a notification that hot standby
-             feedback will no longer be sent on this connection. Later non-zero
-             messages may reinitiate the feedback mechanism.
+             The standby's current global <literal>xmin</literal>, excluding the
+             <literal>catalog_xmin</literal> from any replication slots. If both
+             this value and the following <literal>catalog_xmin</literal>
+             are 0, this is treated as a notification that hot standby feedback
+             will no longer be sent on this connection. Later non-zero messages
+             may reinitiate the feedback mechanism.
             </para>
            </listitem>
           </varlistentry>
@@ -2469,7 +2794,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The epoch of the global xmin xid on the standby.
+             The epoch of the global <literal>xmin</literal> xid on the standby.
             </para>
            </listitem>
           </varlistentry>
@@ -2478,8 +2803,9 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The lowest catalog_xmin of any replication slots on the standby. Set to 0
-             if no catalog_xmin exists on the standby or if hot standby feedback is being
+             The lowest <literal>catalog_xmin</literal> of any replication
+             slots on the standby. Set to 0 if no <literal>catalog_xmin</literal>
+             exists on the standby or if hot standby feedback is being
              disabled.
             </para>
            </listitem>
@@ -2489,7 +2815,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The epoch of the catalog_xmin xid on the standby.
+             The epoch of the <literal>catalog_xmin</literal> xid on the standby.
             </para>
            </listitem>
           </varlistentry>
@@ -2612,6 +2938,19 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         </listitem>
        </varlistentry>
       </variablelist>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="protocol-replication-upload-manifest">
+     <term>
+      <literal>UPLOAD_MANIFEST</literal>
+      <indexterm><primary>UPLOAD_MANIFEST</primary></indexterm>
+     </term>
+     <listitem>
+      <para>
+       Uploads a backup manifest in preparation for taking an incremental
+       backup.
+      </para>
      </listitem>
     </varlistentry>
 
@@ -2854,6 +3193,17 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
           </para>
          </listitem>
         </varlistentry>
+
+        <varlistentry>
+         <term><literal>INCREMENTAL</literal></term>
+         <listitem>
+          <para>
+           Requests an incremental backup. The
+           <literal>UPLOAD_MANIFEST</literal> command must be executed
+           before running a base backup with this option.
+          </para>
+         </listitem>
+        </varlistentry>
        </variablelist>
       </para>
 
@@ -3081,6 +3431,13 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
     </varlistentry>
    </variablelist>
   </para>
+
+  <para>
+   In all the above commands,
+   when specifying a parameter of type <type>boolean</type> the
+   <replaceable class="parameter">value</replaceable> part can be omitted,
+   which is equivalent to specifying <literal>TRUE</literal>.
+  </para>
  </sect1>
 
 <sect1 id="protocol-logical-replication">
@@ -3144,7 +3501,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
      </term>
      <listitem>
       <para>
-       Comma separated list of publication names for which to subscribe
+       Comma-separated list of publication names for which to subscribe
        (receive changes). The individual publication names are treated
        as standard objects names and can be quoted the same as needed.
        At least one publication name is required.
@@ -3209,8 +3566,14 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
      </term>
      <listitem>
       <para>
+<<<<<<< HEAD
        Option to send changes by their origin.  Possible values are "none"
        to only send the changes that have no origin associated, or "any"
+=======
+       Option to send changes by their origin.  Possible values are
+       <literal>none</literal> to only send the changes that have no origin
+       associated, or <literal>any</literal>
+>>>>>>> REL_18_BETA1_branch
        to send the changes regardless of their origin.  This can be used
        to avoid loops (infinite replication of the same data) among
        replication nodes.
@@ -3379,10 +3742,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
    indicate that it can be sent by a frontend (F), a backend (B), or both
    (F &amp; B).
    Notice that although each message includes a byte count at the beginning,
-   the message format is defined so that the message end can be found without
-   reference to the byte count.  This aids validity checking.  (The CopyData
-   message is an exception, because it forms part of a data stream; the contents
-   of any individual CopyData message cannot be interpretable on their own.)
+   most messages are defined so that the message end can be found without
+   reference to the byte count.  This is for historical reasons, as the
+   original, now-obsolete protocol version 2 did not have an explicit length
+   field.  It also aids validity checking though.
   </para>
 
   <variablelist>
@@ -3798,7 +4161,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
       </varlistentry>
 
       <varlistentry>
-       <term>Int32(12)</term>
+       <term>Int32</term>
        <listitem>
         <para>
          Length of message contents in bytes, including self.
@@ -3816,14 +4179,29 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
       </varlistentry>
 
       <varlistentry>
-       <term>Int32</term>
+       <term>Byte<replaceable>n</replaceable></term>
        <listitem>
         <para>
-         The secret key of this backend.
+         The secret key of this backend. This field extends to the end of the
+         message, indicated by the length field.
+        </para>
+        <para>
+          The maximum key length is 256 bytes. The
+          <productname>PostgreSQL</productname> server only sends keys up to
+          32 bytes, but the larger maximum size allows for future server
+          versions, as well as connection poolers and other middleware, to use
+          longer keys. One possible use case is augmenting the server's key
+          with extra information. Middleware is therefore also encouraged to
+          not use up all of the bytes, in case multiple middleware
+          applications are layered on top of each other, each of which may
+          wrap the key with extra data.
         </para>
        </listitem>
       </varlistentry>
      </variablelist>
+     <para>
+      Before protocol version 3.2, the secret key was always 4 bytes long.
+     </para>
     </listitem>
    </varlistentry>
 
@@ -4029,14 +4407,18 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
       </varlistentry>
 
       <varlistentry>
-       <term>Int32</term>
+       <term>Byte<replaceable>n</replaceable></term>
        <listitem>
         <para>
-         The secret key for the target backend.
+         The secret key for the target backend. This field extends to the end of the
+         message, indicated by the length field. The maximum key length is 256 bytes.
         </para>
        </listitem>
       </varlistentry>
      </variablelist>
+     <para>
+      Before protocol version 3.2, the secret key was always 4 bytes long.
+     </para>
     </listitem>
    </varlistentry>
 
@@ -4199,4 +4581,3338 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         (Note: the row count appears only in
         <productname>PostgreSQL</productname> 8.2 and later.)
        </para>
+<<<<<<< HEAD
+=======
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyData">
+    <term>CopyData (F &amp; B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('d')</term>
+       <listitem>
+        <para>
+         Identifies the message as <command>COPY</command> data.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         Data that forms part of a <command>COPY</command> data stream.  Messages sent
+         from the backend will always correspond to single data rows,
+         but messages sent by frontends might divide the data stream
+         arbitrarily.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyDone">
+    <term>CopyDone (F &amp; B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('c')</term>
+       <listitem>
+        <para>
+         Identifies the message as a <command>COPY</command>-complete indicator.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyFail">
+    <term>CopyFail (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('f')</term>
+       <listitem>
+        <para>
+         Identifies the message as a <command>COPY</command>-failure indicator.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         An error message to report as the cause of failure.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyInResponse">
+    <term>CopyInResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('G')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Start Copy In response.
+         The frontend must now send copy-in data (if not
+         prepared to do so, send a CopyFail message).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         0 indicates the overall <command>COPY</command> format is textual (rows
+         separated by newlines, columns separated by separator
+         characters, etc.).
+         1 indicates the overall copy format is binary (similar
+         to DataRow format).
+         See <xref linkend="sql-copy"/>
+         for more information.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of columns in the data to be copied
+         (denoted <replaceable>N</replaceable> below).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16[<replaceable>N</replaceable>]</term>
+       <listitem>
+        <para>
+         The format codes to be used for each column.
+         Each must presently be zero (text) or one (binary).
+         All must be zero if the overall copy format is textual.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyOutResponse">
+    <term>CopyOutResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('H')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Start Copy Out response.
+         This message will be followed by copy-out data.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         0 indicates the overall <command>COPY</command> format
+         is textual (rows separated by newlines, columns
+         separated by separator characters, etc.). 1 indicates
+         the overall copy format is binary (similar to DataRow
+         format). See <xref linkend="sql-copy"/> for more information.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of columns in the data to be copied
+         (denoted <replaceable>N</replaceable> below).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16[<replaceable>N</replaceable>]</term>
+       <listitem>
+        <para>
+         The format codes to be used for each column.
+         Each must presently be zero (text) or one (binary).
+         All must be zero if the overall copy format is textual.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-CopyBothResponse">
+    <term>CopyBothResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('W')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Start Copy Both response.
+         This message is used only for Streaming Replication.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         0 indicates the overall <command>COPY</command> format
+         is textual (rows separated by newlines, columns
+         separated by separator characters, etc.). 1 indicates
+         the overall copy format is binary (similar to DataRow
+         format). See <xref linkend="sql-copy"/> for more information.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of columns in the data to be copied
+         (denoted <replaceable>N</replaceable> below).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16[<replaceable>N</replaceable>]</term>
+       <listitem>
+        <para>
+         The format codes to be used for each column.
+         Each must presently be zero (text) or one (binary).
+         All must be zero if the overall copy format is textual.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-DataRow">
+    <term>DataRow (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('D')</term>
+       <listitem>
+        <para>
+         Identifies the message as a data row.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of column values that follow (possibly zero).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Next, the following pair of fields appear for each column:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The length of the column value, in bytes (this count
+         does not include itself).  Can be zero.
+         As a special case, -1 indicates a NULL column value.
+         No value bytes follow in the NULL case.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         The value of the column, in the format indicated by the
+         associated format code.
+         <replaceable>n</replaceable> is the above length.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Describe">
+    <term>Describe (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('D')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Describe command.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1</term>
+       <listitem>
+        <para>
+         '<literal>S</literal>' to describe a prepared statement; or
+         '<literal>P</literal>' to describe a portal.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The name of the prepared statement or portal to describe
+         (an empty string selects the unnamed prepared statement
+         or portal).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-EmptyQueryResponse">
+    <term>EmptyQueryResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('I')</term>
+       <listitem>
+        <para>
+         Identifies the message as a response to an empty query string.
+         (This substitutes for CommandComplete.)
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-ErrorResponse">
+    <term>ErrorResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('E')</term>
+       <listitem>
+        <para>
+         Identifies the message as an error.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      The message body consists of one or more identified fields,
+      followed by a zero byte as a terminator.  Fields can appear in
+      any order.  For each field there is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Byte1</term>
+       <listitem>
+        <para>
+         A code identifying the field type; if zero, this is
+         the message terminator and no string follows.
+         The presently defined field types are listed in
+         <xref linkend="protocol-error-fields"/>.
+         Since more field types might be added in future,
+         frontends should silently ignore fields of unrecognized
+         type.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The field value.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Execute">
+    <term>Execute (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('E')</term>
+       <listitem>
+        <para>
+         Identifies the message as an Execute command.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The name of the portal to execute
+         (an empty string selects the unnamed portal).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Maximum number of rows to return, if portal contains
+         a query that returns rows (ignored otherwise).  Zero
+         denotes <quote>no limit</quote>.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Flush">
+    <term>Flush (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('H')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Flush command.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-FunctionCall">
+    <term>FunctionCall (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('F')</term>
+       <listitem>
+        <para>
+         Identifies the message as a function call.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Specifies the object ID of the function to call.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of argument format codes that follow
+         (denoted <replaceable>C</replaceable> below).
+         This can be zero to indicate that there are no arguments
+         or that the arguments all use the default format (text);
+         or one, in which case the specified format code is applied
+         to all arguments; or it can equal the actual number of
+         arguments.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16[<replaceable>C</replaceable>]</term>
+       <listitem>
+        <para>
+         The argument format codes.  Each must presently be
+         zero (text) or one (binary).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         Specifies the number of arguments being supplied to the
+         function.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Next, the following pair of fields appear for each argument:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The length of the argument value, in bytes (this count
+         does not include itself).  Can be zero.
+         As a special case, -1 indicates a NULL argument value.
+         No value bytes follow in the NULL case.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         The value of the argument, in the format indicated by the
+         associated format code.
+         <replaceable>n</replaceable> is the above length.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      After the last argument, the following field appears:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The format code for the function result. Must presently be
+         zero (text) or one (binary).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-FunctionCallResponse">
+    <term>FunctionCallResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('V')</term>
+       <listitem>
+        <para>
+         Identifies the message as a function call result.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The length of the function result value, in bytes (this count
+         does not include itself).  Can be zero.
+         As a special case, -1 indicates a NULL function result.
+         No value bytes follow in the NULL case.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         The value of the function result, in the format indicated by
+         the associated format code.
+         <replaceable>n</replaceable> is the above length.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-GSSENCRequest">
+    <term>GSSENCRequest (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Int32(8)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(80877104)</term>
+       <listitem>
+        <para>
+         The <acronym>GSSAPI</acronym> Encryption request code.  The value is chosen to contain
+         <literal>1234</literal> in the most significant 16 bits, and <literal>5680</literal> in the
+         least significant 16 bits.  (To avoid confusion, this code
+         must not be the same as any protocol version number.)
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-GSSResponse">
+    <term>GSSResponse (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('p')</term>
+       <listitem>
+        <para>
+         Identifies the message as a GSSAPI or SSPI response. Note that
+         this is also used for SASL and password response messages.
+         The exact message type can be deduced from the context.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         GSSAPI/SSPI specific message data.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-NegotiateProtocolVersion">
+    <term>NegotiateProtocolVersion (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('v')</term>
+       <listitem>
+        <para>
+         Identifies the message as a protocol version negotiation
+         message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Newest minor protocol version supported by the server
+         for the major protocol version requested by the client.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Number of protocol options not recognized by the server.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Then, for protocol option not recognized by the server, there
+      is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The option name.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-NoData">
+    <term>NoData (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('n')</term>
+       <listitem>
+        <para>
+         Identifies the message as a no-data indicator.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-NoticeResponse">
+    <term>NoticeResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('N')</term>
+       <listitem>
+        <para>
+         Identifies the message as a notice.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      The message body consists of one or more identified fields,
+      followed by a zero byte as a terminator.  Fields can appear in
+      any order.  For each field there is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Byte1</term>
+       <listitem>
+        <para>
+         A code identifying the field type; if zero, this is
+         the message terminator and no string follows.
+         The presently defined field types are listed in
+         <xref linkend="protocol-error-fields"/>.
+         Since more field types might be added in future,
+         frontends should silently ignore fields of unrecognized
+         type.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The field value.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-NotificationResponse">
+    <term>NotificationResponse (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('A')</term>
+       <listitem>
+        <para>
+         Identifies the message as a notification response.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The process ID of the notifying backend process.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The name of the channel that the notify has been raised on.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The <quote>payload</quote> string passed from the notifying process.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-ParameterDescription">
+    <term>ParameterDescription (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('t')</term>
+       <listitem>
+        <para>
+         Identifies the message as a parameter description.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of parameters used by the statement
+         (can be zero).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Then, for each parameter, there is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Specifies the object ID of the parameter data type.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-ParameterStatus">
+    <term>ParameterStatus (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('S')</term>
+       <listitem>
+        <para>
+         Identifies the message as a run-time parameter status report.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The name of the run-time parameter being reported.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The current value of the parameter.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Parse">
+    <term>Parse (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('P')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Parse command.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The name of the destination prepared statement
+         (an empty string selects the unnamed prepared statement).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The query string to be parsed.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The number of parameter data types specified
+         (can be zero).  Note that this is not an indication of
+         the number of parameters that might appear in the
+         query string, only the number that the frontend wants to
+         prespecify types for.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Then, for each parameter, there is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Specifies the object ID of the parameter data type.
+         Placing a zero here is equivalent to leaving the type
+         unspecified.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-ParseComplete">
+    <term>ParseComplete (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('1')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Parse-complete indicator.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-PasswordMessage">
+    <term>PasswordMessage (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('p')</term>
+       <listitem>
+        <para>
+         Identifies the message as a password response. Note that
+         this is also used for GSSAPI, SSPI and SASL response messages.
+         The exact message type can be deduced from the context.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The password (encrypted, if requested).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-PortalSuspended">
+    <term>PortalSuspended (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('s')</term>
+       <listitem>
+        <para>
+         Identifies the message as a portal-suspended indicator.
+         Note this only appears if an Execute message's row-count limit
+         was reached.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Query">
+    <term>Query (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('Q')</term>
+       <listitem>
+        <para>
+         Identifies the message as a simple query.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The query string itself.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-ReadyForQuery">
+    <term>ReadyForQuery (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('Z')</term>
+       <listitem>
+        <para>
+         Identifies the message type.  ReadyForQuery is sent
+         whenever the backend is ready for a new query cycle.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(5)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1</term>
+       <listitem>
+        <para>
+         Current backend transaction status indicator.
+         Possible values are '<literal>I</literal>' if idle (not in
+         a transaction block); '<literal>T</literal>' if in a transaction
+         block; or '<literal>E</literal>' if in a failed transaction
+         block (queries will be rejected until block is ended).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-RowDescription">
+    <term>RowDescription (B)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('T')</term>
+       <listitem>
+        <para>
+         Identifies the message as a row description.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         Specifies the number of fields in a row (can be zero).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Then, for each field, there is the following:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The field name.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         If the field can be identified as a column of a specific
+         table, the object ID of the table; otherwise zero.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         If the field can be identified as a column of a specific
+         table, the attribute number of the column; otherwise zero.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The object ID of the field's data type.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The data type size (see <varname>pg_type.typlen</varname>).
+         Note that negative values denote variable-width types.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         The type modifier (see <varname>pg_attribute.atttypmod</varname>).
+         The meaning of the modifier is type-specific.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         The format code being used for the field.  Currently will
+         be zero (text) or one (binary).  In a RowDescription
+         returned from the statement variant of Describe, the
+         format code is not yet known and will always be zero.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-SASLInitialResponse">
+    <term>SASLInitialResponse (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('p')</term>
+       <listitem>
+        <para>
+         Identifies the message as an initial SASL response. Note that
+         this is also used for GSSAPI, SSPI and password response messages.
+         The exact message type is deduced from the context.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Name of the SASL authentication mechanism that the client
+         selected.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of SASL mechanism specific "Initial Client Response" that
+         follows, or -1 if there is no Initial Response.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         SASL mechanism specific "Initial Response".
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-SASLResponse">
+    <term>SASLResponse (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('p')</term>
+       <listitem>
+        <para>
+         Identifies the message as a SASL response. Note that
+         this is also used for GSSAPI, SSPI and password response messages.
+         The exact message type can be deduced from the context.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         SASL mechanism specific message data.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-SSLRequest">
+    <term>SSLRequest (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Int32(8)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(80877103)</term>
+       <listitem>
+        <para>
+         The <acronym>SSL</acronym> request code.  The value is chosen to contain
+         <literal>1234</literal> in the most significant 16 bits, and <literal>5679</literal> in the
+         least significant 16 bits.  (To avoid confusion, this code
+         must not be the same as any protocol version number.)
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-StartupMessage">
+    <term>StartupMessage (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(196608)</term>
+       <listitem>
+        <para>
+         The protocol version number.  The most significant 16 bits are
+         the major version number (3 for the protocol described here).
+         The least significant 16 bits are the minor version number
+         (0 for the protocol described here).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      The protocol version number is followed by one or more pairs of
+      parameter name and value strings.  A zero byte is required as a
+      terminator after the last name/value pair.
+      Parameters can appear in any
+      order.  <literal>user</literal> is required, others are optional.
+      Each parameter is specified as:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The parameter name.  Currently recognized names are:
+
+         <variablelist>
+          <varlistentry>
+           <term><literal>user</literal></term>
+           <listitem>
+            <para>
+             The database user name to connect as.  Required;
+             there is no default.
+            </para>
+           </listitem>
+          </varlistentry>
+
+          <varlistentry>
+           <term><literal>database</literal></term>
+           <listitem>
+            <para>
+             The database to connect to.  Defaults to the user name.
+            </para>
+           </listitem>
+          </varlistentry>
+
+          <varlistentry>
+           <term><literal>options</literal></term>
+           <listitem>
+            <para>
+             Command-line arguments for the backend.  (This is
+             deprecated in favor of setting individual run-time
+             parameters.)  Spaces within this string are
+             considered to separate arguments, unless escaped with
+             a backslash (<literal>\</literal>); write <literal>\\</literal> to
+             represent a literal backslash.
+            </para>
+           </listitem>
+          </varlistentry>
+
+          <varlistentry>
+           <term><literal>replication</literal></term>
+           <listitem>
+            <para>
+             Used to connect in streaming replication mode, where
+             a small set of replication commands can be issued
+             instead of SQL statements. Value can be
+             <literal>true</literal>, <literal>false</literal>, or
+             <literal>database</literal>, and the default is
+             <literal>false</literal>. See
+             <xref linkend="protocol-replication"/> for details.
+            </para>
+           </listitem>
+          </varlistentry>
+         </variablelist>
+
+         In addition to the above, other parameters may be listed.
+         Parameter names beginning with <literal>_pq_.</literal> are
+         reserved for use as protocol extensions, while others are
+         treated as run-time parameters to be set at backend start
+         time.  Such settings will be applied during backend start
+         (after parsing the command-line arguments if any) and will
+         act as session defaults.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The parameter value.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Sync">
+    <term>Sync (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('S')</term>
+       <listitem>
+        <para>
+         Identifies the message as a Sync command.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-message-formats-Terminate">
+    <term>Terminate (F)</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('X')</term>
+       <listitem>
+        <para>
+         Identifies the message as a termination.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32(4)</term>
+       <listitem>
+        <para>
+         Length of message contents in bytes, including self.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+ </sect1>
+
+ <sect1 id="protocol-error-fields">
+  <title>Error and Notice Message Fields</title>
+
+  <para>
+   This section describes the fields that can appear in ErrorResponse and
+   NoticeResponse messages.  Each field type has a single-byte identification
+   token.  Note that any given field type should appear at most once per
+   message.
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term><literal>S</literal></term>
+    <listitem>
+     <para>
+      Severity: the field contents are
+      <literal>ERROR</literal>, <literal>FATAL</literal>, or
+      <literal>PANIC</literal> (in an error message), or
+      <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+      <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message),
+      or a localized translation of one of these.  Always present.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>V</literal></term>
+    <listitem>
+     <para>
+      Severity: the field contents are
+      <literal>ERROR</literal>, <literal>FATAL</literal>, or
+      <literal>PANIC</literal> (in an error message), or
+      <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+      <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message).
+      This is identical to the <literal>S</literal> field except
+      that the contents are never localized.  This is present only in
+      messages generated by <productname>PostgreSQL</productname> versions 9.6
+      and later.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>C</literal></term>
+    <listitem>
+     <para>
+      Code: the SQLSTATE code for the error (see <xref
+      linkend="errcodes-appendix"/>).  Not localizable.  Always present.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>M</literal></term>
+    <listitem>
+     <para>
+      Message: the primary human-readable error message.
+      This should be accurate but terse (typically one line).
+      Always present.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>D</literal></term>
+    <listitem>
+     <para>
+      Detail: an optional secondary error message carrying more
+      detail about the problem.  Might run to multiple lines.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>H</literal></term>
+    <listitem>
+     <para>
+      Hint: an optional suggestion what to do about the problem.
+      This is intended to differ from Detail in that it offers advice
+      (potentially inappropriate) rather than hard facts.
+      Might run to multiple lines.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>P</literal></term>
+    <listitem>
+     <para>
+      Position: the field value is a decimal ASCII integer, indicating
+      an error cursor position as an index into the original query string.
+      The first character has index 1, and positions are measured in
+      characters not bytes.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>p</literal></term>
+    <listitem>
+     <para>
+      Internal position: this is defined the same as the <literal>P</literal>
+      field, but it is used when the cursor position refers to an internally
+      generated command rather than the one submitted by the client.
+      The <literal>q</literal> field will always appear when this field appears.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>q</literal></term>
+    <listitem>
+     <para>
+      Internal query: the text of a failed internally-generated command.
+      This could be, for example, an SQL query issued by a PL/pgSQL function.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>W</literal></term>
+    <listitem>
+     <para>
+      Where: an indication of the context in which the error occurred.
+      Presently this includes a call stack traceback of active
+      procedural language functions and internally-generated queries.
+      The trace is one entry per line, most recent first.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>s</literal></term>
+    <listitem>
+     <para>
+      Schema name: if the error was associated with a specific database
+      object, the name of the schema containing that object, if any.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>t</literal></term>
+    <listitem>
+     <para>
+      Table name: if the error was associated with a specific table, the
+      name of the table.  (Refer to the schema name field for the name of
+      the table's schema.)
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>c</literal></term>
+    <listitem>
+     <para>
+      Column name: if the error was associated with a specific table column,
+      the name of the column.  (Refer to the schema and table name fields to
+      identify the table.)
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>d</literal></term>
+    <listitem>
+     <para>
+      Data type name: if the error was associated with a specific data type,
+      the name of the data type.  (Refer to the schema name field for the
+      name of the data type's schema.)
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>n</literal></term>
+    <listitem>
+     <para>
+      Constraint name: if the error was associated with a specific
+      constraint, the name of the constraint.  Refer to fields listed above
+      for the associated table or domain.  (For this purpose, indexes are
+      treated as constraints, even if they weren't created with constraint
+      syntax.)
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>F</literal></term>
+    <listitem>
+     <para>
+      File: the file name of the source-code location where the error
+      was reported.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>L</literal></term>
+    <listitem>
+     <para>
+      Line: the line number of the source-code location where the error
+      was reported.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>R</literal></term>
+    <listitem>
+     <para>
+      Routine: the name of the source-code routine reporting the error.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <note>
+   <para>
+    The fields for schema name, table name, column name, data type name, and
+    constraint name are supplied only for a limited number of error types;
+    see <xref linkend="errcodes-appendix"/>.  Frontends should not assume that
+    the presence of any of these fields guarantees the presence of another
+    field.  Core error sources observe the interrelationships noted above, but
+    user-defined functions may use these fields in other ways.  In the same
+    vein, clients should not assume that these fields denote contemporary
+    objects in the current database.
+   </para>
+  </note>
+
+  <para>
+   The client is responsible for formatting displayed information to meet its
+   needs; in particular it should break long lines as needed.  Newline characters
+   appearing in the error message fields should be treated as paragraph breaks,
+   not line breaks.
+  </para>
+ </sect1>
+
+ <sect1 id="protocol-logicalrep-message-formats">
+  <title>Logical Replication Message Formats</title>
+
+  <para>
+   This section describes the detailed format of each logical replication
+   message.  These messages are either returned by the replication slot SQL
+   interface or are sent by a walsender.  In the case of a walsender, they are
+   encapsulated inside replication protocol WAL messages as described in
+   <xref linkend="protocol-replication"/>, and generally obey the same message
+   flow as physical replication.
+  </para>
+
+  <variablelist>
+   <varlistentry id="protocol-logicalrep-message-formats-Begin">
+    <term>Begin</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('B')</term>
+       <listitem>
+        <para>
+         Identifies the message as a begin message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The final LSN of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Commit timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Message">
+    <term>Message</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('M')</term>
+       <listitem>
+        <para>
+         Identifies the message as a logical decoding message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         Flags; Either 0 for no flags or 1 if the logical decoding
+         message is transactional.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the logical decoding message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The prefix of the logical decoding message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Length of the content.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte<replaceable>n</replaceable></term>
+       <listitem>
+        <para>
+         The content of the logical decoding message.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Commit">
+    <term>Commit</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('C')</term>
+       <listitem>
+        <para>
+         Identifies the message as a commit message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the commit.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Commit timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Origin">
+    <term>Origin</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('O')</term>
+       <listitem>
+        <para>
+         Identifies the message as an origin message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the commit on the origin server.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Name of the origin.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Note that there can be multiple Origin messages inside a single transaction.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Relation">
+    <term>Relation</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('R')</term>
+       <listitem>
+        <para>
+         Identifies the message as a relation message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the relation.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Namespace (empty string for <literal>pg_catalog</literal>).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Relation name.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         Replica identity setting for the relation (same as
+         <structfield>relreplident</structfield> in <structname>pg_class</structname>).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         Number of columns.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Next, the following message part appears for each column included in
+      the publication:
+     </para>
+
+     <variablelist>
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         Flags for the column. Currently can be either 0 for no flags
+         or 1 which marks the column as part of the key.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Name of the column.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the column's data type.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Type modifier of the column (<structfield>atttypmod</structfield>).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Type">
+    <term>Type</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('Y')</term>
+       <listitem>
+        <para>
+         Identifies the message as a type message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the data type.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Namespace (empty string for <literal>pg_catalog</literal>).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         Name of the data type.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Insert">
+    <term>Insert</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('I')</term>
+       <listitem>
+        <para>
+         Identifies the message as an insert message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the relation corresponding to the ID in the relation
+         message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('N')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData message as a new tuple.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>TupleData</term>
+       <listitem>
+        <para>
+         TupleData message part representing the contents of new tuple.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Update">
+    <term>Update</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('U')</term>
+       <listitem>
+        <para>
+         Identifies the message as an update message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the relation corresponding to the ID in the relation
+         message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('K')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData submessage as a key.
+         This field is optional and is only present if
+         the update changed data in any of the column(s) that are
+         part of the REPLICA IDENTITY index.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('O')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData submessage as an old tuple.
+         This field is optional and is only present if table in which
+         the update happened has REPLICA IDENTITY set to FULL.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>TupleData</term>
+       <listitem>
+        <para>
+         TupleData message part representing the contents of the old tuple
+         or primary key. Only present if the previous 'O' or 'K' part
+         is present.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('N')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData message as a new tuple.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>TupleData</term>
+       <listitem>
+        <para>
+         TupleData message part representing the contents of a new tuple.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      The Update message may contain either a 'K' message part or an 'O' message part
+      or neither of them, but never both of them.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Delete">
+    <term>Delete</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('D')</term>
+       <listitem>
+        <para>
+         Identifies the message as a delete message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the relation corresponding to the ID in the relation
+         message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('K')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData submessage as a key.
+         This field is present if the table in which the delete has
+         happened uses an index as REPLICA IDENTITY.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Byte1('O')</term>
+       <listitem>
+        <para>
+         Identifies the following TupleData message as an old tuple.
+         This field is present if the table in which the delete
+         happened has REPLICA IDENTITY set to FULL.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>TupleData</term>
+       <listitem>
+        <para>
+         TupleData message part representing the contents of the old tuple
+         or primary key, depending on the previous field.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      The Delete message may contain either a 'K' message part or an 'O' message part,
+      but never both of them.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Truncate">
+    <term>Truncate</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('T')</term>
+       <listitem>
+        <para>
+         Identifies the message as a truncate message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction (only present for streamed transactions).
+         This field is available since protocol version 2.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32</term>
+       <listitem>
+        <para>
+         Number of relations
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         Option bits for <command>TRUNCATE</command>:
+         1 for <literal>CASCADE</literal>, 2 for <literal>RESTART IDENTITY</literal>
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (Oid)</term>
+       <listitem>
+        <para>
+         OID of the relation corresponding to the ID in the relation
+         message.  This field is repeated for each relation.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   The following messages (Stream Start, Stream Stop, Stream Commit, and
+   Stream Abort) are available since protocol version 2.
+  </para>
+
+  <variablelist>
+   <varlistentry id="protocol-logicalrep-message-formats-Stream-Start">
+    <term>Stream Start</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('S')</term>
+       <listitem>
+        <para>
+         Identifies the message as a stream start message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8</term>
+       <listitem>
+        <para>
+         A value of 1 indicates this is the first stream segment for
+         this XID, 0 for any other stream segment.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Stream-Stop">
+    <term>Stream Stop</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('E')</term>
+       <listitem>
+        <para>
+         Identifies the message as a stream stop message.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Stream-Commit">
+    <term>Stream Commit</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('c')</term>
+       <listitem>
+        <para>
+         Identifies the message as a stream commit message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the commit.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Commit timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Stream-Abort">
+    <term>Stream Abort</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('A')</term>
+       <listitem>
+        <para>
+         Identifies the message as a stream abort message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the subtransaction (will be same as xid of the transaction for top-level
+         transactions).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the abort. This field is available since protocol version
+         4.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Abort timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01). This field is
+         available since protocol version 4.
+        </para>
+       </listitem>
+      </varlistentry>
+
+     </variablelist>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   The following messages (Begin Prepare, Prepare, Commit Prepared, Rollback Prepared, Stream Prepare)
+   are available since protocol version 3.
+  </para>
+
+  <variablelist>
+   <varlistentry id="protocol-logicalrep-message-formats-Begin-Prepare">
+    <term>Begin Prepare</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('b')</term>
+       <listitem>
+        <para>
+         Identifies the message as the beginning of a prepared transaction message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the prepare.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Prepare timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The user defined GID of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Prepare">
+    <term>Prepare</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('P')</term>
+       <listitem>
+        <para>
+         Identifies the message as a prepared transaction message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the prepare.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Prepare timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The user defined GID of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Commit-Prepared">
+    <term>Commit Prepared</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('K')</term>
+       <listitem>
+        <para>
+         Identifies the message as the commit of a prepared transaction message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the commit of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the commit of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Commit timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The user defined GID of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Rollback-Prepared">
+    <term>Rollback Prepared</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('r')</term>
+       <listitem>
+        <para>
+         Identifies the message as the rollback of a prepared transaction message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the rollback of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Prepare timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Rollback timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The user defined GID of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="protocol-logicalrep-message-formats-Stream-Prepare">
+    <term>Stream Prepare</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Byte1('p')</term>
+       <listitem>
+        <para>
+         Identifies the message as a stream prepared transaction message.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int8(0)</term>
+       <listitem>
+        <para>
+         Flags; currently unused.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The LSN of the prepare.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (XLogRecPtr)</term>
+       <listitem>
+        <para>
+         The end LSN of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int64 (TimestampTz)</term>
+       <listitem>
+        <para>
+         Prepare timestamp of the transaction. The value is in number
+         of microseconds since PostgreSQL epoch (2000-01-01).
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>Int32 (TransactionId)</term>
+       <listitem>
+        <para>
+         Xid of the transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry>
+       <term>String</term>
+       <listitem>
+        <para>
+         The user defined GID of the prepared transaction.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   The following message parts are shared by the above messages.
+  </para>
+
+  <variablelist>
+   <varlistentry id="protocol-logicalrep-message-formats-TupleData">
+    <term>TupleData</term>
+    <listitem>
+     <variablelist>
+      <varlistentry>
+       <term>Int16</term>
+       <listitem>
+        <para>
+         Number of columns.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+
+     <para>
+      Next, one of the following submessages appears for each published column:
+
+      <variablelist>
+       <varlistentry>
+        <term>Byte1('n')</term>
+        <listitem>
+         <para>
+          Identifies the data as NULL value.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      Or
+      <variablelist>
+       <varlistentry>
+        <term>Byte1('u')</term>
+        <listitem>
+         <para>
+          Identifies unchanged TOASTed value (the actual value is not
+          sent).
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      Or
+      <variablelist>
+       <varlistentry>
+        <term>Byte1('t')</term>
+        <listitem>
+         <para>
+          Identifies the data as text formatted value.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      Or
+      <variablelist>
+       <varlistentry>
+        <term>Byte1('b')</term>
+        <listitem>
+         <para>
+          Identifies the data as binary formatted value.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term>Int32</term>
+        <listitem>
+         <para>
+          Length of the column value.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry>
+        <term>Byte<replaceable>n</replaceable></term>
+        <listitem>
+         <para>
+          The value of the column, either in binary or in text format.
+          (As specified in the preceding format byte).
+          <replaceable>n</replaceable> is the above length.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+ </sect1>
+
+ <sect1 id="protocol-changes">
+  <title>Summary of Changes since Protocol 2.0</title>
+
+  <para>
+   This section provides a quick checklist of changes, for the benefit of
+   developers trying to update existing client libraries to protocol 3.0.
+  </para>
+
+  <para>
+   The initial startup packet uses a flexible list-of-strings format
+   instead of a fixed format.  Notice that session default values for run-time
+   parameters can now be specified directly in the startup packet.  (Actually,
+   you could do that before using the <literal>options</literal> field, but given the
+   limited width of <literal>options</literal> and the lack of any way to quote
+   whitespace in the values, it wasn't a very safe technique.)
+  </para>
+
+  <para>
+   All messages now have a length count immediately following the message type
+   byte (except for startup packets, which have no type byte).  Also note that
+   PasswordMessage now has a type byte.
+  </para>
+
+  <para>
+   ErrorResponse and NoticeResponse ('<literal>E</literal>' and '<literal>N</literal>')
+   messages now contain multiple fields, from which the client code can
+   assemble an error message of the desired level of verbosity.  Note that
+   individual fields will typically not end with a newline, whereas the single
+   string sent in the older protocol always did.
+  </para>
+
+  <para>
+   The ReadyForQuery ('<literal>Z</literal>') message includes a transaction status
+   indicator.
+  </para>
+
+  <para>
+   The distinction between BinaryRow and DataRow message types is gone; the
+   single DataRow message type serves for returning data in all formats.
+   Note that the layout of DataRow has changed to make it easier to parse.
+   Also, the representation of binary values has changed: it is no longer
+   directly tied to the server's internal representation.
+  </para>
+
+  <para>
+   There is a new <quote>extended query</quote> sub-protocol, which adds the frontend
+   message types Parse, Bind, Execute, Describe, Close, Flush, and Sync, and the
+   backend message types ParseComplete, BindComplete, PortalSuspended,
+   ParameterDescription, NoData, and CloseComplete.  Existing clients do not
+   have to concern themselves with this sub-protocol, but making use of it
+   might allow improvements in performance or functionality.
+  </para>
+
+  <para>
+   <command>COPY</command> data is now encapsulated into CopyData and CopyDone messages.  There
+   is a well-defined way to recover from errors during <command>COPY</command>.  The special
+   <quote><literal>\.</literal></quote> last line is not needed anymore, and is not sent
+   during <command>COPY OUT</command>.
+   (It is still recognized as a terminator during text-mode <command>COPY
+   IN</command>, but not in CSV mode.  The text-mode behavior is
+   deprecated and may eventually be removed.)  Binary <command>COPY</command> is supported.
+   The CopyInResponse and CopyOutResponse messages include fields indicating
+   the number of columns and the format of each column.
+  </para>
+
+  <para>
+   The layout of FunctionCall and FunctionCallResponse messages has changed.
+   FunctionCall can now support passing NULL arguments to functions.  It also
+   can handle passing parameters and retrieving results in either text or
+   binary format.  There is no longer any reason to consider FunctionCall a
+   potential security hole, since it does not offer direct access to internal
+   server data representations.
+  </para>
+
+  <para>
+   The backend sends ParameterStatus ('<literal>S</literal>') messages during connection
+   startup for all parameters it considers interesting to the client library.
+   Subsequently, a ParameterStatus message is sent whenever the active value
+   changes for any of these parameters.
+  </para>
+
+  <para>
+   The RowDescription ('<literal>T</literal>') message carries new table OID and column
+   number fields for each column of the described row.  It also shows the format
+   code for each column.
+  </para>
+
+  <para>
+   The CursorResponse ('<literal>P</literal>') message is no longer generated by
+   the backend.
+  </para>
+
+  <para>
+   The NotificationResponse ('<literal>A</literal>') message has an additional string
+   field, which can carry a <quote>payload</quote> string passed
+   from the <command>NOTIFY</command> event sender.
+  </para>
+
+  <para>
+   The EmptyQueryResponse ('<literal>I</literal>') message used to include an empty
+   string parameter; this has been removed.
+  </para>
+ </sect1>
+>>>>>>> REL_18_BETA1_branch
 </chapter>

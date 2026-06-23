@@ -3,7 +3,7 @@
  * pg_recvlogical.c - receive data from a logical decoding slot in a streaming
  *					  fashion and write it to a local file.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/pg_recvlogical.c
@@ -18,8 +18,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "access/xlog_internal.h"
-#include "common/fe_memutils.h"
 #include "common/file_perm.h"
 #include "common/logging.h"
 #include "fe_utils/option_utils.h"
@@ -32,10 +30,19 @@
 /* Time to sleep between reconnection attempts */
 #define RECONNECT_SLEEP_TIME 5
 
+typedef enum
+{
+	STREAM_STOP_NONE,
+	STREAM_STOP_END_OF_WAL,
+	STREAM_STOP_KEEPALIVE,
+	STREAM_STOP_SIGNAL
+} StreamStopReason;
+
 /* Global Options */
 static char *outfile = NULL;
 static int	verbose = 0;
 static bool two_phase = false;
+static bool failover = false;
 static int	noloop = 0;
 static int	standby_message_timeout = 10 * 1000;	/* 10 sec = default */
 static int	fsync_interval = 10 * 1000; /* 10 sec = default */
@@ -55,6 +62,7 @@ static const char *plugin = "test_decoding";
 /* Global State */
 static int	outfd = -1;
 static volatile sig_atomic_t time_to_abort = false;
+static volatile sig_atomic_t stop_reason = STREAM_STOP_NONE;
 static volatile sig_atomic_t output_reopen = false;
 static bool output_isfile;
 static TimestampTz output_last_fsync = -1;
@@ -66,7 +74,8 @@ static void usage(void);
 static void StreamLogicalLog(void);
 static bool flushAndSendFeedback(PGconn *conn, TimestampTz *now);
 static void prepareToTerminate(PGconn *conn, XLogRecPtr endpos,
-							   bool keepalive, XLogRecPtr lsn);
+							   StreamStopReason reason,
+							   XLogRecPtr lsn);
 
 static void
 usage(void)
@@ -81,6 +90,8 @@ usage(void)
 	printf(_("      --start            start streaming in a replication slot (for the slot's name see --slot)\n"));
 	printf(_("\nOptions:\n"));
 	printf(_("  -E, --endpos=LSN       exit after receiving the specified LSN\n"));
+	printf(_("      --failover         enable replication slot synchronization to standby servers when\n"
+			 "                         creating a slot\n"));
 	printf(_("  -f, --file=FILE        receive log into this file, - for stdout\n"));
 	printf(_("  -F  --fsync-interval=SECS\n"
 			 "                         time between fsyncs to the output file (default: %d)\n"), (fsync_interval / 1000));
@@ -207,9 +218,11 @@ StreamLogicalLog(void)
 	TimestampTz last_status = -1;
 	int			i;
 	PQExpBuffer query;
+	XLogRecPtr	cur_record_lsn;
 
 	output_written_lsn = InvalidXLogRecPtr;
 	output_fsync_lsn = InvalidXLogRecPtr;
+	cur_record_lsn = InvalidXLogRecPtr;
 
 	/*
 	 * Connect in replication mode to the server
@@ -275,7 +288,8 @@ StreamLogicalLog(void)
 		int			bytes_written;
 		TimestampTz now;
 		int			hdr_len;
-		XLogRecPtr	cur_record_lsn = InvalidXLogRecPtr;
+
+		cur_record_lsn = InvalidXLogRecPtr;
 
 		if (copybuf != NULL)
 		{
@@ -487,7 +501,7 @@ StreamLogicalLog(void)
 
 			if (endposReached)
 			{
-				prepareToTerminate(conn, endpos, true, InvalidXLogRecPtr);
+				stop_reason = STREAM_STOP_KEEPALIVE;
 				time_to_abort = true;
 				break;
 			}
@@ -527,7 +541,7 @@ StreamLogicalLog(void)
 			 */
 			if (!flushAndSendFeedback(conn, &now))
 				goto error;
-			prepareToTerminate(conn, endpos, false, cur_record_lsn);
+			stop_reason = STREAM_STOP_END_OF_WAL;
 			time_to_abort = true;
 			break;
 		}
@@ -572,11 +586,15 @@ StreamLogicalLog(void)
 			/* endpos was exactly the record we just processed, we're done */
 			if (!flushAndSendFeedback(conn, &now))
 				goto error;
-			prepareToTerminate(conn, endpos, false, cur_record_lsn);
+			stop_reason = STREAM_STOP_END_OF_WAL;
 			time_to_abort = true;
 			break;
 		}
 	}
+
+	/* Clean up connection state if stream has been aborted */
+	if (time_to_abort)
+		prepareToTerminate(conn, endpos, stop_reason, cur_record_lsn);
 
 	res = PQgetResult(conn);
 	if (PQresultStatus(res) == PGRES_COPY_OUT)
@@ -618,6 +636,7 @@ StreamLogicalLog(void)
 	{
 		pg_log_error("unexpected termination of replication stream: %s",
 					 PQresultErrorMessage(res));
+		PQclear(res);
 		goto error;
 	}
 	PQclear(res);
@@ -656,6 +675,7 @@ error:
 static void
 sigexit_handler(SIGNAL_ARGS)
 {
+	stop_reason = STREAM_STOP_SIGNAL;
 	time_to_abort = true;
 }
 
@@ -678,6 +698,7 @@ main(int argc, char **argv)
 		{"file", required_argument, NULL, 'f'},
 		{"fsync-interval", required_argument, NULL, 'F'},
 		{"no-loop", no_argument, NULL, 'n'},
+		{"failover", no_argument, NULL, 5},
 		{"verbose", no_argument, NULL, 'v'},
 		{"two-phase", no_argument, NULL, 't'},
 		{"version", no_argument, NULL, 'V'},
@@ -752,6 +773,9 @@ main(int argc, char **argv)
 				break;
 			case 'v':
 				verbose++;
+				break;
+			case 5:
+				failover = true;
 				break;
 /* connection options */
 			case 'd':
@@ -900,11 +924,21 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (two_phase && !do_create_slot)
+	if (!do_create_slot)
 	{
-		pg_log_error("--two-phase may only be specified with --create-slot");
-		pg_log_error_hint("Try \"%s --help\" for more information.", progname);
-		exit(1);
+		if (two_phase)
+		{
+			pg_log_error("--two-phase may only be specified with --create-slot");
+			pg_log_error_hint("Try \"%s --help\" for more information.", progname);
+			exit(1);
+		}
+
+		if (failover)
+		{
+			pg_log_error("--failover may only be specified with --create-slot");
+			pg_log_error_hint("Try \"%s --help\" for more information.", progname);
+			exit(1);
+		}
 	}
 
 	/*
@@ -928,13 +962,16 @@ main(int argc, char **argv)
 #endif
 
 	/*
-	 * Run IDENTIFY_SYSTEM to make sure we connected using a database specific
-	 * replication connection.
+	 * Run IDENTIFY_SYSTEM to check the connection type for each action.
+	 * --create-slot and --start actions require a database-specific
+	 * replication connection because they handle logical replication slots.
+	 * --drop-slot can remove replication slots from any replication
+	 * connection without this restriction.
 	 */
 	if (!RunIdentifySystem(conn, NULL, NULL, NULL, &db_name))
 		exit(1);
 
-	if (db_name == NULL)
+	if (!do_drop_slot && db_name == NULL)
 		pg_fatal("could not establish database-specific replication connection");
 
 	/*
@@ -964,7 +1001,8 @@ main(int argc, char **argv)
 			pg_log_info("creating replication slot \"%s\"", replication_slot);
 
 		if (!CreateReplicationSlot(conn, replication_slot, plugin, false,
-								   false, false, slot_exists_ok, two_phase))
+								   false, false, slot_exists_ok, two_phase,
+								   failover))
 			exit(1);
 		startpos = InvalidXLogRecPtr;
 	}
@@ -1021,18 +1059,31 @@ flushAndSendFeedback(PGconn *conn, TimestampTz *now)
  * retry on failure.
  */
 static void
-prepareToTerminate(PGconn *conn, XLogRecPtr endpos, bool keepalive, XLogRecPtr lsn)
+prepareToTerminate(PGconn *conn, XLogRecPtr endpos, StreamStopReason reason,
+				   XLogRecPtr lsn)
 {
 	(void) PQputCopyEnd(conn, NULL);
 	(void) PQflush(conn);
 
 	if (verbose)
 	{
-		if (keepalive)
-			pg_log_info("end position %X/%X reached by keepalive",
-						LSN_FORMAT_ARGS(endpos));
-		else
-			pg_log_info("end position %X/%X reached by WAL record at %X/%X",
-						LSN_FORMAT_ARGS(endpos), LSN_FORMAT_ARGS(lsn));
+		switch (reason)
+		{
+			case STREAM_STOP_SIGNAL:
+				pg_log_info("received interrupt signal, exiting");
+				break;
+			case STREAM_STOP_KEEPALIVE:
+				pg_log_info("end position %X/%X reached by keepalive",
+							LSN_FORMAT_ARGS(endpos));
+				break;
+			case STREAM_STOP_END_OF_WAL:
+				Assert(!XLogRecPtrIsInvalid(lsn));
+				pg_log_info("end position %X/%X reached by WAL record at %X/%X",
+							LSN_FORMAT_ARGS(endpos), LSN_FORMAT_ARGS(lsn));
+				break;
+			case STREAM_STOP_NONE:
+				Assert(false);
+				break;
+		}
 	}
 }

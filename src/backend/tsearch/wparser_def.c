@@ -3,7 +3,7 @@
  * wparser_def.c
  *		Default text search parser
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -15,15 +15,16 @@
 #include "postgres.h"
 
 #include <limits.h>
+#include <wctype.h>
 
-#include "catalog/pg_collation.h"
 #include "commands/defrem.h"
+#include "mb/pg_wchar.h"
 #include "miscadmin.h"
-#include "tsearch/ts_locale.h"
 #include "tsearch/ts_public.h"
 #include "tsearch/ts_type.h"
 #include "tsearch/ts_utils.h"
 #include "utils/builtins.h"
+#include "utils/pg_locale.h"
 
 
 /* Define me to enable tracing of parser behavior */
@@ -2674,19 +2675,19 @@ prsd_headline(PG_FUNCTION_ARGS)
 		if (min_words >= max_words)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("MinWords should be less than MaxWords")));
+					 errmsg("%s must be less than %s", "MinWords", "MaxWords")));
 		if (min_words <= 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("MinWords should be positive")));
+					 errmsg("%s must be positive", "MinWords")));
 		if (shortword < 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("ShortWord should be >= 0")));
+					 errmsg("%s must be >= 0", "ShortWord")));
 		if (max_fragments < 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("MaxFragments should be >= 0")));
+					 errmsg("%s must be >= 0", "MaxFragments")));
 	}
 
 	/* Locate words and phrases matching the query */

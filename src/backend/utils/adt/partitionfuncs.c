@@ -3,7 +3,7 @@
  * partitionfuncs.c
  *	  Functions for accessing partition-related metadata
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -19,7 +19,6 @@
 #include "catalog/partition.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_inherits.h"
-#include "catalog/pg_type.h"
 #include "funcapi.h"
 #include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
@@ -93,7 +92,7 @@ pg_partition_tree(PG_FUNCTION_ARGS)
 		funcctx->tuple_desc = tupdesc;
 
 		/* The only state we need is the partition list */
-		funcctx->user_fctx = (void *) partitions;
+		funcctx->user_fctx = partitions;
 
 		MemoryContextSwitchTo(oldcxt);
 	}
@@ -220,7 +219,7 @@ pg_partition_ancestors(PG_FUNCTION_ARGS)
 		ancestors = lcons_oid(relid, ancestors);
 
 		/* The only state we need is the ancestors list */
-		funcctx->user_fctx = (void *) ancestors;
+		funcctx->user_fctx = ancestors;
 
 		MemoryContextSwitchTo(oldcxt);
 	}

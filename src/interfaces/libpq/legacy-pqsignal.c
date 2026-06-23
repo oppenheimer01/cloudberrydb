@@ -4,7 +4,7 @@
  *	  reliable BSD-style signal(2) routine stolen from RWW who stole it
  *	  from Stevens...
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -30,9 +30,15 @@
  *
  * libpq itself does not use this, nor does anything else in our code.
  *
+<<<<<<< HEAD
  * src/include/port.h will #define pqsignal as pqsignal_fe,
  * but here we want to export just plain "pqsignal".  We can't rely on
  * port.h's extern declaration either.  (The point of that #define
+=======
+ * src/include/port.h #define's pqsignal as pqsignal_fe or pqsignal_be,
+ * but here we want to export just plain "pqsignal".  We can't rely on
+ * port.h's extern declaration either.  (The point of those #define's
+>>>>>>> REL_18_BETA1_branch
  * is to ensure that no in-tree code accidentally calls this version.)
  */
 #undef pqsignal

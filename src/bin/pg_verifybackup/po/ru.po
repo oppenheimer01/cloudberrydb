@@ -1,10 +1,18 @@
+<<<<<<< HEAD
 # Alexander Lakhin <a.lakhin@postgrespro.ru>, 2020, 2021, 2022, 2023, 2024.
+=======
+# Alexander Lakhin <a.lakhin@postgrespro.ru>, 2020, 2021, 2022, 2023.
+>>>>>>> REL_18_BETA1_branch
 msgid ""
 msgstr ""
 "Project-Id-Version: pg_verifybackup (PostgreSQL) 13\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
 "POT-Creation-Date: 2023-08-28 07:59+0300\n"
+<<<<<<< HEAD
 "PO-Revision-Date: 2024-09-07 09:48+0300\n"
+=======
+"PO-Revision-Date: 2023-08-30 12:42+0300\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Alexander Lakhin <a.lakhin@postgrespro.ru>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
 "Language: ru\n"

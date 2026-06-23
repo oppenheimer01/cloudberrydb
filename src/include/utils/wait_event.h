@@ -2,7 +2,7 @@
  * wait_event.h
  *	  Definitions related to wait event reporting
  *
- * Copyright (c) 2001-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2001-2025, PostgreSQL Global Development Group
  *
  * src/include/utils/wait_event.h
  * ----------
@@ -10,6 +10,7 @@
 #ifndef WAIT_EVENT_H
 #define WAIT_EVENT_H
 
+<<<<<<< HEAD
 
 /* ----------
  * Wait Classes
@@ -262,6 +263,10 @@ typedef enum
 	WAIT_EVENT_VERSION_FILE_SYNC
 } WaitEventIO;
 
+=======
+/* enums for wait events */
+#include "utils/wait_event_types.h"
+>>>>>>> REL_18_BETA1_branch
 
 extern const char *pgstat_get_wait_event(uint32 wait_event_info);
 extern const char *pgstat_get_wait_event_type(uint32 wait_event_info);
@@ -272,6 +277,29 @@ extern void pgstat_reset_wait_event_storage(void);
 
 extern PGDLLIMPORT uint32 *my_wait_event_info;
 
+
+/*
+ * Wait Events - Extension, InjectionPoint
+ *
+ * Use InjectionPoint when the server process is waiting in an injection
+ * point.  Use Extension for other cases of the server process waiting for
+ * some condition defined by an extension module.
+ *
+ * Extensions can define their own wait events in these categories.  They
+ * should call one of these functions with a wait event string.  If the wait
+ * event associated to a string is already allocated, it returns the wait
+ * event information to use.  If not, it gets one wait event ID allocated from
+ * a shared counter, associates the string to the ID in the shared dynamic
+ * hash and returns the wait event information.
+ *
+ * The ID retrieved can be used with pgstat_report_wait_start() or equivalent.
+ */
+extern uint32 WaitEventExtensionNew(const char *wait_event_name);
+extern uint32 WaitEventInjectionPointNew(const char *wait_event_name);
+
+extern void WaitEventCustomShmemInit(void);
+extern Size WaitEventCustomShmemSize(void);
+extern char **GetWaitEventCustomNames(uint32 classId, int *nwaitevents);
 
 /* ----------
  * pgstat_report_wait_start() -

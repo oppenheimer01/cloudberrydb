@@ -3,7 +3,7 @@
  * parse_cte.c
  *	  handle CTEs (common table expressions) in parser
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -36,7 +36,7 @@ typedef enum
 	RECURSION_SUBLINK,			/* inside a sublink */
 	RECURSION_OUTERJOIN,		/* inside nullable side of an outer join */
 	RECURSION_INTERSECT,		/* underneath INTERSECT (ALL) */
-	RECURSION_EXCEPT			/* underneath EXCEPT (ALL) */
+	RECURSION_EXCEPT,			/* underneath EXCEPT (ALL) */
 } RecursionContext;
 
 /* Associated error messages --- each must have one %s for CTE name */
@@ -140,13 +140,6 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 		CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc);
 		ListCell   *rest;
 
-		/* MERGE is allowed by parser, but unimplemented. Reject for now */
-		if (IsA(cte->ctequery, MergeStmt))
-			ereport(ERROR,
-					errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					errmsg("MERGE not supported in WITH query"),
-					parser_errposition(pstate, cte->location));
-
 		for_each_cell(rest, withClause->ctes, lnext(withClause->ctes, lc))
 		{
 			CommonTableExpr *cte2 = (CommonTableExpr *) lfirst(rest);
@@ -167,7 +160,8 @@ transformWithClause(ParseState *pstate, WithClause *withClause)
 			/* must be a data-modifying statement */
 			Assert(IsA(cte->ctequery, InsertStmt) ||
 				   IsA(cte->ctequery, UpdateStmt) ||
-				   IsA(cte->ctequery, DeleteStmt));
+				   IsA(cte->ctequery, DeleteStmt) ||
+				   IsA(cte->ctequery, MergeStmt));
 
 
 			/*
@@ -830,7 +824,61 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 	}
 	return raw_expression_tree_walker(node,
 									  makeDependencyGraphWalker,
-									  (void *) cstate);
+									  cstate);
+}
+
+/*
+ * makeDependencyGraphWalker's recursion into a statement having a WITH clause.
+ *
+ * This subroutine is concerned with updating the innerwiths list correctly
+ * based on the visibility rules for CTE names.
+ */
+static void
+WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
+{
+	ListCell   *lc;
+
+	if (withClause->recursive)
+	{
+		/*
+		 * In the RECURSIVE case, all query names of the WITH are visible to
+		 * all WITH items as well as the main query.  So push them all on,
+		 * process, pop them all off.
+		 */
+		cstate->innerwiths = lcons(withClause->ctes, cstate->innerwiths);
+		foreach(lc, withClause->ctes)
+		{
+			CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc);
+
+			(void) makeDependencyGraphWalker(cte->ctequery, cstate);
+		}
+		(void) raw_expression_tree_walker(stmt,
+										  makeDependencyGraphWalker,
+										  cstate);
+		cstate->innerwiths = list_delete_first(cstate->innerwiths);
+	}
+	else
+	{
+		/*
+		 * In the non-RECURSIVE case, query names are visible to the WITH
+		 * items after them and to the main query.
+		 */
+		cstate->innerwiths = lcons(NIL, cstate->innerwiths);
+		foreach(lc, withClause->ctes)
+		{
+			CommonTableExpr *cte = (CommonTableExpr *) lfirst(lc);
+			ListCell   *cell1;
+
+			(void) makeDependencyGraphWalker(cte->ctequery, cstate);
+			/* note that recursion could mutate innerwiths list */
+			cell1 = list_head(cstate->innerwiths);
+			lfirst(cell1) = lappend((List *) lfirst(cell1), cte);
+		}
+		(void) raw_expression_tree_walker(stmt,
+										  makeDependencyGraphWalker,
+										  cstate);
+		cstate->innerwiths = list_delete_first(cstate->innerwiths);
+	}
 }
 
 /*
@@ -1249,7 +1297,7 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 
 	return raw_expression_tree_walker(node,
 									  checkWellFormedRecursionWalker,
-									  (void *) cstate);
+									  cstate);
 }
 
 /*
@@ -1266,7 +1314,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 		/* just recurse without changing state */
 		raw_expression_tree_walker((Node *) stmt,
 								   checkWellFormedRecursionWalker,
-								   (void *) cstate);
+								   cstate);
 	}
 	else
 	{
@@ -1276,7 +1324,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 			case SETOP_UNION:
 				raw_expression_tree_walker((Node *) stmt,
 										   checkWellFormedRecursionWalker,
-										   (void *) cstate);
+										   cstate);
 				break;
 			case SETOP_INTERSECT:
 				if (stmt->all)

@@ -45,11 +45,45 @@ SELECT 1 as one, 2 as two \g (format=csv csv_fieldsep='\t')
 SELECT 1 as one, 2 as two \gx (title='foo bar')
 \g
 
--- \bind (extended query protocol)
+-- \parse (extended query protocol)
+\parse
+SELECT 1 \parse ''
+SELECT 2 \parse stmt1
+SELECT $1 \parse stmt2
+SELECT $1, $2 \parse stmt3
 
+-- \bind_named (extended query protocol)
+\bind_named
+\bind_named '' \g
+\bind_named stmt1 \g
+\bind_named stmt2 'foo' \g
+\bind_named stmt3 'foo' 'bar' \g
+-- Repeated calls.  The second call generates an error, cleaning up the
+-- statement name set by the first call.
+\bind_named stmt4
+\bind_named
+\g
+-- Last \bind_named wins
+\bind_named stmt2 'foo' \bind_named stmt3 'foo2' 'bar2' \g
+-- Multiple \g calls mean multiple executions
+\bind_named stmt2 'foo3' \g \bind_named stmt3 'foo4' 'bar4' \g
+
+-- \close (extended query protocol)
+\close
+\close ''
+\close stmt2
+\close stmt2
+SELECT name, statement FROM pg_prepared_statements ORDER BY name;
+
+-- \bind (extended query protocol)
 SELECT 1 \bind \g
 SELECT $1 \bind 'foo' \g
 SELECT $1, $2 \bind 'foo' 'bar' \g
+
+-- last \bind wins
+select $1::int as col \bind 'foo' \bind 2 \g
+-- Multiple \g calls mean multiple executions
+select $1::int as col \bind 1 \g \bind 2 \g
 
 -- errors
 -- parse error
@@ -58,6 +92,9 @@ SELECT foo \bind \g
 SELECT 1 \; SELECT 2 \bind \g
 -- bind error
 SELECT $1, $2 \bind 'foo' \g
+-- bind_named error
+\bind_named stmt2 'baz' \g
+\bind_named stmt3 'baz' \g
 
 -- \gset
 
@@ -86,6 +123,10 @@ select 1 as var1, NULL as var2, 3 as var3 \gset
 -- \gset requires just one tuple
 select 10 as test01, 20 as test02 from generate_series(1,3) \gset
 select 10 as test01, 20 as test02 from generate_series(1,0) \gset
+
+-- \gset returns no tuples
+select a from generate_series(1, 10) as a where a = 11 \gset
+\echo :ROW_COUNT
 
 -- \gset should work in FETCH_COUNT mode too
 \set FETCH_COUNT 1
@@ -457,6 +498,7 @@ create table psql_serial_tab (id serial);
 \d psql_serial_tab_id_seq
 \pset tuples_only true
 \df exp
+\dfx exp
 \pset tuples_only false
 \pset expanded on
 \d psql_serial_tab_id_seq
@@ -520,6 +562,9 @@ CREATE MATERIALIZED VIEW mat_view_heap_psql USING heap_psql AS SELECT f1 from tb
 \dv+
 \set HIDE_TABLEAM on
 \d+
+-- \d with 'x' enables expanded mode, but only without a pattern
+\d+x tbl_heap
+\d+x
 RESET ROLE;
 RESET search_path;
 DROP SCHEMA tableam_display CASCADE;
@@ -986,9 +1031,12 @@ select \if false \\ (bogus \else \\ 42 \endif \\ forty_two;
 	\echo `nosuchcommand` :foo :'foo' :"foo"
 	\pset fieldsep | `nosuchcommand` :foo :'foo' :"foo"
 	\a
+	SELECT $1 \bind 1 \g
+	\bind_named stmt1 1 2 \g
 	\C arg1
 	\c arg1 arg2 arg3 arg4
 	\cd arg1
+	\close stmt1
 	\conninfo
 	\copy arg1 arg2 arg3 arg4 arg5 arg6
 	\copyright
@@ -1000,11 +1048,15 @@ select \if false \\ (bogus \else \\ 42 \endif \\ forty_two;
 	\echo arg1 arg2 arg3 arg4 arg5
 	\echo arg1
 	\encoding arg1
+	\endpipeline
 	\errverbose
 	\f arg1
+	\flush
+	\flushrequest
 	\g arg1
 	\gx arg1
 	\gexec
+	\getresults
 	SELECT 1 AS one \gset
 	\h
 	\?
@@ -1016,6 +1068,7 @@ select \if false \\ (bogus \else \\ 42 \endif \\ forty_two;
 	\lo_list
 	\o arg1
 	\p
+	SELECT 1 \parse
 	\password arg1
 	\prompt arg1 arg2
 	\pset arg1 arg2
@@ -1023,10 +1076,13 @@ select \if false \\ (bogus \else \\ 42 \endif \\ forty_two;
 	\reset
 	\restrict test
 	\s arg1
+	\sendpipeline
 	\set arg1 arg2 arg3 arg4 arg5 arg6 arg7
 	\setenv arg1 arg2
 	\sf whole_line
 	\sv whole_line
+	\startpipeline
+	\syncpipeline
 	\t arg1
 	\T arg1
 	\timing arg1
@@ -1159,24 +1215,32 @@ SELECT 4 AS \gdesc
 \echo 'last error message:' :LAST_ERROR_MESSAGE
 \echo 'last error code:' :LAST_ERROR_SQLSTATE
 
--- check row count for a cursor-fetched query
+-- check row count for a query with chunked results
 \set FETCH_COUNT 10
 select unique2 from tenk1 order by unique2 limit 19;
 \echo 'error:' :ERROR
 \echo 'error code:' :SQLSTATE
 \echo 'number of rows:' :ROW_COUNT
 
+<<<<<<< HEAD
 -- cursor-fetched query with an error after the first group. In GPDB, the
 -- query used in PostgreSQL errors out too early in the segments. Use a
 -- different query that behaves the way this is intended.
 --select 1/(15-unique2) from tenk1 order by unique2 limit 19;
 select 1/(15-g) from generate_series(1, 1000000) g;
 
+=======
+-- chunked results with an error after the first chunk
+-- (we must disable parallel query here, else the behavior is timing-dependent)
+set debug_parallel_query = off;
+select 1/(15-unique2) from tenk1 order by unique2 limit 19;
+>>>>>>> REL_18_BETA1_branch
 \echo 'error:' :ERROR
 \echo 'error code:' :SQLSTATE
 \echo 'number of rows:' :ROW_COUNT
 \echo 'last error message:' :LAST_ERROR_MESSAGE
 \echo 'last error code:' :LAST_ERROR_SQLSTATE
+reset debug_parallel_query;
 
 \unset FETCH_COUNT
 
@@ -1273,9 +1337,10 @@ drop role regress_partitioning_role;
 \dAc brin pg*.oid*
 \dAf spgist
 \dAf btree int4
-\dAo+ btree float_ops
+\dAo+ btree array_ops|float_ops
 \dAo * pg_catalog.jsonb_path_ops
 \dAp+ btree float_ops
+\dApx+ btree time_ops
 \dAp * pg_catalog.uuid_ops
 
 -- check \dconfig
@@ -1323,10 +1388,10 @@ rollback;
 drop role regress_psql_user;
 
 -- check \sf
-\sf information_schema._pg_expandarray
-\sf+ information_schema._pg_expandarray
+\sf information_schema._pg_index_position
+\sf+ information_schema._pg_index_position
 \sf+ interval_pl_time
-\sf ts_debug(text)
+\sf ts_debug(text);
 \sf+ ts_debug(text)
 
 -- AUTOCOMMIT
@@ -1589,6 +1654,7 @@ COMMIT;
 SELECT COUNT(*) AS "#mum"
 FROM bla WHERE s = 'Mum' \;               -- no mum here
 SELECT * FROM bla ORDER BY 1;
+COMMIT;
 
 -- reset all
 \set AUTOCOMMIT on
@@ -1864,3 +1930,38 @@ DROP ROLE regress_du_role0;
 DROP ROLE regress_du_role1;
 DROP ROLE regress_du_role2;
 DROP ROLE regress_du_admin;
+<<<<<<< HEAD
+=======
+
+-- Test display of empty privileges.
+BEGIN;
+-- Create an owner for tested objects because output contains owner name.
+CREATE ROLE regress_zeropriv_owner;
+SET LOCAL ROLE regress_zeropriv_owner;
+
+CREATE DOMAIN regress_zeropriv_domain AS int;
+REVOKE ALL ON DOMAIN regress_zeropriv_domain FROM CURRENT_USER, PUBLIC;
+\dD+ regress_zeropriv_domain
+
+CREATE PROCEDURE regress_zeropriv_proc() LANGUAGE sql AS '';
+REVOKE ALL ON PROCEDURE regress_zeropriv_proc() FROM CURRENT_USER, PUBLIC;
+\df+ regress_zeropriv_proc
+
+CREATE TABLE regress_zeropriv_tbl (a int);
+REVOKE ALL ON TABLE regress_zeropriv_tbl FROM CURRENT_USER;
+\dp regress_zeropriv_tbl
+
+CREATE TYPE regress_zeropriv_type AS (a int);
+REVOKE ALL ON TYPE regress_zeropriv_type FROM CURRENT_USER, PUBLIC;
+\dT+ regress_zeropriv_type
+
+ROLLBACK;
+
+-- Test display of default privileges with \pset null.
+CREATE TABLE defprivs (a int);
+\pset null '(default)'
+\z defprivs
+\zx defprivs
+\pset null ''
+DROP TABLE defprivs;
+>>>>>>> REL_18_BETA1_branch

@@ -3,7 +3,7 @@
  * bloom.h
  *	  Header for bloom index.
  *
- * Copyright (c) 2016-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/bloom/bloom.h
@@ -110,12 +110,9 @@ typedef struct BloomOptions
  * FreeBlockNumberArray - array of block numbers sized so that metadata fill
  * all space in metapage.
  */
-typedef BlockNumber FreeBlockNumberArray[
-										 MAXALIGN_DOWN(
-													   BLCKSZ - SizeOfPageHeaderData - MAXALIGN(sizeof(BloomPageOpaqueData))
-													   - MAXALIGN(sizeof(uint16) * 2 + sizeof(uint32) + sizeof(BloomOptions))
-													   ) / sizeof(BlockNumber)
-];
+typedef BlockNumber FreeBlockNumberArray[MAXALIGN_DOWN(BLCKSZ - SizeOfPageHeaderData - MAXALIGN(sizeof(BloomPageOpaqueData))
+													   - MAXALIGN(sizeof(uint16) * 2 + sizeof(uint32) + sizeof(BloomOptions)))
+										 / sizeof(BlockNumber)];
 
 /* Metadata of bloom index */
 typedef struct BloomMetaPageData
@@ -127,7 +124,7 @@ typedef struct BloomMetaPageData
 	FreeBlockNumberArray notFullPage;
 } BloomMetaPageData;
 
-/* Magic number to distinguish bloom pages among anothers */
+/* Magic number to distinguish bloom pages from others */
 #define BLOOM_MAGICK_NUMBER (0xDBAC0DED)
 
 /* Number of blocks numbers fit in BloomMetaPageData */

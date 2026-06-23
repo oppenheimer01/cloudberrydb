@@ -4,7 +4,7 @@
  *		Functions for archiving WAL files and restoring from the archive.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/xlogarchive.c
@@ -26,12 +26,11 @@
 #include "common/percentrepl.h"
 #include "miscadmin.h"
 #include "pgstat.h"
-#include "postmaster/startup.h"
 #include "postmaster/pgarch.h"
+#include "postmaster/startup.h"
 #include "replication/walsender.h"
 #include "storage/fd.h"
 #include "storage/ipc.h"
-#include "storage/lwlock.h"
 
 /*
  * GPDB specific imports:
@@ -240,7 +239,7 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 			ereport(elevel,
 					(errcode_for_file_access(),
 					 errmsg("could not stat file \"%s\": %m", xlogpath),
-					 errdetail("restore_command returned a zero exit status, but stat() failed.")));
+					 errdetail("\"restore_command\" returned a zero exit status, but stat() failed.")));
 		}
 	}
 

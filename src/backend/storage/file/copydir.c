@@ -3,7 +3,7 @@
  * copydir.c
  *	  copies a directory
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *	While "xcopy /e /i /q" works fine for copying directories, on Windows XP
@@ -18,6 +18,9 @@
 
 #include "postgres.h"
 
+#ifdef HAVE_COPYFILE_H
+#include <copyfile.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -28,13 +31,23 @@
 #include "storage/copydir.h"
 #include "storage/fd.h"
 
+<<<<<<< HEAD
 extern XLogRecPtr LSNForEncryption(bool use_wal_lsn);
+=======
+/* GUCs */
+int			file_copy_method = FILE_COPY_METHOD_COPY;
+
+static void clone_file(const char *fromfile, const char *tofile);
+>>>>>>> REL_18_BETA1_branch
 
 /*
  * copydir: copy a directory
  *
  * If recurse is false, subdirectories are ignored.  Anything that's not
  * a directory or a regular file is ignored.
+ *
+ * This function uses the file_copy_method GUC.  New uses of this function must
+ * be documented in doc/src/sgml/config.sgml.
  */
 void
 copydir(const char *fromdir, const char *todir, bool recurse)
@@ -74,7 +87,16 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 				copydir(fromfile, tofile, true);
 		}
 		else if (xlde_type == PGFILETYPE_REG)
+<<<<<<< HEAD
 			copy_file(fromfile, tofile, false);
+=======
+		{
+			if (file_copy_method == FILE_COPY_METHOD_CLONE)
+				clone_file(fromfile, tofile);
+			else
+				copy_file(fromfile, tofile);
+		}
+>>>>>>> REL_18_BETA1_branch
 	}
 	FreeDir(xldir);
 
@@ -233,4 +255,66 @@ copy_file(const char *fromfile, const char *tofile, bool encrypt_init_file)
 				 errmsg("could not close file \"%s\": %m", fromfile)));
 
 	pfree(buffer);
+}
+
+/*
+ * clone one file
+ */
+static void
+clone_file(const char *fromfile, const char *tofile)
+{
+#if defined(HAVE_COPYFILE) && defined(COPYFILE_CLONE_FORCE)
+	if (copyfile(fromfile, tofile, NULL, COPYFILE_CLONE_FORCE) < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not clone file \"%s\" to \"%s\": %m",
+						fromfile, tofile)));
+#elif defined(HAVE_COPY_FILE_RANGE)
+	int			srcfd;
+	int			dstfd;
+	ssize_t		nbytes;
+
+	srcfd = OpenTransientFile(fromfile, O_RDONLY | PG_BINARY);
+	if (srcfd < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not open file \"%s\": %m", fromfile)));
+
+	dstfd = OpenTransientFile(tofile, O_WRONLY | O_CREAT | O_EXCL | PG_BINARY);
+	if (dstfd < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create file \"%s\": %m", tofile)));
+
+	do
+	{
+		/*
+		 * Don't copy too much at once, so we can check for interrupts from
+		 * time to time if it falls back to a slow copy.
+		 */
+		CHECK_FOR_INTERRUPTS();
+		pgstat_report_wait_start(WAIT_EVENT_COPY_FILE_COPY);
+		nbytes = copy_file_range(srcfd, NULL, dstfd, NULL, 1024 * 1024, 0);
+		if (nbytes < 0 && errno != EINTR)
+			ereport(ERROR,
+					(errcode_for_file_access(),
+					 errmsg("could not clone file \"%s\" to \"%s\": %m",
+							fromfile, tofile)));
+		pgstat_report_wait_end();
+	}
+	while (nbytes != 0);
+
+	if (CloseTransientFile(dstfd) != 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m", tofile)));
+
+	if (CloseTransientFile(srcfd) != 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m", fromfile)));
+#else
+	/* If there is no CLONE support this function should not be called. */
+	pg_unreachable();
+#endif
 }

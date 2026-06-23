@@ -57,7 +57,7 @@
  * calls in portal and cursor manipulations.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/tcop/dest.h
@@ -94,7 +94,11 @@ typedef enum
 	DestSQLFunction,			/* results sent to SQL-language func mgr */
 	DestTransientRel,			/* results sent to transient relation */
 	DestTupleQueue,				/* results sent to tuple queue */
+<<<<<<< HEAD
 	DestPersistentstore,		/* results sent to Persistent Tuplestore */
+=======
+	DestExplainSerialize,		/* results are serialized and discarded */
+>>>>>>> REL_18_BETA1_branch
 } CommandDest;
 
 /* ----------------

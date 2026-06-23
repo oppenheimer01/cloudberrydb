@@ -3,7 +3,7 @@
  * foreign.c
  *		  support for foreign-data wrappers, servers and user mappings.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/backend/foreign/foreign.c
@@ -27,13 +27,15 @@
 #include "foreign/fdwapi.h"
 #include "foreign/foreign.h"
 #include "funcapi.h"
-#include "lib/stringinfo.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "optimizer/optimizer.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/planmain.h"
 #include "optimizer/restrictinfo.h"
 #include "optimizer/tlist.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "tcop/tcopprot.h"
 #include "utils/builtins.h"
 #include "utils/memutils.h"
@@ -324,10 +326,14 @@ GetUserMapping(Oid userid, Oid serverid)
 	}
 
 	if (!HeapTupleIsValid(tp))
+	{
+		ForeignServer *server = GetForeignServer(serverid);
+
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
-				 errmsg("user mapping not found for \"%s\"",
-						MappingUserName(userid))));
+				 errmsg("user mapping not found for user \"%s\", server \"%s\"",
+						MappingUserName(userid), server->servername)));
+	}
 
 	um = (UserMapping *) palloc(sizeof(UserMapping));
 	um->umid = ((Form_pg_user_mapping) GETSTRUCT(tp))->oid;
@@ -792,7 +798,7 @@ pg_options_to_table(PG_FUNCTION_ARGS)
 	Datum		array = PG_GETARG_DATUM(0);
 	ListCell   *cell;
 	List	   *options;
-	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
+	ReturnSetInfo *rsinfo;
 
 	options = untransformRelOptions(array);
 	rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;

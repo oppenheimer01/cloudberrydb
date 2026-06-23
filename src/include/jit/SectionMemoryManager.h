@@ -19,10 +19,17 @@
 #ifndef LLVM_EXECUTIONENGINE_BACKPORT_SECTIONMEMORYMANAGER_H
 #define LLVM_EXECUTIONENGINE_BACKPORT_SECTIONMEMORYMANAGER_H
 
+<<<<<<< HEAD
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Memory.h"
+=======
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
+#include <llvm/Support/Alignment.h>
+#include <llvm/Support/Memory.h>
+>>>>>>> REL_18_BETA1_branch
 #include <cstdint>
 #include <string>
 #include <system_error>
@@ -153,7 +160,11 @@ public:
   /// a default alignment of 16 will be used.
   uint8_t *allocateDataSection(uintptr_t Size, unsigned Alignment,
                                unsigned SectionID, StringRef SectionName,
+<<<<<<< HEAD
                                bool isReadOnly) override;
+=======
+                               bool IsReadOnly) override;
+>>>>>>> REL_18_BETA1_branch
 
   /// Update section-specific memory permissions and other attributes.
   ///
@@ -182,7 +193,11 @@ private:
     // The actual block of free memory
     sys::MemoryBlock Free;
     // If there is a pending allocation from the same reservation right before
+<<<<<<< HEAD
     // this block, store it's index in PendingMem, to be able to update the
+=======
+    // this block, store its index in PendingMem, to be able to update the
+>>>>>>> REL_18_BETA1_branch
     // pending region if part of this block is allocated, rather than having to
     // create a new one
     unsigned PendingPrefixIndex;

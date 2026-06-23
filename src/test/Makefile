@@ -12,9 +12,13 @@ subdir = src/test
 top_builddir = ../..
 include $(top_builddir)/src/Makefile.global
 
+<<<<<<< HEAD
 # GPDB_12_MERGE_FEATURE_NOT_SUPPORTED Since logical replication doesn't work for GPDB,
 # removed "subscription" test from below list.
 SUBDIRS = perl postmaster regress isolation modules authentication recovery
+=======
+SUBDIRS = perl postmaster regress isolation modules authentication recovery subscription
+>>>>>>> REL_18_BETA1_branch
 
 SUBDIRS += fsync walrep heap_checksum isolation2 fdw singlenode_regress singlenode_isolation2
 
@@ -39,11 +43,6 @@ endif
 ifeq ($(with_ssl),openssl)
 SUBDIRS += ssl
 endif
-
-# Test suites that are not safe by default but can be run if selected
-# by the user via the whitespace-separated list in variable PG_TEST_EXTRA.
-# Export PG_TEST_EXTRA to check it in individual tap tests.
-export PG_TEST_EXTRA
 
 # We don't build or execute these by default, but we do want "make
 # clean" etc to recurse into them.  (We must filter out those that we

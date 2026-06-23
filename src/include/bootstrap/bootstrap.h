@@ -4,7 +4,7 @@
  *	  include file for the bootstrapping code
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/bootstrap/bootstrap.h
@@ -16,6 +16,7 @@
 
 #include "catalog/index.h"
 #include "nodes/execnodes.h"
+#include "nodes/parsenodes.h"
 
 
 /*
@@ -33,7 +34,7 @@ extern PGDLLIMPORT Form_pg_attribute attrtypes[MAXATTR];
 extern PGDLLIMPORT int numattr;
 
 
-extern void BootstrapModeMain(int argc, char *argv[], bool check_only) pg_attribute_noreturn();
+pg_noreturn extern void BootstrapModeMain(int argc, char *argv[], bool check_only);
 
 extern void closerel(char *relname);
 extern void boot_openrel(char *relname);
@@ -43,7 +44,7 @@ extern void InsertOneTuple(void);
 extern void InsertOneValue(char *value, int i);
 extern void InsertOneNull(int i);
 
-extern void index_register(Oid heap, Oid ind, IndexInfo *indexInfo);
+extern void index_register(Oid heap, Oid ind, const IndexInfo *indexInfo);
 extern void build_indices(void);
 
 extern void boot_get_type_io_data(Oid typid,
@@ -55,9 +56,15 @@ extern void boot_get_type_io_data(Oid typid,
 								  Oid *typinput,
 								  Oid *typoutput);
 
-extern int	boot_yyparse(void);
+union YYSTYPE;
+#ifndef YY_TYPEDEF_YY_SCANNER_T
+#define YY_TYPEDEF_YY_SCANNER_T
+typedef void *yyscan_t;
+#endif
 
-extern int	boot_yylex(void);
-extern void boot_yyerror(const char *message) pg_attribute_noreturn();
+extern int	boot_yyparse(yyscan_t yyscanner);
+extern int	boot_yylex_init(yyscan_t *yyscannerp);
+extern int	boot_yylex(union YYSTYPE *yylval_param, yyscan_t yyscanner);
+pg_noreturn extern void boot_yyerror(yyscan_t yyscanner, const char *message);
 
 #endif							/* BOOTSTRAP_H */

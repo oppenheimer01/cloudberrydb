@@ -1,8 +1,14 @@
+<<<<<<< HEAD
 # Copyright (c) 2022-2023, PostgreSQL Global Development Group
+=======
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
 
 libpq_sources = files(
+  'fe-auth-oauth.c',
   'fe-auth-scram.c',
   'fe-auth.c',
+  'fe-cancel.c',
   'fe-connect.c',
   'fe-exec.c',
   'fe-lobj.c',
@@ -44,15 +50,17 @@ export_file = custom_target('libpq.exports',
 libpq_inc = include_directories('.', '../../port')
 libpq_c_args = ['-DSO_MAJOR_VERSION=5']
 
+# The OAuth implementation differs depending on the type of library being built.
+libpq_so_c_args = ['-DUSE_DYNAMIC_OAUTH']
+
 # Not using both_libraries() here as
 # 1) resource files should only be in the shared library
 # 2) we want the .pc file to include a dependency to {pgport,common}_static for
 #    libpq_st, and {pgport,common}_shlib for libpq_sh
 #
 # We could try to avoid building the source files twice, but it probably adds
-# more complexity than its worth (AIX doesn't support link_whole yet, reusing
-# object files requires also linking to the library on windows or breaks
-# precompiled headers).
+# more complexity than its worth (reusing object files requires also linking
+# to the library on windows or breaks precompiled headers).
 libpq_st = static_library('libpq',
   libpq_sources,
   include_directories: [libpq_inc],
@@ -65,7 +73,7 @@ libpq_st = static_library('libpq',
 libpq_so = shared_library('libpq',
   libpq_sources + libpq_so_sources,
   include_directories: [libpq_inc, postgres_inc],
-  c_args: libpq_c_args,
+  c_args: libpq_c_args + libpq_so_c_args,
   c_pch: pch_postgres_fe_h,
   version: '5.' + pg_version_major.to_string(),
   soversion: host_system != 'windows' ? '5' : '',
@@ -81,12 +89,26 @@ libpq = declare_dependency(
   include_directories: [include_directories('.')]
 )
 
+private_deps = [
+  frontend_stlib_code,
+  libpq_deps,
+]
+
+if oauth_flow_supported
+  # libpq.so doesn't link against libcurl, but libpq.a needs libpq-oauth, and
+  # libpq-oauth needs libcurl. Put both into *.private.
+  private_deps += [
+    libpq_oauth_deps,
+    '-lpq-oauth',
+  ]
+endif
+
 pkgconfig.generate(
   name: 'libpq',
   description: 'PostgreSQL libpq library',
   url: pg_url,
   libraries: libpq,
-  libraries_private: [frontend_stlib_code, libpq_deps],
+  libraries_private: private_deps,
 )
 
 install_headers(
@@ -116,8 +138,18 @@ tests += {
       't/002_api.pl',
       't/003_load_balance_host_list.pl',
       't/004_load_balance_dns.pl',
+      't/005_negotiate_encryption.pl',
+      't/006_service.pl',
     ],
+<<<<<<< HEAD
     'env': {'with_ssl': ssl_library},
+=======
+    'env': {
+      'with_ssl': ssl_library,
+      'with_gssapi': gssapi.found() ? 'yes' : 'no',
+      'with_krb_srvnam': 'postgres',
+    },
+>>>>>>> REL_18_BETA1_branch
     'deps': libpq_test_deps,
   },
 }

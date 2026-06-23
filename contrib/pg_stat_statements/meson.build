@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 pg_stat_statements_sources = files(
   'pg_stat_statements.c',
@@ -21,6 +21,8 @@ contrib_targets += pg_stat_statements
 install_data(
   'pg_stat_statements.control',
   'pg_stat_statements--1.4.sql',
+  'pg_stat_statements--1.11--1.12.sql',
+  'pg_stat_statements--1.10--1.11.sql',
   'pg_stat_statements--1.9--1.10.sql',
   'pg_stat_statements--1.8--1.9.sql',
   'pg_stat_statements--1.7--1.8.sql',
@@ -48,14 +50,27 @@ tests += {
       'planning',
       'user_activity',
       'wal',
+<<<<<<< HEAD
       'extended',
+=======
+      'entry_timestamp',
+      'privileges',
+      'extended',
+      'parallel',
+>>>>>>> REL_18_BETA1_branch
       'cleanup',
       'oldextversions',
+      'squashing',
     ],
     'regress_args': ['--temp-config', files('pg_stat_statements.conf')],
     # Disabled because these tests require
     # "shared_preload_libraries=pg_stat_statements", which typical
     # runningcheck users do not have (e.g. buildfarm clients).
     'runningcheck': false,
+  },
+  'tap': {
+    'tests': [
+      't/010_restart.pl',
+    ],
   },
 }

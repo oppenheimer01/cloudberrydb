@@ -5,7 +5,7 @@
  *	  However, we define it here so that the format is documented.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_control.h
@@ -21,6 +21,7 @@
 #include "port/pg_crc32c.h"
 
 
+<<<<<<< HEAD
 /*
  * Version identifier for this pg_control format.
  *
@@ -28,6 +29,10 @@
  * four digits indicates the GPDB version.
  */
 #define PG_CONTROL_VERSION	13000700
+=======
+/* Version identifier for this pg_control format */
+#define PG_CONTROL_VERSION	1800
+>>>>>>> REL_18_BETA1_branch
 
 /* Nonce key length, see below */
 #define MOCK_AUTH_NONCE_LEN		32
@@ -45,6 +50,7 @@ typedef struct CheckPoint
 	TimeLineID	PrevTimeLineID; /* previous TLI, if this record begins a new
 								 * timeline (equals ThisTimeLineID otherwise) */
 	bool		fullPageWrites; /* current full_page_writes */
+	int			wal_level;		/* current wal_level */
 	FullTransactionId nextXid;	/* next free transaction ID */
 	DistributedTransactionId nextGxid;	/* next free gxid */
 	Oid			nextOid;		/* next free OID */
@@ -89,8 +95,13 @@ typedef struct CheckPoint
 #define XLOG_NEXTGXID					0xD0
 /* GPDB_14_MERGE_FIXME: Compatible, Figure out whether 0xC0 already used? */
 /* 0xC0 is used in Postgres 9.5-11 */
+<<<<<<< HEAD
 #define XLOG_OVERWRITE_CONTRECORD		0xE0
 #define XLOG_ENCRYPTION_LSN				0xF0
+=======
+#define XLOG_OVERWRITE_CONTRECORD		0xD0
+#define XLOG_CHECKPOINT_REDO			0xE0
+>>>>>>> REL_18_BETA1_branch
 
 
 /*
@@ -105,7 +116,7 @@ typedef enum DBState
 	DB_SHUTDOWNING,
 	DB_IN_CRASH_RECOVERY,
 	DB_IN_ARCHIVE_RECOVERY,
-	DB_IN_PRODUCTION
+	DB_IN_PRODUCTION,
 } DBState;
 
 /*
@@ -230,6 +241,12 @@ typedef struct ControlFileData
 
 	/* Are data pages protected by checksums? Zero if no checksum version */
 	uint32		data_checksum_version;
+
+	/*
+	 * True if the default signedness of char is "signed" on a platform where
+	 * the cluster is initialized.
+	 */
+	bool		default_char_signedness;
 
 	/*
 	 * Random nonce, used in authentication requests that need to proceed

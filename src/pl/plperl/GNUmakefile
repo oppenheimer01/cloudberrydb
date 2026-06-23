@@ -60,8 +60,12 @@ ifeq ($(PORTNAME), cygwin)
 SHLIB_LINK += -Wl,--export-all-symbols
 endif
 
+<<<<<<< HEAD
 REGRESS_OPTS = --dbname=$(PL_TESTDB)
 REGRESS_OPTS += --init-file=init_file
+=======
+REGRESS_OPTS = --dbname=$(PL_TESTDB) --dlpath=$(top_builddir)/src/test/regress
+>>>>>>> REL_18_BETA1_branch
 REGRESS = plperl_setup plperl plperl_lc plperl_trigger plperl_shared \
 	plperl_elog plperl_util plperl_init plperlu plperl_array \
 	plperl_call plperl_transaction plperl_env
@@ -133,7 +137,7 @@ installcheck: submake
 submake:
 	$(MAKE) -C $(top_builddir)/src/test/regress pg_regress$(X)
 
-clean distclean maintainer-clean: clean-lib
+clean distclean: clean-lib
 	rm -f SPI.c Util.c $(OBJS) perlchunks.h plperl_opmask.h
 	rm -rf $(pg_regress_clean_files)
 ifeq ($(PORTNAME), win32)

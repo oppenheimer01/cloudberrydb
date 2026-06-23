@@ -42,33 +42,73 @@ msgstr "подробности: "
 msgid "hint: "
 msgstr "подсказка: "
 
+<<<<<<< HEAD
 #: ../../common/exec.c:172
+=======
+#: ../../common/exec.c:174
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid binary \"%s\": %m"
 msgstr "неверный исполняемый файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:215
+=======
+#: ../../common/exec.c:217
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read binary \"%s\": %m"
 msgstr "не удалось прочитать исполняемый файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:223
+=======
+#: ../../common/exec.c:225
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find a \"%s\" to execute"
 msgstr "не удалось найти запускаемый файл \"%s\""
 
+<<<<<<< HEAD
 #: ../../common/exec.c:250
+=======
+#: ../../common/exec.c:252
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not resolve path \"%s\" to absolute form: %m"
 msgstr "не удалось преобразовать относительный путь \"%s\" в абсолютный: %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:412
+=======
+#: ../../common/exec.c:382 initdb.c:750
+#, c-format
+msgid "could not execute command \"%s\": %m"
+msgstr "не удалось выполнить команду \"%s\": %m"
+
+#: ../../common/exec.c:394
+#, c-format
+msgid "could not read from command \"%s\": %m"
+msgstr "не удалось прочитать вывод команды \"%s\": %m"
+
+#: ../../common/exec.c:397
+#, c-format
+msgid "no data was returned by command \"%s\""
+msgstr "команда \"%s\" не выдала данные"
+
+#: ../../common/exec.c:424
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s() failed: %m"
 msgstr "ошибка в %s(): %m"
 
+<<<<<<< HEAD
 #: ../../common/exec.c:550 ../../common/exec.c:595 ../../common/exec.c:687
 #: initdb.c:368 initdb.c:404
+=======
+#: ../../common/exec.c:562 ../../common/exec.c:607 ../../common/exec.c:699
+#: initdb.c:372 initdb.c:408
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory"
 msgstr "нехватка памяти"
@@ -84,6 +124,7 @@ msgstr "нехватка памяти\n"
 msgid "cannot duplicate null pointer (internal error)\n"
 msgstr "попытка дублирования нулевого указателя (внутренняя ошибка)\n"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:87 ../../common/file_utils.c:447
 #, c-format
 msgid "could not stat file \"%s\": %m"
@@ -103,16 +144,56 @@ msgstr "не удалось прочитать каталог \"%s\": %m"
 
 #: ../../common/file_utils.c:228 ../../common/file_utils.c:287
 #: ../../common/file_utils.c:361
+=======
+#: ../../common/file_utils.c:70 ../../common/file_utils.c:347
+#: ../../common/file_utils.c:406 ../../common/file_utils.c:480
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\": %m"
 msgstr "не удалось открыть файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:299 ../../common/file_utils.c:369
+=======
+#: ../../common/file_utils.c:76
+#, c-format
+msgid "could not synchronize file system for file \"%s\": %m"
+msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
+
+#: ../../common/file_utils.c:120 ../../common/file_utils.c:566
+#, c-format
+msgid "could not stat file \"%s\": %m"
+msgstr "не удалось получить информацию о файле \"%s\": %m"
+
+#: ../../common/file_utils.c:130 ../../common/file_utils.c:227
+#: ../../fe_utils/option_utils.c:99
+#, c-format
+msgid "this build does not support sync method \"%s\""
+msgstr "эта сборка программы не поддерживает метод синхронизации \"%s\""
+
+#: ../../common/file_utils.c:151 ../../common/file_utils.c:281
+#: ../../common/pgfnames.c:48 ../../common/rmtree.c:63
+#, c-format
+msgid "could not open directory \"%s\": %m"
+msgstr "не удалось открыть каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:169 ../../common/file_utils.c:315
+#: ../../common/pgfnames.c:69 ../../common/rmtree.c:106
+#, c-format
+msgid "could not read directory \"%s\": %m"
+msgstr "не удалось прочитать каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:418 ../../common/file_utils.c:488
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not fsync file \"%s\": %m"
 msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/file_utils.c:379
+=======
+#: ../../common/file_utils.c:498
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not rename file \"%s\" to \"%s\": %m"
 msgstr "не удалось переименовать файл \"%s\" в \"%s\": %m"
@@ -152,12 +233,20 @@ msgstr "не удалось перезапуститься с ограничен
 msgid "could not get exit code from subprocess: error code %lu"
 msgstr "не удалось получить код выхода от подпроцесса (код ошибки: %lu)"
 
+<<<<<<< HEAD
 #: ../../common/rmtree.c:95
+=======
+#: ../../common/rmtree.c:97
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not remove file \"%s\": %m"
 msgstr "не удалось стереть файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: ../../common/rmtree.c:122
+=======
+#: ../../common/rmtree.c:124
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not remove directory \"%s\": %m"
 msgstr "ошибка при удалении каталога \"%s\": %m"
@@ -206,6 +295,37 @@ msgstr "дочерний процесс завершён по сигналу %d:
 msgid "child process exited with unrecognized status %d"
 msgstr "дочерний процесс завершился с нераспознанным кодом состояния %d"
 
+<<<<<<< HEAD
+=======
+#: ../../fe_utils/option_utils.c:69
+#, c-format
+msgid "invalid value \"%s\" for option %s"
+msgstr "неверное значение \"%s\" для параметра %s"
+
+#: ../../fe_utils/option_utils.c:76
+#, c-format
+msgid "%s must be in range %d..%d"
+msgstr "значение %s должно быть в диапазоне %d..%d"
+
+#: ../../fe_utils/option_utils.c:106
+#, c-format
+msgid "unrecognized sync method: %s"
+msgstr "нераспознанный метод синхронизации: %s"
+
+#: ../../fe_utils/string_utils.c:434
+#, c-format
+msgid "shell command argument contains a newline or carriage return: \"%s\"\n"
+msgstr ""
+"аргумент команды оболочки содержит символ новой строки или перевода каретки: "
+"\"%s\"\n"
+
+#: ../../fe_utils/string_utils.c:607
+#, c-format
+msgid "database name contains a newline or carriage return: \"%s\"\n"
+msgstr ""
+"имя базы данных содержит символ новой строки или перевода каретки: \"%s\"\n"
+
+>>>>>>> REL_18_BETA1_branch
 #: ../../port/dirmod.c:287
 #, c-format
 msgid "could not set junction for \"%s\": %s\n"
@@ -216,107 +336,187 @@ msgstr "не удалось создать связь для каталога \"
 msgid "could not get junction for \"%s\": %s\n"
 msgstr "не удалось получить связь для каталога \"%s\": %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:365
+=======
+#: initdb.c:369
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "_wsetlocale() failed"
 msgstr "ошибка в _wsetlocale()"
 
+<<<<<<< HEAD
 #: initdb.c:372
+=======
+#: initdb.c:376
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "setlocale() failed"
 msgstr "ошибка в setlocale()"
 
+<<<<<<< HEAD
 #: initdb.c:386
+=======
+#: initdb.c:390
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to restore old locale"
 msgstr "не удалось восстановить старую локаль"
 
+<<<<<<< HEAD
 #: initdb.c:389
+=======
+#: initdb.c:393
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to restore old locale \"%s\""
 msgstr "не удалось восстановить старую локаль \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:678 initdb.c:1665
+=======
+#: initdb.c:682 initdb.c:1674
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\" for reading: %m"
 msgstr "не удалось открыть файл \"%s\" для чтения: %m"
 
+<<<<<<< HEAD
 #: initdb.c:722 initdb.c:1026 initdb.c:1046
+=======
+#: initdb.c:726 initdb.c:1030 initdb.c:1050
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\" for writing: %m"
 msgstr "не удалось открыть файл \"%s\" для записи: %m"
 
+<<<<<<< HEAD
 #: initdb.c:726 initdb.c:1029 initdb.c:1048
+=======
+#: initdb.c:730 initdb.c:1033 initdb.c:1052
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write file \"%s\": %m"
 msgstr "не удалось записать файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:730
+=======
+#: initdb.c:734
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not close file \"%s\": %m"
 msgstr "не удалось закрыть файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:746
 #, c-format
 msgid "could not execute command \"%s\": %m"
 msgstr "не удалось выполнить команду \"%s\": %m"
 
 #: initdb.c:764
+=======
+#: initdb.c:768
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing data directory \"%s\""
 msgstr "удаление каталога данных \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:766
+=======
+#: initdb.c:770
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove data directory"
 msgstr "ошибка при удалении каталога данных"
 
+<<<<<<< HEAD
 #: initdb.c:770
+=======
+#: initdb.c:774
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of data directory \"%s\""
 msgstr "удаление содержимого каталога данных \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:773
+=======
+#: initdb.c:777
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of data directory"
 msgstr "ошибка при удалении содержимого каталога данных"
 
+<<<<<<< HEAD
 #: initdb.c:778
+=======
+#: initdb.c:782
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing WAL directory \"%s\""
 msgstr "удаление каталога WAL \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:780
+=======
+#: initdb.c:784
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove WAL directory"
 msgstr "ошибка при удалении каталога WAL"
 
+<<<<<<< HEAD
 #: initdb.c:784
+=======
+#: initdb.c:788
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "removing contents of WAL directory \"%s\""
 msgstr "удаление содержимого каталога WAL \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:786
+=======
+#: initdb.c:790
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "failed to remove contents of WAL directory"
 msgstr "ошибка при удалении содержимого каталога WAL"
 
+<<<<<<< HEAD
 #: initdb.c:793
+=======
+#: initdb.c:797
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "data directory \"%s\" not removed at user's request"
 msgstr "каталог данных \"%s\" не был удалён по запросу пользователя"
 
+<<<<<<< HEAD
 #: initdb.c:797
+=======
+#: initdb.c:801
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory \"%s\" not removed at user's request"
 msgstr "каталог WAL \"%s\" не был удалён по запросу пользователя"
 
+<<<<<<< HEAD
 #: initdb.c:815
+=======
+#: initdb.c:819
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot be run as root"
 msgstr "программу не должен запускать root"
 
+<<<<<<< HEAD
 #: initdb.c:816
+=======
+#: initdb.c:820
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Please log in (using, e.g., \"su\") as the (unprivileged) user that will own "
@@ -325,17 +525,29 @@ msgstr ""
 "Пожалуйста, переключитесь на обычного пользователя (например, используя "
 "\"su\"), которому будет принадлежать серверный процесс."
 
+<<<<<<< HEAD
 #: initdb.c:848
+=======
+#: initdb.c:852
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"%s\" is not a valid server encoding name"
 msgstr "\"%s\" — некорректное имя серверной кодировки"
 
+<<<<<<< HEAD
 #: initdb.c:992
+=======
+#: initdb.c:996
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "file \"%s\" does not exist"
 msgstr "файл \"%s\" не существует"
 
+<<<<<<< HEAD
 #: initdb.c:993 initdb.c:998 initdb.c:1005
+=======
+#: initdb.c:997 initdb.c:1002 initdb.c:1009
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "This might mean you have a corrupted installation or identified the wrong "
@@ -344,60 +556,105 @@ msgstr ""
 "Это означает, что ваша установка PostgreSQL испорчена или в параметре -L "
 "задан неправильный каталог."
 
+<<<<<<< HEAD
 #: initdb.c:997
+=======
+#: initdb.c:1001
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not access file \"%s\": %m"
 msgstr "ошибка при обращении к файлу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1004
+=======
+#: initdb.c:1008
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "file \"%s\" is not a regular file"
 msgstr "\"%s\" — не обычный файл"
 
+<<<<<<< HEAD
 #: initdb.c:1137
+=======
+#: initdb.c:1141
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "selecting dynamic shared memory implementation ... "
 msgstr "выбирается реализация динамической разделяемой памяти... "
 
+<<<<<<< HEAD
 #: initdb.c:1146
+=======
+#: initdb.c:1150
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "selecting default max_connections ... "
-msgstr "выбирается значение max_connections по умолчанию... "
+msgid "selecting default \"max_connections\" ... "
+msgstr "выбирается значение \"max_connections\" по умолчанию... "
 
+<<<<<<< HEAD
 #: initdb.c:1166
+=======
+#: initdb.c:1170
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "selecting default shared_buffers ... "
-msgstr "выбирается значение shared_buffers по умолчанию... "
+msgid "selecting default \"shared_buffers\" ... "
+msgstr "выбирается значение \"shared_buffers\" по умолчанию... "
 
+<<<<<<< HEAD
 #: initdb.c:1189
+=======
+#: initdb.c:1193
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "selecting default time zone ... "
 msgstr "выбирается часовой пояс по умолчанию... "
 
+<<<<<<< HEAD
 #: initdb.c:1266
 msgid "creating configuration files ... "
 msgstr "создание конфигурационных файлов... "
 
 #: initdb.c:1419 initdb.c:1433 initdb.c:1500 initdb.c:1511
+=======
+#: initdb.c:1272
+msgid "creating configuration files ... "
+msgstr "создание конфигурационных файлов... "
+
+#: initdb.c:1425 initdb.c:1439 initdb.c:1506 initdb.c:1517
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not change permissions of \"%s\": %m"
 msgstr "не удалось поменять права для \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1529
+=======
+#: initdb.c:1536
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "running bootstrap script ... "
 msgstr "выполняется подготовительный скрипт... "
 
+<<<<<<< HEAD
 #: initdb.c:1541
+=======
+#: initdb.c:1548
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "input file \"%s\" does not belong to PostgreSQL %s"
 msgstr "входной файл \"%s\" не принадлежит PostgreSQL %s"
 
+<<<<<<< HEAD
 #: initdb.c:1543
+=======
+#: initdb.c:1550
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Specify the correct path using the option -L."
 msgstr "Укажите корректный путь в параметре -L."
 
+<<<<<<< HEAD
 #: initdb.c:1643
 msgid "Enter new superuser password: "
 msgstr "Введите новый пароль суперпользователя: "
@@ -407,61 +664,116 @@ msgid "Enter it again: "
 msgstr "Повторите его: "
 
 #: initdb.c:1647
+=======
+#: initdb.c:1652
+msgid "Enter new superuser password: "
+msgstr "Введите новый пароль суперпользователя: "
+
+#: initdb.c:1653
+msgid "Enter it again: "
+msgstr "Повторите его: "
+
+#: initdb.c:1656
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Passwords didn't match.\n"
 msgstr "Пароли не совпадают.\n"
 
+<<<<<<< HEAD
 #: initdb.c:1671
+=======
+#: initdb.c:1680
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read password from file \"%s\": %m"
 msgstr "не удалось прочитать пароль из файла \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:1674
+=======
+#: initdb.c:1683
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "password file \"%s\" is empty"
 msgstr "файл пароля \"%s\" пуст"
 
+<<<<<<< HEAD
 #: initdb.c:2086
+=======
+#: initdb.c:2095
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "caught signal\n"
 msgstr "получен сигнал\n"
 
+<<<<<<< HEAD
 #: initdb.c:2092
+=======
+#: initdb.c:2101
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write to child process: %s\n"
 msgstr "не удалось записать в поток дочернего процесса: %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2100
+=======
+#: initdb.c:2109
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "ok\n"
 msgstr "ок\n"
 
+<<<<<<< HEAD
 #: initdb.c:2182 initdb.c:2228
+=======
+#: initdb.c:2191 initdb.c:2237
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale name \"%s\" contains non-ASCII characters"
 msgstr "имя локали \"%s\" содержит не-ASCII символы"
 
+<<<<<<< HEAD
 #: initdb.c:2208
+=======
+#: initdb.c:2217
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid locale name \"%s\""
 msgstr "ошибочное имя локали \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2209
+=======
+#: initdb.c:2218
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "If the locale name is specific to ICU, use --icu-locale."
 msgstr "Если эта локаль свойственна ICU, укажите --icu-locale."
 
+<<<<<<< HEAD
 #: initdb.c:2222
+=======
+#: initdb.c:2231
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid locale settings; check LANG and LC_* environment variables"
 msgstr "неверные установки локали; проверьте переменные окружения LANG и LC_*"
 
+<<<<<<< HEAD
 #: initdb.c:2253 initdb.c:2277
+=======
+#: initdb.c:2262 initdb.c:2286
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "encoding mismatch"
 msgstr "несоответствие кодировки"
 
+<<<<<<< HEAD
 #: initdb.c:2254
+=======
+#: initdb.c:2263
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "The encoding you selected (%s) and the encoding that the selected locale "
@@ -472,7 +784,11 @@ msgstr ""
 "может привести к неправильной работе различных функций обработки текстовых "
 "строк."
 
+<<<<<<< HEAD
 #: initdb.c:2259 initdb.c:2280
+=======
+#: initdb.c:2268 initdb.c:2289
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Rerun %s and either do not specify an encoding explicitly, or choose a "
@@ -481,31 +797,52 @@ msgstr ""
 "Для исправления перезапустите %s, не указывая кодировку явно, либо выберите "
 "подходящее сочетание параметров локализации."
 
+<<<<<<< HEAD
 #: initdb.c:2278
+=======
+#: initdb.c:2287
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The encoding you selected (%s) is not supported with the ICU provider."
 msgstr "Выбранная вами кодировка (%s) не поддерживается провайдером ICU."
 
+<<<<<<< HEAD
 #: initdb.c:2329
+=======
+#: initdb.c:2338
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not convert locale name \"%s\" to language tag: %s"
 msgstr "не удалось получить из названия локали \"%s\" метку языка: %s"
 
+<<<<<<< HEAD
 #: initdb.c:2335 initdb.c:2387 initdb.c:2466
+=======
+#: initdb.c:2344 initdb.c:2396 initdb.c:2488
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "ICU is not supported in this build"
 msgstr "ICU не поддерживается в данной сборке"
 
+<<<<<<< HEAD
 #: initdb.c:2358
+=======
+#: initdb.c:2367
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not get language from locale \"%s\": %s"
 msgstr "не удалось определить язык для локали \"%s\": %s"
 
+<<<<<<< HEAD
 #: initdb.c:2384
+=======
+#: initdb.c:2393
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale \"%s\" has unknown language \"%s\""
 msgstr "для локали \"%s\" получен неизвестный язык \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2450
 #, c-format
 msgid "ICU locale must be specified"
@@ -517,6 +854,24 @@ msgid "Using language tag \"%s\" for ICU locale \"%s\".\n"
 msgstr "Для локали ICU \"%s\" используется метка языка \"%s\".\n"
 
 #: initdb.c:2477
+=======
+#: initdb.c:2454
+#, c-format
+msgid "locale must be specified if provider is %s"
+msgstr "если выбран провайдер %s, необходимо задать локаль"
+
+#: initdb.c:2465
+#, c-format
+msgid "invalid locale name \"%s\" for builtin provider"
+msgstr "неверное имя локали \"%s\" для встроенного провайдера"
+
+#: initdb.c:2476
+#, c-format
+msgid "Using language tag \"%s\" for ICU locale \"%s\".\n"
+msgstr "Для локали ICU \"%s\" используется метка языка \"%s\".\n"
+
+#: initdb.c:2499
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "%s initializes a PostgreSQL database cluster.\n"
@@ -525,17 +880,29 @@ msgstr ""
 "%s инициализирует кластер PostgreSQL.\n"
 "\n"
 
+<<<<<<< HEAD
 #: initdb.c:2478
+=======
+#: initdb.c:2500
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Usage:\n"
 msgstr "Использование:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2479
+=======
+#: initdb.c:2501
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  %s [OPTION]... [DATADIR]\n"
 msgstr "  %s [ПАРАМЕТР]... [КАТАЛОГ]\n"
 
+<<<<<<< HEAD
 #: initdb.c:2480
+=======
+#: initdb.c:2502
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -544,7 +911,11 @@ msgstr ""
 "\n"
 "Параметры:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2481
+=======
+#: initdb.c:2503
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -A, --auth=METHOD         default authentication method for local "
@@ -553,7 +924,11 @@ msgstr ""
 "  -A, --auth=МЕТОД          метод проверки подлинности по умолчанию\n"
 "                            для локальных подключений\n"
 
+<<<<<<< HEAD
 #: initdb.c:2482
+=======
+#: initdb.c:2504
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --auth-host=METHOD    default authentication method for local TCP/IP "
@@ -562,7 +937,11 @@ msgstr ""
 "      --auth-host=МЕТОД     метод проверки подлинности по умолчанию\n"
 "                            для локальных TCP/IP-подключений\n"
 
+<<<<<<< HEAD
 #: initdb.c:2483
+=======
+#: initdb.c:2505
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --auth-local=METHOD   default authentication method for local-socket "
@@ -571,17 +950,29 @@ msgstr ""
 "      --auth-local=МЕТОД    метод проверки подлинности по умолчанию\n"
 "                            для локальных подключений через сокет\n"
 
+<<<<<<< HEAD
 #: initdb.c:2484
+=======
+#: initdb.c:2506
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid " [-D, --pgdata=]DATADIR     location for this database cluster\n"
 msgstr " [-D, --pgdata=]КАТАЛОГ     расположение данных этого кластера БД\n"
 
+<<<<<<< HEAD
 #: initdb.c:2485
+=======
+#: initdb.c:2507
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -E, --encoding=ENCODING   set default encoding for new databases\n"
 msgstr "  -E, --encoding=КОДИРОВКА  кодировка по умолчанию для новых баз\n"
 
+<<<<<<< HEAD
 #: initdb.c:2486
+=======
+#: initdb.c:2508
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -g, --allow-group-access  allow group read/execute on data directory\n"
@@ -590,12 +981,20 @@ msgstr ""
 "для\n"
 "                            группы\n"
 
+<<<<<<< HEAD
 #: initdb.c:2487
+=======
+#: initdb.c:2509
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --icu-locale=LOCALE   set ICU locale ID for new databases\n"
 msgstr "      --icu-locale=ЛОКАЛЬ   идентификатор локали ICU для новых баз\n"
 
+<<<<<<< HEAD
 #: initdb.c:2488
+=======
+#: initdb.c:2510
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --icu-rules=RULES     set additional ICU collation rules for new "
@@ -604,17 +1003,29 @@ msgstr ""
 "      --icu-rules=ПРАВИЛА   дополнительные правила сортировки ICU для новых "
 "баз\n"
 
+<<<<<<< HEAD
 #: initdb.c:2489
+=======
+#: initdb.c:2511
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -k, --data-checksums      use data page checksums\n"
 msgstr "  -k, --data-checksums      включить контроль целостности страниц\n"
 
+<<<<<<< HEAD
 #: initdb.c:2490
+=======
+#: initdb.c:2512
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --locale=LOCALE       set default locale for new databases\n"
 msgstr "      --locale=ЛОКАЛЬ       локаль по умолчанию для новых баз\n"
 
+<<<<<<< HEAD
 #: initdb.c:2491
+=======
+#: initdb.c:2513
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --lc-collate=, --lc-ctype=, --lc-messages=LOCALE\n"
@@ -628,28 +1039,53 @@ msgstr ""
 "                            установить соответствующий параметр локали\n"
 "                            для новых баз (вместо значения из окружения)\n"
 
+<<<<<<< HEAD
 #: initdb.c:2495
+=======
+#: initdb.c:2517
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-locale           equivalent to --locale=C\n"
 msgstr "      --no-locale           эквивалентно --locale=C\n"
 
+<<<<<<< HEAD
 #: initdb.c:2496
+=======
+#: initdb.c:2518
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
-"      --locale-provider={libc|icu}\n"
+"      --builtin-locale=LOCALE\n"
+"                            set builtin locale name for new databases\n"
+msgstr ""
+"      --builtin-locale=ЛОКАЛЬ\n"
+"                            имя встроенной локали для новых баз\n"
+
+#: initdb.c:2520
+#, c-format
+msgid ""
+"      --locale-provider={builtin|libc|icu}\n"
 "                            set default locale provider for new databases\n"
 msgstr ""
-"      --locale-provider={libc|icu}\n"
+"      --locale-provider={builtin|libc|icu}\n"
 "                            провайдер основной локали для новых баз\n"
 
+<<<<<<< HEAD
 #: initdb.c:2498
+=======
+#: initdb.c:2522
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "      --pwfile=FILE         read password for the new superuser from file\n"
 msgstr ""
 "      --pwfile=ФАЙЛ         прочитать пароль суперпользователя из файла\n"
 
+<<<<<<< HEAD
 #: initdb.c:2499
+=======
+#: initdb.c:2523
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -T, --text-search-config=CFG\n"
@@ -658,29 +1094,49 @@ msgstr ""
 "  -T, --text-search-config=КОНФИГУРАЦИЯ\n"
 "                            конфигурация текстового поиска по умолчанию\n"
 
+<<<<<<< HEAD
 #: initdb.c:2501
+=======
+#: initdb.c:2525
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -U, --username=NAME       database superuser name\n"
 msgstr "  -U, --username=ИМЯ        имя суперпользователя БД\n"
 
+<<<<<<< HEAD
 #: initdb.c:2502
+=======
+#: initdb.c:2526
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -W, --pwprompt            prompt for a password for the new superuser\n"
 msgstr "  -W, --pwprompt            запросить пароль суперпользователя\n"
 
+<<<<<<< HEAD
 #: initdb.c:2503
+=======
+#: initdb.c:2527
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -X, --waldir=WALDIR       location for the write-ahead log directory\n"
 msgstr "  -X, --waldir=КАТАЛОГ      расположение журнала предзаписи\n"
 
+<<<<<<< HEAD
 #: initdb.c:2504
+=======
+#: initdb.c:2528
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --wal-segsize=SIZE    size of WAL segments, in megabytes\n"
 msgstr "      --wal-segsize=РАЗМЕР  размер сегментов WAL (в мегабайтах)\n"
 
+<<<<<<< HEAD
 #: initdb.c:2505
+=======
+#: initdb.c:2529
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -689,7 +1145,11 @@ msgstr ""
 "\n"
 "Редко используемые параметры:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2506
+=======
+#: initdb.c:2530
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -c, --set NAME=VALUE      override default setting for server parameter\n"
@@ -697,27 +1157,47 @@ msgstr ""
 "  -c, --set ИМЯ=ЗНАЧЕНИЕ    переопределить значение серверного параметра по\n"
 "                            умолчанию\n"
 
+<<<<<<< HEAD
 #: initdb.c:2507
+=======
+#: initdb.c:2531
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -d, --debug               generate lots of debugging output\n"
 msgstr "  -d, --debug               выдавать много отладочных сообщений\n"
 
+<<<<<<< HEAD
 #: initdb.c:2508
+=======
+#: initdb.c:2532
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --discard-caches      set debug_discard_caches=1\n"
 msgstr "      --discard-caches      установить debug_discard_caches=1\n"
 
+<<<<<<< HEAD
 #: initdb.c:2509
+=======
+#: initdb.c:2533
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -L DIRECTORY              where to find the input files\n"
 msgstr "  -L КАТАЛОГ                расположение входных файлов\n"
 
+<<<<<<< HEAD
 #: initdb.c:2510
+=======
+#: initdb.c:2534
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -n, --no-clean            do not clean up after errors\n"
 msgstr "  -n, --no-clean            не очищать после ошибок\n"
 
+<<<<<<< HEAD
 #: initdb.c:2511
+=======
+#: initdb.c:2535
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -N, --no-sync             do not wait for changes to be written safely to "
@@ -725,18 +1205,35 @@ msgid ""
 msgstr ""
 "  -N, --no-sync             не ждать завершения сохранения данных на диске\n"
 
+<<<<<<< HEAD
 #: initdb.c:2512
+=======
+#: initdb.c:2536
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "      --no-instructions     do not print instructions for next steps\n"
 msgstr ""
 "      --no-instructions     не выводить инструкции для дальнейших действий\n"
 
+<<<<<<< HEAD
 #: initdb.c:2513
+=======
+#: initdb.c:2537
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  -s, --show                show internal settings\n"
-msgstr "  -s, --show                показать внутренние установки\n"
+msgid "  -s, --show                show internal settings, then exit\n"
+msgstr "  -s, --show                показать внутренние установки и выйти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2514
+=======
+#: initdb.c:2538
+#, c-format
+msgid "      --sync-method=METHOD  set method for syncing files to disk\n"
+msgstr "      --sync-method=МЕТОД   метод синхронизации файлов с ФС\n"
+
+#: initdb.c:2539
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -S, --sync-only           only sync database files to disk, then exit\n"
@@ -744,7 +1241,11 @@ msgstr ""
 "  -S, --sync-only           только синхронизировать с ФС файлы базы и "
 "завершиться\n"
 
+<<<<<<< HEAD
 #: initdb.c:2515
+=======
+#: initdb.c:2540
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -753,17 +1254,29 @@ msgstr ""
 "\n"
 "Другие параметры:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2516
+=======
+#: initdb.c:2541
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -V, --version             output version information, then exit\n"
 msgstr "  -V, --version             показать версию и выйти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2517
+=======
+#: initdb.c:2542
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -?, --help                show this help, then exit\n"
 msgstr "  -?, --help                показать эту справку и выйти\n"
 
+<<<<<<< HEAD
 #: initdb.c:2518
+=======
+#: initdb.c:2543
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -773,7 +1286,11 @@ msgstr ""
 "\n"
 "Если каталог данных не указан, используется переменная окружения PGDATA.\n"
 
+<<<<<<< HEAD
 #: initdb.c:2520
+=======
+#: initdb.c:2545
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -782,18 +1299,30 @@ msgstr ""
 "\n"
 "Об ошибках сообщайте по адресу <%s>.\n"
 
+<<<<<<< HEAD
 #: initdb.c:2521
+=======
+#: initdb.c:2546
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s home page: <%s>\n"
 msgstr "Домашняя страница %s: <%s>\n"
 
+<<<<<<< HEAD
 #: initdb.c:2549
+=======
+#: initdb.c:2570
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid authentication method \"%s\" for \"%s\" connections"
 msgstr ""
 "нераспознанный метод проверки подлинности \"%s\" для подключений \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2563
+=======
+#: initdb.c:2584
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "must specify a password for the superuser to enable password authentication"
@@ -801,12 +1330,20 @@ msgstr ""
 "для включения аутентификации по паролю необходимо указать пароль "
 "суперпользователя"
 
+<<<<<<< HEAD
 #: initdb.c:2582
+=======
+#: initdb.c:2603
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no data directory specified"
 msgstr "каталог данных не указан"
 
+<<<<<<< HEAD
 #: initdb.c:2583
+=======
+#: initdb.c:2604
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "You must identify the directory where the data for this database system will "
@@ -816,53 +1353,91 @@ msgstr ""
 "Вы должны указать каталог, в котором будут располагаться данные этой СУБД. "
 "Это можно сделать, добавив ключ -D или установив переменную окружения PGDATA."
 
+<<<<<<< HEAD
 #: initdb.c:2600
+=======
+#: initdb.c:2621
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not set environment"
 msgstr "не удалось задать переменную окружения"
 
+<<<<<<< HEAD
 #: initdb.c:2618
+=======
+#: initdb.c:2639
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "program \"%s\" is needed by %s but was not found in the same directory as "
 "\"%s\""
 msgstr "программа \"%s\" нужна для %s, но она не найдена в каталоге \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2621
+=======
+#: initdb.c:2642
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "program \"%s\" was found by \"%s\" but was not the same version as %s"
 msgstr ""
 "программа \"%s\" найдена программой \"%s\", но её версия отличается от "
 "версии %s"
 
+<<<<<<< HEAD
 #: initdb.c:2636
+=======
+#: initdb.c:2657
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "input file location must be an absolute path"
 msgstr "расположение входных файлов должно задаваться абсолютным путём"
 
+<<<<<<< HEAD
 #: initdb.c:2653
+=======
+#: initdb.c:2674
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The database cluster will be initialized with locale \"%s\".\n"
 msgstr "Кластер баз данных будет инициализирован с локалью \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2656
+=======
+#: initdb.c:2677
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "The database cluster will be initialized with this locale configuration:\n"
 msgstr ""
 "Кластер баз данных будет инициализирован со следующими параметрами локали:\n"
 
+<<<<<<< HEAD
 #: initdb.c:2657
+=======
+#: initdb.c:2678
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  provider:    %s\n"
-msgstr "  провайдер:   %s\n"
+msgid "  locale provider:   %s\n"
+msgstr "  провайдер локалей: %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2659
+=======
+#: initdb.c:2680
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "  ICU locale:  %s\n"
-msgstr "  локаль ICU:  %s\n"
+msgid "  default collation: %s\n"
+msgstr ""
+"  правило сортировки\n"
+"       по умолчанию: %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2660
+=======
+#: initdb.c:2681
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  LC_COLLATE:  %s\n"
@@ -879,22 +1454,38 @@ msgstr ""
 "  LC_NUMERIC:  %s\n"
 "  LC_TIME:     %s\n"
 
+<<<<<<< HEAD
 #: initdb.c:2690
+=======
+#: initdb.c:2711
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find suitable encoding for locale \"%s\""
 msgstr "не удалось найти подходящую кодировку для локали \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2692
+=======
+#: initdb.c:2713
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Rerun %s with the -E option."
 msgstr "Перезапустите %s с параметром -E."
 
+<<<<<<< HEAD
 #: initdb.c:2693 initdb.c:3226 initdb.c:3334 initdb.c:3354
+=======
+#: initdb.c:2714 initdb.c:3257 initdb.c:3377 initdb.c:3397
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Try \"%s --help\" for more information."
 msgstr "Для дополнительной информации попробуйте \"%s --help\"."
 
+<<<<<<< HEAD
 #: initdb.c:2705
+=======
+#: initdb.c:2726
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Encoding \"%s\" implied by locale is not allowed as a server-side encoding.\n"
@@ -903,40 +1494,73 @@ msgstr ""
 "Кодировка \"%s\", подразумеваемая локалью, не годится для сервера.\n"
 "Вместо неё в качестве кодировки БД по умолчанию будет выбрана \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2710
+=======
+#: initdb.c:2731
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "locale \"%s\" requires unsupported encoding \"%s\""
 msgstr "для локали \"%s\" требуется неподдерживаемая кодировка \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2712
+=======
+#: initdb.c:2733
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Encoding \"%s\" is not allowed as a server-side encoding."
 msgstr "Кодировка \"%s\" недопустима в качестве серверной кодировки."
 
+<<<<<<< HEAD
 #: initdb.c:2714
+=======
+#: initdb.c:2735
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Rerun %s with a different locale selection."
 msgstr "Перезапустите %s, выбрав другую локаль."
 
+<<<<<<< HEAD
 #: initdb.c:2722
+=======
+#: initdb.c:2743
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The default database encoding has accordingly been set to \"%s\".\n"
 msgstr ""
 "Кодировка БД по умолчанию, выбранная в соответствии с настройками: \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2791
+=======
+#: initdb.c:2757
+#, c-format
+msgid "builtin provider locale \"%s\" requires encoding \"%s\""
+msgstr "для локали \"%s\" встроенного провайдера требуется кодировка \"%s\""
+
+#: initdb.c:2819
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find suitable text search configuration for locale \"%s\""
 msgstr ""
 "не удалось найти подходящую конфигурацию текстового поиска для локали \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2802
+=======
+#: initdb.c:2830
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "suitable text search configuration for locale \"%s\" is unknown"
 msgstr ""
 "внимание: для локали \"%s\" нет известной конфигурации текстового поиска"
 
+<<<<<<< HEAD
 #: initdb.c:2807
+=======
+#: initdb.c:2835
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "specified text search configuration \"%s\" might not match locale \"%s\""
@@ -944,37 +1568,65 @@ msgstr ""
 "указанная конфигурация текстового поиска \"%s\" может не соответствовать "
 "локали \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:2812
+=======
+#: initdb.c:2840
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "The default text search configuration will be set to \"%s\".\n"
 msgstr "Выбрана конфигурация текстового поиска по умолчанию \"%s\".\n"
 
+<<<<<<< HEAD
 #: initdb.c:2855 initdb.c:2926
+=======
+#: initdb.c:2883 initdb.c:2954
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "creating directory %s ... "
 msgstr "создание каталога %s... "
 
+<<<<<<< HEAD
 #: initdb.c:2860 initdb.c:2931 initdb.c:2979 initdb.c:3035
+=======
+#: initdb.c:2888 initdb.c:2959 initdb.c:3007 initdb.c:3064
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create directory \"%s\": %m"
 msgstr "не удалось создать каталог \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2869 initdb.c:2941
+=======
+#: initdb.c:2897 initdb.c:2969
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "fixing permissions on existing directory %s ... "
 msgstr "исправление прав для существующего каталога %s... "
 
+<<<<<<< HEAD
 #: initdb.c:2874 initdb.c:2946
+=======
+#: initdb.c:2902 initdb.c:2974
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not change permissions of directory \"%s\": %m"
 msgstr "не удалось поменять права для каталога \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2886 initdb.c:2958
+=======
+#: initdb.c:2914 initdb.c:2986
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "directory \"%s\" exists but is not empty"
 msgstr "каталог \"%s\" существует, но он не пуст"
 
+<<<<<<< HEAD
 #: initdb.c:2890
+=======
+#: initdb.c:2918
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "If you want to create a new database system, either remove or empty the "
@@ -983,29 +1635,49 @@ msgstr ""
 "Если вы хотите создать новую систему баз данных, удалите или очистите "
 "каталог \"%s\", либо при запуске %s в качестве пути укажите не \"%s\"."
 
+<<<<<<< HEAD
 #: initdb.c:2898 initdb.c:2968 initdb.c:3375
+=======
+#: initdb.c:2926 initdb.c:2996 initdb.c:3422
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not access directory \"%s\": %m"
 msgstr "ошибка при обращении к каталогу \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2919
+=======
+#: initdb.c:2947
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "WAL directory location must be an absolute path"
 msgstr "расположение каталога WAL должно определяться абсолютным путём"
 
+<<<<<<< HEAD
 #: initdb.c:2962
+=======
+#: initdb.c:2990
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "If you want to store the WAL there, either remove or empty the directory "
 "\"%s\"."
 msgstr "Если вы хотите хранить WAL здесь, удалите или очистите каталог \"%s\"."
 
+<<<<<<< HEAD
 #: initdb.c:2972
+=======
+#: initdb.c:3000
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not create symbolic link \"%s\": %m"
 msgstr "не удалось создать символическую ссылку \"%s\": %m"
 
+<<<<<<< HEAD
 #: initdb.c:2991
+=======
+#: initdb.c:3019
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "It contains a dot-prefixed/invisible file, perhaps due to it being a mount "
@@ -1013,13 +1685,21 @@ msgid ""
 msgstr ""
 "Он содержит файл с точкой (невидимый), возможно, это точка монтирования."
 
+<<<<<<< HEAD
 #: initdb.c:2993
+=======
+#: initdb.c:3021
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "It contains a lost+found directory, perhaps due to it being a mount point."
 msgstr "Он содержит подкаталог lost+found, возможно, это точка монтирования."
 
+<<<<<<< HEAD
 #: initdb.c:2995
+=======
+#: initdb.c:3023
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "Using a mount point directly as the data directory is not recommended.\n"
@@ -1029,67 +1709,115 @@ msgstr ""
 "рекомендуется.\n"
 "Создайте в монтируемом ресурсе подкаталог и используйте его."
 
+<<<<<<< HEAD
 #: initdb.c:3021
+=======
+#: initdb.c:3050
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "creating subdirectories ... "
 msgstr "создание подкаталогов... "
 
+<<<<<<< HEAD
 #: initdb.c:3064
 msgid "performing post-bootstrap initialization ... "
 msgstr "выполняется заключительная инициализация... "
 
 #: initdb.c:3225
+=======
+#: initdb.c:3093
+msgid "performing post-bootstrap initialization ... "
+msgstr "выполняется заключительная инициализация... "
+
+#: initdb.c:3256
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "-c %s requires a value"
 msgstr "для -c %s требуется значение"
 
+<<<<<<< HEAD
 #: initdb.c:3250
+=======
+#: initdb.c:3281
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Running in debug mode.\n"
 msgstr "Программа запущена в режиме отладки.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3254
+=======
+#: initdb.c:3285
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Running in no-clean mode.  Mistakes will not be cleaned up.\n"
 msgstr ""
 "Программа запущена в режиме 'no-clean' - очистки и исправления ошибок не "
 "будет.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3324
+=======
+#: initdb.c:3358
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized locale provider: %s"
 msgstr "нераспознанный провайдер локали: %s"
 
+<<<<<<< HEAD
 #: initdb.c:3352
+=======
+#: initdb.c:3395
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many command-line arguments (first is \"%s\")"
 msgstr "слишком много аргументов командной строки (первый: \"%s\")"
 
+<<<<<<< HEAD
 #: initdb.c:3359 initdb.c:3363
+=======
+#: initdb.c:3402 initdb.c:3406 initdb.c:3410
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s cannot be specified unless locale provider \"%s\" is chosen"
 msgstr "%s можно указать, только если выбран провайдер локали \"%s\""
 
+<<<<<<< HEAD
 #: initdb.c:3377 initdb.c:3454
 msgid "syncing data to disk ... "
 msgstr "сохранение данных на диске... "
 
 #: initdb.c:3385
+=======
+#: initdb.c:3424 initdb.c:3487
+msgid "syncing data to disk ... "
+msgstr "сохранение данных на диске... "
+
+#: initdb.c:3432
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "password prompt and password file cannot be specified together"
 msgstr "нельзя одновременно запросить пароль и прочитать пароль из файла"
 
+<<<<<<< HEAD
 #: initdb.c:3407
+=======
+#: initdb.c:3443
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "argument of --wal-segsize must be a number"
-msgstr "аргументом --wal-segsize должно быть число"
+msgid "argument of %s must be a power of two between 1 and 1024"
+msgstr "аргументом %s должна быть степень двух от 1 до 1024"
 
+<<<<<<< HEAD
 #: initdb.c:3409
 #, c-format
 msgid "argument of --wal-segsize must be a power of two between 1 and 1024"
 msgstr "аргументом --wal-segsize должна быть степень двух от 1 до 1024"
 
 #: initdb.c:3423
+=======
+#: initdb.c:3456
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "superuser name \"%s\" is disallowed; role names cannot begin with \"pg_\""
@@ -1097,7 +1825,11 @@ msgstr ""
 "имя \"%s\" для суперпользователя не допускается; имена ролей не могут "
 "начинаться с \"pg_\""
 
+<<<<<<< HEAD
 #: initdb.c:3425
+=======
+#: initdb.c:3458
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "The files belonging to this database system will be owned by user \"%s\".\n"
@@ -1108,17 +1840,29 @@ msgstr ""
 "От его имени также будет запускаться процесс сервера.\n"
 "\n"
 
+<<<<<<< HEAD
 #: initdb.c:3441
+=======
+#: initdb.c:3474
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Data page checksums are enabled.\n"
 msgstr "Контроль целостности страниц данных включён.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3443
+=======
+#: initdb.c:3476
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Data page checksums are disabled.\n"
 msgstr "Контроль целостности страниц данных отключён.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3460
+=======
+#: initdb.c:3493
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -1129,12 +1873,20 @@ msgstr ""
 "Сохранение данных на диск пропускается.\n"
 "Каталог данных может повредиться при сбое операционной системы.\n"
 
+<<<<<<< HEAD
 #: initdb.c:3465
+=======
+#: initdb.c:3498
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "enabling \"trust\" authentication for local connections"
 msgstr "включение метода аутентификации \"trust\" для локальных подключений"
 
+<<<<<<< HEAD
 #: initdb.c:3466
+=======
+#: initdb.c:3499
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "You can change this by editing pg_hba.conf or using the option -A, or --auth-"
@@ -1144,11 +1896,19 @@ msgstr ""
 "initdb с ключом -A, --auth-local или --auth-host."
 
 #. translator: This is a placeholder in a shell command.
+<<<<<<< HEAD
 #: initdb.c:3496
 msgid "logfile"
 msgstr "файл_журнала"
 
 #: initdb.c:3498
+=======
+#: initdb.c:3529
+msgid "logfile"
+msgstr "файл_журнала"
+
+#: initdb.c:3531
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -1164,6 +1924,17 @@ msgstr ""
 "\n"
 
 #, c-format
+<<<<<<< HEAD
+=======
+#~ msgid "  ICU locale:  %s\n"
+#~ msgstr "  локаль ICU:  %s\n"
+
+#, c-format
+#~ msgid "argument of --wal-segsize must be a number"
+#~ msgstr "аргументом --wal-segsize должно быть число"
+
+#, c-format
+>>>>>>> REL_18_BETA1_branch
 #~ msgid "could not identify current directory: %m"
 #~ msgstr "не удалось определить текущий каталог: %m"
 
@@ -1188,10 +1959,13 @@ msgstr ""
 #~ msgstr "не удалось получить информацию о файле или каталоге \"%s\": %m"
 
 #, c-format
+<<<<<<< HEAD
 #~ msgid "could not remove file or directory \"%s\": %m"
 #~ msgstr "ошибка при удалении файла или каталога \"%s\": %m"
 
 #, c-format
+=======
+>>>>>>> REL_18_BETA1_branch
 #~ msgid "The default database encoding has been set to \"%s\".\n"
 #~ msgstr "В качестве кодировки БД по умолчанию установлена \"%s\".\n"
 

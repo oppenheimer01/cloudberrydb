@@ -354,6 +354,19 @@ ORDER BY ctid DESC LIMIT 5;
 
 ROLLBACK;
 ----
+-- test sorting of large datums VALUES
+----
+-- Ensure the order is correct and values look intact
+SELECT LEFT(a,10),b FROM
+    (VALUES(REPEAT('a', 512 * 1024),1),(REPEAT('b', 512 * 1024),2)) v(a,b)
+ORDER BY v.a DESC;
+    left    | b 
+------------+---
+ bbbbbbbbbb | 2
+ aaaaaaaaaa | 1
+(2 rows)
+
+----
 -- test forward and backward scans for in-memory and disk based tuplesort
 ----
 -- in-memory
@@ -386,6 +399,7 @@ FETCH NEXT FROM c;
  00000000-0000-0000-0000-000000010009
 (1 row)
 
+<<<<<<< HEAD
 --start_ignore
 --GDPB doesn't support backward fetch.
 /*
@@ -406,6 +420,76 @@ FETCH NEXT FROM c;
  * FETCH NEXT FROM c;
  */
 --end_ignore
+=======
+-- scroll beyond beginning
+FETCH BACKWARD FROM c;
+          noabort_decreasing          
+--------------------------------------
+ 00000000-0000-0000-0000-000000000000
+(1 row)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH NEXT FROM c;
+          noabort_decreasing          
+--------------------------------------
+ 00000000-0000-0000-0000-000000000000
+(1 row)
+
+-- scroll beyond end
+FETCH LAST FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+>>>>>>> REL_18_BETA1_branch
 COMMIT;
 -- disk based
 BEGIN;
@@ -440,6 +524,7 @@ FETCH NEXT FROM c;
 
 --start_ignore
 -- scroll beyond beginning
+<<<<<<< HEAD
 /*
  * FETCH BACKWARD FROM c;
  * FETCH BACKWARD FROM c;
@@ -457,6 +542,75 @@ FETCH NEXT FROM c;
  * FETCH NEXT FROM c;
  */
 --end_ignore
+=======
+FETCH BACKWARD FROM c;
+          noabort_decreasing          
+--------------------------------------
+ 00000000-0000-0000-0000-000000000000
+(1 row)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH NEXT FROM c;
+          noabort_decreasing          
+--------------------------------------
+ 00000000-0000-0000-0000-000000000000
+(1 row)
+
+-- scroll beyond end
+FETCH LAST FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+FETCH BACKWARD FROM c;
+ noabort_decreasing 
+--------------------
+ 
+(1 row)
+
+FETCH NEXT FROM c;
+ noabort_decreasing 
+--------------------
+(0 rows)
+
+>>>>>>> REL_18_BETA1_branch
 COMMIT;
 ----
 -- test tuplesort using both in-memory and disk sort

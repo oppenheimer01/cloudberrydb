@@ -3,9 +3,13 @@
  * parse_type.c
  *		handle type operations for parser
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -539,7 +543,7 @@ LookupCollation(ParseState *pstate, List *collnames, int location)
  * pstate is only used for error location purposes, and can be NULL.
  */
 Oid
-GetColumnDefCollation(ParseState *pstate, ColumnDef *coldef, Oid typeOid)
+GetColumnDefCollation(ParseState *pstate, const ColumnDef *coldef, Oid typeOid)
 {
 	Oid			result;
 	Oid			typcollation = get_typcollation(typeOid);
@@ -744,7 +748,7 @@ typeStringToTypeName(const char *str, Node *escontext)
 	ErrorContextCallback ptserrcontext;
 
 	/* make sure we give useful error for empty input */
-	if (strspn(str, " \t\n\r\f") == strlen(str))
+	if (strspn(str, " \t\n\r\f\v") == strlen(str))
 		goto fail;
 
 	/*

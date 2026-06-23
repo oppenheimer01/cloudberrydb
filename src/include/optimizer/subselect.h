@@ -3,9 +3,13 @@
  * subselect.h
  *	  Planning routines for subselects.
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/subselect.h
@@ -21,10 +25,16 @@
 #if 0
 /* Not used in GPDB */
 extern void SS_process_ctes(PlannerInfo *root);
+<<<<<<< HEAD
 #endif
 extern Node *convert_testexpr(PlannerInfo *root,
 				 Node *testexpr,
 				 List *subst_nodes);
+=======
+extern ScalarArrayOpExpr *convert_VALUES_to_ANY(PlannerInfo *root,
+												Node *testexpr,
+												Query *values);
+>>>>>>> REL_18_BETA1_branch
 extern JoinExpr *convert_ANY_sublink_to_join(PlannerInfo *root,
 											 SubLink *sublink,
 											 Relids available_rels);
@@ -38,6 +48,9 @@ extern Node *SS_replace_correlation_vars(PlannerInfo *root, Node *expr);
 extern Node *SS_process_sublinks(PlannerInfo *root, Node *expr, bool isQual);
 extern void SS_identify_outer_params(PlannerInfo *root);
 extern void SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel);
+extern void SS_compute_initplan_cost(List *init_plans,
+									 Cost *initplan_cost_p,
+									 bool *unsafe_initplans_p);
 extern void SS_attach_initplans(PlannerInfo *root, Plan *plan);
 extern void SS_finalize_plan(PlannerInfo *root, Plan *plan);
 extern Param *SS_make_initplan_output_param(PlannerInfo *root,

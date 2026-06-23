@@ -40,8 +40,13 @@
 #ifdef USE_LLVM_BACKPORT_SECTION_MEMORY_MANAGER
 
 #include "jit/SectionMemoryManager.h"
+<<<<<<< HEAD
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Process.h"
+=======
+#include <llvm/Support/MathExtras.h>
+#include <llvm/Support/Process.h>
+>>>>>>> REL_18_BETA1_branch
 
 namespace llvm {
 namespace backport {

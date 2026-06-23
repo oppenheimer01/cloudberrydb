@@ -3,9 +3,13 @@
  * nodeHash.c
  *	  Routines to hash relations for hashjoin
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -33,17 +37,14 @@
 #include "access/parallel.h"
 #include "catalog/pg_statistic.h"
 #include "commands/tablespace.h"
-#include "executor/execdebug.h"
+#include "executor/executor.h"
 #include "executor/hashjoin.h"
 #include "executor/nodeHash.h"
 #include "executor/nodeHashjoin.h"
 #include "executor/nodeRuntimeFilter.h"
 #include "miscadmin.h"
-#include "pgstat.h"
-#include "port/atomics.h"
 #include "port/pg_bitutils.h"
 #include "utils/dynahash.h"
-#include "utils/guc.h"
 #include "utils/lsyscache.h"
 #include "utils/faultinjector.h"
 #include "utils/syscache.h"
@@ -54,6 +55,7 @@
 
 #include "utils/memutils.h"
 #include "utils/syscache.h"
+#include "utils/wait_event.h"
 
 #include "lib/bloomfilter.h"
 
@@ -61,7 +63,8 @@ static void ExecHashIncreaseNumBatches(HashJoinTable hashtable);
 static void ExecHashIncreaseNumBuckets(HashJoinTable hashtable);
 static void ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable);
 static void ExecParallelHashIncreaseNumBuckets(HashJoinTable hashtable);
-static void ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node,
+static void ExecHashBuildSkewHash(HashState *hashstate,
+								  HashJoinTable hashtable, Hash *node,
 								  int mcvsToUse);
 static void ExecHashSkewTableInsert(HashState *hashState,
 									HashJoinTable hashtable,
@@ -167,11 +170,9 @@ static void
 MultiExecPrivateHash(HashState *node)
 {
 	PlanState  *outerNode;
-	List	   *hashkeys;
 	HashJoinTable hashtable;
 	TupleTableSlot *slot;
 	ExprContext *econtext;
-	uint32		hashvalue;
 
 	/*
 	 * get state info from node
@@ -182,7 +183,6 @@ MultiExecPrivateHash(HashState *node)
 	/*
 	 * set expression context
 	 */
-	hashkeys = node->hashkeys;
 	econtext = node->ps.ps_ExprContext;
 
 	SIMPLE_FAULT_INJECTOR("multi_exec_hash_large_vmem");
@@ -193,6 +193,9 @@ MultiExecPrivateHash(HashState *node)
 	 */
 	for (;;)
 	{
+		bool		isnull;
+		Datum		hashdatum;
+
 		slot = ExecProcNode(outerNode);
 		if (TupIsNull(slot))
 		{
@@ -206,11 +209,22 @@ MultiExecPrivateHash(HashState *node)
 
 		/* We have to compute the hash value */
 		econtext->ecxt_outertuple = slot;
+<<<<<<< HEAD
 		bool hashkeys_null = false;
 		if (ExecHashGetHashValue(node, hashtable, econtext, hashkeys,
 								 false, hashtable->keepNulls,
 								 &hashvalue, &hashkeys_null))
+=======
+
+		ResetExprContext(econtext);
+
+		hashdatum = ExecEvalExprSwitchContext(node->hash_expr, econtext,
+											  &isnull);
+
+		if (!isnull)
+>>>>>>> REL_18_BETA1_branch
 		{
+			uint32		hashvalue = DatumGetUInt32(hashdatum);
 			int			bucketNumber;
 
 			bucketNumber = ExecHashGetSkewBucket(hashtable, hashvalue);
@@ -268,7 +282,6 @@ MultiExecParallelHash(HashState *node)
 {
 	ParallelHashJoinState *pstate;
 	PlanState  *outerNode;
-	List	   *hashkeys;
 	HashJoinTable hashtable;
 	TupleTableSlot *slot;
 	ExprContext *econtext;
@@ -285,7 +298,6 @@ MultiExecParallelHash(HashState *node)
 	/*
 	 * set expression context
 	 */
-	hashkeys = node->hashkeys;
 	econtext = node->ps.ps_ExprContext;
 
 	/*
@@ -332,6 +344,7 @@ MultiExecParallelHash(HashState *node)
 			ExecParallelHashTableSetCurrentBatch(hashtable, 0);
 			for (;;)
 			{
+<<<<<<< HEAD
 				bool		hashkeys_null = false;
 
 				/* CBDB_PARALLEL: Siblings must have found null value. */
@@ -341,15 +354,29 @@ MultiExecParallelHash(HashState *node)
 					ExecSquelchNode(outerNode, false);
 					break;
 				}
+=======
+				bool		isnull;
+>>>>>>> REL_18_BETA1_branch
 
 				slot = ExecProcNode(outerNode);
 				if (TupIsNull(slot))
 					break;
 
 				econtext->ecxt_outertuple = slot;
+<<<<<<< HEAD
 				if (ExecHashGetHashValue(node, hashtable, econtext, hashkeys,
 										 false, hashtable->keepNulls,
 										 &hashvalue, &hashkeys_null))
+=======
+
+				ResetExprContext(econtext);
+
+				hashvalue = DatumGetUInt32(ExecEvalExprSwitchContext(node->hash_expr,
+																	 econtext,
+																	 &isnull));
+
+				if (!isnull)
+>>>>>>> REL_18_BETA1_branch
 					ExecParallelHashTableInsert(hashtable, slot, hashvalue);
 				hashtable->partialTuples++;
 
@@ -475,8 +502,8 @@ ExecInitHash(Hash *node, EState *estate, int eflags)
 	hashstate->ps.plan = (Plan *) node;
 	hashstate->ps.state = estate;
 	hashstate->ps.ExecProcNode = ExecHash;
+	/* delay building hashtable until ExecHashTableCreate() in executor run */
 	hashstate->hashtable = NULL;
-	hashstate->hashkeys = NIL;	/* will be set by parent HashJoin */
 
 	hashstate->rfstate = NULL;
 
@@ -499,12 +526,16 @@ ExecInitHash(Hash *node, EState *estate, int eflags)
 	ExecInitResultTupleSlotTL(&hashstate->ps, &TTSOpsMinimalTuple);
 	hashstate->ps.ps_ProjInfo = NULL;
 
-	/*
-	 * initialize child expressions
-	 */
 	Assert(node->plan.qual == NIL);
-	hashstate->hashkeys =
-		ExecInitExprList(node->hashkeys, (PlanState *) hashstate);
+
+	/*
+	 * Delay initialization of hash_expr until ExecInitHashJoin().  We cannot
+	 * build the ExprState here as we don't yet know the join type we're going
+	 * to be hashing values for and we need to know that before calling
+	 * ExecBuildHash32Expr as the keep_nulls parameter depends on the join
+	 * type.
+	 */
+	hashstate->hash_expr = NULL;
 
 	return hashstate;
 }
@@ -519,11 +550,6 @@ void
 ExecEndHash(HashState *node)
 {
 	PlanState  *outerPlan;
-
-	/*
-	 * free exprcontext
-	 */
-	ExecFreeExprContext(&node->ps);
 
 	/*
 	 * shut down the subplan
@@ -543,9 +569,13 @@ ExecEndHash(HashState *node)
  * ----------------------------------------------------------------
  */
 HashJoinTable
+<<<<<<< HEAD
 ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
 					List *hashOperators, List *hashCollations,
 					bool keepNulls, uint64 operatorMemKB)
+=======
+ExecHashTableCreate(HashState *state)
+>>>>>>> REL_18_BETA1_branch
 {
 	Hash	   *node;
 	HashJoinTable hashtable;
@@ -556,10 +586,6 @@ ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
 	double		rows;
 	int			num_skew_mcvs;
 	int			log2_nbuckets;
-	int			nkeys;
-	int			i;
-	ListCell   *ho;
-	ListCell   *hc;
 	MemoryContext oldcxt;
 
 	/*
@@ -604,7 +630,6 @@ ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
 	hashtable->log2_nbuckets = log2_nbuckets;
 	hashtable->log2_nbuckets_optimal = log2_nbuckets;
 	hashtable->buckets.unshared = NULL;
-	hashtable->keepNulls = keepNulls;
 	hashtable->skewEnabled = false;
 	hashtable->skewBucket = NULL;
 	hashtable->skewBucketLen = 0;
@@ -667,32 +692,6 @@ ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
 	/* Allocate data that will live for the life of the hashjoin */
 
 	oldcxt = MemoryContextSwitchTo(hashtable->hashCxt);
-
-	/*
-	 * Get info about the hash functions to be used for each hash key. Also
-	 * remember whether the join operators are strict.
-	 */
-	nkeys = list_length(hashOperators);
-	hashtable->outer_hashfunctions = palloc_array(FmgrInfo, nkeys);
-	hashtable->inner_hashfunctions = palloc_array(FmgrInfo, nkeys);
-	hashtable->hashStrict = palloc_array(bool, nkeys);
-	hashtable->collations = palloc_array(Oid, nkeys);
-	i = 0;
-	forboth(ho, hashOperators, hc, hashCollations)
-	{
-		Oid			hashop = lfirst_oid(ho);
-		Oid			left_hashfn;
-		Oid			right_hashfn;
-
-		if (!get_op_hash_functions(hashop, &left_hashfn, &right_hashfn))
-			elog(ERROR, "could not find hash function for hash operator %u",
-				 hashop);
-		fmgr_info(left_hashfn, &hashtable->outer_hashfunctions[i]);
-		fmgr_info(right_hashfn, &hashtable->inner_hashfunctions[i]);
-		hashtable->hashStrict[i] = op_strict(hashop);
-		hashtable->collations[i] = lfirst_oid(hc);
-		i++;
-	}
 
 	if (nbatch > 1 && hashtable->parallel_state == NULL)
 	{
@@ -786,7 +785,7 @@ ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
 		 * it.)
 		 */
 		if (nbatch > 1)
-			ExecHashBuildSkewHash(hashtable, node, num_skew_mcvs);
+			ExecHashBuildSkewHash(state, hashtable, node, num_skew_mcvs);
 
 		MemoryContextSwitchTo(oldcxt);
 	}
@@ -1080,6 +1079,90 @@ ExecChooseHashTableSize(double ntuples, int tupwidth, bool useskew,
 	Assert(nbuckets > 0);
 	Assert(nbatch > 0);
 
+	/*
+	 * Optimize the total amount of memory consumed by the hash node.
+	 *
+	 * The nbatch calculation above focuses on the size of the in-memory hash
+	 * table, assuming no per-batch overhead. Now adjust the number of batches
+	 * and the size of the hash table to minimize total memory consumed by the
+	 * hash node.
+	 *
+	 * Each batch file has a BLCKSZ buffer, and we may need two files per
+	 * batch (inner and outer side). So with enough batches this can be
+	 * significantly more memory than the hashtable itself.
+	 *
+	 * The total memory usage may be expressed by this formula:
+	 *
+	 * (inner_rel_bytes / nbatch) + (2 * nbatch * BLCKSZ) <= hash_table_bytes
+	 *
+	 * where (inner_rel_bytes / nbatch) is the size of the in-memory hash
+	 * table and (2 * nbatch * BLCKSZ) is the amount of memory used by file
+	 * buffers. But for sufficiently large values of inner_rel_bytes value
+	 * there may not be a nbatch value that would make both parts fit into
+	 * hash_table_bytes.
+	 *
+	 * In this case we can't enforce the memory limit - we're going to exceed
+	 * it. We can however minimize the impact and use as little memory as
+	 * possible. (We haven't really enforced it before either, as we simply
+	 * ignored the batch files.)
+	 *
+	 * The formula for total memory usage says that given an inner relation of
+	 * size inner_rel_bytes, we may divide it into an arbitrary number of
+	 * batches. This determines both the size of the in-memory hash table and
+	 * the amount of memory needed for batch files. These two terms work in
+	 * opposite ways - when one decreases, the other increases.
+	 *
+	 * For low nbatch values, the hash table takes most of the memory, but at
+	 * some point the batch files start to dominate. If you combine these two
+	 * terms, the memory consumption (for a fixed size of the inner relation)
+	 * has a u-shape, with a minimum at some nbatch value.
+	 *
+	 * Our goal is to find this nbatch value, minimizing the memory usage. We
+	 * calculate the memory usage with half the batches (i.e. nbatch/2), and
+	 * if it's lower than the current memory usage we know it's better to use
+	 * fewer batches. We repeat this until reducing the number of batches does
+	 * not reduce the memory usage - we found the optimum. We know the optimum
+	 * exists, thanks to the u-shape.
+	 *
+	 * We only want to do this when exceeding the memory limit, not every
+	 * time. The goal is not to minimize memory usage in every case, but to
+	 * minimize the memory usage when we can't stay within the memory limit.
+	 *
+	 * For this reason we only consider reducing the number of batches. We
+	 * could try the opposite direction too, but that would save memory only
+	 * when most of the memory is used by the hash table. And the hash table
+	 * was used for the initial sizing, so we shouldn't be exceeding the
+	 * memory limit too much. We might save memory by using more batches, but
+	 * it would result in spilling more batch files, which does not seem like
+	 * a great trade off.
+	 *
+	 * While growing the hashtable, we also adjust the number of buckets, to
+	 * not have more than one tuple per bucket (load factor 1). We can only do
+	 * this during the initial sizing - once we start building the hash,
+	 * nbucket is fixed.
+	 */
+	while (nbatch > 0)
+	{
+		/* how much memory are we using with current nbatch value */
+		size_t		current_space = hash_table_bytes + (2 * nbatch * BLCKSZ);
+
+		/* how much memory would we use with half the batches */
+		size_t		new_space = hash_table_bytes * 2 + (nbatch * BLCKSZ);
+
+		/* If the memory usage would not decrease, we found the optimum. */
+		if (current_space < new_space)
+			break;
+
+		/*
+		 * It's better to use half the batches, so do that and adjust the
+		 * nbucket in the opposite direction, and double the allowance.
+		 */
+		nbatch /= 2;
+		nbuckets *= 2;
+
+		*space_allowed = (*space_allowed) * 2;
+	}
+
 	Assert(nbuckets > 0);
 	Assert(nbatch > 0);
 
@@ -1137,6 +1220,47 @@ ExecHashTableDestroy(HashState *hashState, HashJoinTable hashtable)
 }
 
 /*
+ * Consider adjusting the allowed hash table size, depending on the number
+ * of batches, to minimize the overall memory usage (for both the hashtable
+ * and batch files).
+ *
+ * We're adjusting the size of the hash table, not the (optimal) number of
+ * buckets. We can't change that once we start building the hash, due to how
+ * ExecHashGetBucketAndBatch calculates batchno/bucketno from the hash. This
+ * means the load factor may not be optimal, but we're in damage control so
+ * we accept slower lookups. It's still much better than batch explosion.
+ *
+ * Returns true if we chose to increase the batch size (and thus we don't
+ * need to add batches), and false if we should increase nbatch.
+ */
+static bool
+ExecHashIncreaseBatchSize(HashJoinTable hashtable)
+{
+	/*
+	 * How much additional memory would doubling nbatch use? Each batch may
+	 * require two buffered files (inner/outer), with a BLCKSZ buffer.
+	 */
+	size_t		batchSpace = (hashtable->nbatch * 2 * BLCKSZ);
+
+	/*
+	 * Compare the new space needed for doubling nbatch and for enlarging the
+	 * in-memory hash table. If doubling the hash table needs less memory,
+	 * just do that. Otherwise, continue with doubling the nbatch.
+	 *
+	 * We're either doubling spaceAllowed of batchSpace, so which of those
+	 * increases the memory usage the least is the same as comparing the
+	 * values directly.
+	 */
+	if (hashtable->spaceAllowed <= batchSpace)
+	{
+		hashtable->spaceAllowed *= 2;
+		return true;
+	}
+
+	return false;
+}
+
+/*
  * ExecHashIncreaseNumBatches
  *		increase the original number of batches in order to reduce
  *		current memory consumption
@@ -1162,8 +1286,14 @@ ExecHashIncreaseNumBatches(HashJoinTable hashtable)
 	if (oldnbatch > Min(INT_MAX / 2, MaxAllocSize / (sizeof(void *) * 2)))
 		return;
 
+<<<<<<< HEAD
 	/* A reusable hash table can only respill during first pass */
 	AssertImply(hashtable->hjstate->reuse_hashtable, hashtable->first_pass);
+=======
+	/* consider increasing size of the in-memory hash table instead */
+	if (ExecHashIncreaseBatchSize(hashtable))
+		return;
+>>>>>>> REL_18_BETA1_branch
 
 	nbatch = oldnbatch * 2;
 	Assert(nbatch > 1);
@@ -1414,6 +1544,7 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 					double		dtuples;
 					double		dbuckets;
 					int			new_nbuckets;
+					uint32		max_buckets;
 
 					/*
 					 * We probably also need a smaller bucket array.  How many
@@ -1426,9 +1557,23 @@ ExecParallelHashIncreaseNumBatches(HashJoinTable hashtable)
 					 * array.
 					 */
 					dtuples = (old_batch0->ntuples * 2.0) / new_nbatch;
+<<<<<<< HEAD
 					dbuckets = ceil(dtuples / gp_hashjoin_tuples_per_bucket);
 					dbuckets = Min(dbuckets,
 								   MaxAllocSize / sizeof(dsa_pointer_atomic));
+=======
+
+					/*
+					 * We need to calculate the maximum number of buckets to
+					 * stay within the MaxAllocSize boundary.  Round the
+					 * maximum number to the previous power of 2 given that
+					 * later we round the number to the next power of 2.
+					 */
+					max_buckets = pg_prevpower2_32((uint32)
+												   (MaxAllocSize / sizeof(dsa_pointer_atomic)));
+					dbuckets = ceil(dtuples / NTUP_PER_BUCKET);
+					dbuckets = Min(dbuckets, max_buckets);
+>>>>>>> REL_18_BETA1_branch
 					new_nbuckets = (int) dbuckets;
 					new_nbuckets = Max(new_nbuckets, 1024);
 					new_nbuckets = pg_nextpower2_32(new_nbuckets);
@@ -2076,6 +2221,7 @@ ExecParallelHashTableInsertCurrentBatch(HashJoinTable hashtable,
 		heap_free_minimal_tuple(tuple);
 }
 
+<<<<<<< HEAD
 /*
  * ExecHashGetHashValue
  *		Compute the hash value for a tuple
@@ -2200,6 +2346,8 @@ ExecHashGetHashValue(HashState *hashState, HashJoinTable hashtable,
 	*hashvalue = hashkey;
 	return result;
 }
+=======
+>>>>>>> REL_18_BETA1_branch
 
 /*
  * ExecHashGetBucketAndBatch
@@ -3061,7 +3209,8 @@ ExecHashTableExplainBatchEnd(HashState *hashState, HashJoinTable hashtable)
  *		based on available memory.
  */
 static void
-ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
+ExecHashBuildSkewHash(HashState *hashstate, HashJoinTable hashtable,
+					  Hash *node, int mcvsToUse)
 {
 	HeapTupleData *statsTuple;
 	AttStatsSlot sslot;
@@ -3089,7 +3238,6 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 	{
 		double		frac;
 		int			nbuckets;
-		FmgrInfo   *hashfunctions;
 		int			i;
 
 		if (mcvsToUse > sslot.nvalues)
@@ -3157,15 +3305,14 @@ ExecHashBuildSkewHash(HashJoinTable hashtable, Hash *node, int mcvsToUse)
 		 * ExecHashRemoveNextSkewBucket) and we want the least common MCVs to
 		 * be removed first.
 		 */
-		hashfunctions = hashtable->outer_hashfunctions;
 
 		for (i = 0; i < mcvsToUse; i++)
 		{
 			uint32		hashvalue;
 			int			bucket;
 
-			hashvalue = DatumGetUInt32(FunctionCall1Coll(&hashfunctions[0],
-														 hashtable->collations[0],
+			hashvalue = DatumGetUInt32(FunctionCall1Coll(hashstate->skew_hashfunction,
+														 hashstate->skew_collation,
 														 sslot.values[i]));
 
 			/*

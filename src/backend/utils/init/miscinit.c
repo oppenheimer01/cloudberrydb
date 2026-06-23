@@ -3,7 +3,7 @@
  * miscinit.c
  *	  miscellaneous initialization support stuff
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -41,10 +41,13 @@
 #include "postmaster/loginmonitor.h"
 #include "postmaster/fts.h"
 #include "postmaster/interrupt.h"
-#include "postmaster/pgarch.h"
 #include "postmaster/postmaster.h"
+<<<<<<< HEAD
 #include "postmaster/startup.h"
 #include "replication/walsender.h"
+=======
+#include "replication/slotsync.h"
+>>>>>>> REL_18_BETA1_branch
 #include "storage/fd.h"
 #include "storage/ipc.h"
 #include "storage/latch.h"
@@ -117,6 +120,7 @@ InitPostmasterChild(void)
 	pgwin32_signal_initialize();
 #endif
 
+<<<<<<< HEAD
 	/*
 	 * Set reference point for stack-depth checking.  This might seem
 	 * redundant in !EXEC_BACKEND builds, but it's better to keep the depth
@@ -124,6 +128,8 @@ InitPostmasterChild(void)
 	 */
 	(void) set_stack_base();
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	InitProcessGlobals();
 
 	/*
@@ -145,7 +151,7 @@ InitPostmasterChild(void)
 #endif
 
 	/* Initialize process-local latch support */
-	InitializeLatchSupport();
+	InitializeWaitEventSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
@@ -206,7 +212,7 @@ InitStandaloneProcess(const char *argv0)
 	InitProcessGlobals();
 
 	/* Initialize process-local latch support */
-	InitializeLatchSupport();
+	InitializeWaitEventSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
@@ -271,54 +277,72 @@ SwitchBackToLocalLatch(void)
 	SetLatch(MyLatch);
 }
 
+/*
+ * Return a human-readable string representation of a BackendType.
+ *
+ * The string is not localized here, but we mark the strings for translation
+ * so that callers can invoke _() on the result.
+ */
 const char *
 GetBackendTypeDesc(BackendType backendType)
 {
-	const char *backendDesc = "unknown process type";
+	const char *backendDesc = gettext_noop("unknown process type");
 
 	switch (backendType)
 	{
 		case B_INVALID:
-			backendDesc = "not initialized";
+			backendDesc = gettext_noop("not initialized");
 			break;
 		case B_ARCHIVER:
-			backendDesc = "archiver";
+			backendDesc = gettext_noop("archiver");
 			break;
 		case B_AUTOVAC_LAUNCHER:
-			backendDesc = "autovacuum launcher";
+			backendDesc = gettext_noop("autovacuum launcher");
 			break;
 		case B_AUTOVAC_WORKER:
-			backendDesc = "autovacuum worker";
+			backendDesc = gettext_noop("autovacuum worker");
 			break;
 		case B_BACKEND:
-			backendDesc = "client backend";
+			backendDesc = gettext_noop("client backend");
+			break;
+		case B_DEAD_END_BACKEND:
+			backendDesc = gettext_noop("dead-end client backend");
 			break;
 		case B_BG_WORKER:
-			backendDesc = "background worker";
+			backendDesc = gettext_noop("background worker");
 			break;
 		case B_BG_WRITER:
-			backendDesc = "background writer";
+			backendDesc = gettext_noop("background writer");
 			break;
 		case B_CHECKPOINTER:
-			backendDesc = "checkpointer";
+			backendDesc = gettext_noop("checkpointer");
+			break;
+		case B_IO_WORKER:
+			backendDesc = gettext_noop("io worker");
 			break;
 		case B_LOGGER:
-			backendDesc = "logger";
+			backendDesc = gettext_noop("logger");
+			break;
+		case B_SLOTSYNC_WORKER:
+			backendDesc = gettext_noop("slotsync worker");
 			break;
 		case B_STANDALONE_BACKEND:
-			backendDesc = "standalone backend";
+			backendDesc = gettext_noop("standalone backend");
 			break;
 		case B_STARTUP:
-			backendDesc = "startup";
+			backendDesc = gettext_noop("startup");
 			break;
 		case B_WAL_RECEIVER:
-			backendDesc = "walreceiver";
+			backendDesc = gettext_noop("walreceiver");
 			break;
 		case B_WAL_SENDER:
-			backendDesc = "walsender";
+			backendDesc = gettext_noop("walsender");
+			break;
+		case B_WAL_SUMMARIZER:
+			backendDesc = gettext_noop("walsummarizer");
 			break;
 		case B_WAL_WRITER:
-			backendDesc = "walwriter";
+			backendDesc = gettext_noop("walwriter");
 			break;
 		case B_LOGIN_MONITOR:
 			backendDesc = "login monitor";
@@ -484,8 +508,8 @@ ChangeToDataDir(void)
  * AuthenticatedUserId is determined at connection start and never changes.
  *
  * SessionUserId is initially the same as AuthenticatedUserId, but can be
- * changed by SET SESSION AUTHORIZATION (if AuthenticatedUserIsSuperuser).
- * This is the ID reported by the SESSION_USER SQL function.
+ * changed by SET SESSION AUTHORIZATION (if AuthenticatedUserId is a
+ * superuser).  This is the ID reported by the SESSION_USER SQL function.
  *
  * OuterUserId is the current user ID in effect at the "outer level" (outside
  * any transaction or function).  This is initially the same as SessionUserId,
@@ -509,8 +533,7 @@ static Oid	OuterUserId = InvalidOid;
 static Oid	CurrentUserId = InvalidOid;
 static const char *SystemUser = NULL;
 
-/* We also have to remember the superuser state of some of these levels */
-static bool AuthenticatedUserIsSuperuser = false;
+/* We also have to remember the superuser state of the session user */
 static bool SessionUserIsSuperuser = false;
 
 static int	SecurityRestrictionContext = 0;
@@ -586,6 +609,7 @@ SetSessionUserId(Oid userid, bool is_superuser)
 	Assert(OidIsValid(userid));
 	SessionUserId = userid;
 	SessionUserIsSuperuser = is_superuser;
+<<<<<<< HEAD
 }
 
 bool
@@ -593,6 +617,8 @@ IsAuthenticatedUserSuperUser()
 {
 	AssertState(OidIsValid(AuthenticatedUserId));
 	return AuthenticatedUserIsSuperuser;
+=======
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -616,6 +642,7 @@ GetAuthenticatedUserId(void)
 	return AuthenticatedUserId;
 }
 
+<<<<<<< HEAD
 /*
  * Return whether the authenticated user was superuser at connection start.
  */
@@ -628,6 +655,10 @@ GetAuthenticatedUserIsSuperuser(void)
 
 void
 SetAuthenticatedUserId(Oid userid, bool is_superuser)
+=======
+void
+SetAuthenticatedUserId(Oid userid)
+>>>>>>> REL_18_BETA1_branch
 {
 	Assert(OidIsValid(userid));
 
@@ -635,7 +666,10 @@ SetAuthenticatedUserId(Oid userid, bool is_superuser)
 	Assert(!OidIsValid(AuthenticatedUserId));
 
 	AuthenticatedUserId = userid;
+<<<<<<< HEAD
 	AuthenticatedUserIsSuperuser = is_superuser;
+=======
+>>>>>>> REL_18_BETA1_branch
 
 	/* Also mark our PGPROC entry with the authenticated user id */
 	/* (We assume this is an atomic store so no lock is needed) */
@@ -786,7 +820,8 @@ has_rolreplication(Oid roleid)
  * Initialize user identity during normal backend startup
  */
 void
-InitializeSessionUserId(const char *rolename, Oid roleid)
+InitializeSessionUserId(const char *rolename, Oid roleid,
+						bool bypass_login_check)
 {
 	HeapTuple	roleTup;
 	Form_pg_authid rform;
@@ -801,7 +836,14 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 	 * want to fail if it's been dropped.
 	 */
 	if (InitializingParallelWorker)
+<<<<<<< HEAD
 		return;
+=======
+	{
+		Assert(bypass_login_check);
+		return;
+	}
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Don't do scans if we're bootstrapping, none of the system catalogs
@@ -841,7 +883,11 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 	rname = NameStr(rform->rolname);
 	is_superuser = rform->rolsuper;
 
+<<<<<<< HEAD
 	SetAuthenticatedUserId(roleid, is_superuser);
+=======
+	SetAuthenticatedUserId(roleid);
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Set SessionUserId and related variables, including "role", via the GUC
@@ -873,9 +919,10 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 	if (IsUnderPostmaster)
 	{
 		/*
-		 * Is role allowed to login at all?
+		 * Is role allowed to login at all?  (But background workers can
+		 * override this by setting bypass_login_check.)
 		 */
-		if (!rform->rolcanlogin)
+		if (!bypass_login_check && !rform->rolcanlogin)
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
 					 errmsg("role \"%s\" is not permitted to log in",
@@ -897,8 +944,14 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 		 * many connections to each segment to execute a non-trivial plan and
 		 * the user connection limit does not map, semantically, to that idea.
 		 */
+<<<<<<< HEAD
 		if (Gp_role == GP_ROLE_DISPATCH && rform->rolconnlimit >= 0 &&
 			!AuthenticatedUserIsSuperuser &&
+=======
+		if (rform->rolconnlimit >= 0 &&
+			AmRegularBackendProcess() &&
+			!is_superuser &&
+>>>>>>> REL_18_BETA1_branch
 			CountUserBackends(roleid) > rform->rolconnlimit)
 			ereport(FATAL,
 					(errcode(ERRCODE_TOO_MANY_CONNECTIONS),
@@ -906,6 +959,7 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 							rname)));
 	}
 
+<<<<<<< HEAD
 	/*
 	 * If resource scheduling is enabled, then set cached value for the
 	 * queue. Do this even in standalone backend mode, just in case someone
@@ -923,6 +977,8 @@ InitializeSessionUserId(const char *rolename, Oid roleid)
 					AuthenticatedUserIsSuperuser ? "on" : "off",
 					PGC_INTERNAL, PGC_S_OVERRIDE);
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	ReleaseSysCache(roleTup);
 }
 
@@ -935,6 +991,7 @@ InitializeSessionUserIdStandalone(void)
 {
 	/*
 	 * This function should only be called in single-user mode, in autovacuum
+<<<<<<< HEAD
 	 * workers, login monitor, and in background workers.
 	 */
 	AssertState(!IsUnderPostmaster || IsAutoVacuumWorkerProcess() || IsBackgroundWorker
@@ -942,12 +999,17 @@ InitializeSessionUserIdStandalone(void)
 				|| am_startup
 				|| (am_faulthandler && am_mirror)
 				|| (am_ftshandler && am_mirror));
+=======
+	 * workers, in slot sync worker and in background workers.
+	 */
+	Assert(!IsUnderPostmaster || AmAutoVacuumWorkerProcess() ||
+		   AmLogicalSlotSyncWorkerProcess() || AmBackgroundWorkerProcess());
+>>>>>>> REL_18_BETA1_branch
 
 	/* call only once */
 	Assert(!OidIsValid(AuthenticatedUserId));
 
 	AuthenticatedUserId = BOOTSTRAP_SUPERUSERID;
-	AuthenticatedUserIsSuperuser = true;
 
 	/*
 	 * XXX Ideally we'd do this via SetConfigOption("session_authorization"),
@@ -1019,12 +1081,15 @@ SetSessionAuthorization(Oid userid, bool is_superuser)
 {
 	SetSessionUserId(userid, is_superuser);
 
+<<<<<<< HEAD
 	/* If resource scheduling enabled, set the cached queue for the new role.*/
 	if ((Gp_role == GP_ROLE_DISPATCH || IS_SINGLENODE() || Gp_role == GP_ROLE_EXECUTE) && IsResQueueEnabled())
 	{
 		SetResQueueId();
 	}
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	if (!SetRoleIsActive)
 		SetOuterUserId(userid, is_superuser);
 }
@@ -1081,6 +1146,7 @@ SetCurrentRoleId(Oid roleid, bool is_superuser)
 		SetRoleIsActive = true;
 
 	SetOuterUserId(roleid, is_superuser);
+<<<<<<< HEAD
 
 	/* If resource scheduling enabled, set the cached queue for the new role.*/
 	if ((Gp_role == GP_ROLE_DISPATCH || IS_SINGLENODE() || Gp_role == GP_ROLE_EXECUTE) && IsResQueueEnabled())
@@ -1091,6 +1157,8 @@ SetCurrentRoleId(Oid roleid, bool is_superuser)
 	SetConfigOption("is_superuser",
 					is_superuser ? "on" : "off",
 					PGC_INTERNAL, PGC_S_OVERRIDE);
+=======
+>>>>>>> REL_18_BETA1_branch
 }
 
 

@@ -4,7 +4,7 @@
  *	  creator functions for various nodes. The functions here are for the
  *	  most frequently created nodes.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -21,7 +21,6 @@
 #include "catalog/pg_type.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
-#include "utils/errcodes.h"
 #include "utils/lsyscache.h"
 
 
@@ -54,7 +53,7 @@ makeSimpleA_Expr(A_Expr_Kind kind, char *name,
 	A_Expr	   *a = makeNode(A_Expr);
 
 	a->kind = kind;
-	a->name = list_make1(makeString((char *) name));
+	a->name = list_make1(makeString(name));
 	a->lexpr = lexpr;
 	a->rexpr = rexpr;
 	a->location = location;
@@ -83,12 +82,14 @@ makeVar(int varno,
 	var->varlevelsup = varlevelsup;
 
 	/*
-	 * Only a few callers need to make Var nodes with non-null varnullingrels,
-	 * or with varnosyn/varattnosyn different from varno/varattno.  We don't
-	 * provide separate arguments for them, but just initialize them to NULL
-	 * and the given varno/varattno.  This reduces code clutter and chance of
-	 * error for most callers.
+	 * Only a few callers need to make Var nodes with varreturningtype
+	 * different from VAR_RETURNING_DEFAULT, non-null varnullingrels, or with
+	 * varnosyn/varattnosyn different from varno/varattno.  We don't provide
+	 * separate arguments for them, but just initialize them to sensible
+	 * default values.  This reduces code clutter and chance of error for most
+	 * callers.
 	 */
+	var->varreturningtype = VAR_RETURNING_DEFAULT;
 	var->varnullingrels = NULL;
 	var->varnosyn = (Index) varno;
 	var->varattnosyn = varattno;
@@ -209,7 +210,10 @@ makeWholeRowVar(RangeTblEntry *rte,
 							 varlevelsup);
 			break;
 
+<<<<<<< HEAD
 		case RTE_TABLEFUNCTION:
+=======
+>>>>>>> REL_18_BETA1_branch
 		case RTE_FUNCTION:
 
 			/*
@@ -488,6 +492,30 @@ makeRangeVar(char *schemaname, char *relname, int location)
 }
 
 /*
+ * makeNotNullConstraint -
+ *		creates a Constraint node for NOT NULL constraints
+ */
+Constraint *
+makeNotNullConstraint(String *colname)
+{
+	Constraint *notnull;
+
+	notnull = makeNode(Constraint);
+	notnull->contype = CONSTR_NOTNULL;
+	notnull->conname = NULL;
+	notnull->is_no_inherit = false;
+	notnull->deferrable = false;
+	notnull->initdeferred = false;
+	notnull->location = -1;
+	notnull->keys = list_make1(colname);
+	notnull->is_enforced = true;
+	notnull->skip_validation = false;
+	notnull->initially_valid = true;
+
+	return notnull;
+}
+
+/*
  * makeTypeName -
  *	build a TypeName node for an unqualified name.
  *
@@ -588,6 +616,22 @@ makeFuncExpr(Oid funcid, Oid rettype, List *args,
 	funcexpr->is_tablefunc = false;
 
 	return funcexpr;
+}
+
+/*
+ * makeStringConst -
+ * 	build a A_Const node of type T_String for given string
+ */
+Node *
+makeStringConst(char *str, int location)
+{
+	A_Const    *n = makeNode(A_Const);
+
+	n->val.sval.type = T_String;
+	n->val.sval.sval = str;
+	n->location = location;
+
+	return (Node *) n;
 }
 
 /*
@@ -797,7 +841,8 @@ make_ands_implicit(Expr *clause)
 IndexInfo *
 makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 			  List *predicates, bool unique, bool nulls_not_distinct,
-			  bool isready, bool concurrent, bool summarizing)
+			  bool isready, bool concurrent, bool summarizing,
+			  bool withoutoverlaps)
 {
 	IndexInfo  *n = makeNode(IndexInfo);
 
@@ -812,6 +857,7 @@ makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 	n->ii_IndexUnchanged = false;
 	n->ii_Concurrent = concurrent;
 	n->ii_Summarizing = summarizing;
+	n->ii_WithoutOverlaps = withoutoverlaps;
 
 	/* summarizing indexes cannot contain non-key attributes */
 	Assert(!summarizing || (numkeyattrs == numattrs));
@@ -828,9 +874,6 @@ makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 	n->ii_ExclusionOps = NULL;
 	n->ii_ExclusionProcs = NULL;
 	n->ii_ExclusionStrats = NULL;
-
-	/* opclass options */
-	n->ii_OpclassOptions = NULL;
 
 	/* speculative inserts */
 	n->ii_UniqueOps = NULL;
@@ -929,24 +972,19 @@ makeJsonValueExpr(Expr *raw_expr, Expr *formatted_expr,
 }
 
 /*
- * makeJsonEncoding -
- *	  converts JSON encoding name to enum JsonEncoding
+ * makeJsonBehavior -
+ *	  creates a JsonBehavior node
  */
-JsonEncoding
-makeJsonEncoding(char *name)
+JsonBehavior *
+makeJsonBehavior(JsonBehaviorType btype, Node *expr, int location)
 {
-	if (!pg_strcasecmp(name, "utf8"))
-		return JS_ENC_UTF8;
-	if (!pg_strcasecmp(name, "utf16"))
-		return JS_ENC_UTF16;
-	if (!pg_strcasecmp(name, "utf32"))
-		return JS_ENC_UTF32;
+	JsonBehavior *behavior = makeNode(JsonBehavior);
 
-	ereport(ERROR,
-			errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-			errmsg("unrecognized JSON encoding: %s", name));
+	behavior->btype = btype;
+	behavior->expr = expr;
+	behavior->location = location;
 
-	return JS_ENC_DEFAULT;
+	return behavior;
 }
 
 /*
@@ -981,4 +1019,41 @@ makeJsonIsPredicate(Node *expr, JsonFormat *format, JsonValueType item_type,
 	n->location = location;
 
 	return (Node *) n;
+}
+
+/*
+ * makeJsonTablePathSpec -
+ *		Make JsonTablePathSpec node from given path string and name (if any)
+ */
+JsonTablePathSpec *
+makeJsonTablePathSpec(char *string, char *name, int string_location,
+					  int name_location)
+{
+	JsonTablePathSpec *pathspec = makeNode(JsonTablePathSpec);
+
+	Assert(string != NULL);
+	pathspec->string = makeStringConst(string, string_location);
+	if (name != NULL)
+		pathspec->name = pstrdup(name);
+
+	pathspec->name_location = name_location;
+	pathspec->location = string_location;
+
+	return pathspec;
+}
+
+/*
+ * makeJsonTablePath -
+ *		Make JsonTablePath node for given path string and name
+ */
+JsonTablePath *
+makeJsonTablePath(Const *pathvalue, char *pathname)
+{
+	JsonTablePath *path = makeNode(JsonTablePath);
+
+	Assert(IsA(pathvalue, Const));
+	path->value = pathvalue;
+	path->name = pathname;
+
+	return path;
 }

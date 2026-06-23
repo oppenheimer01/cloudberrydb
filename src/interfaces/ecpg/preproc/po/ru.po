@@ -6,8 +6,13 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ecpg (PostgreSQL current)\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2025-02-08 07:45+0200\n"
 "PO-Revision-Date: 2022-09-05 13:32+0300\n"
+=======
+"POT-Creation-Date: 2025-02-08 07:44+0200\n"
+"PO-Revision-Date: 2024-09-04 07:22+0300\n"
+>>>>>>> REL_18_BETA1_branch
 "Last-Translator: Alexander Lakhin <exclusion@gmail.com>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
 "Language: ru\n"
@@ -203,8 +208,13 @@ msgstr "%s: отладочные сообщения при разборе (-d) �
 
 #: ecpg.c:230 ecpg.c:345 ecpg.c:356
 #, c-format
+<<<<<<< HEAD
 msgid "%s: could not open file \"%s\": %s\n"
 msgstr "%s: не удалось открыть файл \"%s\": %s\n"
+=======
+msgid "%s: could not open file \"%s\": %m\n"
+msgstr "%s: не удалось открыть файл \"%s\": %m\n"
+>>>>>>> REL_18_BETA1_branch
 
 #: ecpg.c:274
 #, c-format
@@ -394,12 +404,20 @@ msgstr "определение типа не может включать ини�
 msgid "type name \"string\" is reserved in Informix mode"
 msgstr "имя типа \"string\" в режиме Informix зарезервировано"
 
+<<<<<<< HEAD
 #: preproc.y:552 preproc.y:18393
+=======
+#: preproc.y:552 preproc.y:19034
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "type \"%s\" is already defined"
 msgstr "тип \"%s\" уже определён"
 
+<<<<<<< HEAD
 #: preproc.y:577 preproc.y:19028 preproc.y:19350 variable.c:624
+=======
+#: preproc.y:577 preproc.y:19669 preproc.y:19991 variable.c:624
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "multidimensional arrays for simple data types are not supported"
 msgstr "многомерные массивы с простыми типами данных не поддерживаются"
@@ -409,90 +427,159 @@ msgstr "многомерные массивы с простыми типами �
 msgid "connection %s is overwritten with %s by DECLARE statement %s"
 msgstr "подключение %s заменяется на %s оператором DECLARE %s"
 
+<<<<<<< HEAD
 #: preproc.y:1792
+=======
+#: preproc.y:1831
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in CLOSE DATABASE statement"
 msgstr "оператор CLOSE DATABASE с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2042
+=======
+#: preproc.y:2081
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in CONNECT statement"
 msgstr "оператор CONNECT с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2082
+=======
+#: preproc.y:2121
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in DISCONNECT statement"
 msgstr "оператор DISCONNECT с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2137
+=======
+#: preproc.y:2176
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in SET CONNECTION statement"
 msgstr "оператор SET CONNECTION с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2159
+=======
+#: preproc.y:2198
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in TYPE statement"
 msgstr "оператор TYPE с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2168
+=======
+#: preproc.y:2207
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in VAR statement"
 msgstr "оператор VAR с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2175
+=======
+#: preproc.y:2214
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "AT option not allowed in WHENEVER statement"
 msgstr "оператор WHENEVER с параметром AT не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:2300 preproc.y:2587 preproc.y:4246 preproc.y:4918 preproc.y:5788
 #: preproc.y:6088 preproc.y:12207
+=======
+#: preproc.y:2339 preproc.y:2626 preproc.y:4349 preproc.y:5021 preproc.y:5891
+#: preproc.y:6095 preproc.y:6196 preproc.y:12460
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unsupported feature will be passed to server"
 msgstr "неподдерживаемая функция будет передана серверу"
 
+<<<<<<< HEAD
 #: preproc.y:2845
+=======
+#: preproc.y:2884
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "SHOW ALL is not implemented"
 msgstr "SHOW ALL не реализовано"
 
+<<<<<<< HEAD
 #: preproc.y:3529
+=======
+#: preproc.y:3596
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "COPY FROM STDIN is not implemented"
 msgstr "операция COPY FROM STDIN не реализована"
 
+<<<<<<< HEAD
 #: preproc.y:10304 preproc.y:17890
+=======
+#: preproc.y:10444 preproc.y:18503
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "\"database\" cannot be used as cursor name in INFORMIX mode"
 msgstr ""
 "в режиме INFORMIX нельзя использовать \"database\" в качестве имени курсора"
 
+<<<<<<< HEAD
 #: preproc.y:10311 preproc.y:17900
+=======
+#: preproc.y:10451 preproc.y:18513
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "using variable \"%s\" in different declare statements is not supported"
 msgstr ""
 "использование переменной \"%s\" в разных операторах DECLARE не поддерживается"
 
+<<<<<<< HEAD
 #: preproc.y:10313 preproc.y:17902
+=======
+#: preproc.y:10453 preproc.y:18515
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cursor \"%s\" is already defined"
 msgstr "курсор \"%s\" уже определён"
 
+<<<<<<< HEAD
 #: preproc.y:10787
+=======
+#: preproc.y:10927
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no longer supported LIMIT #,# syntax passed to server"
 msgstr "не поддерживаемое более предложение LIMIT #,# передано на сервер"
 
+<<<<<<< HEAD
 #: preproc.y:17582 preproc.y:17589
+=======
+#: preproc.y:18195 preproc.y:18202
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "CREATE TABLE AS cannot specify INTO"
 msgstr "в CREATE TABLE AS нельзя указать INTO"
 
+<<<<<<< HEAD
 #: preproc.y:17625
+=======
+#: preproc.y:18238
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected \"@\", found \"%s\""
 msgstr "ожидался знак \"@\", но на этом месте \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17637
+=======
+#: preproc.y:18250
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "only protocols \"tcp\" and \"unix\" and database type \"postgresql\" are "
@@ -501,89 +588,157 @@ msgstr ""
 "поддерживаются только протоколы \"tcp\" и \"unix\", а тип базы данных - "
 "\"postgresql\""
 
+<<<<<<< HEAD
 #: preproc.y:17640
+=======
+#: preproc.y:18253
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected \"://\", found \"%s\""
 msgstr "ожидалось \"://\", но на этом месте \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17645
+=======
+#: preproc.y:18258
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Unix-domain sockets only work on \"localhost\" but not on \"%s\""
 msgstr "Unix-сокеты работают только с \"localhost\", но не с адресом \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17671
+=======
+#: preproc.y:18284
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected \"postgresql\", found \"%s\""
 msgstr "ожидался тип \"postgresql\", но на этом месте \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17674
+=======
+#: preproc.y:18287
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid connection type: %s"
 msgstr "неверный тип подключения: %s"
 
+<<<<<<< HEAD
 #: preproc.y:17683
+=======
+#: preproc.y:18296
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "expected \"@\" or \"://\", found \"%s\""
 msgstr "ожидалось \"@\" или \"://\", но на этом месте \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17758 preproc.y:17776
+=======
+#: preproc.y:18371 preproc.y:18389
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid data type"
 msgstr "неверный тип данных"
 
+<<<<<<< HEAD
 #: preproc.y:17787 preproc.y:17804
+=======
+#: preproc.y:18400 preproc.y:18417
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "incomplete statement"
 msgstr "неполный оператор"
 
+<<<<<<< HEAD
 #: preproc.y:17790 preproc.y:17807
+=======
+#: preproc.y:18403 preproc.y:18420
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized token \"%s\""
 msgstr "нераспознанное ключевое слово \"%s\""
 
+<<<<<<< HEAD
 #: preproc.y:17852
+=======
+#: preproc.y:18465
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "name \"%s\" is already declared"
 msgstr "имя \"%s\" уже объявлено"
 
+<<<<<<< HEAD
 #: preproc.y:18141
+=======
+#: preproc.y:18754
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "only data types numeric and decimal have precision/scale argument"
 msgstr ""
 "точность/масштаб можно указать только для типов данных numeric и decimal"
 
+<<<<<<< HEAD
 #: preproc.y:18212
+=======
+#: preproc.y:18853
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "interval specification not allowed here"
 msgstr "определение интервала здесь не допускается"
 
+<<<<<<< HEAD
 #: preproc.y:18368 preproc.y:18420
+=======
+#: preproc.y:19009 preproc.y:19061
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many levels in nested structure/union definition"
 msgstr "слишком много уровней в определении вложенной структуры/объединения"
 
+<<<<<<< HEAD
 #: preproc.y:18543
+=======
+#: preproc.y:19184
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "pointers to varchar are not implemented"
 msgstr "указатели на varchar не реализованы"
 
+<<<<<<< HEAD
 #: preproc.y:18994
+=======
+#: preproc.y:19635
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "initializer not allowed in EXEC SQL VAR command"
 msgstr "команда EXEC SQL VAR не может включать инициализатор"
 
+<<<<<<< HEAD
 #: preproc.y:19308
+=======
+#: preproc.y:19949
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "arrays of indicators are not allowed on input"
 msgstr "массивы индикаторов на входе недопустимы"
 
+<<<<<<< HEAD
 #: preproc.y:19495
+=======
+#: preproc.y:20136
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "operator not allowed in variable definition"
 msgstr "недопустимый оператор в определении переменной"
 
 #. translator: %s is typically the translation of "syntax error"
+<<<<<<< HEAD
 #: preproc.y:19536
+=======
+#: preproc.y:20177
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s at or near \"%s\""
 msgstr "%s (примерное положение: \"%s\")"

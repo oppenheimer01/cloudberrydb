@@ -4,7 +4,7 @@
  *	  PostgreSQL logical replay/reorder buffer management
  *
  *
- * Copyright (c) 2012-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -32,7 +32,7 @@
  *
  *	  In order to cope with large transactions - which can be several times as
  *	  big as the available memory - this module supports spooling the contents
- *	  of a large transactions to disk. When the transaction is replayed the
+ *	  of large transactions to disk. When the transaction is replayed the
  *	  contents of individual (sub-)transactions will be read from disk in
  *	  chunks.
  *
@@ -67,6 +67,11 @@
  *	  allocator, evicting the oldest changes would make it more likely the
  *	  memory gets actually freed.
  *
+ *	  We use a max-heap with transaction size as the key to efficiently find
+ *	  the largest transaction. We update the max-heap whenever the memory
+ *	  counter is updated; however transactions with size 0 are not stored in
+ *	  the heap, because they have no changes to evict.
+ *
  *	  We still rely on max_changes_in_memory when loading serialized changes
  *	  back into memory. At that point we can't use the memory limit directly
  *	  as we load the subxacts independently. One option to deal with this
@@ -91,6 +96,7 @@
 #include "access/xact.h"
 #include "access/xlog_internal.h"
 #include "catalog/catalog.h"
+#include "common/int.h"
 #include "lib/binaryheap.h"
 #include "miscadmin.h"
 #include "pgstat.h"
@@ -100,14 +106,12 @@
 #include "replication/snapbuild.h"	/* just for SnapBuildSnapDecRefcount */
 #include "storage/bufmgr.h"
 #include "storage/fd.h"
+#include "storage/procarray.h"
 #include "storage/sinval.h"
 #include "utils/builtins.h"
-#include "utils/combocid.h"
-#include "utils/memdebug.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/relfilenumbermap.h"
-
 
 /* entry for a hash table we use to map from xid to our transaction state */
 typedef struct ReorderBufferTXNByIdEnt
@@ -216,8 +220,8 @@ int			debug_logical_replication_streaming = DEBUG_LOGICAL_REP_STREAMING_BUFFERED
  * primary reorderbuffer support routines
  * ---------------------------------------
  */
-static ReorderBufferTXN *ReorderBufferGetTXN(ReorderBuffer *rb);
-static void ReorderBufferReturnTXN(ReorderBuffer *rb, ReorderBufferTXN *txn);
+static ReorderBufferTXN *ReorderBufferAllocTXN(ReorderBuffer *rb);
+static void ReorderBufferFreeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn);
 static ReorderBufferTXN *ReorderBufferTXNByXid(ReorderBuffer *rb,
 											   TransactionId xid, bool create, bool *is_new,
 											   XLogRecPtr lsn, bool create_as_top);
@@ -257,9 +261,12 @@ static void ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 static void ReorderBufferRestoreCleanup(ReorderBuffer *rb, ReorderBufferTXN *txn);
 static void ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 									 bool txn_prepared);
+static void ReorderBufferMaybeMarkTXNStreamed(ReorderBuffer *rb, ReorderBufferTXN *txn);
+static bool ReorderBufferCheckAndTruncateAbortedTXN(ReorderBuffer *rb, ReorderBufferTXN *txn);
 static void ReorderBufferCleanupSerializedTXNs(const char *slotname);
 static void ReorderBufferSerializedPath(char *path, ReplicationSlot *slot,
 										TransactionId xid, XLogSegNo segno);
+static int	ReorderBufferTXNSizeCompare(const pairingheap_node *a, const pairingheap_node *b, void *arg);
 
 static void ReorderBufferFreeSnap(ReorderBuffer *rb, Snapshot snap);
 static Snapshot ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
@@ -294,6 +301,7 @@ static void ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *t
 static Size ReorderBufferChangeSize(ReorderBufferChange *change);
 static void ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 											ReorderBufferChange *change,
+											ReorderBufferTXN *txn,
 											bool addition, Size sz);
 
 /*
@@ -361,6 +369,9 @@ ReorderBufferAllocate(void)
 	buffer->outbufsize = 0;
 	buffer->size = 0;
 
+	/* txn_heap is ordered by transaction size */
+	buffer->txn_heap = pairingheap_allocate(ReorderBufferTXNSizeCompare, NULL);
+
 	buffer->spillTxns = 0;
 	buffer->spillCount = 0;
 	buffer->spillBytes = 0;
@@ -405,10 +416,10 @@ ReorderBufferFree(ReorderBuffer *rb)
 }
 
 /*
- * Get an unused, possibly preallocated, ReorderBufferTXN.
+ * Allocate a new ReorderBufferTXN.
  */
 static ReorderBufferTXN *
-ReorderBufferGetTXN(ReorderBuffer *rb)
+ReorderBufferAllocTXN(ReorderBuffer *rb)
 {
 	ReorderBufferTXN *txn;
 
@@ -432,7 +443,7 @@ ReorderBufferGetTXN(ReorderBuffer *rb)
  * Free a ReorderBufferTXN.
  */
 static void
-ReorderBufferReturnTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
+ReorderBufferFreeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 {
 	/* clean the lookup cache if we were cached (quite likely) */
 	if (rb->by_txn_last_xid == txn->xid)
@@ -464,14 +475,17 @@ ReorderBufferReturnTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 	/* Reset the toast hash */
 	ReorderBufferToastReset(rb, txn);
 
+	/* All changes must be deallocated */
+	Assert(txn->size == 0);
+
 	pfree(txn);
 }
 
 /*
- * Get a fresh ReorderBufferChange.
+ * Allocate a ReorderBufferChange.
  */
 ReorderBufferChange *
-ReorderBufferGetChange(ReorderBuffer *rb)
+ReorderBufferAllocChange(ReorderBuffer *rb)
 {
 	ReorderBufferChange *change;
 
@@ -486,12 +500,12 @@ ReorderBufferGetChange(ReorderBuffer *rb)
  * Free a ReorderBufferChange and update memory accounting, if requested.
  */
 void
-ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
-						  bool upd_mem)
+ReorderBufferFreeChange(ReorderBuffer *rb, ReorderBufferChange *change,
+						bool upd_mem)
 {
 	/* update memory accounting info */
 	if (upd_mem)
-		ReorderBufferChangeMemoryUpdate(rb, change, false,
+		ReorderBufferChangeMemoryUpdate(rb, change, NULL, false,
 										ReorderBufferChangeSize(change));
 
 	/* free contained data */
@@ -503,13 +517,13 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 		case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_INSERT:
 			if (change->data.tp.newtuple)
 			{
-				ReorderBufferReturnTupleBuf(rb, change->data.tp.newtuple);
+				ReorderBufferFreeTupleBuf(change->data.tp.newtuple);
 				change->data.tp.newtuple = NULL;
 			}
 
 			if (change->data.tp.oldtuple)
 			{
-				ReorderBufferReturnTupleBuf(rb, change->data.tp.oldtuple);
+				ReorderBufferFreeTupleBuf(change->data.tp.oldtuple);
 				change->data.tp.oldtuple = NULL;
 			}
 			break;
@@ -537,7 +551,7 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 		case REORDER_BUFFER_CHANGE_TRUNCATE:
 			if (change->data.truncate.relids != NULL)
 			{
-				ReorderBufferReturnRelids(rb, change->data.truncate.relids);
+				ReorderBufferFreeRelids(rb, change->data.truncate.relids);
 				change->data.truncate.relids = NULL;
 			}
 			break;
@@ -552,38 +566,35 @@ ReorderBufferReturnChange(ReorderBuffer *rb, ReorderBufferChange *change,
 }
 
 /*
- * Get a fresh ReorderBufferTupleBuf fitting at least a tuple of size
- * tuple_len (excluding header overhead).
+ * Allocate a HeapTuple fitting a tuple of size tuple_len (excluding header
+ * overhead).
  */
-ReorderBufferTupleBuf *
-ReorderBufferGetTupleBuf(ReorderBuffer *rb, Size tuple_len)
+HeapTuple
+ReorderBufferAllocTupleBuf(ReorderBuffer *rb, Size tuple_len)
 {
-	ReorderBufferTupleBuf *tuple;
+	HeapTuple	tuple;
 	Size		alloc_len;
 
 	alloc_len = tuple_len + SizeofHeapTupleHeader;
 
-	tuple = (ReorderBufferTupleBuf *)
-		MemoryContextAlloc(rb->tup_context,
-						   sizeof(ReorderBufferTupleBuf) +
-						   MAXIMUM_ALIGNOF + alloc_len);
-	tuple->alloc_tuple_size = alloc_len;
-	tuple->tuple.t_data = ReorderBufferTupleBufData(tuple);
+	tuple = (HeapTuple) MemoryContextAlloc(rb->tup_context,
+										   HEAPTUPLESIZE + alloc_len);
+	tuple->t_data = (HeapTupleHeader) ((char *) tuple + HEAPTUPLESIZE);
 
 	return tuple;
 }
 
 /*
- * Free a ReorderBufferTupleBuf.
+ * Free a HeapTuple returned by ReorderBufferAllocTupleBuf().
  */
 void
-ReorderBufferReturnTupleBuf(ReorderBuffer *rb, ReorderBufferTupleBuf *tuple)
+ReorderBufferFreeTupleBuf(HeapTuple tuple)
 {
 	pfree(tuple);
 }
 
 /*
- * Get an array for relids of truncated relations.
+ * Allocate an array for relids of truncated relations.
  *
  * We use the global memory context (for the whole reorder buffer), because
  * none of the existing ones seems like a good match (some are SLAB, so we
@@ -592,7 +603,7 @@ ReorderBufferReturnTupleBuf(ReorderBuffer *rb, ReorderBufferTupleBuf *tuple)
  * not particularly common operation, so it does not seem worth it.
  */
 Oid *
-ReorderBufferGetRelids(ReorderBuffer *rb, int nrelids)
+ReorderBufferAllocRelids(ReorderBuffer *rb, int nrelids)
 {
 	Oid		   *relids;
 	Size		alloc_len;
@@ -608,7 +619,7 @@ ReorderBufferGetRelids(ReorderBuffer *rb, int nrelids)
  * Free an array of relids.
  */
 void
-ReorderBufferReturnRelids(ReorderBuffer *rb, Oid *relids)
+ReorderBufferFreeRelids(ReorderBuffer *rb, Oid *relids)
 {
 	pfree(relids);
 }
@@ -673,7 +684,7 @@ ReorderBufferTXNByXid(ReorderBuffer *rb, TransactionId xid, bool create,
 		Assert(ent != NULL);
 		Assert(lsn != InvalidXLogRecPtr);
 
-		ent->txn = ReorderBufferGetTXN(rb);
+		ent->txn = ReorderBufferAllocTXN(rb);
 		ent->txn->xid = xid;
 		txn = ent->txn;
 		txn->first_lsn = lsn;
@@ -785,17 +796,17 @@ ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 	txn = ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
 
 	/*
-	 * While streaming the previous changes we have detected that the
-	 * transaction is aborted.  So there is no point in collecting further
-	 * changes for it.
+	 * If we have detected that the transaction is aborted while streaming the
+	 * previous changes or by checking its CLOG, there is no point in
+	 * collecting further changes for it.
 	 */
-	if (txn->concurrent_abort)
+	if (rbtxn_is_aborted(txn))
 	{
 		/*
 		 * We don't need to update memory accounting for this change as we
 		 * have not added it to the queue yet.
 		 */
-		ReorderBufferReturnChange(rb, change, false);
+		ReorderBufferFreeChange(rb, change, false);
 		return;
 	}
 
@@ -825,7 +836,7 @@ ReorderBufferQueueChange(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn,
 	txn->nentries_mem++;
 
 	/* update memory accounting information */
-	ReorderBufferChangeMemoryUpdate(rb, change, true,
+	ReorderBufferChangeMemoryUpdate(rb, change, NULL, true,
 									ReorderBufferChangeSize(change));
 
 	/* process partial change */
@@ -861,7 +872,7 @@ ReorderBufferQueueMessage(ReorderBuffer *rb, TransactionId xid,
 
 		oldcontext = MemoryContextSwitchTo(rb->context);
 
-		change = ReorderBufferGetChange(rb);
+		change = ReorderBufferAllocChange(rb);
 		change->action = REORDER_BUFFER_CHANGE_MESSAGE;
 		change->data.msg.prefix = pstrdup(prefix);
 		change->data.msg.message_size = message_size;
@@ -1397,7 +1408,7 @@ ReorderBufferIterTXNNext(ReorderBuffer *rb, ReorderBufferIterTXNState *state)
 	{
 		change = dlist_container(ReorderBufferChange, node,
 								 dlist_pop_head_node(&state->old_change));
-		ReorderBufferReturnChange(rb, change, true);
+		ReorderBufferFreeChange(rb, change, true);
 		Assert(dlist_is_empty(&state->old_change));
 	}
 
@@ -1489,7 +1500,7 @@ ReorderBufferIterTXNFinish(ReorderBuffer *rb,
 
 		change = dlist_container(ReorderBufferChange, node,
 								 dlist_pop_head_node(&state->old_change));
-		ReorderBufferReturnChange(rb, change, true);
+		ReorderBufferFreeChange(rb, change, true);
 		Assert(dlist_is_empty(&state->old_change));
 	}
 
@@ -1506,6 +1517,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 {
 	bool		found;
 	dlist_mutable_iter iter;
+	Size		mem_freed = 0;
 
 	/* cleanup subtransactions & their changes */
 	dlist_foreach_modify(iter, &txn->subtxns)
@@ -1535,8 +1547,19 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		/* Check we're not mixing changes from different transactions. */
 		Assert(change->txn == txn);
 
-		ReorderBufferReturnChange(rb, change, true);
+		/*
+		 * Instead of updating the memory counter for individual changes, we
+		 * sum up the size of memory to free so we can update the memory
+		 * counter all together below. This saves costs of maintaining the
+		 * max-heap.
+		 */
+		mem_freed += ReorderBufferChangeSize(change);
+
+		ReorderBufferFreeChange(rb, change, false);
 	}
+
+	/* Update the memory counter */
+	ReorderBufferChangeMemoryUpdate(rb, NULL, txn, false, mem_freed);
 
 	/*
 	 * Cleanup the tuplecids we stored for decoding catalog snapshot access.
@@ -1552,7 +1575,7 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		Assert(change->txn == txn);
 		Assert(change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID);
 
-		ReorderBufferReturnChange(rb, change, true);
+		ReorderBufferFreeChange(rb, change, true);
 	}
 
 	/*
@@ -1595,13 +1618,14 @@ ReorderBufferCleanupTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 		ReorderBufferRestoreCleanup(rb, txn);
 
 	/* deallocate */
-	ReorderBufferReturnTXN(rb, txn);
+	ReorderBufferFreeTXN(rb, txn);
 }
 
 /*
  * Discard changes from a transaction (and subtransactions), either after
- * streaming or decoding them at PREPARE. Keep the remaining info -
- * transactions, tuplecids, invalidations and snapshots.
+ * streaming, decoding them at PREPARE, or detecting the transaction abort.
+ * Keep the remaining info - transactions, tuplecids, invalidations and
+ * snapshots.
  *
  * We additionally remove tuplecids after decoding the transaction at prepare
  * time as we only need to perform invalidation at rollback or commit prepared.
@@ -1613,6 +1637,7 @@ static void
 ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prepared)
 {
 	dlist_mutable_iter iter;
+	Size		mem_freed = 0;
 
 	/* cleanup subtransactions & their changes */
 	dlist_foreach_modify(iter, &txn->subtxns)
@@ -1629,6 +1654,7 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 		Assert(rbtxn_is_known_subxact(subtxn));
 		Assert(subtxn->nsubtxns == 0);
 
+		ReorderBufferMaybeMarkTXNStreamed(rb, subtxn);
 		ReorderBufferTruncateTXN(rb, subtxn, txn_prepared);
 	}
 
@@ -1642,29 +1668,22 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 		/* Check we're not mixing changes from different transactions. */
 		Assert(change->txn == txn);
 
-		/* remove the change from it's containing list */
+		/* remove the change from its containing list */
 		dlist_delete(&change->node);
 
-		ReorderBufferReturnChange(rb, change, true);
+		/*
+		 * Instead of updating the memory counter for individual changes, we
+		 * sum up the size of memory to free so we can update the memory
+		 * counter all together below. This saves costs of maintaining the
+		 * max-heap.
+		 */
+		mem_freed += ReorderBufferChangeSize(change);
+
+		ReorderBufferFreeChange(rb, change, false);
 	}
 
-	/*
-	 * Mark the transaction as streamed.
-	 *
-	 * The top-level transaction, is marked as streamed always, even if it
-	 * does not contain any changes (that is, when all the changes are in
-	 * subtransactions).
-	 *
-	 * For subtransactions, we only mark them as streamed when there are
-	 * changes in them.
-	 *
-	 * We do it this way because of aborts - we don't want to send aborts for
-	 * XIDs the downstream is not aware of. And of course, it always knows
-	 * about the toplevel xact (we send the XID in all messages), but we never
-	 * stream XIDs of empty subxacts.
-	 */
-	if ((!txn_prepared) && (rbtxn_is_toptxn(txn) || (txn->nentries_mem != 0)))
-		txn->txn_flags |= RBTXN_IS_STREAMED;
+	/* Update the memory counter */
+	ReorderBufferChangeMemoryUpdate(rb, NULL, txn, false, mem_freed);
 
 	if (txn_prepared)
 	{
@@ -1686,7 +1705,7 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 			/* Remove the change from its containing list. */
 			dlist_delete(&change->node);
 
-			ReorderBufferReturnChange(rb, change, true);
+			ReorderBufferFreeChange(rb, change, true);
 		}
 	}
 
@@ -1718,6 +1737,76 @@ ReorderBufferTruncateTXN(ReorderBuffer *rb, ReorderBufferTXN *txn, bool txn_prep
 	/* also reset the number of entries in the transaction */
 	txn->nentries_mem = 0;
 	txn->nentries = 0;
+}
+
+/*
+ * Check the transaction status by CLOG lookup and discard all changes if
+ * the transaction is aborted. The transaction status is cached in
+ * txn->txn_flags so we can skip future changes and avoid CLOG lookups on the
+ * next call.
+ *
+ * Return true if the transaction is aborted, otherwise return false.
+ *
+ * When the 'debug_logical_replication_streaming' is set to "immediate", we
+ * don't check the transaction status, meaning the caller will always process
+ * this transaction.
+ */
+static bool
+ReorderBufferCheckAndTruncateAbortedTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
+{
+	/* Quick return for regression tests */
+	if (unlikely(debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_IMMEDIATE))
+		return false;
+
+	/*
+	 * Quick return if the transaction status is already known.
+	 */
+
+	if (rbtxn_is_committed(txn))
+		return false;
+	if (rbtxn_is_aborted(txn))
+	{
+		/* Already-aborted transactions should not have any changes */
+		Assert(txn->size == 0);
+
+		return true;
+	}
+
+	/* Otherwise, check the transaction status using CLOG lookup */
+
+	if (TransactionIdIsInProgress(txn->xid))
+		return false;
+
+	if (TransactionIdDidCommit(txn->xid))
+	{
+		/*
+		 * Remember the transaction is committed so that we can skip CLOG
+		 * check next time, avoiding the pressure on CLOG lookup.
+		 */
+		Assert(!rbtxn_is_aborted(txn));
+		txn->txn_flags |= RBTXN_IS_COMMITTED;
+		return false;
+	}
+
+	/*
+	 * The transaction aborted. We discard both the changes collected so far
+	 * and the toast reconstruction data. The full cleanup will happen as part
+	 * of decoding ABORT record of this transaction.
+	 */
+	ReorderBufferTruncateTXN(rb, txn, rbtxn_is_prepared(txn));
+	ReorderBufferToastReset(rb, txn);
+
+	/* All changes should be discarded */
+	Assert(txn->size == 0);
+
+	/*
+	 * Mark the transaction as aborted so we can ignore future changes of this
+	 * transaction.
+	 */
+	Assert(!rbtxn_is_committed(txn));
+	txn->txn_flags |= RBTXN_IS_ABORTED;
+
+	return true;
 }
 
 /*
@@ -1829,9 +1918,9 @@ ReorderBufferCopySnap(ReorderBuffer *rb, Snapshot orig_snap,
 	snap->subxip[i++] = txn->xid;
 
 	/*
-	 * subxcnt isn't decreased when subtransactions abort, so count manually.
-	 * Since it's an upper boundary it is safe to use it for the allocation
-	 * above.
+	 * txn->nsubtxns isn't decreased when subtransactions abort, so count
+	 * manually. Since it's an upper boundary it is safe to use it for the
+	 * allocation above.
 	 */
 	snap->subxcnt = 1;
 
@@ -1879,13 +1968,15 @@ ReorderBufferStreamCommit(ReorderBuffer *rb, ReorderBufferTXN *txn)
 
 	ReorderBufferStreamTXN(rb, txn);
 
-	if (rbtxn_prepared(txn))
+	if (rbtxn_is_prepared(txn))
 	{
 		/*
 		 * Note, we send stream prepare even if a concurrent abort is
 		 * detected. See DecodePrepare for more information.
 		 */
+		Assert(!rbtxn_sent_prepare(txn));
 		rb->stream_prepare(rb, txn, txn->final_lsn);
+		txn->txn_flags |= RBTXN_SENT_PREPARE;
 
 		/*
 		 * This is a PREPARED transaction, part of a two-phase commit. The
@@ -2021,6 +2112,30 @@ ReorderBufferSaveTXNSnapshot(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
+ * Mark the given transaction as streamed if it's a top-level transaction
+ * or has changes.
+ */
+static void
+ReorderBufferMaybeMarkTXNStreamed(ReorderBuffer *rb, ReorderBufferTXN *txn)
+{
+	/*
+	 * The top-level transaction, is marked as streamed always, even if it
+	 * does not contain any changes (that is, when all the changes are in
+	 * subtransactions).
+	 *
+	 * For subtransactions, we only mark them as streamed when there are
+	 * changes in them.
+	 *
+	 * We do it this way because of aborts - we don't want to send aborts for
+	 * XIDs the downstream is not aware of. And of course, it always knows
+	 * about the top-level xact (we send the XID in all messages), but we
+	 * never stream XIDs of empty subxacts.
+	 */
+	if (rbtxn_is_toptxn(txn) || (txn->nentries_mem != 0))
+		txn->txn_flags |= RBTXN_IS_STREAMED;
+}
+
+/*
  * Helper function for ReorderBufferProcessTXN to handle the concurrent
  * abort of the streaming transaction.  This resets the TXN such that it
  * can be used to stream the remaining data of transaction being processed.
@@ -2035,7 +2150,7 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					  ReorderBufferChange *specinsert)
 {
 	/* Discard the changes that we just streamed */
-	ReorderBufferTruncateTXN(rb, txn, rbtxn_prepared(txn));
+	ReorderBufferTruncateTXN(rb, txn, rbtxn_is_prepared(txn));
 
 	/* Free all resources allocated for toast reconstruction */
 	ReorderBufferToastReset(rb, txn);
@@ -2043,7 +2158,7 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	/* Return the spec insert change if it is not NULL */
 	if (specinsert != NULL)
 	{
-		ReorderBufferReturnChange(rb, specinsert, true);
+		ReorderBufferFreeChange(rb, specinsert, true);
 		specinsert = NULL;
 	}
 
@@ -2056,6 +2171,9 @@ ReorderBufferResetTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		rb->stream_stop(rb, txn, last_lsn);
 		ReorderBufferSaveTXNSnapshot(rb, txn, snapshot_now, command_id);
 	}
+
+	/* All changes must be deallocated */
+	Assert(txn->size == 0);
 }
 
 /*
@@ -2120,7 +2238,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		 */
 		if (!streaming)
 		{
-			if (rbtxn_prepared(txn))
+			if (rbtxn_is_prepared(txn))
 				rb->begin_prepare(rb, txn);
 			else
 				rb->begin(rb, txn);
@@ -2162,7 +2280,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			 * required for the cases when we decode the changes before the
 			 * COMMIT record is processed.
 			 */
-			if (streaming || rbtxn_prepared(change->txn))
+			if (streaming || rbtxn_is_prepared(change->txn))
 			{
 				curtxn = change->txn;
 				SetupCheckXidLive(curtxn->xid);
@@ -2211,7 +2329,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					else if (reloid == InvalidOid)
 						elog(ERROR, "could not map filenumber \"%s\" to relation OID",
 							 relpathperm(change->data.tp.rlocator,
-										 MAIN_FORKNUM));
+										 MAIN_FORKNUM).str);
 
 					relation = RelationIdGetRelation(reloid);
 
@@ -2219,7 +2337,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 						elog(ERROR, "could not open relation with OID %u (for filenumber \"%s\")",
 							 reloid,
 							 relpathperm(change->data.tp.rlocator,
-										 MAIN_FORKNUM));
+										 MAIN_FORKNUM).str);
 
 					if (!RelationIsLogicallyLogged(relation))
 						goto change_done;
@@ -2281,7 +2399,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					 */
 					if (specinsert != NULL)
 					{
-						ReorderBufferReturnChange(rb, specinsert, true);
+						ReorderBufferFreeChange(rb, specinsert, true);
 						specinsert = NULL;
 					}
 
@@ -2310,7 +2428,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					/* clear out a pending (and thus failed) speculation */
 					if (specinsert != NULL)
 					{
-						ReorderBufferReturnChange(rb, specinsert, true);
+						ReorderBufferFreeChange(rb, specinsert, true);
 						specinsert = NULL;
 					}
 
@@ -2340,7 +2458,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 						ReorderBufferToastReset(rb, txn);
 
 						/* We don't need this record anymore. */
-						ReorderBufferReturnChange(rb, specinsert, true);
+						ReorderBufferFreeChange(rb, specinsert, true);
 						specinsert = NULL;
 					}
 					break;
@@ -2507,8 +2625,12 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			 * Call either PREPARE (for two-phase transactions) or COMMIT (for
 			 * regular ones).
 			 */
-			if (rbtxn_prepared(txn))
+			if (rbtxn_is_prepared(txn))
+			{
+				Assert(!rbtxn_sent_prepare(txn));
 				rb->prepare(rb, txn, commit_lsn);
+				txn->txn_flags |= RBTXN_SENT_PREPARE;
+			}
 			else
 				rb->commit(rb, txn, commit_lsn);
 		}
@@ -2558,9 +2680,12 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		 * For 4, as the entire txn has been decoded, we can fully clean up
 		 * the TXN reorder buffer.
 		 */
-		if (streaming || rbtxn_prepared(txn))
+		if (streaming || rbtxn_is_prepared(txn))
 		{
-			ReorderBufferTruncateTXN(rb, txn, rbtxn_prepared(txn));
+			if (streaming)
+				ReorderBufferMaybeMarkTXNStreamed(rb, txn);
+
+			ReorderBufferTruncateTXN(rb, txn, rbtxn_is_prepared(txn));
 			/* Reset the CheckXidAlive */
 			CheckXidAlive = InvalidTransactionId;
 		}
@@ -2604,7 +2729,7 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		 * during a two-phase commit.
 		 */
 		if (errdata->sqlerrcode == ERRCODE_TRANSACTION_ROLLBACK &&
-			(stream_started || rbtxn_prepared(txn)))
+			(stream_started || rbtxn_is_prepared(txn)))
 		{
 			/* curtxn must be set for streaming or prepared transactions */
 			Assert(curtxn);
@@ -2613,7 +2738,14 @@ ReorderBufferProcessTXN(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			FlushErrorState();
 			FreeErrorData(errdata);
 			errdata = NULL;
-			curtxn->concurrent_abort = true;
+
+			/* Remember the transaction is aborted. */
+			Assert(!rbtxn_is_committed(curtxn));
+			curtxn->txn_flags |= RBTXN_IS_ABORTED;
+
+			/* Mark the transaction is streamed if appropriate */
+			if (stream_started)
+				ReorderBufferMaybeMarkTXNStreamed(rb, txn);
 
 			/* Reset the TXN so that it is allowed to stream remaining data. */
 			ReorderBufferResetTXN(rb, txn, snapshot_now,
@@ -2684,7 +2816,7 @@ ReorderBufferReplay(ReorderBufferTXN *txn,
 		 * Removing this txn before a commit might result in the computation
 		 * of an incorrect restart_lsn. See SnapBuildProcessRunningXacts.
 		 */
-		if (!rbtxn_prepared(txn))
+		if (!rbtxn_is_prepared(txn))
 			ReorderBufferCleanupTXN(rb, txn);
 		return;
 	}
@@ -2721,7 +2853,8 @@ ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,
 }
 
 /*
- * Record the prepare information for a transaction.
+ * Record the prepare information for a transaction. Also, mark the transaction
+ * as a prepared transaction.
  */
 bool
 ReorderBufferRememberPrepareInfo(ReorderBuffer *rb, TransactionId xid,
@@ -2747,6 +2880,10 @@ ReorderBufferRememberPrepareInfo(ReorderBuffer *rb, TransactionId xid,
 	txn->origin_id = origin_id;
 	txn->origin_lsn = origin_lsn;
 
+	/* Mark this transaction as a prepared transaction */
+	Assert((txn->txn_flags & RBTXN_PREPARE_STATUS_MASK) == 0);
+	txn->txn_flags |= RBTXN_IS_PREPARED;
+
 	return true;
 }
 
@@ -2762,6 +2899,8 @@ ReorderBufferSkipPrepare(ReorderBuffer *rb, TransactionId xid)
 	if (txn == NULL)
 		return;
 
+	/* txn must have been marked as a prepared transaction */
+	Assert((txn->txn_flags & RBTXN_PREPARE_STATUS_MASK) == RBTXN_IS_PREPARED);
 	txn->txn_flags |= RBTXN_SKIPPED_PREPARE;
 }
 
@@ -2783,25 +2922,29 @@ ReorderBufferPrepare(ReorderBuffer *rb, TransactionId xid,
 	if (txn == NULL)
 		return;
 
-	txn->txn_flags |= RBTXN_PREPARE;
-	txn->gid = pstrdup(gid);
-
-	/* The prepare info must have been updated in txn by now. */
+	/*
+	 * txn must have been marked as a prepared transaction and must have
+	 * neither been skipped nor sent a prepare. Also, the prepare info must
+	 * have been updated in it by now.
+	 */
+	Assert((txn->txn_flags & RBTXN_PREPARE_STATUS_MASK) == RBTXN_IS_PREPARED);
 	Assert(txn->final_lsn != InvalidXLogRecPtr);
+
+	txn->gid = pstrdup(gid);
 
 	ReorderBufferReplay(txn, rb, xid, txn->final_lsn, txn->end_lsn,
 						txn->xact_time.prepare_time, txn->origin_id, txn->origin_lsn);
 
 	/*
-	 * We send the prepare for the concurrently aborted xacts so that later
-	 * when rollback prepared is decoded and sent, the downstream should be
-	 * able to rollback such a xact. See comments atop DecodePrepare.
-	 *
-	 * Note, for the concurrent_abort + streaming case a stream_prepare was
-	 * already sent within the ReorderBufferReplay call above.
+	 * Send a prepare if not already done so. This might occur if we have
+	 * detected a concurrent abort while replaying the non-streaming
+	 * transaction.
 	 */
-	if (txn->concurrent_abort && !rbtxn_is_streamed(txn))
+	if (!rbtxn_sent_prepare(txn))
+	{
 		rb->prepare(rb, txn, txn->final_lsn);
+		txn->txn_flags |= RBTXN_SENT_PREPARE;
+	}
 }
 
 /*
@@ -2844,12 +2987,13 @@ ReorderBufferFinishPrepared(ReorderBuffer *rb, TransactionId xid,
 	 */
 	if ((txn->final_lsn < two_phase_at) && is_commit)
 	{
-		txn->txn_flags |= RBTXN_PREPARE;
-
 		/*
-		 * The prepare info must have been updated in txn even if we skip
-		 * prepare.
+		 * txn must have been marked as a prepared transaction and skipped but
+		 * not sent a prepare. Also, the prepare info must have been updated
+		 * in txn even if we skip prepare.
 		 */
+		Assert((txn->txn_flags & RBTXN_PREPARE_STATUS_MASK) ==
+			   (RBTXN_IS_PREPARED | RBTXN_SKIPPED_PREPARE));
 		Assert(txn->final_lsn != InvalidXLogRecPtr);
 
 		/*
@@ -3087,10 +3231,10 @@ ReorderBufferImmediateInvalidation(ReorderBuffer *rb, uint32 ninvalidations,
  * least once for every xid in XLogRecord->xl_xid (other places in records
  * may, but do not have to be passed through here).
  *
- * Reorderbuffer keeps some datastructures about transactions in LSN order,
+ * Reorderbuffer keeps some data structures about transactions in LSN order,
  * for efficiency. To do that it has to know about when transactions are seen
  * first in the WAL. As many types of records are not actually interesting for
- * logical decoding, they do not necessarily pass though here.
+ * logical decoding, they do not necessarily pass through here.
  */
 void
 ReorderBufferProcessXid(ReorderBuffer *rb, TransactionId xid, XLogRecPtr lsn)
@@ -3109,7 +3253,7 @@ void
 ReorderBufferAddSnapshot(ReorderBuffer *rb, TransactionId xid,
 						 XLogRecPtr lsn, Snapshot snap)
 {
-	ReorderBufferChange *change = ReorderBufferGetChange(rb);
+	ReorderBufferChange *change = ReorderBufferAllocChange(rb);
 
 	change->data.snapshot = snap;
 	change->action = REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT;
@@ -3158,7 +3302,7 @@ void
 ReorderBufferAddNewCommandId(ReorderBuffer *rb, TransactionId xid,
 							 XLogRecPtr lsn, CommandId cid)
 {
-	ReorderBufferChange *change = ReorderBufferGetChange(rb);
+	ReorderBufferChange *change = ReorderBufferAllocChange(rb);
 
 	change->data.command_id = cid;
 	change->action = REORDER_BUFFER_CHANGE_INTERNAL_COMMAND_ID;
@@ -3174,6 +3318,9 @@ ReorderBufferAddNewCommandId(ReorderBuffer *rb, TransactionId xid,
  * decide if we reached the memory limit, the transaction counter allows
  * us to quickly pick the largest transaction for eviction.
  *
+ * Either txn or change must be non-NULL at least. We update the memory
+ * counter of txn if it's non-NULL, otherwise change->txn.
+ *
  * When streaming is enabled, we need to update the toplevel transaction
  * counters instead - we don't really care about subtransactions as we
  * can't stream them individually anyway, and we only pick toplevel
@@ -3182,22 +3329,27 @@ ReorderBufferAddNewCommandId(ReorderBuffer *rb, TransactionId xid,
 static void
 ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 								ReorderBufferChange *change,
+								ReorderBufferTXN *txn,
 								bool addition, Size sz)
 {
-	ReorderBufferTXN *txn;
 	ReorderBufferTXN *toptxn;
 
-	Assert(change->txn);
+	Assert(txn || change);
 
 	/*
 	 * Ignore tuple CID changes, because those are not evicted when reaching
 	 * memory limit. So we just don't count them, because it might easily
 	 * trigger a pointless attempt to spill.
 	 */
-	if (change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID)
+	if (change && change->action == REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID)
 		return;
 
-	txn = change->txn;
+	if (sz == 0)
+		return;
+
+	if (txn == NULL)
+		txn = change->txn;
+	Assert(txn != NULL);
 
 	/*
 	 * Update the total size in top level as well. This is later used to
@@ -3207,11 +3359,18 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 
 	if (addition)
 	{
+		Size		oldsize = txn->size;
+
 		txn->size += sz;
 		rb->size += sz;
 
 		/* Update the total size in the top transaction. */
 		toptxn->total_size += sz;
+
+		/* Update the max-heap */
+		if (oldsize != 0)
+			pairingheap_remove(rb->txn_heap, &txn->txn_node);
+		pairingheap_add(rb->txn_heap, &txn->txn_node);
 	}
 	else
 	{
@@ -3221,6 +3380,11 @@ ReorderBufferChangeMemoryUpdate(ReorderBuffer *rb,
 
 		/* Update the total size in the top transaction. */
 		toptxn->total_size -= sz;
+
+		/* Update the max-heap */
+		pairingheap_remove(rb->txn_heap, &txn->txn_node);
+		if (txn->size != 0)
+			pairingheap_add(rb->txn_heap, &txn->txn_node);
 	}
 
 	Assert(txn->size <= rb->size);
@@ -3239,7 +3403,7 @@ ReorderBufferAddNewTupleCids(ReorderBuffer *rb, TransactionId xid,
 							 ItemPointerData tid, CommandId cmin,
 							 CommandId cmax, CommandId combocid)
 {
-	ReorderBufferChange *change = ReorderBufferGetChange(rb);
+	ReorderBufferChange *change = ReorderBufferAllocChange(rb);
 	ReorderBufferTXN *txn;
 
 	txn = ReorderBufferTXNByXid(rb, xid, true, NULL, lsn, true);
@@ -3312,7 +3476,7 @@ ReorderBufferAddInvalidations(ReorderBuffer *rb, TransactionId xid,
 		txn->ninvalidations += nmsgs;
 	}
 
-	change = ReorderBufferGetChange(rb);
+	change = ReorderBufferAllocChange(rb);
 	change->action = REORDER_BUFFER_CHANGE_INVALIDATION;
 	change->data.inval.ninvalidations = nmsgs;
 	change->data.inval.invalidations = (SharedInvalidationMessage *)
@@ -3476,33 +3640,32 @@ ReorderBufferSerializeReserve(ReorderBuffer *rb, Size sz)
 	}
 }
 
+
+/* Compare two transactions by size */
+static int
+ReorderBufferTXNSizeCompare(const pairingheap_node *a, const pairingheap_node *b, void *arg)
+{
+	const ReorderBufferTXN *ta = pairingheap_const_container(ReorderBufferTXN, txn_node, a);
+	const ReorderBufferTXN *tb = pairingheap_const_container(ReorderBufferTXN, txn_node, b);
+
+	if (ta->size < tb->size)
+		return -1;
+	if (ta->size > tb->size)
+		return 1;
+	return 0;
+}
+
 /*
  * Find the largest transaction (toplevel or subxact) to evict (spill to disk).
- *
- * XXX With many subtransactions this might be quite slow, because we'll have
- * to walk through all of them. There are some options how we could improve
- * that: (a) maintain some secondary structure with transactions sorted by
- * amount of changes, (b) not looking for the entirely largest transaction,
- * but e.g. for transaction using at least some fraction of the memory limit,
- * and (c) evicting multiple transactions at once, e.g. to free a given portion
- * of the memory limit (e.g. 50%).
  */
 static ReorderBufferTXN *
 ReorderBufferLargestTXN(ReorderBuffer *rb)
 {
-	HASH_SEQ_STATUS hash_seq;
-	ReorderBufferTXNByIdEnt *ent;
-	ReorderBufferTXN *largest = NULL;
+	ReorderBufferTXN *largest;
 
-	hash_seq_init(&hash_seq, rb->by_txn);
-	while ((ent = hash_seq_search(&hash_seq)) != NULL)
-	{
-		ReorderBufferTXN *txn = ent->txn;
-
-		/* if the current transaction is larger, remember it */
-		if ((!largest) || (txn->size > largest->size))
-			largest = txn;
-	}
+	/* Get the largest transaction from the max-heap */
+	largest = pairingheap_container(ReorderBufferTXN, txn_node,
+									pairingheap_first(rb->txn_heap));
 
 	Assert(largest);
 	Assert(largest->size > 0);
@@ -3512,7 +3675,8 @@ ReorderBufferLargestTXN(ReorderBuffer *rb)
 }
 
 /*
- * Find the largest streamable toplevel transaction to evict (by streaming).
+ * Find the largest streamable (and non-aborted) toplevel transaction to evict
+ * (by streaming).
  *
  * This can be seen as an optimized version of ReorderBufferLargestTXN, which
  * should give us the same transaction (because we don't update memory account
@@ -3522,11 +3686,11 @@ ReorderBufferLargestTXN(ReorderBuffer *rb)
  * snapshot because we don't decode such transactions.  Also, we do not select
  * the transaction which doesn't have any streamable change.
  *
- * Note that, we skip transactions that contains incomplete changes. There
+ * Note that, we skip transactions that contain incomplete changes. There
  * is a scope of optimization here such that we can select the largest
  * transaction which has incomplete changes.  But that will make the code and
  * design quite complex and that might not be worth the benefit.  If we plan to
- * stream the transactions that contains incomplete changes then we need to
+ * stream the transactions that contain incomplete changes then we need to
  * find a way to partially stream/truncate the transaction changes in-memory
  * and build a mechanism to partially truncate the spilled files.
  * Additionally, whenever we partially stream the transaction we need to
@@ -3554,9 +3718,15 @@ ReorderBufferLargestStreamableTopTXN(ReorderBuffer *rb)
 		/* base_snapshot must be set */
 		Assert(txn->base_snapshot != NULL);
 
+		/* Don't consider these kinds of transactions for eviction. */
+		if (rbtxn_has_partial_change(txn) ||
+			!rbtxn_has_streamable_change(txn) ||
+			rbtxn_is_aborted(txn))
+			continue;
+
+		/* Find the largest of the eviction candidates. */
 		if ((largest == NULL || txn->total_size > largest_size) &&
-			(txn->total_size > 0) && !(rbtxn_has_partial_change(txn)) &&
-			rbtxn_has_streamable_change(txn))
+			(txn->total_size > 0))
 		{
 			largest = txn;
 			largest_size = txn->total_size;
@@ -3589,7 +3759,11 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 	 * haven't exceeded the memory limit.
 	 */
 	if (debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_BUFFERED &&
+<<<<<<< HEAD
 		rb->size < logical_decoding_work_mem * 1024L)
+=======
+		rb->size < logical_decoding_work_mem * (Size) 1024)
+>>>>>>> REL_18_BETA1_branch
 		return;
 
 	/*
@@ -3602,13 +3776,22 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 	 * because a user can reduce the logical_decoding_work_mem to a smaller
 	 * value before the most recent change.
 	 */
+<<<<<<< HEAD
 	while (rb->size >= logical_decoding_work_mem * 1024L ||
+=======
+	while (rb->size >= logical_decoding_work_mem * (Size) 1024 ||
+>>>>>>> REL_18_BETA1_branch
 		   (debug_logical_replication_streaming == DEBUG_LOGICAL_REP_STREAMING_IMMEDIATE &&
 			rb->size > 0))
 	{
 		/*
+<<<<<<< HEAD
 		 * Pick the largest transaction and evict it from memory by streaming,
 		 * if possible.  Otherwise, spill to disk.
+=======
+		 * Pick the largest non-aborted transaction and evict it from memory
+		 * by streaming, if possible.  Otherwise, spill to disk.
+>>>>>>> REL_18_BETA1_branch
 		 */
 		if (ReorderBufferCanStartStreaming(rb) &&
 			(txn = ReorderBufferLargestStreamableTopTXN(rb)) != NULL)
@@ -3617,6 +3800,10 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 			Assert(txn && rbtxn_is_toptxn(txn));
 			Assert(txn->total_size > 0);
 			Assert(rb->size >= txn->total_size);
+
+			/* skip the transaction if aborted */
+			if (ReorderBufferCheckAndTruncateAbortedTXN(rb, txn))
+				continue;
 
 			ReorderBufferStreamTXN(rb, txn);
 		}
@@ -3633,6 +3820,10 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 			Assert(txn->size > 0);
 			Assert(rb->size >= txn->size);
 
+			/* skip the transaction if aborted */
+			if (ReorderBufferCheckAndTruncateAbortedTXN(rb, txn))
+				continue;
+
 			ReorderBufferSerializeTXN(rb, txn);
 		}
 
@@ -3645,7 +3836,7 @@ ReorderBufferCheckMemoryLimit(ReorderBuffer *rb)
 	}
 
 	/* We must be under the memory limit now. */
-	Assert(rb->size < logical_decoding_work_mem * 1024L);
+	Assert(rb->size < logical_decoding_work_mem * (Size) 1024);
 }
 
 /*
@@ -3713,10 +3904,13 @@ ReorderBufferSerializeTXN(ReorderBuffer *rb, ReorderBufferTXN *txn)
 
 		ReorderBufferSerializeChange(rb, txn, fd, change);
 		dlist_delete(&change->node);
-		ReorderBufferReturnChange(rb, change, true);
+		ReorderBufferFreeChange(rb, change, false);
 
 		spilled++;
 	}
+
+	/* Update the memory counter */
+	ReorderBufferChangeMemoryUpdate(rb, NULL, txn, false, size);
 
 	/* update the statistics iff we have spilled anything */
 	if (spilled)
@@ -3764,8 +3958,8 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_INSERT:
 			{
 				char	   *data;
-				ReorderBufferTupleBuf *oldtup,
-						   *newtup;
+				HeapTuple	oldtup,
+							newtup;
 				Size		oldlen = 0;
 				Size		newlen = 0;
 
@@ -3775,14 +3969,14 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				if (oldtup)
 				{
 					sz += sizeof(HeapTupleData);
-					oldlen = oldtup->tuple.t_len;
+					oldlen = oldtup->t_len;
 					sz += oldlen;
 				}
 
 				if (newtup)
 				{
 					sz += sizeof(HeapTupleData);
-					newlen = newtup->tuple.t_len;
+					newlen = newtup->t_len;
 					sz += newlen;
 				}
 
@@ -3795,19 +3989,19 @@ ReorderBufferSerializeChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 				if (oldlen)
 				{
-					memcpy(data, &oldtup->tuple, sizeof(HeapTupleData));
+					memcpy(data, oldtup, sizeof(HeapTupleData));
 					data += sizeof(HeapTupleData);
 
-					memcpy(data, oldtup->tuple.t_data, oldlen);
+					memcpy(data, oldtup->t_data, oldlen);
 					data += oldlen;
 				}
 
 				if (newlen)
 				{
-					memcpy(data, &newtup->tuple, sizeof(HeapTupleData));
+					memcpy(data, newtup, sizeof(HeapTupleData));
 					data += sizeof(HeapTupleData);
 
-					memcpy(data, newtup->tuple.t_data, newlen);
+					memcpy(data, newtup->t_data, newlen);
 					data += newlen;
 				}
 				break;
@@ -4123,8 +4317,8 @@ ReorderBufferChangeSize(ReorderBufferChange *change)
 		case REORDER_BUFFER_CHANGE_DELETE:
 		case REORDER_BUFFER_CHANGE_INTERNAL_SPEC_INSERT:
 			{
-				ReorderBufferTupleBuf *oldtup,
-						   *newtup;
+				HeapTuple	oldtup,
+							newtup;
 				Size		oldlen = 0;
 				Size		newlen = 0;
 
@@ -4134,14 +4328,14 @@ ReorderBufferChangeSize(ReorderBufferChange *change)
 				if (oldtup)
 				{
 					sz += sizeof(HeapTupleData);
-					oldlen = oldtup->tuple.t_len;
+					oldlen = oldtup->t_len;
 					sz += oldlen;
 				}
 
 				if (newtup)
 				{
 					sz += sizeof(HeapTupleData);
-					newlen = newtup->tuple.t_len;
+					newlen = newtup->t_len;
 					sz += newlen;
 				}
 
@@ -4214,7 +4408,7 @@ ReorderBufferRestoreChanges(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			dlist_container(ReorderBufferChange, node, cleanup_iter.cur);
 
 		dlist_delete(&cleanup->node);
-		ReorderBufferReturnChange(rb, cleanup, true);
+		ReorderBufferFreeChange(rb, cleanup, true);
 	}
 	txn->nentries_mem = 0;
 	Assert(dlist_is_empty(&txn->changes));
@@ -4347,7 +4541,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	ondisk = (ReorderBufferDiskChange *) data;
 
-	change = ReorderBufferGetChange(rb);
+	change = ReorderBufferAllocChange(rb);
 
 	/* copy static part */
 	memcpy(change, &ondisk->change, sizeof(ReorderBufferChange));
@@ -4367,19 +4561,19 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 				uint32		tuplelen = ((HeapTuple) data)->t_len;
 
 				change->data.tp.oldtuple =
-					ReorderBufferGetTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
+					ReorderBufferAllocTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
 
 				/* restore ->tuple */
-				memcpy(&change->data.tp.oldtuple->tuple, data,
+				memcpy(change->data.tp.oldtuple, data,
 					   sizeof(HeapTupleData));
 				data += sizeof(HeapTupleData);
 
 				/* reset t_data pointer into the new tuplebuf */
-				change->data.tp.oldtuple->tuple.t_data =
-					ReorderBufferTupleBufData(change->data.tp.oldtuple);
+				change->data.tp.oldtuple->t_data =
+					(HeapTupleHeader) ((char *) change->data.tp.oldtuple + HEAPTUPLESIZE);
 
 				/* restore tuple data itself */
-				memcpy(change->data.tp.oldtuple->tuple.t_data, data, tuplelen);
+				memcpy(change->data.tp.oldtuple->t_data, data, tuplelen);
 				data += tuplelen;
 			}
 
@@ -4392,19 +4586,19 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 					   sizeof(uint32));
 
 				change->data.tp.newtuple =
-					ReorderBufferGetTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
+					ReorderBufferAllocTupleBuf(rb, tuplelen - SizeofHeapTupleHeader);
 
 				/* restore ->tuple */
-				memcpy(&change->data.tp.newtuple->tuple, data,
+				memcpy(change->data.tp.newtuple, data,
 					   sizeof(HeapTupleData));
 				data += sizeof(HeapTupleData);
 
 				/* reset t_data pointer into the new tuplebuf */
-				change->data.tp.newtuple->tuple.t_data =
-					ReorderBufferTupleBufData(change->data.tp.newtuple);
+				change->data.tp.newtuple->t_data =
+					(HeapTupleHeader) ((char *) change->data.tp.newtuple + HEAPTUPLESIZE);
 
 				/* restore tuple data itself */
-				memcpy(change->data.tp.newtuple->tuple.t_data, data, tuplelen);
+				memcpy(change->data.tp.newtuple->t_data, data, tuplelen);
 				data += tuplelen;
 			}
 
@@ -4474,8 +4668,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 			{
 				Oid		   *relids;
 
-				relids = ReorderBufferGetRelids(rb,
-												change->data.truncate.nrelids);
+				relids = ReorderBufferAllocRelids(rb, change->data.truncate.nrelids);
 				memcpy(relids, data, change->data.truncate.nrelids * sizeof(Oid));
 				change->data.truncate.relids = relids;
 
@@ -4499,7 +4692,7 @@ ReorderBufferRestoreChange(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	 * update the accounting too (subtracting the size from the counters). And
 	 * we don't want to underflow there.
 	 */
-	ReorderBufferChangeMemoryUpdate(rb, change, true,
+	ReorderBufferChangeMemoryUpdate(rb, change, NULL, true,
 									ReorderBufferChangeSize(change));
 }
 
@@ -4542,9 +4735,9 @@ ReorderBufferCleanupSerializedTXNs(const char *slotname)
 	DIR		   *spill_dir;
 	struct dirent *spill_de;
 	struct stat statbuf;
-	char		path[MAXPGPATH * 2 + 12];
+	char		path[MAXPGPATH * 2 + sizeof(PG_REPLSLOT_DIR)];
 
-	sprintf(path, "pg_replslot/%s", slotname);
+	sprintf(path, "%s/%s", PG_REPLSLOT_DIR, slotname);
 
 	/* we're only handling directories here, skip if it's not ours */
 	if (lstat(path, &statbuf) == 0 && !S_ISDIR(statbuf.st_mode))
@@ -4557,14 +4750,14 @@ ReorderBufferCleanupSerializedTXNs(const char *slotname)
 		if (strncmp(spill_de->d_name, "xid", 3) == 0)
 		{
 			snprintf(path, sizeof(path),
-					 "pg_replslot/%s/%s", slotname,
+					 "%s/%s/%s", PG_REPLSLOT_DIR, slotname,
 					 spill_de->d_name);
 
 			if (unlink(path) != 0)
 				ereport(ERROR,
 						(errcode_for_file_access(),
-						 errmsg("could not remove file \"%s\" during removal of pg_replslot/%s/xid*: %m",
-								path, slotname)));
+						 errmsg("could not remove file \"%s\" during removal of %s/%s/xid*: %m",
+								path, PG_REPLSLOT_DIR, slotname)));
 		}
 	}
 	FreeDir(spill_dir);
@@ -4583,7 +4776,8 @@ ReorderBufferSerializedPath(char *path, ReplicationSlot *slot, TransactionId xid
 
 	XLogSegNoOffsetToRecPtr(segno, 0, wal_segment_size, recptr);
 
-	snprintf(path, MAXPGPATH, "pg_replslot/%s/xid-%u-lsn-%X-%X.spill",
+	snprintf(path, MAXPGPATH, "%s/%s/xid-%u-lsn-%X-%X.spill",
+			 PG_REPLSLOT_DIR,
 			 NameStr(MyReplicationSlot->data.name),
 			 xid, LSN_FORMAT_ARGS(recptr));
 }
@@ -4598,8 +4792,8 @@ StartupReorderBuffer(void)
 	DIR		   *logical_dir;
 	struct dirent *logical_de;
 
-	logical_dir = AllocateDir("pg_replslot");
-	while ((logical_de = ReadDir(logical_dir, "pg_replslot")) != NULL)
+	logical_dir = AllocateDir(PG_REPLSLOT_DIR);
+	while ((logical_de = ReadDir(logical_dir, PG_REPLSLOT_DIR)) != NULL)
 	{
 		if (strcmp(logical_de->d_name, ".") == 0 ||
 			strcmp(logical_de->d_name, "..") == 0)
@@ -4651,7 +4845,7 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 							  Relation relation, ReorderBufferChange *change)
 {
 	ReorderBufferToastEnt *ent;
-	ReorderBufferTupleBuf *newtup;
+	HeapTuple	newtup;
 	bool		found;
 	int32		chunksize;
 	bool		isnull;
@@ -4666,9 +4860,9 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	Assert(IsToastRelation(relation));
 
 	newtup = change->data.tp.newtuple;
-	chunk_id = DatumGetObjectId(fastgetattr(&newtup->tuple, 1, desc, &isnull));
+	chunk_id = DatumGetObjectId(fastgetattr(newtup, 1, desc, &isnull));
 	Assert(!isnull);
-	chunk_seq = DatumGetInt32(fastgetattr(&newtup->tuple, 2, desc, &isnull));
+	chunk_seq = DatumGetInt32(fastgetattr(newtup, 2, desc, &isnull));
 	Assert(!isnull);
 
 	ent = (ReorderBufferToastEnt *)
@@ -4691,7 +4885,7 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		elog(ERROR, "got sequence entry %d for toast chunk %u instead of seq %d",
 			 chunk_seq, chunk_id, ent->last_chunk_seq + 1);
 
-	chunk = DatumGetPointer(fastgetattr(&newtup->tuple, 3, desc, &isnull));
+	chunk = DatumGetPointer(fastgetattr(newtup, 3, desc, &isnull));
 	Assert(!isnull);
 
 	/* calculate size so we can allocate the right size at once later */
@@ -4710,8 +4904,8 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
 }
 
 /*
- * Rejigger change->newtuple to point to in-memory toast tuples instead to
- * on-disk toast tuples that may not longer exist (think DROP TABLE or VACUUM).
+ * Rejigger change->newtuple to point to in-memory toast tuples instead of
+ * on-disk toast tuples that may no longer exist (think DROP TABLE or VACUUM).
  *
  * We cannot replace unchanged toast tuples though, so those will still point
  * to on-disk toast data.
@@ -4722,7 +4916,7 @@ ReorderBufferToastAppendChunk(ReorderBuffer *rb, ReorderBufferTXN *txn,
  * at unexpected times.
  *
  * We simply subtract size of the change before rejiggering the tuple, and
- * then adding the new size. This makes it look like the change was removed
+ * then add the new size. This makes it look like the change was removed
  * and then added back, except it only tweaks the accounting info.
  *
  * In particular it can't trigger serialization, which would be pointless
@@ -4742,7 +4936,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	Relation	toast_rel;
 	TupleDesc	toast_desc;
 	MemoryContext oldcontext;
-	ReorderBufferTupleBuf *newtup;
+	HeapTuple	newtup;
 	Size		old_size;
 
 	/* no toast tuples changed */
@@ -4782,7 +4976,7 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 
 	newtup = change->data.tp.newtuple;
 
-	heap_deform_tuple(&newtup->tuple, desc, attrs, isnull);
+	heap_deform_tuple(newtup, desc, attrs, isnull);
 
 	for (natt = 0; natt < desc->natts; natt++)
 	{
@@ -4845,16 +5039,16 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 		/* stitch toast tuple back together from its parts */
 		dlist_foreach(it, &ent->chunks)
 		{
-			bool		isnull;
+			bool		cisnull;
 			ReorderBufferChange *cchange;
-			ReorderBufferTupleBuf *ctup;
+			HeapTuple	ctup;
 			Pointer		chunk;
 
 			cchange = dlist_container(ReorderBufferChange, node, it.cur);
 			ctup = cchange->data.tp.newtuple;
-			chunk = DatumGetPointer(fastgetattr(&ctup->tuple, 3, toast_desc, &isnull));
+			chunk = DatumGetPointer(fastgetattr(ctup, 3, toast_desc, &cisnull));
 
-			Assert(!isnull);
+			Assert(!cisnull);
 			Assert(!VARATT_IS_EXTERNAL(chunk));
 			Assert(!VARATT_IS_SHORT(chunk));
 
@@ -4887,11 +5081,11 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	 * the tuplebuf because attrs[] will point back into the current content.
 	 */
 	tmphtup = heap_form_tuple(desc, attrs, isnull);
-	Assert(newtup->tuple.t_len <= MaxHeapTupleSize);
-	Assert(ReorderBufferTupleBufData(newtup) == newtup->tuple.t_data);
+	Assert(newtup->t_len <= MaxHeapTupleSize);
+	Assert(newtup->t_data == (HeapTupleHeader) ((char *) newtup + HEAPTUPLESIZE));
 
-	memcpy(newtup->tuple.t_data, tmphtup->t_data, tmphtup->t_len);
-	newtup->tuple.t_len = tmphtup->t_len;
+	memcpy(newtup->t_data, tmphtup->t_data, tmphtup->t_len);
+	newtup->t_len = tmphtup->t_len;
 
 	/*
 	 * free resources we won't further need, more persistent stuff will be
@@ -4911,9 +5105,9 @@ ReorderBufferToastReplace(ReorderBuffer *rb, ReorderBufferTXN *txn,
 	MemoryContextSwitchTo(oldcontext);
 
 	/* subtract the old change size */
-	ReorderBufferChangeMemoryUpdate(rb, change, false, old_size);
+	ReorderBufferChangeMemoryUpdate(rb, change, NULL, false, old_size);
 	/* now add the change back, with the correct size */
-	ReorderBufferChangeMemoryUpdate(rb, change, true,
+	ReorderBufferChangeMemoryUpdate(rb, change, NULL, true,
 									ReorderBufferChangeSize(change));
 }
 
@@ -4944,7 +5138,7 @@ ReorderBufferToastReset(ReorderBuffer *rb, ReorderBufferTXN *txn)
 				dlist_container(ReorderBufferChange, node, it.cur);
 
 			dlist_delete(&change->node);
-			ReorderBufferReturnChange(rb, change, true);
+			ReorderBufferFreeChange(rb, change, true);
 		}
 	}
 
@@ -5027,7 +5221,7 @@ ApplyLogicalMappingFile(HTAB *tuplecid_data, Oid relid, const char *fname)
 	int			readBytes;
 	LogicalRewriteMappingData map;
 
-	sprintf(path, "pg_logical/mappings/%s", fname);
+	sprintf(path, "%s/%s", PG_LOGICAL_MAPPINGS_DIR, fname);
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
 	if (fd < 0)
 		ereport(ERROR,
@@ -5127,11 +5321,7 @@ file_sort_by_lsn(const ListCell *a_p, const ListCell *b_p)
 	RewriteMappingFile *a = (RewriteMappingFile *) lfirst(a_p);
 	RewriteMappingFile *b = (RewriteMappingFile *) lfirst(b_p);
 
-	if (a->lsn < b->lsn)
-		return -1;
-	else if (a->lsn > b->lsn)
-		return 1;
-	return 0;
+	return pg_cmp_u64(a->lsn, b->lsn);
 }
 
 /*
@@ -5147,8 +5337,8 @@ UpdateLogicalMappings(HTAB *tuplecid_data, Oid relid, Snapshot snapshot)
 	ListCell   *file;
 	Oid			dboid = IsSharedRelation(relid) ? InvalidOid : MyDatabaseId;
 
-	mapping_dir = AllocateDir("pg_logical/mappings");
-	while ((mapping_de = ReadDir(mapping_dir, "pg_logical/mappings")) != NULL)
+	mapping_dir = AllocateDir(PG_LOGICAL_MAPPINGS_DIR);
+	while ((mapping_de = ReadDir(mapping_dir, PG_LOGICAL_MAPPINGS_DIR)) != NULL)
 	{
 		Oid			f_dboid;
 		Oid			f_relid;

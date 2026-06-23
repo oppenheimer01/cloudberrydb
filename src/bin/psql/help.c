@@ -1,7 +1,7 @@
 /*
  * psql - the PostgreSQL interactive terminal
  *
- * Copyright (c) 2000-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2025, PostgreSQL Global Development Group
  *
  * src/bin/psql/help.c
  */
@@ -21,9 +21,6 @@
 #include <termios.h>
 #endif
 
-#include "common.h"
-#include "common/logging.h"
-#include "common/username.h"
 #include "help.h"
 #include "input.h"
 #include "settings.h"
@@ -50,21 +47,9 @@
 void
 usage(unsigned short int pager)
 {
-	const char *env;
-	const char *user;
-	char	   *errstr;
 	PQExpBufferData buf;
 	int			nlcount;
 	FILE	   *output;
-
-	/* Find default user, in case we need it. */
-	user = getenv("PGUSER");
-	if (!user)
-	{
-		user = get_user_name(&errstr);
-		if (!user)
-			pg_fatal("%s", errstr);
-	}
 
 	/*
 	 * To avoid counting the output lines manually, build the output in "buf"
@@ -77,13 +62,8 @@ usage(unsigned short int pager)
 	HELP0("  psql [OPTION]... [DBNAME [USERNAME]]\n\n");
 
 	HELP0("General options:\n");
-	/* Display default database */
-	env = getenv("PGDATABASE");
-	if (!env)
-		env = user;
 	HELP0("  -c, --command=COMMAND    run only single command (SQL or internal) and exit\n");
-	HELPN("  -d, --dbname=DBNAME      database name to connect to (default: \"%s\")\n",
-		  env);
+	HELP0("  -d, --dbname=DBNAME      database name to connect to\n");
 	HELP0("  -f, --file=FILENAME      execute commands from file, then exit\n");
 	HELP0("  -l, --list               list available databases, then exit\n");
 	HELP0("  -v, --set=, --variable=NAME=VALUE\n"
@@ -129,17 +109,9 @@ usage(unsigned short int pager)
 		  "                           set record separator for unaligned output to zero byte\n");
 
 	HELP0("\nConnection options:\n");
-	/* Display default host */
-	env = getenv("PGHOST");
-	HELPN("  -h, --host=HOSTNAME      database server host or socket directory (default: \"%s\")\n",
-		  env ? env : _("local socket"));
-	/* Display default port */
-	env = getenv("PGPORT");
-	HELPN("  -p, --port=PORT          database server port (default: \"%s\")\n",
-		  env ? env : DEF_PGPORT_STR);
-	/* Display default user */
-	HELPN("  -U, --username=USERNAME  database user name (default: \"%s\")\n",
-		  user);
+	HELP0("  -h, --host=HOSTNAME      database server host or socket directory\n");
+	HELP0("  -p, --port=PORT          database server port\n");
+	HELP0("  -U, --username=USERNAME  database user name\n");
 	HELP0("  -w, --no-password        never prompt for password\n");
 	HELP0("  -W, --password           force password prompt (should happen automatically)\n");
 
@@ -192,7 +164,6 @@ slashUsage(unsigned short int pager)
 	initPQExpBuffer(&buf);
 
 	HELP0("General\n");
-	HELP0("  \\bind [PARAM]...       set query parameters\n");
 	HELP0("  \\copyright             show PostgreSQL usage and distribution terms\n");
 	HELP0("  \\crosstabview [COLUMNS] execute query and display result in crosstab\n");
 	HELP0("  \\errverbose            show most recent error message at maximum verbosity\n");
@@ -203,11 +174,17 @@ slashUsage(unsigned short int pager)
 	HELP0("  \\gset [PREFIX]         execute query and store result in psql variables\n");
 	HELP0("  \\gx [(OPTIONS)] [FILE] as \\g, but forces expanded output mode\n");
 	HELP0("  \\q                     quit psql\n");
+<<<<<<< HEAD
 	HELP0("  \\restrict RESTRICT_KEY\n"
 		  "                         enter restricted mode with provided key\n");
 	HELP0("  \\unrestrict RESTRICT_KEY\n"
 		  "                         exit restricted mode if key matches\n");
 	HELP0("  \\watch [[i=]SEC] [c=N] execute query every SEC seconds, up to N times\n");
+=======
+	HELP0("  \\watch [[i=]SEC] [c=N] [m=MIN]\n"
+		  "                         execute query every SEC seconds, up to N times,\n"
+		  "                         stop if less than MIN rows are returned\n");
+>>>>>>> REL_18_BETA1_branch
 	HELP0("\n");
 
 	HELP0("Help\n");
@@ -248,41 +225,42 @@ slashUsage(unsigned short int pager)
 	HELP0("\n");
 
 	HELP0("Informational\n");
-	HELP0("  (options: S = show system objects, + = additional detail)\n");
-	HELP0("  \\d[S+]                 list tables, views, and sequences\n");
-	HELP0("  \\d[S+]  NAME           describe table, view, sequence, or index\n");
-	HELP0("  \\da[S]  [PATTERN]      list aggregates\n");
-	HELP0("  \\dA[+]  [PATTERN]      list access methods\n");
-	HELP0("  \\dAc[+] [AMPTRN [TYPEPTRN]]  list operator classes\n");
-	HELP0("  \\dAf[+] [AMPTRN [TYPEPTRN]]  list operator families\n");
-	HELP0("  \\dAo[+] [AMPTRN [OPFPTRN]]   list operators of operator families\n");
-	HELP0("  \\dAp[+] [AMPTRN [OPFPTRN]]   list support functions of operator families\n");
-	HELP0("  \\db[+]  [PATTERN]      list tablespaces\n");
-	HELP0("  \\dc[S+] [PATTERN]      list conversions\n");
-	HELP0("  \\dconfig[+] [PATTERN]  list configuration parameters\n");
-	HELP0("  \\dC[+]  [PATTERN]      list casts\n");
-	HELP0("  \\dd[S]  [PATTERN]      show object descriptions not displayed elsewhere\n");
-	HELP0("  \\dD[S+] [PATTERN]      list domains\n");
-	HELP0("  \\ddp    [PATTERN]      list default privileges\n");
-	HELP0("  \\dE[S+] [PATTERN]      list foreign tables\n");
-	HELP0("  \\des[+] [PATTERN]      list foreign servers\n");
-	HELP0("  \\det[+] [PATTERN]      list foreign tables\n");
-	HELP0("  \\deu[+] [PATTERN]      list user mappings\n");
-	HELP0("  \\dew[+] [PATTERN]      list foreign-data wrappers\n");
-	HELP0("  \\df[anptw][S+] [FUNCPTRN [TYPEPTRN ...]]\n"
+	HELP0("  (options: S = show system objects, x = expanded mode, + = additional detail)\n");
+	HELP0("  \\d[Sx+]                list tables, views, and sequences\n");
+	HELP0("  \\d[S+]   NAME          describe table, view, sequence, or index\n");
+	HELP0("  \\da[Sx]  [PATTERN]     list aggregates\n");
+	HELP0("  \\dA[x+]  [PATTERN]     list access methods\n");
+	HELP0("  \\dAc[x+] [AMPTRN [TYPEPTRN]]  list operator classes\n");
+	HELP0("  \\dAf[x+] [AMPTRN [TYPEPTRN]]  list operator families\n");
+	HELP0("  \\dAo[x+] [AMPTRN [OPFPTRN]]   list operators of operator families\n");
+	HELP0("  \\dAp[x+] [AMPTRN [OPFPTRN]]   list support functions of operator families\n");
+	HELP0("  \\db[x+]  [PATTERN]     list tablespaces\n");
+	HELP0("  \\dc[Sx+] [PATTERN]     list conversions\n");
+	HELP0("  \\dconfig[x+] [PATTERN] list configuration parameters\n");
+	HELP0("  \\dC[x+]  [PATTERN]     list casts\n");
+	HELP0("  \\dd[Sx]  [PATTERN]     show object descriptions not displayed elsewhere\n");
+	HELP0("  \\dD[Sx+] [PATTERN]     list domains\n");
+	HELP0("  \\ddp[x]  [PATTERN]     list default privileges\n");
+	HELP0("  \\dE[Sx+] [PATTERN]     list foreign tables\n");
+	HELP0("  \\des[x+] [PATTERN]     list foreign servers\n");
+	HELP0("  \\det[x+] [PATTERN]     list foreign tables\n");
+	HELP0("  \\deu[x+] [PATTERN]     list user mappings\n");
+	HELP0("  \\dew[x+] [PATTERN]     list foreign-data wrappers\n");
+	HELP0("  \\df[anptw][Sx+] [FUNCPTRN [TYPEPTRN ...]]\n"
 		  "                         list [only agg/normal/procedure/trigger/window] functions\n");
-	HELP0("  \\dF[+]  [PATTERN]      list text search configurations\n");
-	HELP0("  \\dFd[+] [PATTERN]      list text search dictionaries\n");
-	HELP0("  \\dFp[+] [PATTERN]      list text search parsers\n");
-	HELP0("  \\dFt[+] [PATTERN]      list text search templates\n");
-	HELP0("  \\dg[S+] [PATTERN]      list roles\n");
-	HELP0("  \\di[S+] [PATTERN]      list indexes\n");
-	HELP0("  \\dl[+]                 list large objects, same as \\lo_list\n");
-	HELP0("  \\dL[S+] [PATTERN]      list procedural languages\n");
-	HELP0("  \\dm[S+] [PATTERN]      list materialized views\n");
-	HELP0("  \\dn[S+] [PATTERN]      list schemas\n");
-	HELP0("  \\do[S+] [OPPTRN [TYPEPTRN [TYPEPTRN]]]\n"
+	HELP0("  \\dF[x+]  [PATTERN]     list text search configurations\n");
+	HELP0("  \\dFd[x+] [PATTERN]     list text search dictionaries\n");
+	HELP0("  \\dFp[x+] [PATTERN]     list text search parsers\n");
+	HELP0("  \\dFt[x+] [PATTERN]     list text search templates\n");
+	HELP0("  \\dg[Sx+] [PATTERN]     list roles\n");
+	HELP0("  \\di[Sx+] [PATTERN]     list indexes\n");
+	HELP0("  \\dl[x+]                list large objects, same as \\lo_list\n");
+	HELP0("  \\dL[Sx+] [PATTERN]     list procedural languages\n");
+	HELP0("  \\dm[Sx+] [PATTERN]     list materialized views\n");
+	HELP0("  \\dn[Sx+] [PATTERN]     list schemas\n");
+	HELP0("  \\do[Sx+] [OPPTRN [TYPEPTRN [TYPEPTRN]]]\n"
 		  "                         list operators\n");
+<<<<<<< HEAD
 	HELP0("  \\dO[S+] [PATTERN]      list collations\n");
 	HELP0("  \\dp[S]  [PATTERN]      list table, view, and sequence access privileges\n");
 	HELP0("  \\dP[itn+] [PATTERN]    list [only index/table] partitioned relations [n=nested]\n");
@@ -303,13 +281,34 @@ slashUsage(unsigned short int pager)
 	HELP0("  \\sf[+]  FUNCNAME       show a function's definition\n");
 	HELP0("  \\sv[+]  VIEWNAME       show a view's definition\n");
 	HELP0("  \\z[S]   [PATTERN]      same as \\dp\n");
+=======
+	HELP0("  \\dO[Sx+] [PATTERN]     list collations\n");
+	HELP0("  \\dp[Sx]  [PATTERN]     list table, view, and sequence access privileges\n");
+	HELP0("  \\dP[itnx+] [PATTERN]   list [only index/table] partitioned relations [n=nested]\n");
+	HELP0("  \\drds[x] [ROLEPTRN [DBPTRN]] list per-database role settings\n");
+	HELP0("  \\drg[Sx] [PATTERN]     list role grants\n");
+	HELP0("  \\dRp[x+] [PATTERN]     list replication publications\n");
+	HELP0("  \\dRs[x+] [PATTERN]     list replication subscriptions\n");
+	HELP0("  \\ds[Sx+] [PATTERN]     list sequences\n");
+	HELP0("  \\dt[Sx+] [PATTERN]     list tables\n");
+	HELP0("  \\dT[Sx+] [PATTERN]     list data types\n");
+	HELP0("  \\du[Sx+] [PATTERN]     list roles\n");
+	HELP0("  \\dv[Sx+] [PATTERN]     list views\n");
+	HELP0("  \\dx[x+]  [PATTERN]     list extensions\n");
+	HELP0("  \\dX[x]   [PATTERN]     list extended statistics\n");
+	HELP0("  \\dy[x+]  [PATTERN]     list event triggers\n");
+	HELP0("  \\l[x+]   [PATTERN]     list databases\n");
+	HELP0("  \\sf[+]   FUNCNAME      show a function's definition\n");
+	HELP0("  \\sv[+]   VIEWNAME      show a view's definition\n");
+	HELP0("  \\z[Sx]   [PATTERN]     same as \\dp\n");
+>>>>>>> REL_18_BETA1_branch
 	HELP0("\n");
 
 	HELP0("Large Objects\n");
 	HELP0("  \\lo_export LOBOID FILE write large object to file\n");
 	HELP0("  \\lo_import FILE [COMMENT]\n"
 		  "                         read large object from file\n");
-	HELP0("  \\lo_list[+]            list large objects\n");
+	HELP0("  \\lo_list[x+]           list large objects\n");
 	HELP0("  \\lo_unlink LOBOID      delete a large object\n");
 	HELP0("\n");
 
@@ -359,6 +358,22 @@ slashUsage(unsigned short int pager)
 	HELP0("  \\prompt [TEXT] NAME    prompt user to set internal variable\n");
 	HELP0("  \\set [NAME [VALUE]]    set internal variable, or list all if no parameters\n");
 	HELP0("  \\unset NAME            unset (delete) internal variable\n");
+	HELP0("\n");
+
+	HELP0("Extended Query Protocol\n");
+	HELP0("  \\bind [PARAM]...       set query parameters\n");
+	HELP0("  \\bind_named STMT_NAME [PARAM]...\n"
+		  "                         set query parameters for an existing prepared statement\n");
+	HELP0("  \\close STMT_NAME       close an existing prepared statement\n");
+	HELP0("  \\endpipeline           exit pipeline mode\n");
+	HELP0("  \\flush                 flush output data to the server\n");
+	HELP0("  \\flushrequest          send request to the server to flush its output buffer\n");
+	HELP0("  \\getresults [NUM_RES]  read NUM_RES pending results. All pending results are\n"
+		  "                         read if no argument is provided\n");
+	HELP0("  \\parse STMT_NAME       create a prepared statement\n");
+	HELP0("  \\sendpipeline          send an extended query to an ongoing pipeline\n");
+	HELP0("  \\startpipeline         enter pipeline mode\n");
+	HELP0("  \\syncpipeline          add a synchronisation point to an ongoing pipeline\n");
 
 	/* Now we can count the lines. */
 	nlcount = 0;
@@ -482,6 +497,8 @@ helpVariables(unsigned short int pager)
 		  "  VERSION_NAME\n"
 		  "  VERSION_NUM\n"
 		  "    psql's version (in verbose string, short string, or numeric format)\n");
+	HELP0("  WATCH_INTERVAL\n"
+		  "    if set to a number, overrides the default two second \\watch interval\n");
 
 	HELP0("\nDisplay settings:\n");
 	HELP0("Usage:\n");
@@ -762,6 +779,7 @@ helpSQL(const char *topic, unsigned short int pager)
 void
 print_copyright(void)
 {
+<<<<<<< HEAD
 	puts(
 		 "Apache Cloudberry (Incubating)\n"
 		 "Copyright 2024-2026 The Apache Software Foundation\n\n"
@@ -771,6 +789,11 @@ print_copyright(void)
 		 "Portions Copyright (c) 2011-2014 EMC\n\n"
 		 "This software is based on Postgres95, formerly known as Postgres, which\n"
 		 "contains the following notice:\n\n"
+=======
+	puts("PostgreSQL Database Management System\n"
+		 "(formerly known as Postgres, then as Postgres95)\n\n"
+		 "Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group\n\n"
+>>>>>>> REL_18_BETA1_branch
 		 "Portions Copyright (c) 1994, The Regents of the University of California\n\n"
 		 "Permission to use, copy, modify, and distribute this software and its\n"
 		 "documentation for any purpose, without fee, and without a written agreement\n"

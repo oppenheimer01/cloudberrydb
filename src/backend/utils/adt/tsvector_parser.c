@@ -3,7 +3,7 @@
  * tsvector_parser.c
  *	  Parser for tsvector
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -206,7 +206,11 @@ gettoken_tsvector(TSVectorParseState state,
 			else if ((state->oprisdelim && ISOPERATOR(state->prsbuf)) ||
 					 (state->is_web && t_iseq(state->prsbuf, '"')))
 				PRSSYNTAXERROR;
+<<<<<<< HEAD
 			else if (!t_isspace_cstr(state->prsbuf))
+=======
+			else if (!isspace((unsigned char) *state->prsbuf))
+>>>>>>> REL_18_BETA1_branch
 			{
 				curpos += ts_copychar_cstr(curpos, state->prsbuf);
 				statecode = WAITENDWORD;
@@ -234,7 +238,11 @@ gettoken_tsvector(TSVectorParseState state,
 				statecode = WAITNEXTCHAR;
 				oldstate = WAITENDWORD;
 			}
+<<<<<<< HEAD
 			else if (t_isspace_cstr(state->prsbuf) || *(state->prsbuf) == '\0' ||
+=======
+			else if (isspace((unsigned char) *state->prsbuf) || *(state->prsbuf) == '\0' ||
+>>>>>>> REL_18_BETA1_branch
 					 (state->oprisdelim && ISOPERATOR(state->prsbuf)) ||
 					 (state->is_web && t_iseq(state->prsbuf, '"')))
 			{
@@ -312,7 +320,11 @@ gettoken_tsvector(TSVectorParseState state,
 		}
 		else if (statecode == INPOSINFO)
 		{
+<<<<<<< HEAD
 			if (t_isdigit_cstr(state->prsbuf))
+=======
+			if (isdigit((unsigned char) *state->prsbuf))
+>>>>>>> REL_18_BETA1_branch
 			{
 				if (posalen == 0)
 				{
@@ -367,10 +379,17 @@ gettoken_tsvector(TSVectorParseState state,
 					PRSSYNTAXERROR;
 				WEP_SETWEIGHT(pos[npos - 1], 0);
 			}
+<<<<<<< HEAD
 			else if (t_isspace_cstr(state->prsbuf) ||
 					 *(state->prsbuf) == '\0')
 				RETURN_TOKEN;
 			else if (!t_isdigit_cstr(state->prsbuf))
+=======
+			else if (isspace((unsigned char) *state->prsbuf) ||
+					 *(state->prsbuf) == '\0')
+				RETURN_TOKEN;
+			else if (!isdigit((unsigned char) *state->prsbuf))
+>>>>>>> REL_18_BETA1_branch
 				PRSSYNTAXERROR;
 		}
 		else					/* internal error */

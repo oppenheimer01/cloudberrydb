@@ -6,7 +6,13 @@ tests += {
   'bd': meson.current_build_dir(),
   'tap': {
     'tests': [
+<<<<<<< HEAD
       't/004_negotiate.pl',
+=======
+      't/001_basic.pl',
+      't/002_connection_limits.pl',
+      't/003_start_stop.pl',
+>>>>>>> REL_18_BETA1_branch
     ],
   },
 }

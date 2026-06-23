@@ -3,7 +3,7 @@
  * trigger.c
  *	  PostgreSQL TRIGGERs support code.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -22,7 +22,6 @@
 #include "access/xact.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
-#include "catalog/index.h"
 #include "catalog/indexing.h"
 #include "catalog/objectaccess.h"
 #include "catalog/partition.h"
@@ -32,10 +31,8 @@
 #include "catalog/pg_trigger.h"
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
-#include "commands/defrem.h"
 #include "commands/trigger.h"
 #include "executor/executor.h"
-#include "executor/execPartition.h"
 #include "miscadmin.h"
 #include "nodes/execnodes.h"
 #include "nodes/bitmapset.h"
@@ -45,17 +42,18 @@
 #include "parser/parse_collate.h"
 #include "parser/parse_func.h"
 #include "parser/parse_relation.h"
-#include "parser/parsetree.h"
 #include "partitioning/partdesc.h"
 #include "pgstat.h"
+#include "rewrite/rewriteHandler.h"
 #include "rewrite/rewriteManip.h"
-#include "storage/bufmgr.h"
 #include "storage/lmgr.h"
-#include "tcop/utility.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
+<<<<<<< HEAD
 #include "utils/bytea.h"
 #include "utils/faultinjector.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "utils/fmgroids.h"
 #include "utils/guc_hooks.h"
 #include "utils/inval.h"
@@ -113,6 +111,7 @@ static void AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 								  bool is_crosspart_update);
 static void AfterTriggerEnlargeQueryState(void);
 static bool before_stmt_triggers_fired(Oid relid, CmdType cmdType);
+static HeapTuple check_modified_virtual_generated(TupleDesc tupdesc, HeapTuple tuple);
 
 /*
  * Create a trigger.  Returns the address of the created trigger.
@@ -662,7 +661,8 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 					if (TRIGGER_FOR_BEFORE(tgtype) &&
 						var->varattno == 0 &&
 						RelationGetDescr(rel)->constr &&
-						RelationGetDescr(rel)->constr->has_generated_stored)
+						(RelationGetDescr(rel)->constr->has_generated_stored ||
+						 RelationGetDescr(rel)->constr->has_generated_virtual))
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 								 errmsg("BEFORE trigger's WHEN condition cannot reference NEW generated columns"),
@@ -847,6 +847,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 											  CONSTRAINT_TRIGGER,
 											  stmt->deferrable,
 											  stmt->initdeferred,
+											  true, /* Is Enforced */
 											  true,
 											  InvalidOid,	/* no parent */
 											  RelationGetRelid(rel),
@@ -872,6 +873,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 											  true, /* islocal */
 											  0,	/* inhcount */
 											  true, /* noinherit */
+											  false,	/* conperiod */
 											  isInternal);	/* is_internal */
 	}
 
@@ -1253,7 +1255,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
 			 * Initialize our fabricated parse node by copying the original
 			 * one, then resetting fields that we pass separately.
 			 */
-			childStmt = (CreateTrigStmt *) copyObject(stmt);
+			childStmt = copyObject(stmt);
 			childStmt->funcname = NIL;
 			childStmt->whenClause = NULL;
 
@@ -1606,6 +1608,7 @@ renametrig(RenameStmt *stmt)
 		 */
 		if (OidIsValid(trigform->tgparentid))
 			ereport(ERROR,
+					errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					errmsg("cannot rename trigger \"%s\" on table \"%s\"",
 						   stmt->subname, RelationGetRelationName(targetrel)),
 					errhint("Rename the trigger on the partitioned table \"%s\" instead.",
@@ -2588,6 +2591,8 @@ ExecBRInsertTriggers(EState *estate, ResultRelInfo *relinfo,
 		}
 		else if (newtuple != oldtuple)
 		{
+			newtuple = check_modified_virtual_generated(RelationGetDescr(relinfo->ri_RelationDesc), newtuple);
+
 			ExecForceStoreHeapTuple(newtuple, slot, false);
 
 			/*
@@ -3145,6 +3150,8 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
 		}
 		else if (newtuple != oldtuple)
 		{
+			newtuple = check_modified_virtual_generated(RelationGetDescr(relinfo->ri_RelationDesc), newtuple);
+
 			ExecForceStoreHeapTuple(newtuple, newslot, false);
 
 			/*
@@ -3581,6 +3588,8 @@ TriggerEnabled(EState *estate, ResultRelInfo *relinfo,
 
 			oldContext = MemoryContextSwitchTo(estate->es_query_cxt);
 			tgqual = stringToNode(trigger->tgqual);
+			tgqual = expand_generated_columns_in_expr(tgqual, relinfo->ri_RelationDesc, PRS2_OLD_VARNO);
+			tgqual = expand_generated_columns_in_expr(tgqual, relinfo->ri_RelationDesc, PRS2_NEW_VARNO);
 			/* Change references to OLD and NEW to INNER_VAR and OUTER_VAR */
 			ChangeVarNodes(tgqual, PRS2_OLD_VARNO, INNER_VAR, 0);
 			ChangeVarNodes(tgqual, PRS2_NEW_VARNO, OUTER_VAR, 0);
@@ -3725,6 +3734,7 @@ typedef struct AfterTriggerSharedData
 	TriggerEvent ats_event;		/* event type indicator, see trigger.h */
 	Oid			ats_tgoid;		/* the trigger's ID */
 	Oid			ats_relid;		/* the relation it's on */
+	Oid			ats_rolid;		/* role to execute the trigger */
 	CommandId	ats_firing_id;	/* ID for firing cycle */
 	struct AfterTriggersTableData *ats_table;	/* transition table access */
 	Bitmapset  *ats_modifiedcols;	/* modified columns */
@@ -4098,8 +4108,13 @@ afterTriggerCheckState(AfterTriggerShared evtshared)
 static Bitmapset *
 afterTriggerCopyBitmap(Bitmapset *src)
 {
+<<<<<<< HEAD
 	Bitmapset	   *dst;
 	MemoryContext	oldcxt;
+=======
+	Bitmapset  *dst;
+	MemoryContext oldcxt;
+>>>>>>> REL_18_BETA1_branch
 
 	if (src == NULL)
 		return NULL;
@@ -4189,8 +4204,11 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 		chunk->endptr = chunk->endfree = (char *) chunk + chunksize;
 		Assert(chunk->endfree - chunk->freeptr >= needed);
 
-		if (events->head == NULL)
+		if (events->tail == NULL)
+		{
+			Assert(events->head == NULL);
 			events->head = chunk;
+		}
 		else
 			events->tail->next = chunk;
 		events->tail = chunk;
@@ -4199,11 +4217,12 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 
 	/*
 	 * Try to locate a matching shared-data record already in the chunk. If
-	 * none, make a new one.
+	 * none, make a new one. The search begins with the most recently added
+	 * record, since newer ones are most likely to match.
 	 */
-	for (newshared = ((AfterTriggerShared) chunk->endptr) - 1;
-		 (char *) newshared >= chunk->endfree;
-		 newshared--)
+	for (newshared = (AfterTriggerShared) chunk->endfree;
+		 (char *) newshared < chunk->endptr;
+		 newshared++)
 	{
 		/* compare fields roughly by probability of them being different */
 		if (newshared->ats_tgoid == evtshared->ats_tgoid &&
@@ -4211,12 +4230,17 @@ afterTriggerAddEvent(AfterTriggerEventList *events,
 			newshared->ats_firing_id == 0 &&
 			newshared->ats_table == evtshared->ats_table &&
 			newshared->ats_relid == evtshared->ats_relid &&
+<<<<<<< HEAD
+=======
+			newshared->ats_rolid == evtshared->ats_rolid &&
+>>>>>>> REL_18_BETA1_branch
 			bms_equal(newshared->ats_modifiedcols,
 					  evtshared->ats_modifiedcols))
 			break;
 	}
-	if ((char *) newshared < chunk->endfree)
+	if ((char *) newshared >= chunk->endptr)
 	{
+		newshared = ((AfterTriggerShared) chunk->endfree) - 1;
 		*newshared = *evtshared;
 		/* now we must make a suitably-long-lived copy of the bitmap */
 		newshared->ats_modifiedcols = afterTriggerCopyBitmap(evtshared->ats_modifiedcols);
@@ -4382,6 +4406,8 @@ AfterTriggerExecute(EState *estate,
 	AfterTriggerShared evtshared = GetTriggerSharedData(event);
 	Oid			tgoid = evtshared->ats_tgoid;
 	TriggerData LocTriggerData = {0};
+	Oid			save_rolid;
+	int			save_sec_context;
 	HeapTuple	rettuple;
 	int			tgindx;
 	bool		should_free_trig = false;
@@ -4586,6 +4612,17 @@ AfterTriggerExecute(EState *estate,
 	MemoryContextReset(per_tuple_context);
 
 	/*
+	 * If necessary, become the role that was active when the trigger got
+	 * queued.  Note that the role might have been dropped since the trigger
+	 * was queued, but if that is a problem, we will get an error later.
+	 * Checking here would still leave a race condition.
+	 */
+	GetUserIdAndSecContext(&save_rolid, &save_sec_context);
+	if (save_rolid != evtshared->ats_rolid)
+		SetUserIdAndSecContext(evtshared->ats_rolid,
+							   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
+
+	/*
 	 * Call the trigger and throw away any possibly returned updated tuple.
 	 * (Don't let ExecCallTriggerFunc measure EXPLAIN time.)
 	 */
@@ -4598,6 +4635,10 @@ AfterTriggerExecute(EState *estate,
 		rettuple != LocTriggerData.tg_trigtuple &&
 		rettuple != LocTriggerData.tg_newtuple)
 		heap_freetuple(rettuple);
+
+	/* Restore the current role if necessary */
+	if (save_rolid != evtshared->ats_rolid)
+		SetUserIdAndSecContext(save_rolid, save_sec_context);
 
 	/*
 	 * Release resources
@@ -5244,6 +5285,21 @@ AfterTriggerBeginQuery(void)
 {
 	/* Increase the query stack depth */
 	afterTriggers.query_depth++;
+}
+
+
+/* ----------
+ * AfterTriggerAbortQuery()
+ *
+ * Called by standard_ExecutorEnd() if the query execution was aborted due to
+ * the plan becoming invalid during initialization.
+ * ----------
+ */
+void
+AfterTriggerAbortQuery(void)
+{
+	/* Revert the actions of AfterTriggerBeginQuery(). */
+	afterTriggers.query_depth--;
 }
 
 
@@ -6703,6 +6759,7 @@ AfterTriggerSaveEvent(EState *estate, ResultRelInfo *relinfo,
 			(trigger->tginitdeferred ? AFTER_TRIGGER_INITDEFERRED : 0);
 		new_shared.ats_tgoid = trigger->tgoid;
 		new_shared.ats_relid = RelationGetRelid(rel);
+		new_shared.ats_rolid = GetUserId();
 		new_shared.ats_firing_id = 0;
 		if ((trigger->tgoldtable || trigger->tgnewtable) &&
 			transition_capture != NULL)
@@ -6874,6 +6931,7 @@ pg_trigger_depth(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(MyTriggerDepth);
 }
 
+<<<<<<< HEAD
 char*
 MakeDeltaName(const char *prefix, Oid relid, int count)
 {
@@ -6884,4 +6942,38 @@ MakeDeltaName(const char *prefix, Oid relid, int count)
 	name = pstrdup(buf);
 
 	return name;
+=======
+/*
+ * Check whether a trigger modified a virtual generated column and replace the
+ * value with null if so.
+ *
+ * We need to check this so that we don't end up storing a non-null value in a
+ * virtual generated column.
+ *
+ * We don't need to check for stored generated columns, since those will be
+ * overwritten later anyway.
+ */
+static HeapTuple
+check_modified_virtual_generated(TupleDesc tupdesc, HeapTuple tuple)
+{
+	if (!(tupdesc->constr && tupdesc->constr->has_generated_virtual))
+		return tuple;
+
+	for (int i = 0; i < tupdesc->natts; i++)
+	{
+		if (TupleDescAttr(tupdesc, i)->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
+		{
+			if (!heap_attisnull(tuple, i + 1, tupdesc))
+			{
+				int			replCol = i + 1;
+				Datum		replValue = 0;
+				bool		replIsnull = true;
+
+				tuple = heap_modify_tuple_by_cols(tuple, tupdesc, 1, &replCol, &replValue, &replIsnull);
+			}
+		}
+	}
+
+	return tuple;
+>>>>>>> REL_18_BETA1_branch
 }

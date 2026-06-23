@@ -394,10 +394,14 @@
     conditions for each action are re-evaluated on the updated version of
     the row, starting from the first action, even if the action that had
     originally matched appears later in the list of actions.
-    On the other hand, if the row is concurrently updated or deleted so
-    that the join condition fails, then <command>MERGE</command> will
-    evaluate the condition's <literal>NOT MATCHED</literal> actions next,
-    and execute the first one that succeeds.
+    On the other hand, if the row is concurrently updated so that the join
+    condition fails, then <command>MERGE</command> will evaluate the
+    command's <literal>NOT MATCHED BY SOURCE</literal> and
+    <literal>NOT MATCHED [BY TARGET]</literal> actions next, and execute
+    the first one of each kind that succeeds.
+    If the row is concurrently deleted, then <command>MERGE</command>
+    will evaluate the command's <literal>NOT MATCHED [BY TARGET]</literal>
+    actions, and execute the first one that succeeds.
     If <command>MERGE</command> attempts an <command>INSERT</command>
     and a unique index is present and a duplicate row is concurrently
     inserted, then a uniqueness violation error is raised;
@@ -413,8 +417,8 @@
     does not see effects of those commands on other rows in the database.
     This behavior makes Read Committed mode unsuitable for commands that
     involve complex search conditions; however, it is just right for simpler
-    cases.  For example, consider updating bank balances with transactions
-    like:
+    cases.  For example, consider transferring $100 from one account
+    to another:
 
 <screen>
 BEGIN;
@@ -423,8 +427,8 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 7534;
 COMMIT;
 </screen>
 
-    If two such transactions concurrently try to change the balance of account
-    12345, we clearly want the second transaction to start with the updated
+    If another transaction concurrently tries to change the balance of account
+    7534, we clearly want the second statement to start with the updated
     version of the account's row.  Because each command is affecting only a
     predetermined row, letting it see the updated version of the row does
     not create any troublesome inconsistency.

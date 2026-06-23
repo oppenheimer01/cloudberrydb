@@ -1008,6 +1008,30 @@ WHEN MATCHED THEN
 	UPDATE SET dnotes = dnotes || ' notes added by merge8 '
 WHEN NOT MATCHED THEN
 	INSERT VALUES (13, 44, 1, 'regress_rls_bob', 'new manga');
+<<<<<<< HEAD
+=======
+SELECT * FROM document WHERE did = 13;
+
+-- but not OK if RETURNING is used
+MERGE INTO document d
+USING (SELECT 14 as sdid) s
+ON did = s.sdid
+WHEN MATCHED THEN
+	UPDATE SET dnotes = dnotes || ' notes added by merge9 '
+WHEN NOT MATCHED THEN
+	INSERT VALUES (14, 44, 1, 'regress_rls_bob', 'new manga')
+RETURNING *;
+
+-- but OK if new row is visible
+MERGE INTO document d
+USING (SELECT 14 as sdid) s
+ON did = s.sdid
+WHEN MATCHED THEN
+	UPDATE SET dnotes = dnotes || ' notes added by merge10 '
+WHEN NOT MATCHED THEN
+	INSERT VALUES (14, 11, 1, 'regress_rls_bob', 'new novel')
+RETURNING *;
+>>>>>>> REL_18_BETA1_branch
 
 RESET SESSION AUTHORIZATION;
 -- drop the restrictive SELECT policy so that we can look at the
@@ -1731,6 +1755,25 @@ SELECT * FROM current_check;
 
 COMMIT;
 
+-- Check that RLS filters that are tidquals don't override WHERE CURRENT OF
+BEGIN;
+CREATE TABLE current_check_2 (a int, b text);
+INSERT INTO current_check_2 VALUES (1, 'Apple');
+ALTER TABLE current_check_2 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE current_check_2 FORCE ROW LEVEL SECURITY;
+-- policy must accept ctid = (InvalidBlockNumber,0) since updates check it
+-- before assigning a ctid to the new row
+CREATE POLICY p1 ON current_check_2 AS PERMISSIVE
+  USING (ctid IN ('(0,1)', '(0,2)', '(4294967295,0)'));
+SELECT ctid, * FROM current_check_2;
+DECLARE current_check_cursor CURSOR FOR SELECT * FROM current_check_2;
+FETCH FROM current_check_cursor;
+EXPLAIN (COSTS OFF)
+UPDATE current_check_2 SET b = 'Manzana' WHERE CURRENT OF current_check_cursor;
+UPDATE current_check_2 SET b = 'Manzana' WHERE CURRENT OF current_check_cursor;
+SELECT ctid, * FROM current_check_2;
+ROLLBACK;
+
 --
 -- check pg_stats view filtering
 --
@@ -2061,6 +2104,33 @@ INSERT INTO r1 VALUES (10)
 
 DROP TABLE r1;
 
+--
+-- Test policies using virtual generated columns
+--
+SET SESSION AUTHORIZATION regress_rls_alice;
+SET row_security = on;
+CREATE TABLE r1 (a int, b int GENERATED ALWAYS AS (a * 10) VIRTUAL);
+ALTER TABLE r1 ADD c int GENERATED ALWAYS AS (a * 100) VIRTUAL;
+INSERT INTO r1 VALUES (1), (2), (4);
+
+CREATE POLICY p0 ON r1 USING (b * 10 = c);
+CREATE POLICY p1 ON r1 AS RESTRICTIVE USING (b > 10);
+CREATE POLICY p2 ON r1 AS RESTRICTIVE USING ((SELECT c) < 400);
+ALTER TABLE r1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE r1 FORCE ROW LEVEL SECURITY;
+
+-- Should fail p1
+INSERT INTO r1 VALUES (0);
+
+-- Should fail p2
+INSERT INTO r1 VALUES (4);
+
+-- OK
+INSERT INTO r1 VALUES (3);
+SELECT * FROM r1;
+
+DROP TABLE r1;
+
 -- Check dependency handling
 RESET SESSION AUTHORIZATION;
 CREATE TABLE dep1 (c1 int);
@@ -2166,6 +2236,7 @@ CREATE FUNCTION op_leak(int, int) RETURNS bool
 CREATE OPERATOR <<< (procedure = op_leak, leftarg = int, rightarg = int,
                      restrict = scalarltsel);
 SELECT * FROM rls_tbl WHERE a <<< 1000;
+<<<<<<< HEAD
 RESET SESSION AUTHORIZATION;
 
 CREATE TABLE rls_child_tbl () INHERITS (rls_tbl);
@@ -2211,6 +2282,9 @@ SELECT * FROM (SELECT * FROM rls_tbl UNION ALL
                SELECT * FROM rls_tbl) t WHERE a <<< 1000;
 SELECT * FROM (SELECT * FROM rls_child_tbl UNION ALL
                SELECT * FROM rls_child_tbl) t WHERE a <<< 1000;
+=======
+EXPLAIN (COSTS OFF) SELECT * FROM rls_tbl WHERE a <<< 1000 or a <<< 900;
+>>>>>>> REL_18_BETA1_branch
 DROP OPERATOR <<< (int, int);
 DROP FUNCTION op_leak(int, int);
 RESET SESSION AUTHORIZATION;
@@ -2316,6 +2390,50 @@ RESET ROLE;
 DROP FUNCTION rls_f();
 DROP VIEW rls_v;
 DROP TABLE rls_t;
+
+-- Check that RLS changes invalidate SQL function plans
+create table rls_t (c text);
+create table test_t (c text);
+insert into rls_t values ('a'), ('b'), ('c'), ('d');
+insert into test_t values ('a'), ('b');
+alter table rls_t enable row level security;
+grant select on rls_t to regress_rls_alice;
+grant select on test_t to regress_rls_alice;
+create policy p1 on rls_t for select to regress_rls_alice
+  using (c = current_setting('rls_test.blah'));
+
+-- Function changes row_security setting and so invalidates plan
+create function rls_f(text) returns text
+begin atomic
+ select set_config('rls_test.blah', $1, true) || set_config('row_security', 'false', true) || string_agg(c, ',' order by c) from rls_t;
+end;
+
+set plan_cache_mode to force_custom_plan;
+
+-- Table owner bypasses RLS
+select rls_f(c) from test_t order by rls_f;
+
+-- For other users, changes in row_security setting
+-- should lead to RLS error during query rewrite
+set role regress_rls_alice;
+select rls_f(c) from test_t order by rls_f;
+reset role;
+
+set plan_cache_mode to force_generic_plan;
+
+-- Table owner bypasses RLS, although cached plan will be invalidated
+select rls_f(c) from test_t order by rls_f;
+
+-- For other users, changes in row_security setting
+-- should lead to plan invalidation and RLS error during query rewrite
+set role regress_rls_alice;
+select rls_f(c) from test_t order by rls_f;
+reset role;
+
+reset plan_cache_mode;
+reset rls_test.blah;
+drop function rls_f(text);
+drop table rls_t, test_t;
 
 --
 -- Clean up objects

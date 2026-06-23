@@ -1,8 +1,8 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
@@ -28,7 +28,7 @@ sub query_log
 }
 
 my $node = PostgreSQL::Test::Cluster->new('main');
-$node->init('auth_extra' => [ '--create-role', 'regress_user1' ]);
+$node->init(auth_extra => [ '--create-role' => 'regress_user1' ]);
 $node->append_conf('postgresql.conf',
 	"session_preload_libraries = 'auto_explain'");
 $node->append_conf('postgresql.conf', "auto_explain.log_min_duration = 0");
@@ -43,5 +43,18 @@ unlike(
 	qr/Query Parameters:/,
 	"no query parameters logged when none, text mode");
 
+
+# Test pg_get_loaded_modules() function.  This function is particularly
+# useful for modules with no SQL presence, such as auto_explain.
+
+my $res = $node->safe_psql(
+	"postgres", q{
+SELECT module_name,
+       version = current_setting('server_version') as version_ok,
+       regexp_replace(file_name, '\..*', '') as file_name_stripped
+FROM pg_get_loaded_modules()
+WHERE module_name = 'auto_explain';
+});
+like($res, qr/^auto_explain\|t\|auto_explain$/, "pg_get_loaded_modules() ok");
 
 done_testing();

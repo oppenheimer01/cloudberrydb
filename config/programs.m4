@@ -33,10 +33,9 @@ if test "$BISON"; then
   AC_MSG_NOTICE([using $pgac_bison_version])
   if echo "$pgac_bison_version" | $AWK '{ if ([$]4 < 2.3) exit 0; else exit 1;}'
   then
-    AC_MSG_WARN([
+    AC_MSG_ERROR([
 *** The installed version of Bison, $BISON, is too old to use with PostgreSQL.
 *** Bison version 2.3 or later is required, but this is $pgac_bison_version.])
-    BISON=""
   fi
   # Bison >=3.0 issues warnings about %name-prefix="base_yy", instead
   # of the now preferred %name-prefix "base_yy", but the latter
@@ -49,12 +48,7 @@ if test "$BISON"; then
 fi
 
 if test -z "$BISON"; then
-  AC_MSG_WARN([
-*** Without Bison you will not be able to build PostgreSQL from Git nor
-*** change any of the parser definition files.  You can obtain Bison from
-*** a GNU mirror site.  (If you are using the official distribution of
-*** PostgreSQL then you do not need to worry about this, because the Bison
-*** output is pre-generated.)])
+  AC_MSG_ERROR([bison not found])
 fi
 dnl We don't need AC_SUBST(BISON) because PGAC_PATH_PROGS did it
 AC_SUBST(BISONFLAGS)
@@ -65,11 +59,9 @@ AC_SUBST(BISONFLAGS)
 # PGAC_PATH_FLEX
 # --------------
 # Look for Flex, set the output variable FLEX to its path if found.
-# Reject versions before 2.5.35 (the earliest version in the buildfarm
-# as of 2022). Also find Flex if its installed under `lex', but do not
-# accept other Lex programs.
 
 AC_DEFUN([PGAC_PATH_FLEX],
+<<<<<<< HEAD
 [AC_CACHE_CHECK([for flex], pgac_cv_path_flex,
 [# Let the user override the test
 if test -n "$FLEX"; then
@@ -105,23 +97,15 @@ else
   done
   rm -f conftest.l lex.yy.c
   : ${pgac_cv_path_flex=no}
+=======
+[PGAC_PATH_PROGS(FLEX, flex)
+if test -z "$FLEX"; then
+  AC_MSG_ERROR([flex not found])
+>>>>>>> REL_18_BETA1_branch
 fi
-])[]dnl AC_CACHE_CHECK
 
-if test x"$pgac_cv_path_flex" = x"no"; then
-  AC_MSG_WARN([
-*** Without Flex you will not be able to build PostgreSQL from Git nor
-*** change any of the scanner definition files.  You can obtain Flex from
-*** a GNU mirror site.  (If you are using the official distribution of
-*** PostgreSQL then you do not need to worry about this because the Flex
-*** output is pre-generated.)])
-
-  FLEX=
-else
-  FLEX=$pgac_cv_path_flex
-  pgac_flex_version=`$FLEX --version 2>/dev/null`
-  AC_MSG_NOTICE([using $pgac_flex_version])
-fi
+pgac_flex_version=`$FLEX --version 2>/dev/null`
+AC_MSG_NOTICE([using $pgac_flex_version])
 
 AC_SUBST(FLEX)
 AC_SUBST(FLEXFLAGS)
@@ -330,6 +314,7 @@ AC_DEFUN([PGAC_CHECK_STRIP],
 ])# PGAC_CHECK_STRIP
 
 
+<<<<<<< HEAD
 # GPAC_PATH_APR_1_CONFIG
 # ----------------------
 # Check for apr-1-config, used by gpfdist
@@ -360,3 +345,83 @@ else
   AC_MSG_ERROR([apr-1-config is required for gpfdist, unable to find binary])
 fi
 ]) # GPAC_PATH_APR_1_CONFIG
+=======
+
+# PGAC_CHECK_LIBCURL
+# ------------------
+# Check for required libraries and headers, and test to see whether the current
+# installation of libcurl is thread-safe.
+
+AC_DEFUN([PGAC_CHECK_LIBCURL],
+[
+  AC_CHECK_HEADER(curl/curl.h, [],
+				  [AC_MSG_ERROR([header file <curl/curl.h> is required for --with-libcurl])])
+  AC_CHECK_LIB(curl, curl_multi_init, [
+				 AC_DEFINE([HAVE_LIBCURL], [1], [Define to 1 if you have the `curl' library (-lcurl).])
+				 AC_SUBST(LIBCURL_LDLIBS, -lcurl)
+			   ],
+			   [AC_MSG_ERROR([library 'curl' does not provide curl_multi_init])])
+
+  pgac_save_CPPFLAGS=$CPPFLAGS
+  pgac_save_LDFLAGS=$LDFLAGS
+  pgac_save_LIBS=$LIBS
+
+  CPPFLAGS="$LIBCURL_CPPFLAGS $CPPFLAGS"
+  LDFLAGS="$LIBCURL_LDFLAGS $LDFLAGS"
+  LIBS="$LIBCURL_LDLIBS $LIBS"
+
+  # Check to see whether the current platform supports threadsafe Curl
+  # initialization.
+  AC_CACHE_CHECK([for curl_global_init thread safety], [pgac_cv__libcurl_threadsafe_init],
+  [AC_RUN_IFELSE([AC_LANG_PROGRAM([
+#include <curl/curl.h>
+],[
+    curl_version_info_data *info;
+
+    if (curl_global_init(CURL_GLOBAL_ALL))
+        return -1;
+
+    info = curl_version_info(CURLVERSION_NOW);
+#ifdef CURL_VERSION_THREADSAFE
+    if (info->features & CURL_VERSION_THREADSAFE)
+        return 0;
+#endif
+
+    return 1;
+])],
+  [pgac_cv__libcurl_threadsafe_init=yes],
+  [pgac_cv__libcurl_threadsafe_init=no],
+  [pgac_cv__libcurl_threadsafe_init=unknown])])
+  if test x"$pgac_cv__libcurl_threadsafe_init" = xyes ; then
+    AC_DEFINE(HAVE_THREADSAFE_CURL_GLOBAL_INIT, 1,
+              [Define to 1 if curl_global_init() is guaranteed to be thread-safe.])
+  fi
+
+  # Fail if a thread-friendly DNS resolver isn't built.
+  AC_CACHE_CHECK([for curl support for asynchronous DNS], [pgac_cv__libcurl_async_dns],
+  [AC_RUN_IFELSE([AC_LANG_PROGRAM([
+#include <curl/curl.h>
+],[
+    curl_version_info_data *info;
+
+    if (curl_global_init(CURL_GLOBAL_ALL))
+        return -1;
+
+    info = curl_version_info(CURLVERSION_NOW);
+    return (info->features & CURL_VERSION_ASYNCHDNS) ? 0 : 1;
+])],
+  [pgac_cv__libcurl_async_dns=yes],
+  [pgac_cv__libcurl_async_dns=no],
+  [pgac_cv__libcurl_async_dns=unknown])])
+  if test x"$pgac_cv__libcurl_async_dns" = xno ; then
+    AC_MSG_ERROR([
+*** The installed version of libcurl does not support asynchronous DNS
+*** lookups. Rebuild libcurl with the AsynchDNS feature enabled in order
+*** to use it with libpq.])
+  fi
+
+  CPPFLAGS=$pgac_save_CPPFLAGS
+  LDFLAGS=$pgac_save_LDFLAGS
+  LIBS=$pgac_save_LIBS
+])# PGAC_CHECK_LIBCURL
+>>>>>>> REL_18_BETA1_branch

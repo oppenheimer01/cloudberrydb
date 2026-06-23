@@ -324,6 +324,7 @@ FROM quad_poly_tbl WHERE p <@ polygon '((300,300),(400,600),(600,500),(700,200))
                                       QUERY PLAN                                       
 ---------------------------------------------------------------------------------------
  WindowAgg
+<<<<<<< HEAD
    Order By: ((p <-> '(123,456)'::point))
    ->  Gather Motion 3:1  (slice1; segments: 3)
          Merge Key: ((p <-> '(123,456)'::point))
@@ -332,6 +333,13 @@ FROM quad_poly_tbl WHERE p <@ polygon '((300,300),(400,600),(600,500),(700,200))
                Order By: (p <-> '(123,456)'::point)
  Optimizer: Postgres query optimizer
 (8 rows)
+=======
+   Window: w1 AS (ORDER BY (p <-> '(123,456)'::point) ROWS UNBOUNDED PRECEDING)
+   ->  Index Scan using quad_poly_tbl_idx on quad_poly_tbl
+         Index Cond: (p <@ '((300,300),(400,600),(600,500),(700,200))'::polygon)
+         Order By: (p <-> '(123,456)'::point)
+(5 rows)
+>>>>>>> REL_18_BETA1_branch
 
 CREATE TEMP TABLE quad_poly_tbl_ord_idx2 AS
 SELECT rank() OVER (ORDER BY p <-> point '123,456') n, p <-> point '123,456' dist, id

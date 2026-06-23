@@ -3,7 +3,7 @@
  * pg_prewarm.c
  *		  prewarming utilities
  *
- * Copyright (c) 2010-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2010-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  contrib/pg_prewarm/pg_prewarm.c
@@ -19,13 +19,17 @@
 #include "fmgr.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
+#include "storage/read_stream.h"
 #include "storage/smgr.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 
-PG_MODULE_MAGIC;
+PG_MODULE_MAGIC_EXT(
+					.name = "pg_prewarm",
+					.version = PG_VERSION
+);
 
 PG_FUNCTION_INFO_V1(pg_prewarm);
 
@@ -33,7 +37,7 @@ typedef enum
 {
 	PREWARM_PREFETCH,
 	PREWARM_READ,
-	PREWARM_BUFFER
+	PREWARM_BUFFER,
 } PrewarmType;
 
 static PGIOAlignedBlock blockbuffer;
@@ -125,8 +129,8 @@ pg_prewarm(PG_FUNCTION_ARGS)
 		if (first_block < 0 || first_block >= nblocks)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("starting block number must be between 0 and %lld",
-							(long long) (nblocks - 1))));
+					 errmsg("starting block number must be between 0 and %" PRId64,
+							(nblocks - 1))));
 	}
 	if (PG_ARGISNULL(4))
 		last_block = nblocks - 1;
@@ -136,8 +140,8 @@ pg_prewarm(PG_FUNCTION_ARGS)
 		if (last_block < 0 || last_block >= nblocks)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("ending block number must be between 0 and %lld",
-							(long long) (nblocks - 1))));
+					 errmsg("ending block number must be between 0 and %" PRId64,
+							(nblocks - 1))));
 	}
 
 	/* Now we're ready to do the real work. */
@@ -183,18 +187,42 @@ pg_prewarm(PG_FUNCTION_ARGS)
 	}
 	else if (ptype == PREWARM_BUFFER)
 	{
+		BlockRangeReadStreamPrivate p;
+		ReadStream *stream;
+
 		/*
 		 * In buffer mode, we actually pull the data into shared_buffers.
 		 */
+
+		/* Set up the private state for our streaming buffer read callback. */
+		p.current_blocknum = first_block;
+		p.last_exclusive = last_block + 1;
+
+		/*
+		 * It is safe to use batchmode as block_range_read_stream_cb takes no
+		 * locks.
+		 */
+		stream = read_stream_begin_relation(READ_STREAM_MAINTENANCE |
+											READ_STREAM_FULL |
+											READ_STREAM_USE_BATCHING,
+											NULL,
+											rel,
+											forkNumber,
+											block_range_read_stream_cb,
+											&p,
+											0);
+
 		for (block = first_block; block <= last_block; ++block)
 		{
 			Buffer		buf;
 
 			CHECK_FOR_INTERRUPTS();
-			buf = ReadBufferExtended(rel, forkNumber, block, RBM_NORMAL, NULL);
+			buf = read_stream_next_buffer(stream, NULL);
 			ReleaseBuffer(buf);
 			++blocks_done;
 		}
+		Assert(read_stream_next_buffer(stream, NULL) == InvalidBuffer);
+		read_stream_end(stream);
 	}
 
 	/* Close relation, release lock. */

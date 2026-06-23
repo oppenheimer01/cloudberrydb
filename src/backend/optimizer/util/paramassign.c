@@ -40,7 +40,7 @@
  * doesn't really save much executor work anyway.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -94,6 +94,10 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 				pvar->vartype == var->vartype &&
 				pvar->vartypmod == var->vartypmod &&
 				pvar->varcollid == var->varcollid &&
+<<<<<<< HEAD
+=======
+				pvar->varreturningtype == var->varreturningtype &&
+>>>>>>> REL_18_BETA1_branch
 				bms_equal(pvar->varnullingrels, var->varnullingrels))
 				return pitem->paramId;
 		}
@@ -353,6 +357,103 @@ replace_outer_group_id(PlannerInfo *root, GroupId *grp)
 	retval->paramtypmod = -1;
 	retval->paramcollid = InvalidOid;
 	retval->location = grp->location;
+
+	return retval;
+}
+
+/*
+ * Generate a Param node to replace the given MergeSupportFunc expression
+ * which is expected to be in the RETURNING list of an upper-level MERGE
+ * query.  Record the need for the MergeSupportFunc in the proper upper-level
+ * root->plan_params.
+ */
+Param *
+replace_outer_merge_support(PlannerInfo *root, MergeSupportFunc *msf)
+{
+	Param	   *retval;
+	PlannerParamItem *pitem;
+	Oid			ptype = exprType((Node *) msf);
+
+	Assert(root->parse->commandType != CMD_MERGE);
+
+	/*
+	 * The parser should have ensured that the MergeSupportFunc is in the
+	 * RETURNING list of an upper-level MERGE query, so find that query.
+	 */
+	do
+	{
+		root = root->parent_root;
+		if (root == NULL)
+			elog(ERROR, "MergeSupportFunc found outside MERGE");
+	} while (root->parse->commandType != CMD_MERGE);
+
+	/*
+	 * It does not seem worthwhile to try to de-duplicate references to outer
+	 * MergeSupportFunc expressions.  Just make a new slot every time.
+	 */
+	msf = copyObject(msf);
+
+	pitem = makeNode(PlannerParamItem);
+	pitem->item = (Node *) msf;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 ptype);
+
+	root->plan_params = lappend(root->plan_params, pitem);
+
+	retval = makeNode(Param);
+	retval->paramkind = PARAM_EXEC;
+	retval->paramid = pitem->paramId;
+	retval->paramtype = ptype;
+	retval->paramtypmod = -1;
+	retval->paramcollid = InvalidOid;
+	retval->location = msf->location;
+
+	return retval;
+}
+
+/*
+ * Generate a Param node to replace the given ReturningExpr expression which
+ * is expected to have retlevelsup > 0 (ie, it is not local).  Record the need
+ * for the ReturningExpr in the proper upper-level root->plan_params.
+ */
+Param *
+replace_outer_returning(PlannerInfo *root, ReturningExpr *rexpr)
+{
+	Param	   *retval;
+	PlannerParamItem *pitem;
+	Index		levelsup;
+	Oid			ptype = exprType((Node *) rexpr->retexpr);
+
+	Assert(rexpr->retlevelsup > 0 && rexpr->retlevelsup < root->query_level);
+
+	/* Find the query level the ReturningExpr belongs to */
+	for (levelsup = rexpr->retlevelsup; levelsup > 0; levelsup--)
+		root = root->parent_root;
+
+	/*
+	 * It does not seem worthwhile to try to de-duplicate references to outer
+	 * ReturningExprs.  Just make a new slot every time.
+	 */
+	rexpr = copyObject(rexpr);
+	IncrementVarSublevelsUp((Node *) rexpr, -((int) rexpr->retlevelsup), 0);
+	Assert(rexpr->retlevelsup == 0);
+
+	pitem = makeNode(PlannerParamItem);
+	pitem->item = (Node *) rexpr;
+	pitem->paramId = list_length(root->glob->paramExecTypes);
+	root->glob->paramExecTypes = lappend_oid(root->glob->paramExecTypes,
+											 ptype);
+
+	root->plan_params = lappend(root->plan_params, pitem);
+
+	retval = makeNode(Param);
+	retval->paramkind = PARAM_EXEC;
+	retval->paramid = pitem->paramId;
+	retval->paramtype = ptype;
+	retval->paramtypmod = exprTypmod((Node *) rexpr->retexpr);
+	retval->paramcollid = exprCollation((Node *) rexpr->retexpr);
+	retval->location = exprLocation((Node *) rexpr->retexpr);
 
 	return retval;
 }

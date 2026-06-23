@@ -16,7 +16,7 @@
  * for each file.  Finally, it sorts the array to the final order that the
  * actions should be executed in.
  *
- * Copyright (c) 2013-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2025, PostgreSQL Global Development Group
  *
  *-------------------------------------------------------------------------
  */
@@ -26,26 +26,39 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+<<<<<<< HEAD
 #include "catalog/catalog.h"
 #include "catalog/pg_tablespace_d.h"
 #include "common/hashfn.h"
 #include "common/kmgr_utils.h"
+=======
+#include "access/xlog_internal.h"
+#include "catalog/pg_tablespace_d.h"
+#include "common/file_utils.h"
+#include "common/hashfn_unstable.h"
+>>>>>>> REL_18_BETA1_branch
 #include "common/string.h"
 #include "datapagemap.h"
 #include "filemap.h"
 #include "pg_rewind.h"
-#include "storage/fd.h"
 
 /*
  * Define a hash table which we can use to store information about the files
  * appearing in source and target systems.
  */
+<<<<<<< HEAD
 static uint32 hash_string_pointer(const char *s);
+=======
+>>>>>>> REL_18_BETA1_branch
 #define SH_PREFIX				filehash
 #define SH_ELEMENT_TYPE			file_entry_t
 #define SH_KEY_TYPE				const char *
 #define SH_KEY					path
+<<<<<<< HEAD
 #define SH_HASH_KEY(tb, key)	hash_string_pointer(key)
+=======
+#define SH_HASH_KEY(tb, key)	hash_string(key)
+>>>>>>> REL_18_BETA1_branch
 #define SH_EQUAL(tb, a, b)		(strcmp(a, b) == 0)
 #define SH_SCOPE				static inline
 #define SH_RAW_ALLOCATOR		pg_malloc0
@@ -78,7 +91,11 @@ typedef struct keepwal_entry
 #define SH_ELEMENT_TYPE			keepwal_entry
 #define SH_KEY_TYPE				const char *
 #define SH_KEY					path
+<<<<<<< HEAD
 #define SH_HASH_KEY(tb, key)	hash_string_pointer(key)
+=======
+#define SH_HASH_KEY(tb, key)	hash_string(key)
+>>>>>>> REL_18_BETA1_branch
 #define SH_EQUAL(tb, a, b)		(strcmp(a, b) == 0)
 #define SH_SCOPE				static inline
 #define SH_RAW_ALLOCATOR		pg_malloc0
@@ -117,7 +134,7 @@ struct exclude_list_item
  * they are defined in backend-only headers.  So this list is maintained
  * with a best effort in mind.
  */
-static const char *excludeDirContents[] =
+static const char *const excludeDirContents[] =
 {
 	/*
 	 * Skip temporary statistics files. PG_STAT_TMP_DIR must be skipped
@@ -130,7 +147,7 @@ static const char *excludeDirContents[] =
 	 * even if the intention is to restore to another primary. See backup.sgml
 	 * for a more detailed description.
 	 */
-	"pg_replslot",
+	"pg_replslot",				/* defined as PG_REPLSLOT_DIR */
 
 	/* Contents removed on startup, see dsm_cleanup_for_mmap(). */
 	"pg_dynshmem",				/* defined as PG_DYNSHMEM_DIR */
@@ -258,6 +275,39 @@ lookup_filehash_entry(const char *path)
 	return filehash_lookup(filehash, path);
 }
 
+
+/*
+ * Initialize a hash table to store WAL file names that must be kept.
+ */
+void
+keepwal_init(void)
+{
+	/* An initial hash size out of thin air */
+	keepwal = keepwal_create(KEEPWAL_INITIAL_SIZE, NULL);
+}
+
+/* Mark the given file to prevent its removal */
+void
+keepwal_add_entry(const char *path)
+{
+	keepwal_entry *entry;
+	bool		found;
+
+	/* Should only be called with keepwal initialized */
+	Assert(keepwal != NULL);
+
+	entry = keepwal_insert(keepwal, path, &found);
+
+	if (!found)
+		entry->path = pg_strdup(path);
+}
+
+/* Return true if file is marked as not to be removed, false otherwise */
+static bool
+keepwal_entry_exists(const char *path)
+{
+	return keepwal_lookup(keepwal, path) != NULL;
+}
 
 /*
  * Initialize a hash table to store WAL file names that must be kept.
@@ -748,18 +798,17 @@ isRelDataFile(const char *path)
 static char *
 datasegpath(RelFileLocator rlocator, ForkNumber forknum, BlockNumber segno)
 {
-	char	   *path;
+	RelPathStr	path;
 	char	   *segpath;
 
 	path = relpathperm(rlocator, forknum);
 	if (segno > 0)
 	{
-		segpath = psprintf("%s.%u", path, segno);
-		pfree(path);
+		segpath = psprintf("%s.%u", path.str, segno);
 		return segpath;
 	}
 	else
-		return path;
+		return pstrdup(path.str);
 }
 
 /*
@@ -801,7 +850,11 @@ decide_file_action(file_entry_t *entry)
 	 * Don't touch the control file. It is handled specially, after copying
 	 * all the other files.
 	 */
-	if (strcmp(path, "global/pg_control") == 0)
+	if (strcmp(path, XLOG_CONTROL_FILE) == 0)
+		return FILE_ACTION_NONE;
+
+	/* Skip macOS system files */
+	if (strstr(path, ".DS_Store") != NULL)
 		return FILE_ACTION_NONE;
 
 	/* Skip macOS system files */
@@ -991,16 +1044,4 @@ decide_file_actions(void)
 		  final_filemap_cmp);
 
 	return filemap;
-}
-
-
-/*
- * Helper function for filemap hash table.
- */
-static uint32
-hash_string_pointer(const char *s)
-{
-	unsigned char *ss = (unsigned char *) s;
-
-	return hash_bytes(ss, strlen(s));
 }

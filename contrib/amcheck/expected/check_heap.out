@@ -128,7 +128,11 @@ INSERT INTO heaptest (a, b)
 SET allow_in_place_tablespaces = true;
 CREATE TABLESPACE regress_test_stats_tblspc LOCATION '';
 SELECT sum(reads) AS stats_bulkreads_before
+<<<<<<< HEAD
   FROM gp_dist_random('pg_stat_io') WHERE context = 'bulkread' \gset
+=======
+  FROM pg_stat_io WHERE context = 'bulkread' \gset
+>>>>>>> REL_18_BETA1_branch
 BEGIN;
 ALTER TABLE heaptest SET TABLESPACE regress_test_stats_tblspc;
 -- Check that valid options are not rejected nor corruption reported

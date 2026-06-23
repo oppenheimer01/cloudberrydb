@@ -2,7 +2,7 @@
  * llvmjit_emit.h
  *	  Helpers to make emitting LLVM IR a bit more concise and pgindent proof.
  *
- * Copyright (c) 2018-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2018-2025, PostgreSQL Global Development Group
  *
  * src/include/jit/llvmjit_emit.h
  */
@@ -107,41 +107,57 @@ l_pbool_const(bool i)
 static inline LLVMValueRef
 l_struct_gep(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, int32 idx, const char *name)
 {
+<<<<<<< HEAD
 #if LLVM_VERSION_MAJOR < 16
 	return LLVMBuildStructGEP(b, v, idx, "");
 #else
 	return LLVMBuildStructGEP2(b, t, v, idx, "");
 #endif
+=======
+	return LLVMBuildStructGEP2(b, t, v, idx, "");
+>>>>>>> REL_18_BETA1_branch
 }
 
 static inline LLVMValueRef
 l_gep(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, LLVMValueRef *indices, int32 nindices, const char *name)
 {
+<<<<<<< HEAD
 #if LLVM_VERSION_MAJOR < 16
 	return LLVMBuildGEP(b, v, indices, nindices, name);
 #else
 	return LLVMBuildGEP2(b, t, v, indices, nindices, name);
 #endif
+=======
+	return LLVMBuildGEP2(b, t, v, indices, nindices, name);
+>>>>>>> REL_18_BETA1_branch
 }
 
 static inline LLVMValueRef
 l_load(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, const char *name)
 {
+<<<<<<< HEAD
 #if LLVM_VERSION_MAJOR < 16
 	return LLVMBuildLoad(b, v, name);
 #else
 	return LLVMBuildLoad2(b, t, v, name);
 #endif
+=======
+	return LLVMBuildLoad2(b, t, v, name);
+>>>>>>> REL_18_BETA1_branch
 }
 
 static inline LLVMValueRef
 l_call(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef fn, LLVMValueRef *args, int32 nargs, const char *name)
 {
+<<<<<<< HEAD
 #if LLVM_VERSION_MAJOR < 16
 	return LLVMBuildCall(b, fn, args, nargs, name);
 #else
 	return LLVMBuildCall2(b, t, fn, args, nargs, name);
 #endif
+=======
+	return LLVMBuildCall2(b, t, fn, args, nargs, name);
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*

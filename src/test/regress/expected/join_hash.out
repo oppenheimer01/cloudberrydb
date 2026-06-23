@@ -553,6 +553,7 @@ set local statement_mem = '1000kB'; -- GPDB uses statement_mem instead of work_m
 set local enable_parallel_hash = on;
 explain (costs off)
   select count(*) from simple r join extremely_skewed s using (id);
+<<<<<<< HEAD
                           QUERY PLAN                          
 --------------------------------------------------------------
  Finalize Aggregate
@@ -565,6 +566,19 @@ explain (costs off)
                            ->  Seq Scan on extremely_skewed s
  Optimizer: Postgres query optimizer
 (9 rows)
+=======
+                           QUERY PLAN                            
+-----------------------------------------------------------------
+ Aggregate
+   ->  Gather
+         Workers Planned: 1
+         ->  Parallel Hash Join
+               Hash Cond: (r.id = s.id)
+               ->  Parallel Seq Scan on simple r
+               ->  Parallel Hash
+                     ->  Parallel Seq Scan on extremely_skewed s
+(8 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select count(*) from simple r join extremely_skewed s using (id);
  count 

@@ -5,7 +5,7 @@
  *
  * Author: Magnus Hagander <magnus@hagander.net>
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/streamutil.c
@@ -19,14 +19,12 @@
 
 #include "access/xlog_internal.h"
 #include "common/connect.h"
-#include "common/fe_memutils.h"
 #include "common/file_perm.h"
 #include "common/logging.h"
 #include "common/string.h"
 #include "datatype/timestamp.h"
 #include "port/pg_bswap.h"
 #include "pqexpbuffer.h"
-#include "receivelog.h"
 #include "streamutil.h"
 
 #define ERRCODE_DUPLICATE_OBJECT  "42710"
@@ -73,15 +71,15 @@ GetConnection(void)
 	PQconninfoOption *conn_opt;
 	char	   *err_msg = NULL;
 
-	/* pg_recvlogical uses dbname only; others use connection_string only. */
+	/*
+	 * pg_recvlogical uses dbname only; others use connection_string only.
+	 * (Note: both variables will be NULL if there's no command line options.)
+	 */
 	Assert(dbname == NULL || connection_string == NULL);
 
 	/*
 	 * Merge the connection info inputs given in form of connection string,
 	 * options and default values (dbname=replication, replication=true, etc.)
-	 * Explicitly discard any dbname value in the connection string;
-	 * otherwise, PQconnectdbParams() would interpret that value as being
-	 * itself a connection string.
 	 */
 	i = 0;
 	if (connection_string)
@@ -92,18 +90,24 @@ GetConnection(void)
 
 		for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
 		{
-			if (conn_opt->val != NULL && conn_opt->val[0] != '\0' &&
-				strcmp(conn_opt->keyword, "dbname") != 0)
+			if (conn_opt->val != NULL && conn_opt->val[0] != '\0')
 				argcount++;
 		}
 
 		keywords = pg_malloc0((argcount + 1) * sizeof(*keywords));
 		values = pg_malloc0((argcount + 1) * sizeof(*values));
 
+		/*
+		 * Set dbname here already, so it can be overridden by a dbname in the
+		 * connection string.
+		 */
+		keywords[i] = "dbname";
+		values[i] = "replication";
+		i++;
+
 		for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
 		{
-			if (conn_opt->val != NULL && conn_opt->val[0] != '\0' &&
-				strcmp(conn_opt->keyword, "dbname") != 0)
+			if (conn_opt->val != NULL && conn_opt->val[0] != '\0')
 			{
 				keywords[i] = conn_opt->keyword;
 				values[i] = conn_opt->val;
@@ -115,13 +119,13 @@ GetConnection(void)
 	{
 		keywords = pg_malloc0((argcount + 1) * sizeof(*keywords));
 		values = pg_malloc0((argcount + 1) * sizeof(*values));
+		keywords[i] = "dbname";
+		values[i] = (dbname == NULL) ? "replication" : dbname;
+		i++;
 	}
 
-	keywords[i] = "dbname";
-	values[i] = dbname == NULL ? "replication" : dbname;
-	i++;
 	keywords[i] = "replication";
-	values[i] = dbname == NULL ? "true" : "database";
+	values[i] = (dbname == NULL) ? "true" : "database";
 	i++;
 	keywords[i] = "fallback_application_name";
 	values[i] = progname;
@@ -171,7 +175,11 @@ GetConnection(void)
 			values[i] = NULL;
 		}
 
-		tmpconn = PQconnectdbParams(keywords, values, true);
+		/*
+		 * Only expand dbname when we did not already parse the argument as a
+		 * connection string ourselves.
+		 */
+		tmpconn = PQconnectdbParams(keywords, values, !connection_string);
 
 		/*
 		 * If there is too little memory even to allocate the PGconn object
@@ -219,7 +227,7 @@ GetConnection(void)
 		res = PQexec(tmpconn, ALWAYS_SECURE_SEARCH_PATH_SQL);
 		if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		{
-			pg_log_error("could not clear search_path: %s",
+			pg_log_error("could not clear \"search_path\": %s",
 						 PQerrorMessage(tmpconn));
 			PQclear(res);
 			PQfinish(tmpconn);
@@ -235,14 +243,14 @@ GetConnection(void)
 	tmpparam = PQparameterStatus(tmpconn, "integer_datetimes");
 	if (!tmpparam)
 	{
-		pg_log_error("could not determine server setting for integer_datetimes");
+		pg_log_error("could not determine server setting for \"integer_datetimes\"");
 		PQfinish(tmpconn);
 		exit(1);
 	}
 
 	if (strcmp(tmpparam, "on") != 0)
 	{
-		pg_log_error("integer_datetimes compile flag does not match server");
+		pg_log_error("\"integer_datetimes\" compile flag does not match server");
 		PQfinish(tmpconn);
 		exit(1);
 	}
@@ -321,10 +329,11 @@ RetrieveWalSegSize(PGconn *conn)
 
 	if (!IsValidWalSegSize(WalSegSz))
 	{
-		pg_log_error(ngettext("WAL segment size must be a power of two between 1 MB and 1 GB, but the remote server reported a value of %d byte",
-							  "WAL segment size must be a power of two between 1 MB and 1 GB, but the remote server reported a value of %d bytes",
+		pg_log_error(ngettext("remote server reported invalid WAL segment size (%d byte)",
+							  "remote server reported invalid WAL segment size (%d bytes)",
 							  WalSegSz),
 					 WalSegSz);
+		pg_log_error_detail("The WAL segment size must be a power of two between 1 MB and 1 GB.");
 		return false;
 	}
 
@@ -554,7 +563,7 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 
 	/* current TLI */
 	if (!PQgetisnull(res, 0, 2))
-		tli_loc = (TimeLineID) atol(PQgetvalue(res, 0, 2));
+		tli_loc = (TimeLineID) atoll(PQgetvalue(res, 0, 2));
 
 	PQclear(res);
 
@@ -574,7 +583,7 @@ GetSlotInformation(PGconn *conn, const char *slot_name,
 bool
 CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 					  bool is_temporary, bool is_physical, bool reserve_wal,
-					  bool slot_exists_ok, bool two_phase)
+					  bool slot_exists_ok, bool two_phase, bool failover)
 {
 	PQExpBuffer query;
 	PGresult   *res;
@@ -585,6 +594,7 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 	Assert((is_physical && plugin == NULL) ||
 		   (!is_physical && plugin != NULL));
 	Assert(!(two_phase && is_physical));
+	Assert(!(failover && is_physical));
 	Assert(slot_name != NULL);
 
 	/* Build base portion of query */
@@ -607,6 +617,10 @@ CreateReplicationSlot(PGconn *conn, const char *slot_name, const char *plugin,
 	}
 	else
 	{
+		if (failover && PQserverVersion(conn) >= 170000)
+			AppendPlainCommandOption(query, use_new_option_syntax,
+									 "FAILOVER");
+
 		if (two_phase && PQserverVersion(conn) >= 150000)
 			AppendPlainCommandOption(query, use_new_option_syntax,
 									 "TWO_PHASE");

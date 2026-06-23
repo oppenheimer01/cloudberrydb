@@ -3,10 +3,14 @@
  * joinrels.c
  *	  Routines to determine which relations should be joined
  *
+<<<<<<< HEAD
 
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -30,8 +34,8 @@ make_join_rel_hook_type make_join_rel_hook = NULL;
 
 static void make_rels_by_clause_joins(PlannerInfo *root,
 									  RelOptInfo *old_rel,
-									  List *other_rels_list,
-									  ListCell *other_rels);
+									  List *other_rels,
+									  int first_rel_idx);
 static void make_rels_by_clauseless_joins(PlannerInfo *root,
 										  RelOptInfo *old_rel,
 										  List *other_rels);
@@ -50,6 +54,8 @@ static void try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1,
 static SpecialJoinInfo *build_child_join_sjinfo(PlannerInfo *root,
 												SpecialJoinInfo *parent_sjinfo,
 												Relids left_relids, Relids right_relids);
+static void free_child_join_sjinfo(SpecialJoinInfo *child_sjinfo,
+								   SpecialJoinInfo *parent_sjinfo);
 static void compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 									 RelOptInfo *rel2, RelOptInfo *joinrel,
 									 SpecialJoinInfo *parent_sjinfo,
@@ -105,6 +111,8 @@ join_search_one_level(PlannerInfo *root, int level)
 		if (old_rel->joininfo != NIL || old_rel->has_eclass_joins ||
 			has_join_restriction(root, old_rel))
 		{
+			int			first_rel;
+
 			/*
 			 * There are join clauses or join order restrictions relevant to
 			 * this rel, so consider joins between this rel and (only) those
@@ -118,24 +126,12 @@ join_search_one_level(PlannerInfo *root, int level)
 			 * to each initial rel they don't already include but have a join
 			 * clause or restriction with.
 			 */
-			List	   *other_rels_list;
-			ListCell   *other_rels;
-
 			if (level == 2)		/* consider remaining initial rels */
-			{
-				other_rels_list = joinrels[level - 1];
-				other_rels = lnext(other_rels_list, r);
-			}
-			else				/* consider all initial rels */
-			{
-				other_rels_list = joinrels[1];
-				other_rels = list_head(other_rels_list);
-			}
+				first_rel = foreach_current_index(r) + 1;
+			else
+				first_rel = 0;
 
-			make_rels_by_clause_joins(root,
-									  old_rel,
-									  other_rels_list,
-									  other_rels);
+			make_rels_by_clause_joins(root, old_rel, joinrels[1], first_rel);
 		}
 		else
 		{
@@ -179,8 +175,7 @@ join_search_one_level(PlannerInfo *root, int level)
 		foreach(r, joinrels[k])
 		{
 			RelOptInfo *old_rel = (RelOptInfo *) lfirst(r);
-			List	   *other_rels_list;
-			ListCell   *other_rels;
+			int			first_rel;
 			ListCell   *r2;
 
 			/*
@@ -192,19 +187,12 @@ join_search_one_level(PlannerInfo *root, int level)
 				!has_join_restriction(root, old_rel))
 				continue;
 
-			if (k == other_level)
-			{
-				/* only consider remaining rels */
-				other_rels_list = joinrels[k];
-				other_rels = lnext(other_rels_list, r);
-			}
+			if (k == other_level)	/* only consider remaining rels */
+				first_rel = foreach_current_index(r) + 1;
 			else
-			{
-				other_rels_list = joinrels[other_level];
-				other_rels = list_head(other_rels_list);
-			}
+				first_rel = 0;
 
-			for_each_cell(r2, other_rels_list, other_rels)
+			for_each_from(r2, joinrels[other_level], first_rel)
 			{
 				RelOptInfo *new_rel = (RelOptInfo *) lfirst(r2);
 
@@ -298,9 +286,8 @@ join_search_one_level(PlannerInfo *root, int level)
  * automatically ensures that each new joinrel is only added to the list once.
  *
  * 'old_rel' is the relation entry for the relation to be joined
- * 'other_rels_list': a list containing the other
- * rels to be considered for joining
- * 'other_rels': the first cell to be considered
+ * 'other_rels': a list containing the other rels to be considered for joining
+ * 'first_rel_idx': the first rel to be considered in 'other_rels'
  *
  * Currently, this is only used with initial rels in other_rels, but it
  * will work for joining to joinrels too.
@@ -308,12 +295,12 @@ join_search_one_level(PlannerInfo *root, int level)
 static void
 make_rels_by_clause_joins(PlannerInfo *root,
 						  RelOptInfo *old_rel,
-						  List *other_rels_list,
-						  ListCell *other_rels)
+						  List *other_rels,
+						  int first_rel_idx)
 {
 	ListCell   *l;
 
-	for_each_cell(l, other_rels_list, other_rels)
+	for_each_from(l, other_rels, first_rel_idx)
 	{
 		RelOptInfo *other_rel = (RelOptInfo *) lfirst(l);
 
@@ -684,6 +671,39 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 	return true;
 }
 
+/*
+ * init_dummy_sjinfo
+ *    Populate the given SpecialJoinInfo for a plain inner join between the
+ *    left and right relations specified by left_relids and right_relids
+ *    respectively.
+ *
+ * Normally, an inner join does not have a SpecialJoinInfo node associated with
+ * it. But some functions involved in join planning require one containing at
+ * least the information of which relations are being joined.  So we initialize
+ * that information here.
+ */
+void
+init_dummy_sjinfo(SpecialJoinInfo *sjinfo, Relids left_relids,
+				  Relids right_relids)
+{
+	sjinfo->type = T_SpecialJoinInfo;
+	sjinfo->min_lefthand = left_relids;
+	sjinfo->min_righthand = right_relids;
+	sjinfo->syn_lefthand = left_relids;
+	sjinfo->syn_righthand = right_relids;
+	sjinfo->jointype = JOIN_INNER;
+	sjinfo->ojrelid = 0;
+	sjinfo->commute_above_l = NULL;
+	sjinfo->commute_above_r = NULL;
+	sjinfo->commute_below_l = NULL;
+	sjinfo->commute_below_r = NULL;
+	/* we don't bother trying to make the remaining fields valid */
+	sjinfo->lhs_strict = false;
+	sjinfo->semi_can_btree = false;
+	sjinfo->semi_can_hash = false;
+	sjinfo->semi_operators = NIL;
+	sjinfo->semi_rhs_exprs = NIL;
+}
 
 /*
  * make_join_rel
@@ -755,23 +775,7 @@ make_join_relation(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 	if (sjinfo == NULL)
 	{
 		sjinfo = &sjinfo_data;
-		sjinfo->type = T_SpecialJoinInfo;
-		sjinfo->min_lefthand = rel1->relids;
-		sjinfo->min_righthand = rel2->relids;
-		sjinfo->syn_lefthand = rel1->relids;
-		sjinfo->syn_righthand = rel2->relids;
-		sjinfo->jointype = JOIN_INNER;
-		sjinfo->ojrelid = 0;
-		sjinfo->commute_above_l = NULL;
-		sjinfo->commute_above_r = NULL;
-		sjinfo->commute_below_l = NULL;
-		sjinfo->commute_below_r = NULL;
-		/* we don't bother trying to make the remaining fields valid */
-		sjinfo->lhs_strict = false;
-		sjinfo->semi_can_btree = false;
-		sjinfo->semi_can_hash = false;
-		sjinfo->semi_operators = NIL;
-		sjinfo->semi_rhs_exprs = NIL;
+		init_dummy_sjinfo(sjinfo, rel1->relids, rel2->relids);
 	}
 
 	/*
@@ -1127,6 +1131,7 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 				add_paths_to_joinrel(root, joinrel, rel1, rel2,
 									 JOIN_SEMI, sjinfo,
 									 restrictlist);
+<<<<<<< HEAD
 
 				if (root->upd_del_replicated_table > 0 &&
 					(bms_is_member(root->upd_del_replicated_table, rel1->relids) ||
@@ -1161,6 +1166,11 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 										 JOIN_DEDUP_SEMI_REVERSE, sjinfo,
 										 restrictlist);
 				}
+=======
+				add_paths_to_joinrel(root, joinrel, rel2, rel1,
+									 JOIN_RIGHT_SEMI, sjinfo,
+									 restrictlist);
+>>>>>>> REL_18_BETA1_branch
 			}
 
 			/*
@@ -1731,6 +1741,7 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		RelOptInfo *child_joinrel;
 		AppendRelInfo **appinfos;
 		int			nappinfos;
+		Relids		child_relids;
 
 		if (joinrel->partbounds_merged)
 		{
@@ -1826,9 +1837,14 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 											   child_rel2->relids);
 
 		/* Find the AppendRelInfo structures */
+<<<<<<< HEAD
 		appinfos = find_appinfos_by_relids(root,
 										   bms_union(child_rel1->relids,
 													 child_rel2->relids),
+=======
+		child_relids = bms_union(child_rel1->relids, child_rel2->relids);
+		appinfos = find_appinfos_by_relids(root, child_relids,
+>>>>>>> REL_18_BETA1_branch
 										   &nappinfos);
 
 		/*
@@ -1846,7 +1862,7 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		{
 			child_joinrel = build_child_join_rel(root, child_rel1, child_rel2,
 												 joinrel, child_restrictlist,
-												 child_sjinfo);
+												 child_sjinfo, nappinfos, appinfos);
 			joinrel->part_rels[cnt_parts] = child_joinrel;
 			joinrel->live_parts = bms_add_member(joinrel->live_parts, cnt_parts);
 			joinrel->all_partrels = bms_add_members(joinrel->all_partrels,
@@ -1863,7 +1879,19 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 									child_joinrel, child_sjinfo,
 									child_restrictlist);
 
+<<<<<<< HEAD
 		pfree(appinfos);
+=======
+		/*
+		 * When there are thousands of partitions involved, this loop will
+		 * accumulate a significant amount of memory usage from objects that
+		 * are only needed within the loop.  Free these local objects eagerly
+		 * at the end of each iteration.
+		 */
+		pfree(appinfos);
+		bms_free(child_relids);
+		free_child_join_sjinfo(child_sjinfo, parent_sjinfo);
+>>>>>>> REL_18_BETA1_branch
 	}
 }
 
@@ -1871,6 +1899,9 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
  * Construct the SpecialJoinInfo for a child-join by translating
  * SpecialJoinInfo for the join between parents. left_relids and right_relids
  * are the relids of left and right side of the join respectively.
+ *
+ * If translations are added to or removed from this function, consider
+ * updating free_child_join_sjinfo() accordingly.
  */
 static SpecialJoinInfo *
 build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
@@ -1881,6 +1912,14 @@ build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
 	int			left_nappinfos;
 	AppendRelInfo **right_appinfos;
 	int			right_nappinfos;
+
+	/* Dummy SpecialJoinInfos can be created without any translation. */
+	if (parent_sjinfo->jointype == JOIN_INNER)
+	{
+		Assert(parent_sjinfo->ojrelid == 0);
+		init_dummy_sjinfo(sjinfo, left_relids, right_relids);
+		return sjinfo;
+	}
 
 	memcpy(sjinfo, parent_sjinfo, sizeof(SpecialJoinInfo));
 	left_appinfos = find_appinfos_by_relids(root, left_relids,
@@ -1908,6 +1947,52 @@ build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
 	pfree(right_appinfos);
 
 	return sjinfo;
+}
+
+/*
+ * free_child_join_sjinfo
+ *		Free memory consumed by a SpecialJoinInfo created by
+ *		build_child_join_sjinfo()
+ *
+ * Only members that are translated copies of their counterpart in the parent
+ * SpecialJoinInfo are freed here.
+ */
+static void
+free_child_join_sjinfo(SpecialJoinInfo *child_sjinfo,
+					   SpecialJoinInfo *parent_sjinfo)
+{
+	/*
+	 * Dummy SpecialJoinInfos of inner joins do not have any translated fields
+	 * and hence no fields that to be freed.
+	 */
+	if (child_sjinfo->jointype != JOIN_INNER)
+	{
+		if (child_sjinfo->min_lefthand != parent_sjinfo->min_lefthand)
+			bms_free(child_sjinfo->min_lefthand);
+
+		if (child_sjinfo->min_righthand != parent_sjinfo->min_righthand)
+			bms_free(child_sjinfo->min_righthand);
+
+		if (child_sjinfo->syn_lefthand != parent_sjinfo->syn_lefthand)
+			bms_free(child_sjinfo->syn_lefthand);
+
+		if (child_sjinfo->syn_righthand != parent_sjinfo->syn_righthand)
+			bms_free(child_sjinfo->syn_righthand);
+
+		Assert(child_sjinfo->commute_above_l == parent_sjinfo->commute_above_l);
+		Assert(child_sjinfo->commute_above_r == parent_sjinfo->commute_above_r);
+		Assert(child_sjinfo->commute_below_l == parent_sjinfo->commute_below_l);
+		Assert(child_sjinfo->commute_below_r == parent_sjinfo->commute_below_r);
+
+		Assert(child_sjinfo->semi_operators == parent_sjinfo->semi_operators);
+
+		/*
+		 * semi_rhs_exprs may in principle be freed, but a simple pfree() does
+		 * not suffice, so we leave it alone.
+		 */
+	}
+
+	pfree(child_sjinfo);
 }
 
 /*

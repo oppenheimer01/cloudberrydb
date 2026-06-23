@@ -3,7 +3,7 @@
  * parsexlog.c
  *	  Functions for reading Write-Ahead-Log
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *-------------------------------------------------------------------------
@@ -34,7 +34,7 @@
 #define PG_RMGR(symname,name,redo,desc,identify,startup,cleanup,mask,decode) \
   name,
 
-static const char *RmgrNames[RM_MAX_ID + 1] = {
+static const char *const RmgrNames[RM_MAX_ID + 1] = {
 #include "access/rmgrlist.h"
 };
 
@@ -230,7 +230,11 @@ findLastCheckpoint(const char *datadir, XLogRecPtr forkptr, int tliIndex,
 
 			snprintf(xlogfname, MAXFNAMELEN, XLOGDIR "/");
 
+<<<<<<< HEAD
 			/* update curent values */
+=======
+			/* update current values */
+>>>>>>> REL_18_BETA1_branch
 			current_tli = xlogreader->seg.ws_tli;
 			current_segno = xlogreader->seg.ws_segno;
 

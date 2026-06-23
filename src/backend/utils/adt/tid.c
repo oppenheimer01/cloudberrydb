@@ -3,9 +3,13 @@
  * tid.c
  *	  Functions for the built-in type tuple id
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -22,9 +26,13 @@
 #include <math.h>
 #include <limits.h>
 
+<<<<<<< HEAD
 #include "access/hash.h"
 #include "access/heapam.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "access/sysattr.h"
+#include "access/table.h"
 #include "access/tableam.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_type.h"
@@ -33,7 +41,7 @@
 #include "miscadmin.h"
 #include "parser/parsetree.h"
 #include "utils/acl.h"
-#include "utils/builtins.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
@@ -315,9 +323,11 @@ currtid_internal(Relation rel, ItemPointer tid)
 		return currtid_for_view(rel, tid);
 
 	if (!RELKIND_HAS_STORAGE(rel->rd_rel->relkind))
-		elog(ERROR, "cannot look at latest visible tid for relation \"%s.%s\"",
-			 get_namespace_name(RelationGetNamespace(rel)),
-			 RelationGetRelationName(rel));
+		ereport(ERROR,
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("cannot look at latest visible tid for relation \"%s.%s\"",
+					   get_namespace_name(RelationGetNamespace(rel)),
+					   RelationGetRelationName(rel)));
 
 	ItemPointerCopy(tid, result);
 
@@ -352,16 +362,22 @@ currtid_for_view(Relation viewrel, ItemPointer tid)
 		if (strcmp(NameStr(attr->attname), "ctid") == 0)
 		{
 			if (attr->atttypid != TIDOID)
-				elog(ERROR, "ctid isn't of type TID");
+				ereport(ERROR,
+						errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						errmsg("ctid isn't of type TID"));
 			tididx = i;
 			break;
 		}
 	}
 	if (tididx < 0)
-		elog(ERROR, "currtid cannot handle views with no CTID");
+		ereport(ERROR,
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("currtid cannot handle views with no CTID"));
 	rulelock = viewrel->rd_rules;
 	if (!rulelock)
-		elog(ERROR, "the view has no rules");
+		ereport(ERROR,
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("the view has no rules"));
 	for (i = 0; i < rulelock->numLocks; i++)
 	{
 		rewrite = rulelock->rules[i];
@@ -371,7 +387,9 @@ currtid_for_view(Relation viewrel, ItemPointer tid)
 			TargetEntry *tle;
 
 			if (list_length(rewrite->actions) != 1)
-				elog(ERROR, "only one select rule is allowed in views");
+				ereport(ERROR,
+						errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						errmsg("only one select rule is allowed in views"));
 			query = (Query *) linitial(rewrite->actions);
 			tle = get_tle_by_resno(query->targetList, tididx + 1);
 			if (tle && tle->expr && IsA(tle->expr, Var))

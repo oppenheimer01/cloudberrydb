@@ -3,7 +3,7 @@
  * reloptions.c
  *	  Core support for relation options (pg_class.reloptions)
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -29,9 +29,7 @@
 #include "cdb/cdbvars.h"
 #include "commands/defrem.h"
 #include "commands/tablespace.h"
-#include "commands/view.h"
 #include "nodes/makefuncs.h"
-#include "postmaster/postmaster.h"
 #include "utils/array.h"
 #include "utils/attoptcache.h"
 #include "utils/builtins.h"
@@ -47,9 +45,9 @@
  *
  * To add an option:
  *
- * (i) decide on a type (integer, real, bool, string), name, default value,
- * upper and lower bounds (if applicable); for strings, consider a validation
- * routine.
+ * (i) decide on a type (bool, integer, real, enum, string), name, default
+ * value, upper and lower bounds (if applicable); for strings, consider a
+ * validation routine.
  * (ii) add a record below (or use add_<type>_reloption).
  * (iii) add it to the appropriate options struct (perhaps StdRdOptions)
  * (iv) add it to the appropriate handling routine (perhaps
@@ -75,24 +73,24 @@
  * since they are only used by the AV procs and don't change anything
  * currently executing.
  *
- * Fillfactor can be set because it applies only to subsequent changes made to
- * data blocks, as documented in hio.c
+ * Fillfactor can be set at ShareUpdateExclusiveLock because it applies only to
+ * subsequent changes made to data blocks, as documented in hio.c
  *
  * n_distinct options can be set at ShareUpdateExclusiveLock because they
  * are only used during ANALYZE, which uses a ShareUpdateExclusiveLock,
  * so the ANALYZE will not be affected by in-flight changes. Changing those
  * values has no effect until the next ANALYZE, so no need for stronger lock.
  *
- * Planner-related parameters can be set with ShareUpdateExclusiveLock because
+ * Planner-related parameters can be set at ShareUpdateExclusiveLock because
  * they only affect planning and not the correctness of the execution. Plans
  * cannot be changed in mid-flight, so changes here could not easily result in
  * new improved plans in any case. So we allow existing queries to continue
  * and existing plans to survive, a small price to pay for allowing better
  * plans to be introduced concurrently without interfering with users.
  *
- * Setting parallel_workers is safe, since it acts the same as
- * max_parallel_workers_per_gather which is a USERSET parameter that doesn't
- * affect existing plans or queries.
+ * Setting parallel_workers at ShareUpdateExclusiveLock is safe, since it acts
+ * the same as max_parallel_workers_per_gather which is a USERSET parameter
+ * that doesn't affect existing plans or queries.
  *
  * vacuum_truncate can be set at ShareUpdateExclusiveLock because it
  * is only used during VACUUM, which uses a ShareUpdateExclusiveLock,
@@ -251,6 +249,15 @@ static relopt_int intRelOpts[] =
 	},
 	{
 		{
+			"autovacuum_vacuum_max_threshold",
+			"Maximum number of tuple updates or deletes prior to vacuum",
+			RELOPT_KIND_HEAP | RELOPT_KIND_TOAST,
+			ShareUpdateExclusiveLock
+		},
+		-2, -1, INT_MAX
+	},
+	{
+		{
 			"autovacuum_vacuum_insert_threshold",
 			"Minimum number of tuple inserts prior to vacuum, or -1 to disable insert vacuums",
 			RELOPT_KIND_HEAP | RELOPT_KIND_TOAST,
@@ -370,11 +377,7 @@ static relopt_int intRelOpts[] =
 			RELOPT_KIND_TABLESPACE,
 			ShareUpdateExclusiveLock
 		},
-#ifdef USE_PREFETCH
 		-1, 0, MAX_IO_CONCURRENCY
-#else
-		0, 0, 0
-#endif
 	},
 	{
 		{
@@ -383,11 +386,7 @@ static relopt_int intRelOpts[] =
 			RELOPT_KIND_TABLESPACE,
 			ShareUpdateExclusiveLock
 		},
-#ifdef USE_PREFETCH
 		-1, 0, MAX_IO_CONCURRENCY
-#else
-		0, 0, 0
-#endif
 	},
 	{
 		{
@@ -441,6 +440,16 @@ static relopt_real realRelOpts[] =
 		},
 		-1, 0.0, 100.0
 	},
+	{
+		{
+			"vacuum_max_eager_freeze_failure_rate",
+			"Fraction of pages in a relation vacuum can scan and fail to freeze before disabling eager scanning.",
+			RELOPT_KIND_HEAP | RELOPT_KIND_TOAST,
+			ShareUpdateExclusiveLock
+		},
+		-1, 0.0, 1.0
+	},
+
 	{
 		{
 			"seq_page_cost",
@@ -1192,7 +1201,7 @@ add_local_string_reloption(local_relopts *relopts, const char *name,
  */
 Datum
 transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
-					char *validnsps[], bool acceptOidsOff, bool isReset)
+					const char *const validnsps[], bool acceptOidsOff, bool isReset)
 {
 	Datum		result;
 	ArrayBuildState *astate;
@@ -1799,6 +1808,17 @@ fillRelOptions(void *rdopts, Size basesize,
 				char	   *itempos = ((char *) rdopts) + elems[j].offset;
 				char	   *string_val;
 
+				/*
+				 * If isset_offset is provided, store whether the reloption is
+				 * set there.
+				 */
+				if (elems[j].isset_offset > 0)
+				{
+					char	   *setpos = ((char *) rdopts) + elems[j].isset_offset;
+
+					*(bool *) setpos = options[i].isset;
+				}
+
 				switch (options[i].gen->type)
 				{
 					case RELOPT_TYPE_BOOL:
@@ -1889,6 +1909,8 @@ default_reloptions(Datum reloptions, bool validate, relopt_kind kind)
 		offsetof(StdRdOptions, autovacuum) + offsetof(AutoVacOpts, enabled)},
 		{"autovacuum_vacuum_threshold", RELOPT_TYPE_INT,
 		offsetof(StdRdOptions, autovacuum) + offsetof(AutoVacOpts, vacuum_threshold)},
+		{"autovacuum_vacuum_max_threshold", RELOPT_TYPE_INT,
+		offsetof(StdRdOptions, autovacuum) + offsetof(AutoVacOpts, vacuum_max_threshold)},
 		{"autovacuum_vacuum_insert_threshold", RELOPT_TYPE_INT,
 		offsetof(StdRdOptions, autovacuum) + offsetof(AutoVacOpts, vacuum_ins_threshold)},
 		{"autovacuum_analyze_threshold", RELOPT_TYPE_INT,
@@ -1926,7 +1948,9 @@ default_reloptions(Datum reloptions, bool validate, relopt_kind kind)
 		{"vacuum_index_cleanup", RELOPT_TYPE_ENUM,
 		offsetof(StdRdOptions, vacuum_index_cleanup)},
 		{"vacuum_truncate", RELOPT_TYPE_BOOL,
-		offsetof(StdRdOptions, vacuum_truncate)}
+		offsetof(StdRdOptions, vacuum_truncate), offsetof(StdRdOptions, vacuum_truncate_set)},
+		{"vacuum_max_eager_freeze_failure_rate", RELOPT_TYPE_REAL,
+		offsetof(StdRdOptions, vacuum_max_eager_freeze_failure_rate)}
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate, kind,
@@ -2006,6 +2030,7 @@ build_local_reloptions(local_relopts *relopts, Datum options, bool validate)
 		elems[i].optname = opt->option->name;
 		elems[i].opttype = opt->option->type;
 		elems[i].offset = opt->offset;
+		elems[i].isset_offset = 0;	/* not supported for local relopts yet */
 
 		i++;
 	}
@@ -2031,6 +2056,7 @@ build_local_reloptions(local_relopts *relopts, Datum options, bool validate)
 bytea *
 partitioned_table_reloptions(Datum reloptions, bool validate)
 {
+<<<<<<< HEAD
 	/*
 	 * There are no options for partitioned tables yet, but this is able to do
 	 * some validation.
@@ -2038,6 +2064,14 @@ partitioned_table_reloptions(Datum reloptions, bool validate)
 	return (bytea *) build_reloptions(reloptions, validate,
 									  RELOPT_KIND_PARTITIONED,
 									  0, NULL, 0);
+=======
+	if (validate && reloptions)
+		ereport(ERROR,
+				errcode(ERRCODE_WRONG_OBJECT_TYPE),
+				errmsg("cannot specify storage parameters for a partitioned table"),
+				errhint("Specify storage parameters for its leaf partitions instead."));
+	return NULL;
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*

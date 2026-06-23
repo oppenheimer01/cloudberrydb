@@ -13,7 +13,7 @@
  * we must return a tuples-processed count in the QueryCompletion.  (We no
  * longer do that for CTAS ... WITH NO DATA, however.)
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -25,12 +25,9 @@
 #include "postgres.h"
 
 #include "access/heapam.h"
-#include "access/htup_details.h"
 #include "access/reloptions.h"
-#include "access/sysattr.h"
 #include "access/tableam.h"
 #include "access/xact.h"
-#include "access/xlog.h"
 #include "catalog/namespace.h"
 #include "catalog/index.h"
 #include "catalog/pg_constraint.h"
@@ -46,6 +43,7 @@
 #include "commands/taskcmds.h"
 #include "commands/trigger.h"
 #include "commands/view.h"
+<<<<<<< HEAD
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "optimizer/prep.h"
@@ -60,14 +58,26 @@
 #include "rewrite/rewriteHandler.h"
 #include "rewrite/rewriteManip.h"
 #include "storage/smgr.h"
+=======
+#include "executor/execdesc.h"
+#include "executor/executor.h"
+#include "nodes/makefuncs.h"
+#include "nodes/nodeFuncs.h"
+#include "nodes/queryjumble.h"
+#include "parser/analyze.h"
+#include "rewrite/rewriteHandler.h"
+>>>>>>> REL_18_BETA1_branch
 #include "tcop/tcopprot.h"
 #include "tcop/utility.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
+<<<<<<< HEAD
 #include "utils/regproc.h"
 #include "utils/fmgroids.h"
 #include "utils/rel.h"
 #include "utils/resgroup.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "utils/rls.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
@@ -136,7 +146,7 @@ create_ctas_internal(List *attrList, IntoClause *into, QueryDesc *queryDesc, boo
 	bool		is_matview;
 	char		relkind;
 	Datum		toast_options;
-	static char *validnsps[] = HEAP_RELOPT_NAMESPACES;
+	const char *const validnsps[] = HEAP_RELOPT_NAMESPACES;
 	ObjectAddress intoRelationAddr;
 
 	/* Sync OIDs for into relation, if any */
@@ -228,7 +238,7 @@ create_ctas_internal(List *attrList, IntoClause *into, QueryDesc *queryDesc, boo
 	if (is_matview)
 	{
 		/* StoreViewQuery scribbles on tree, so make a copy */
-		Query	   *query = (Query *) copyObject(into->viewQuery);
+		Query	   *query = copyObject(into->viewQuery);
 
 		StoreViewQuery(intoRelationAddr.objectId, query, false);
 		CommandCounterIncrement();
@@ -330,12 +340,12 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 {
 	Query	   *query = castNode(Query, stmt->query);
 	IntoClause *into = stmt->into;
+	JumbleState *jstate = NULL;
 	bool		is_matview = (into->viewQuery != NULL);
+	bool		do_refresh = false;
 	DestReceiver *dest;
-	Oid			save_userid = InvalidOid;
-	int			save_sec_context = 0;
-	int			save_nestlevel = 0;
 	ObjectAddress address;
+<<<<<<< HEAD
 	List	   *rewritten;
 	PlannedStmt *plan;
 	QueryDesc  *queryDesc;
@@ -344,6 +354,8 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	AutoStatsCmdType cmdType = AUTOSTATS_CMDTYPE_SENTINEL;  /* command type */
 
 	Assert(Gp_role != GP_ROLE_EXECUTE);
+=======
+>>>>>>> REL_18_BETA1_branch
 
 	/* Check if the relation exists or not */
 	{
@@ -384,6 +396,13 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	 */
 	dest = CreateIntoRelDestReceiver(into);
 
+	/* Query contained by CTAS needs to be jumbled if requested */
+	if (IsQueryIdEnabled())
+		jstate = JumbleQuery(query);
+
+	if (post_parse_analyze_hook)
+		(*post_parse_analyze_hook) (pstate, query, jstate);
+
 	/*
 	 * The contained Query could be a SELECT, or an EXECUTE utility command.
 	 * If the latter, we just pass it off to ExecuteQuery.
@@ -404,22 +423,18 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	Assert(query->commandType == CMD_SELECT);
 
 	/*
-	 * For materialized views, lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.  This is
-	 * not necessary for security, but this keeps the behavior similar to
-	 * REFRESH MATERIALIZED VIEW.  Otherwise, one could create a materialized
-	 * view not possible to refresh.
+	 * For materialized views, always skip data during table creation, and use
+	 * REFRESH instead (see below).
 	 */
 	if (is_matview)
 	{
-		GetUserIdAndSecContext(&save_userid, &save_sec_context);
-		SetUserIdAndSecContext(save_userid,
-							   save_sec_context | SECURITY_RESTRICTED_OPERATION);
-		save_nestlevel = NewGUCNestLevel();
+		do_refresh = !into->skipData;
+		into->skipData = true;
 	}
 
 	if (is_matview && into->ivm)
 	{
+<<<<<<< HEAD
 		/* check if the query is supported in IMMV definition */
 		if (contain_mutable_functions((Node *) query))
 			ereport(ERROR,
@@ -432,9 +447,34 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		/* For IMMV, we need to rewrite matview query */
 		query = rewriteQueryForIMMV(query, into->colNames);
 		query_immv = copyObject(query);
+=======
+		/*
+		 * If WITH NO DATA was specified, do not go through the rewriter,
+		 * planner and executor.  Just define the relation using a code path
+		 * similar to CREATE VIEW.  This avoids dump/restore problems stemming
+		 * from running the planner before all dependencies are set up.
+		 */
+		address = create_ctas_nodata(query->targetList, into);
+
+		/*
+		 * For materialized views, reuse the REFRESH logic, which locks down
+		 * security-restricted operations and restricts the search_path.  This
+		 * reduces the chance that a subsequent refresh will fail.
+		 */
+		if (do_refresh)
+			RefreshMatViewByOid(address.objectId, true, false, false,
+								pstate->p_sourcetext, qc);
+
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	{
+		List	   *rewritten;
+		PlannedStmt *plan;
+		QueryDesc  *queryDesc;
+
+		Assert(!is_matview);
+
 		/*
 		 * Parse analysis was done already, but we still have to run the rule
 		 * rewriter.  We do not do AcquireRewriteLocks: we assume the query
@@ -445,9 +485,7 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 
 		/* SELECT should never rewrite to more or less than one SELECT query */
 		if (list_length(rewritten) != 1)
-			elog(ERROR, "unexpected rewrite result for %s",
-				 is_matview ? "CREATE MATERIALIZED VIEW" :
-				 "CREATE TABLE AS SELECT");
+			elog(ERROR, "unexpected rewrite result for CREATE TABLE AS SELECT");
 		query = linitial_node(Query, rewritten);
 		Assert(query->commandType == CMD_SELECT);
 
@@ -473,7 +511,7 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		UpdateActiveSnapshotCommandId();
 
 		/* Create a QueryDesc, redirecting output to our tuple receiver */
-		queryDesc = CreateQueryDesc(plan, pstate->p_sourcetext,
+		queryDesc = CreateQueryDesc(plan, NULL, pstate->p_sourcetext,
 									GetActiveSnapshot(), InvalidSnapshot,
 									dest, params, queryEnv, 0);
 	}
@@ -499,13 +537,14 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		queryDesc->plannedstmt->query_mem = ResourceManagerGetQueryMemoryLimit(queryDesc->plannedstmt);
 
 		/* call ExecutorStart to prepare the plan for execution */
-		ExecutorStart(queryDesc, GetIntoRelEFlags(into));
+		if (!ExecutorStart(queryDesc, GetIntoRelEFlags(into)))
+			elog(ERROR, "ExecutorStart() failed unexpectedly");
 
 		if (Gp_role == GP_ROLE_DISPATCH)
 			autostats_get_cmdtype(queryDesc, &cmdType, &relationOid);
 
 		/* run the plan to completion */
-		ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
+		ExecutorRun(queryDesc, ForwardScanDirection, 0);
 
 		/* and clean up */
 		ExecutorFinish(queryDesc);
@@ -536,6 +575,7 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 		}
 	}
 
+<<<<<<< HEAD
 	if (is_matview)
 	{
 		/* Roll back any GUC changes */
@@ -591,6 +631,8 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
 	}
 
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	return address;
 }
 

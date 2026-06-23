@@ -85,7 +85,7 @@ test=# SELECT * FROM page_header(get_raw_page('pg_class', 0));
      <para>
       The <structfield>checksum</structfield> field is the checksum stored in
       the page, which might be incorrect if the page is somehow corrupted.  If
-      data checksums are not enabled for this instance, then the value stored
+      data checksums are disabled for this instance, then the value stored
       is meaningless.
      </para>
     </listitem>
@@ -700,7 +700,7 @@ test=# SELECT * FROM gin_page_opaque_info(get_raw_page('gin_index', 2));
     <listitem>
      <para>
       <function>gin_leafpage_items</function> returns information about
-      the data stored in a <acronym>GIN</acronym> leaf page.  For example:
+      the data stored in a compressed <acronym>GIN</acronym> leaf page.  For example:
 <screen>
 test=# SELECT first_tid, nbytes, tids[0:5] AS some_tids
         FROM gin_leafpage_items(get_raw_page('gin_test_idx', 2));

@@ -3,7 +3,7 @@
  * datum.c
  *	  POSTGRES Datum (abstract data type) manipulation routines.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -46,9 +46,9 @@
 #include "catalog/pg_type_d.h"
 #include "common/hashfn.h"
 #include "fmgr.h"
-#include "utils/builtins.h"
 #include "utils/datum.h"
 #include "utils/expandeddatum.h"
+#include "utils/fmgrprotos.h"
 
 
 /*-------------------------------------------------------------------------
@@ -153,7 +153,7 @@ datumCopy(Datum value, bool typByVal, int typLen)
 
 			resultsize = EOH_get_flat_size(eoh);
 			resultptr = (char *) palloc(resultsize);
-			EOH_flatten_into(eoh, (void *) resultptr, resultsize);
+			EOH_flatten_into(eoh, resultptr, resultsize);
 			res = PointerGetDatum(resultptr);
 		}
 		else
@@ -496,7 +496,7 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 			 * so we can't store directly to *start_address.
 			 */
 			tmp = (char *) palloc(header);
-			EOH_flatten_into(eoh, (void *) tmp, header);
+			EOH_flatten_into(eoh, tmp, header);
 			memcpy(*start_address, tmp, header);
 			*start_address += header;
 

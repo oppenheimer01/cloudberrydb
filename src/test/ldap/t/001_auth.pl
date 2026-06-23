@@ -1,8 +1,8 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use FindBin;
 use lib "$FindBin::RealBin/..";
@@ -18,7 +18,7 @@ if ($ENV{with_ldap} ne 'yes')
 {
 	plan skip_all => 'LDAP not supported by this build';
 }
-elsif ($ENV{PG_TEST_EXTRA} !~ /\bldap\b/)
+elsif (!$ENV{PG_TEST_EXTRA} || $ENV{PG_TEST_EXTRA} !~ /\bldap\b/)
 {
 	plan skip_all =>
 	  'Potentially unsafe test LDAP not enabled in PG_TEST_EXTRA';
@@ -48,6 +48,8 @@ note "setting up PostgreSQL instance";
 my $node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->append_conf('postgresql.conf', "log_connections = on\n");
+# Needed to allow connect_fails to inspect postmaster log:
+$node->append_conf('postgresql.conf', "log_min_messages = debug2");
 $node->start;
 
 $node->safe_psql('postgres', 'CREATE USER test0;');
@@ -144,6 +146,22 @@ $ENV{"PGPASSWORD"} = 'secret1';
 test_access($node, 'test1', 0, 'search+bind authentication succeeds');
 
 note "LDAP URLs";
+
+unlink($node->data_dir . '/pg_hba.conf');
+$node->append_conf('pg_hba.conf',
+	qq{local all all ldap ldapurl="$ldap_url" ldapprefix="uid=" ldapsuffix=",dc=example,dc=net"}
+);
+$node->restart;
+
+$ENV{"PGPASSWORD"} = 'wrong';
+test_access($node, 'test0', 2,
+	'simple bind with LDAP URL authentication fails if user not found in LDAP'
+);
+test_access($node, 'test1', 2,
+	'simple bind with LDAP URL authentication fails with wrong password');
+$ENV{"PGPASSWORD"} = 'secret1';
+test_access($node, 'test1', 0,
+	'simple bind with LDAP URL authentication succeeds');
 
 unlink($node->data_dir . '/pg_hba.conf');
 $node->append_conf('pg_hba.conf',

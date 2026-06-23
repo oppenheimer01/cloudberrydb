@@ -3,7 +3,7 @@
  * nodeBitmapAnd.c
  *	  routines to handle BitmapAnd nodes.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -28,8 +28,12 @@
 
 #include "postgres.h"
 
+<<<<<<< HEAD
 #include "cdb/cdbvars.h"
 #include "executor/execdebug.h"
+=======
+#include "executor/executor.h"
+>>>>>>> REL_18_BETA1_branch
 #include "executor/nodeBitmapAnd.h"
 #include "nodes/tidbitmap.h"
 

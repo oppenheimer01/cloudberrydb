@@ -6,7 +6,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pltcl (PostgreSQL current)\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2025-02-08 07:45+0200\n"
+=======
+"POT-Creation-Date: 2025-02-08 07:44+0200\n"
+>>>>>>> REL_18_BETA1_branch
 "PO-Revision-Date: 2024-08-01 13:03+0300\n"
 "Last-Translator: Alexander Lakhin <exclusion@gmail.com>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
@@ -103,23 +107,39 @@ msgstr "функции PL/Tcl не могут принимать тип %s"
 msgid "could not create internal procedure \"%s\": %s"
 msgstr "не удалось создать внутреннюю процедуру \"%s\": %s"
 
+<<<<<<< HEAD
 #: pltcl.c:3210
+=======
+#: pltcl.c:3211
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list must have even number of elements"
 msgstr "в списке имён/значений столбцов должно быть чётное число элементов"
 
+<<<<<<< HEAD
 #: pltcl.c:3228
+=======
+#: pltcl.c:3229
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "column name/value list contains nonexistent column name \"%s\""
 msgstr ""
 "список имён/значений столбцов содержит имя несуществующего столбца \"%s\""
 
+<<<<<<< HEAD
 #: pltcl.c:3235
+=======
+#: pltcl.c:3236
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set system attribute \"%s\""
 msgstr "присвоить значение системному атрибуту \"%s\" нельзя"
 
+<<<<<<< HEAD
 #: pltcl.c:3241
+=======
+#: pltcl.c:3242
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "cannot set generated column \"%s\""
 msgstr "присвоить значение генерируемому столбцу \"%s\" нельзя"

@@ -6,7 +6,7 @@
  * Generic code supporting statistics objects created via CREATE STATISTICS.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -21,15 +21,13 @@
 #include "access/htup_details.h"
 #include "access/table.h"
 #include "catalog/indexing.h"
-#include "catalog/pg_collation.h"
 #include "catalog/pg_statistic_ext.h"
 #include "catalog/pg_statistic_ext_data.h"
-#include "executor/executor.h"
 #include "commands/defrem.h"
 #include "commands/progress.h"
+#include "executor/executor.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
-#include "optimizer/clauses.h"
 #include "optimizer/optimizer.h"
 #include "parser/parsetree.h"
 #include "pgstat.h"
@@ -47,7 +45,6 @@
 #include "utils/rel.h"
 #include "utils/selfuncs.h"
 #include "utils/syscache.h"
-#include "utils/typcache.h"
 
 #include "cdb/cdbvars.h"
 /*
@@ -78,7 +75,7 @@ typedef struct StatExtEntry
 
 
 static List *fetch_statentries_for_relation(Relation pg_statext, Oid relid);
-static VacAttrStats **lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
+static VacAttrStats **lookup_var_attr_stats(Bitmapset *attrs, List *exprs,
 											int nvacatts, VacAttrStats **vacatts);
 static void statext_store(Oid statOid, bool inh,
 						  MVNDistinct *ndistinct, MVDependencies *dependencies,
@@ -93,9 +90,8 @@ typedef struct AnlExprData
 	VacAttrStats *vacattrstat;	/* statistics attrs to analyze */
 } AnlExprData;
 
-static void compute_expr_stats(Relation onerel, double totalrows,
-							   AnlExprData *exprdata, int nexprs,
-							   HeapTuple *rows, int numrows);
+static void compute_expr_stats(Relation onerel, AnlExprData *exprdata,
+							   int nexprs, HeapTuple *rows, int numrows);
 static Datum serialize_expr_stats(AnlExprData *exprdata, int nexprs);
 static Datum expr_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull);
 static AnlExprData *build_expr_data(List *exprs, int stattarget);
@@ -170,11 +166,11 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 		 * Check if we can build these stats based on the column analyzed. If
 		 * not, report this fact (except in autovacuum) and move on.
 		 */
-		stats = lookup_var_attr_stats(onerel, stat->columns, stat->exprs,
+		stats = lookup_var_attr_stats(stat->columns, stat->exprs,
 									  natts, vacattrstats);
 		if (!stats)
 		{
-			if (!IsAutoVacuumWorkerProcess())
+			if (!AmAutoVacuumWorkerProcess())
 				ereport(WARNING,
 						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 						 errmsg("statistics object \"%s.%s\" could not be computed for relation \"%s.%s\"",
@@ -224,9 +220,7 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 				exprdata = build_expr_data(stat->exprs, stattarget);
 				nexprs = list_length(stat->exprs);
 
-				compute_expr_stats(onerel, totalrows,
-								   exprdata, nexprs,
-								   rows, numrows);
+				compute_expr_stats(onerel, exprdata, nexprs, rows, numrows);
 
 				exprstats = serialize_expr_stats(exprdata, nexprs);
 			}
@@ -300,7 +294,7 @@ ComputeExtStatisticsRows(Relation onerel,
 		 * analyzed. If not, ignore it (don't report anything, we'll do that
 		 * during the actual build BuildRelationExtStatistics).
 		 */
-		stats = lookup_var_attr_stats(onerel, stat->columns, stat->exprs,
+		stats = lookup_var_attr_stats(stat->columns, stat->exprs,
 									  natts, vacattrstats);
 
 		if (!stats)
@@ -367,8 +361,8 @@ statext_compute_stattarget(int stattarget, int nattrs, VacAttrStats **stats)
 	for (i = 0; i < nattrs; i++)
 	{
 		/* keep the maximum statistics target */
-		if (stats[i]->attr->attstattarget > stattarget)
-			stattarget = stats[i]->attr->attstattarget;
+		if (stats[i]->attstattarget > stattarget)
+			stattarget = stats[i]->attstattarget;
 	}
 
 	/*
@@ -380,7 +374,7 @@ statext_compute_stattarget(int stattarget, int nattrs, VacAttrStats **stats)
 		stattarget = default_statistics_target;
 
 	/* As this point we should have a valid statistics target. */
-	Assert((stattarget >= 0) && (stattarget <= 10000));
+	Assert((stattarget >= 0) && (stattarget <= MAX_STATISTICS_TARGET));
 
 	return stattarget;
 }
@@ -458,12 +452,14 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 		entry->statOid = staForm->oid;
 		entry->schema = get_namespace_name(staForm->stxnamespace);
 		entry->name = pstrdup(NameStr(staForm->stxname));
-		entry->stattarget = staForm->stxstattarget;
 		for (i = 0; i < staForm->stxkeys.dim1; i++)
 		{
 			entry->columns = bms_add_member(entry->columns,
 											staForm->stxkeys.values[i]);
 		}
+
+		datum = SysCacheGetAttr(STATEXTOID, htup, Anum_pg_statistic_ext_stxstattarget, &isnull);
+		entry->stattarget = isnull ? -1 : DatumGetInt16(datum);
 
 		/* decode the stxkind char array into a list of chars */
 		datum = SysCacheGetAttrNotNull(STATEXTOID, htup,
@@ -535,14 +531,10 @@ examine_attribute(Node *expr)
 	bool		ok;
 
 	/*
-	 * Create the VacAttrStats struct.  Note that we only have a copy of the
-	 * fixed fields of the pg_attribute tuple.
+	 * Create the VacAttrStats struct.
 	 */
 	stats = (VacAttrStats *) palloc0(sizeof(VacAttrStats));
-
-	/* fake the attribute */
-	stats->attr = (Form_pg_attribute) palloc0(ATTRIBUTE_FIXED_PART_SIZE);
-	stats->attr->attstattarget = -1;
+	stats->attstattarget = -1;
 
 	/*
 	 * When analyzing an expression, believe the expression tree's type not
@@ -596,7 +588,6 @@ examine_attribute(Node *expr)
 	if (!ok || stats->compute_stats == NULL || stats->minrows <= 0)
 	{
 		heap_freetuple(typtuple);
-		pfree(stats->attr);
 		pfree(stats);
 		return NULL;
 	}
@@ -626,6 +617,13 @@ examine_expression(Node *expr, int stattarget)
 	stats = (VacAttrStats *) palloc0(sizeof(VacAttrStats));
 
 	/*
+	 * We can't have statistics target specified for the expression, so we
+	 * could use either the default_statistics_target, or the target computed
+	 * for the extended statistics. The second option seems more reasonable.
+	 */
+	stats->attstattarget = stattarget;
+
+	/*
 	 * When analyzing an expression, believe the expression tree's type.
 	 */
 	stats->attrtypid = exprType(expr);
@@ -639,6 +637,7 @@ examine_expression(Node *expr, int stattarget)
 	 */
 	stats->attrcollid = exprCollation(expr);
 
+<<<<<<< HEAD
 	/*
 	 * We don't have any pg_attribute for expressions, so let's fake something
 	 * reasonable into attstattarget, which is the only thing std_typanalyze
@@ -659,6 +658,8 @@ examine_expression(Node *expr, int stattarget)
 	stats->attr->atttypid = stats->attrtypid;
 	get_typlenbyvalalign(stats->attr->atttypid, &stats->attr->attlen, &stats->attr->attbyval, &stats->attr->attalign);
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	typtuple = SearchSysCacheCopy1(TYPEOID,
 								   ObjectIdGetDatum(stats->attrtypid));
 	if (!HeapTupleIsValid(typtuple))
@@ -710,7 +711,7 @@ examine_expression(Node *expr, int stattarget)
  * indicate to the caller that the stats should not be built.
  */
 static VacAttrStats **
-lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
+lookup_var_attr_stats(Bitmapset *attrs, List *exprs,
 					  int nvacatts, VacAttrStats **vacatts)
 {
 	int			i = 0;
@@ -748,12 +749,6 @@ lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
 			pfree(stats);
 			return NULL;
 		}
-
-		/*
-		 * Sanity check that the column is not dropped - stats should have
-		 * been removed in this case.
-		 */
-		Assert(!stats[i]->attr->attisdropped);
 
 		i++;
 	}
@@ -1425,9 +1420,25 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 				return false;
 		}
 
+<<<<<<< HEAD
 		/* Check if the operator is leakproof */
 		if (*leakproof)
 			*leakproof = get_func_leakproof(get_opcode(expr->opno));
+=======
+		/*
+		 * If there are any securityQuals on the RTE from security barrier
+		 * views or RLS policies, then the user may not have access to all the
+		 * table's data, and we must check that the operator is leakproof.
+		 *
+		 * If the operator is leaky, then we must ignore this clause for the
+		 * purposes of estimating with MCV lists, otherwise the operator might
+		 * reveal values from the MCV list that the user doesn't have
+		 * permission to see.
+		 */
+		if (rte->securityQuals != NIL &&
+			!get_func_leakproof(get_opcode(expr->opno)))
+			return false;
+>>>>>>> REL_18_BETA1_branch
 
 		/* Check (Var op Const) or (Const op Var) clauses by recursing. */
 		if (IsA(clause_expr, Var))
@@ -1482,9 +1493,25 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 				return false;
 		}
 
+<<<<<<< HEAD
 		/* Check if the operator is leakproof */
 		if (*leakproof)
 			*leakproof = get_func_leakproof(get_opcode(expr->opno));
+=======
+		/*
+		 * If there are any securityQuals on the RTE from security barrier
+		 * views or RLS policies, then the user may not have access to all the
+		 * table's data, and we must check that the operator is leakproof.
+		 *
+		 * If the operator is leaky, then we must ignore this clause for the
+		 * purposes of estimating with MCV lists, otherwise the operator might
+		 * reveal values from the MCV list that the user doesn't have
+		 * permission to see.
+		 */
+		if (rte->securityQuals != NIL &&
+			!get_func_leakproof(get_opcode(expr->opno)))
+			return false;
+>>>>>>> REL_18_BETA1_branch
 
 		/* Check Var IN Array clauses by recursing. */
 		if (IsA(clause_expr, Var))
@@ -2113,8 +2140,7 @@ examine_opclause_args(List *args, Node **exprp, Const **cstp,
  * Compute statistics about expressions of a relation.
  */
 static void
-compute_expr_stats(Relation onerel, double totalrows,
-				   AnlExprData *exprdata, int nexprs,
+compute_expr_stats(Relation onerel, AnlExprData *exprdata, int nexprs,
 				   HeapTuple *rows, int numrows)
 {
 	MemoryContext expr_context,
@@ -2219,8 +2245,7 @@ compute_expr_stats(Relation onerel, double totalrows,
 		if (tcnt > 0)
 		{
 			AttributeOpts *aopt =
-				get_attribute_options(stats->attr->attrelid,
-									  stats->attr->attnum);
+				get_attribute_options(onerel->rd_id, stats->tupattnum);
 
 			stats->exprvals = exprvals;
 			stats->exprnulls = exprnulls;
@@ -2243,7 +2268,7 @@ compute_expr_stats(Relation onerel, double totalrows,
 
 		ExecDropSingleTupleTableSlot(slot);
 		FreeExecutorState(estate);
-		MemoryContextResetAndDeleteChildren(expr_context);
+		MemoryContextReset(expr_context);
 	}
 
 	MemoryContextSwitchTo(old_context);

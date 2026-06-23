@@ -8,7 +8,7 @@
  * non-planner code.  Declarations here are meant for use by other
  * planner modules.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/planner.h
@@ -48,7 +48,11 @@ extern PlannedStmt *standard_planner(Query *parse, const char *query_string,
 extern PlannerInfo *subquery_planner(PlannerGlobal *glob, Query *parse,
 									 PlannerInfo *parent_root,
 									 bool hasRecursion, double tuple_fraction,
+<<<<<<< HEAD
 									 PlannerConfig *config);
+=======
+									 SetOperationStmt *setops);
+>>>>>>> REL_18_BETA1_branch
 
 extern RowMarkType select_rowmark_type(RangeTblEntry *rte,
 									   LockClauseStrength strength);

@@ -6,7 +6,7 @@
  * and interpreting backend output.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/fe_utils/string_utils.c
@@ -180,6 +180,7 @@ fmtIdEnc(const char *rawid, int encoding)
 			/* Slow path for possible multibyte characters */
 			charlen = pg_encoding_mblen(encoding, cp);
 
+<<<<<<< HEAD
 			if (remaining < charlen)
 			{
 				/*
@@ -227,6 +228,44 @@ fmtIdEnc(const char *rawid, int encoding)
 				 */
 				remaining -= charlen;
 				cp += charlen;
+=======
+			if (remaining < charlen ||
+				pg_encoding_verifymbchar(encoding, cp, charlen) == -1)
+			{
+				/*
+				 * Multibyte character is invalid.  It's important to verify
+				 * that as invalid multibyte characters could e.g. be used to
+				 * "skip" over quote characters, e.g. when parsing
+				 * character-by-character.
+				 *
+				 * Replace the character's first byte with an invalid
+				 * sequence. The invalid sequence ensures that the escaped
+				 * string will trigger an error on the server-side, even if we
+				 * can't directly report an error here.
+				 *
+				 * It would be a bit faster to verify the whole string the
+				 * first time we encounter a set highbit, but this way we can
+				 * replace just the invalid data, which probably makes it
+				 * easier for users to find the invalidly encoded portion of a
+				 * larger string.
+				 */
+				if (enlargePQExpBuffer(id_return, 2))
+				{
+					pg_encoding_set_invalid(encoding,
+											id_return->data + id_return->len);
+					id_return->len += 2;
+					id_return->data[id_return->len] = '\0';
+				}
+
+				/*
+				 * Handle the following bytes as if this byte didn't exist.
+				 * That's safer in case the subsequent bytes contain
+				 * characters that are significant for the caller (e.g. '>' in
+				 * html).
+				 */
+				remaining--;
+				cp++;
+>>>>>>> REL_18_BETA1_branch
 			}
 			else
 			{
@@ -395,6 +434,7 @@ appendStringLiteral(PQExpBuffer buf, const char *str,
 		/* Slow path for possible multibyte characters */
 		charlen = PQmblen(source, encoding);
 
+<<<<<<< HEAD
 		if (remaining < charlen)
 		{
 			/*
@@ -402,16 +442,58 @@ appendStringLiteral(PQExpBuffer buf, const char *str,
 			 * the string with an invalid sequence. The invalid sequence
 			 * ensures that the escaped string will trigger an error on the
 			 * server-side, even if we can't directly report an error here.
+=======
+		if (remaining < charlen ||
+			pg_encoding_verifymbchar(encoding, source, charlen) == -1)
+		{
+			/*
+			 * Multibyte character is invalid.  It's important to verify that
+			 * as invalid multibyte characters could e.g. be used to "skip"
+			 * over quote characters, e.g. when parsing
+			 * character-by-character.
+			 *
+			 * Replace the character's first byte with an invalid sequence.
+			 * The invalid sequence ensures that the escaped string will
+			 * trigger an error on the server-side, even if we can't directly
+			 * report an error here.
+>>>>>>> REL_18_BETA1_branch
 			 *
 			 * We know there's enough space for the invalid sequence because
 			 * the "target" buffer is 2 * length + 2 long, and at worst we're
 			 * replacing a single input byte with two invalid bytes.
+<<<<<<< HEAD
+=======
+			 *
+			 * It would be a bit faster to verify the whole string the first
+			 * time we encounter a set highbit, but this way we can replace
+			 * just the invalid data, which probably makes it easier for users
+			 * to find the invalidly encoded portion of a larger string.
+>>>>>>> REL_18_BETA1_branch
 			 */
 			pg_encoding_set_invalid(encoding, target);
 			target += 2;
 
+<<<<<<< HEAD
 			/* there's no more valid input data, so we can stop */
 			break;
+=======
+			/*
+			 * Handle the following bytes as if this byte didn't exist. That's
+			 * safer in case the subsequent bytes contain important characters
+			 * for the caller (e.g. '>' in html).
+			 */
+			source++;
+			remaining--;
+		}
+		else
+		{
+			/* Copy the character */
+			for (i = 0; i < charlen; i++)
+			{
+				*target++ = *source++;
+				remaining--;
+			}
+>>>>>>> REL_18_BETA1_branch
 		}
 		else if (pg_encoding_verifymbchar(encoding, source, charlen) == -1)
 		{
@@ -944,7 +1026,7 @@ appendPGArray(PQExpBuffer buffer, const char *value)
 
 			if (ch == '"' || ch == '\\' ||
 				ch == '{' || ch == '}' || ch == ',' ||
-			/* these match array_isspace(): */
+			/* these match scanner_isspace(): */
 				ch == ' ' || ch == '\t' || ch == '\n' ||
 				ch == '\r' || ch == '\v' || ch == '\f')
 			{

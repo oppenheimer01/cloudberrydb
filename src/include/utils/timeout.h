@@ -4,7 +4,7 @@
  *	  Routines to multiplex SIGALRM interrupts for multiple timeout reasons.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/timeout.h
@@ -34,7 +34,11 @@ typedef enum TimeoutId
 	STANDBY_TIMEOUT,
 	STANDBY_LOCK_TIMEOUT,
 	IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
+<<<<<<< HEAD
 	GANG_TIMEOUT,
+=======
+	TRANSACTION_TIMEOUT,
+>>>>>>> REL_18_BETA1_branch
 	IDLE_SESSION_TIMEOUT,
 	IDLE_STATS_UPDATE_TIMEOUT,
 	CLIENT_CONNECTION_CHECK_TIMEOUT,
@@ -56,7 +60,7 @@ typedef enum TimeoutType
 {
 	TMPARAM_AFTER,
 	TMPARAM_AT,
-	TMPARAM_EVERY
+	TMPARAM_EVERY,
 } TimeoutType;
 
 typedef struct

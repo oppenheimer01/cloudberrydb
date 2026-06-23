@@ -85,6 +85,12 @@ SELECT stddev_pop('inf'::numeric), stddev_samp('inf'::numeric);
 SELECT var_pop('nan'::numeric), var_samp('nan'::numeric);
 SELECT stddev_pop('nan'::numeric), stddev_samp('nan'::numeric);
 
+-- verify correct results for min(record) and max(record) aggregates
+SELECT max(row(a,b)) FROM aggtest;
+SELECT max(row(b,a)) FROM aggtest;
+SELECT min(row(a,b)) FROM aggtest;
+SELECT min(row(b,a)) FROM aggtest;
+
 -- verify correct results for null and NaN inputs
 select sum(null::int4) from generate_series(1,3);
 select sum(null::int8) from generate_series(1,3);
@@ -519,6 +525,38 @@ create temp table p_t1_2 partition of p_t1 for values in(2);
 -- Ensure we can remove non-PK columns for partitioned tables.
 explain (costs off) select * from p_t1 group by a,b,c,d;
 
+create unique index t2_z_uidx on t2(z);
+
+-- Ensure we don't remove any columns from the GROUP BY for a unique
+-- index on a NULLable column.
+explain (costs off) select y,z from t2 group by y,z;
+
+-- Make the column NOT NULL and ensure we remove the redundant column
+alter table t2 alter column z set not null;
+explain (costs off) select y,z from t2 group by y,z;
+
+-- When there are multiple supporting unique indexes and the GROUP BY contains
+-- columns to cover all of those, ensure we pick the index with the least
+-- number of columns so that we can remove more columns from the GROUP BY.
+explain (costs off) select x,y,z from t2 group by x,y,z;
+
+-- As above but try ordering the columns differently to ensure we get the
+-- same result.
+explain (costs off) select x,y,z from t2 group by z,x,y;
+
+-- Ensure we don't use a partial index as proof of functional dependency
+drop index t2_z_uidx;
+create index t2_z_uidx on t2 (z) where z > 0;
+explain (costs off) select y,z from t2 group by y,z;
+
+-- A unique index defined as NULLS NOT DISTINCT does not need a supporting NOT
+-- NULL constraint on the indexed columns.  Ensure the redundant columns are
+-- removed from the GROUP BY for such a table.
+drop index t2_z_uidx;
+alter table t2 alter column z drop not null;
+create unique index t2_z_uidx on t2(z) nulls not distinct;
+explain (costs off) select y,z from t2 group by y,z;
+
 drop table t1 cascade;
 drop table t2;
 drop table t3;
@@ -788,6 +826,7 @@ select string_agg(distinct f1::text, ',' order by f1) from varchar_tbl;  -- not 
 select string_agg(distinct f1, ',' order by f1::text) from varchar_tbl;  -- not ok
 select string_agg(distinct f1::text, ',' order by f1::text) from varchar_tbl;  -- ok
 
+<<<<<<< HEAD
 -- FILTER tests
 
 select min(unique1) filter (where unique1 > 100) from tenk1;
@@ -937,6 +976,10 @@ select least_agg(variadic array[q1,q2]) from int8_tbl;
 
 -- string_agg bytea tests
 create table bytea_test_table(gpDistKey int, v bytea);
+=======
+-- string_agg, min, max bytea tests
+create table bytea_test_table(v bytea);
+>>>>>>> REL_18_BETA1_branch
 
 select string_agg(v, '') from bytea_test_table;
 
@@ -949,6 +992,15 @@ insert into bytea_test_table(v) values(decode('aa','hex'));
 select string_agg(v, '') from bytea_test_table;
 select string_agg(v, NULL) from bytea_test_table;
 select string_agg(v, decode('ee', 'hex')) from bytea_test_table;
+
+select min(v) from bytea_test_table;
+select max(v) from bytea_test_table;
+
+insert into bytea_test_table values(decode('ffff','hex'));
+insert into bytea_test_table values(decode('aaaa','hex'));
+
+select min(v) from bytea_test_table;
+select max(v) from bytea_test_table;
 
 drop table bytea_test_table;
 
@@ -1004,6 +1056,12 @@ explain (costs off) select * from v_pagg_test order by y;
 set max_parallel_workers_per_gather = 0;
 select * from v_pagg_test order by y;
 -- end_ignore
+
+-- Check that we don't fail on anonymous record types.
+set max_parallel_workers_per_gather = 2;
+explain (costs off)
+select array_dims(array_agg(s)) from (select * from pagg_test) s;
+select array_dims(array_agg(s)) from (select * from pagg_test) s;
 
 -- Check that we don't fail on anonymous record types.
 set max_parallel_workers_per_gather = 2;
@@ -1409,6 +1467,114 @@ CREATE AGGREGATE balk(int4)
 SELECT balk(hundred) FROM tenk1;
 
 ROLLBACK;
+
+-- GROUP BY optimization by reordering GROUP BY clauses
+CREATE TABLE btg AS SELECT
+  i % 10 AS x,
+  i % 10 AS y,
+  'abc' || i % 10 AS z,
+  i AS w
+FROM generate_series(1, 100) AS i;
+CREATE INDEX btg_x_y_idx ON btg(x, y);
+ANALYZE btg;
+
+SET enable_hashagg = off;
+SET enable_seqscan = off;
+
+-- Utilize the ordering of index scan to avoid a Sort operation
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY y, x;
+
+-- Engage incremental sort
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY z, y, w, x;
+
+-- Utilize the ordering of subquery scan to avoid a Sort operation
+EXPLAIN (COSTS OFF) SELECT count(*)
+FROM (SELECT * FROM btg ORDER BY x, y, w, z) AS q1
+GROUP BY w, x, z, y;
+
+-- Utilize the ordering of merge join to avoid a Sort operation
+SET enable_hashjoin = off;
+SET enable_nestloop = off;
+EXPLAIN (COSTS OFF)
+SELECT count(*)
+  FROM btg t1 JOIN btg t2 ON t1.w = t2.w AND t1.x = t2.x AND t1.z = t2.z
+  GROUP BY t1.w, t1.z, t1.x;
+RESET enable_nestloop;
+RESET enable_hashjoin;
+
+-- Should work with and without GROUP-BY optimization
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY w, x, z, y ORDER BY y, x, z, w;
+
+-- Utilize incremental sort to make the ORDER BY rule a bit cheaper
+EXPLAIN (COSTS OFF)
+SELECT count(*) FROM btg GROUP BY w, x, y, z ORDER BY x*x, z;
+
+-- Test the case where the number of incoming subtree path keys is more than
+-- the number of grouping keys.
+CREATE INDEX btg_y_x_w_idx ON btg(y, x, w);
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT y, x, array_agg(distinct w)
+  FROM btg WHERE y < 0 GROUP BY x, y;
+
+-- Ensure that we do not select the aggregate pathkeys instead of the grouping
+-- pathkeys
+CREATE TABLE group_agg_pk AS SELECT
+  i % 10 AS x,
+  i % 2 AS y,
+  i % 2 AS z,
+  2 AS w,
+  i % 10 AS f
+FROM generate_series(1,100) AS i;
+ANALYZE group_agg_pk;
+SET enable_nestloop = off;
+SET enable_hashjoin = off;
+
+EXPLAIN (COSTS OFF)
+SELECT avg(c1.f ORDER BY c1.x, c1.y)
+FROM group_agg_pk c1 JOIN group_agg_pk c2 ON c1.x = c2.x
+GROUP BY c1.w, c1.z;
+SELECT avg(c1.f ORDER BY c1.x, c1.y)
+FROM group_agg_pk c1 JOIN group_agg_pk c2 ON c1.x = c2.x
+GROUP BY c1.w, c1.z;
+
+-- Pathkeys, built in a subtree, can be used to optimize GROUP-BY clause
+-- ordering.  Also, here we check that it doesn't depend on the initial clause
+-- order in the GROUP-BY list.
+EXPLAIN (COSTS OFF)
+SELECT c1.y,c1.x FROM group_agg_pk c1
+  JOIN group_agg_pk c2
+  ON c1.x = c2.x
+GROUP BY c1.y,c1.x,c2.x;
+EXPLAIN (COSTS OFF)
+SELECT c1.y,c1.x FROM group_agg_pk c1
+  JOIN group_agg_pk c2
+  ON c1.x = c2.x
+GROUP BY c1.y,c2.x,c1.x;
+
+RESET enable_nestloop;
+RESET enable_hashjoin;
+DROP TABLE group_agg_pk;
+
+-- Test the case where the ordering of the scan matches the ordering within the
+-- aggregate but cannot be found in the group-by list
+CREATE TABLE agg_sort_order (c1 int PRIMARY KEY, c2 int);
+CREATE UNIQUE INDEX agg_sort_order_c2_idx ON agg_sort_order(c2);
+INSERT INTO agg_sort_order SELECT i, i FROM generate_series(1,100)i;
+ANALYZE agg_sort_order;
+
+EXPLAIN (COSTS OFF)
+SELECT array_agg(c1 ORDER BY c2),c2
+FROM agg_sort_order WHERE c2 < 100 GROUP BY c1 ORDER BY 2;
+
+DROP TABLE agg_sort_order CASCADE;
+
+DROP TABLE btg;
+
+RESET enable_hashagg;
+RESET enable_seqscan;
 
 -- Secondly test the case of a parallel aggregate combiner function
 -- returning NULL. For that use normal transition function, but a

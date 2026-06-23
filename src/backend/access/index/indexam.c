@@ -3,7 +3,7 @@
  * indexam.c
  *	  general index access method routines
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -45,20 +45,20 @@
 #include "postgres.h"
 
 #include "access/amapi.h"
-#include "access/heapam.h"
+#include "access/relation.h"
 #include "access/reloptions.h"
 #include "access/relscan.h"
 #include "access/tableam.h"
+<<<<<<< HEAD
 #include "access/transam.h"
 #include "access/xlog.h"
 #include "access/bitmap_private.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "catalog/index.h"
-#include "catalog/pg_amproc.h"
 #include "catalog/pg_type.h"
-#include "commands/defrem.h"
-#include "nodes/makefuncs.h"
+#include "nodes/execnodes.h"
 #include "pgstat.h"
-#include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "storage/predicate.h"
 #include "utils/ruleutils.h"
@@ -149,7 +149,11 @@ index_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
+<<<<<<< HEAD
  *		try_index_open - open a index relation by relation OID
+=======
+ *		try_index_open - open an index relation by relation OID
+>>>>>>> REL_18_BETA1_branch
  *
  *		Same as index_open, except return NULL instead of failing
  *		if the relation does not exist.
@@ -160,7 +164,11 @@ try_index_open(Oid relationId, LOCKMODE lockmode)
 {
 	Relation	r;
 
+<<<<<<< HEAD
 	r = try_relation_open(relationId, lockmode, false);
+=======
+	r = try_relation_open(relationId, lockmode);
+>>>>>>> REL_18_BETA1_branch
 
 	/* leave if index does not exist */
 	if (!r)
@@ -240,6 +248,20 @@ index_insert(Relation indexRelation,
 											 indexInfo);
 }
 
+/* -------------------------
+ *		index_insert_cleanup - clean up after all index inserts are done
+ * -------------------------
+ */
+void
+index_insert_cleanup(Relation indexRelation,
+					 IndexInfo *indexInfo)
+{
+	RELATION_CHECKS;
+
+	if (indexRelation->rd_indam->aminsertcleanup)
+		indexRelation->rd_indam->aminsertcleanup(indexRelation, indexInfo);
+}
+
 /*
  * index_beginscan - start a scan of an index with amgettuple
  *
@@ -249,6 +271,7 @@ IndexScanDesc
 index_beginscan(Relation heapRelation,
 				Relation indexRelation,
 				Snapshot snapshot,
+				IndexScanInstrumentation *instrument,
 				int nkeys, int norderbys)
 {
 	IndexScanDesc scan;
@@ -263,6 +286,7 @@ index_beginscan(Relation heapRelation,
 	 */
 	scan->heapRelation = heapRelation;
 	scan->xs_snapshot = snapshot;
+	scan->instrument = instrument;
 
 	/* prepare to fetch index matches from table */
 	scan->xs_heapfetch = table_index_fetch_begin(heapRelation);
@@ -279,6 +303,7 @@ index_beginscan(Relation heapRelation,
 IndexScanDesc
 index_beginscan_bitmap(Relation indexRelation,
 					   Snapshot snapshot,
+					   IndexScanInstrumentation *instrument,
 					   int nkeys)
 {
 	IndexScanDesc scan;
@@ -292,6 +317,7 @@ index_beginscan_bitmap(Relation indexRelation,
 	 * up by RelationGetIndexScan.
 	 */
 	scan->xs_snapshot = snapshot;
+	scan->instrument = instrument;
 
 	return scan;
 }
@@ -442,16 +468,18 @@ index_restrpos(IndexScanDesc scan)
 /*
  * index_parallelscan_estimate - estimate shared memory for parallel scan
  *
- * Currently, we don't pass any information to the AM-specific estimator,
- * so it can probably only return a constant.  In the future, we might need
- * to pass more information.
+ * When instrument=true, estimate includes SharedIndexScanInstrumentation
+ * space.  When parallel_aware=true, estimate includes whatever space the
+ * index AM's amestimateparallelscan routine requested when called.
  */
 Size
-index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
+index_parallelscan_estimate(Relation indexRelation, int nkeys, int norderbys,
+							Snapshot snapshot, bool instrument,
+							bool parallel_aware, int nworkers)
 {
 	Size		nbytes;
 
-	Assert(snapshot != InvalidSnapshot);
+	Assert(instrument || parallel_aware);
 
 	RELATION_CHECKS;
 
@@ -459,14 +487,26 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
 	nbytes = add_size(nbytes, EstimateSnapshotSpace(snapshot));
 	nbytes = MAXALIGN(nbytes);
 
+	if (instrument)
+	{
+		Size		sharedinfosz;
+
+		sharedinfosz = offsetof(SharedIndexScanInstrumentation, winstrument) +
+			nworkers * sizeof(IndexScanInstrumentation);
+		nbytes = add_size(nbytes, sharedinfosz);
+		nbytes = MAXALIGN(nbytes);
+	}
+
 	/*
-	 * If amestimateparallelscan is not provided, assume there is no
-	 * AM-specific data needed.  (It's hard to believe that could work, but
-	 * it's easy enough to cater to it here.)
+	 * If parallel scan index AM interface can't be used (or index AM provides
+	 * no such interface), assume there is no AM-specific data needed
 	 */
-	if (indexRelation->rd_indam->amestimateparallelscan != NULL)
+	if (parallel_aware &&
+		indexRelation->rd_indam->amestimateparallelscan != NULL)
 		nbytes = add_size(nbytes,
-						  indexRelation->rd_indam->amestimateparallelscan());
+						  indexRelation->rd_indam->amestimateparallelscan(indexRelation,
+																		  nkeys,
+																		  norderbys));
 
 	return nbytes;
 }
@@ -483,11 +523,14 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
  */
 void
 index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
-							  Snapshot snapshot, ParallelIndexScanDesc target)
+							  Snapshot snapshot, bool instrument,
+							  bool parallel_aware, int nworkers,
+							  SharedIndexScanInstrumentation **sharedinfo,
+							  ParallelIndexScanDesc target)
 {
 	Size		offset;
 
-	Assert(snapshot != InvalidSnapshot);
+	Assert(instrument || parallel_aware);
 
 	RELATION_CHECKS;
 
@@ -495,17 +538,36 @@ index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
 					  EstimateSnapshotSpace(snapshot));
 	offset = MAXALIGN(offset);
 
-	target->ps_relid = RelationGetRelid(heapRelation);
-	target->ps_indexid = RelationGetRelid(indexRelation);
-	target->ps_offset = offset;
+	target->ps_locator = heapRelation->rd_locator;
+	target->ps_indexlocator = indexRelation->rd_locator;
+	target->ps_offset_ins = 0;
+	target->ps_offset_am = 0;
 	SerializeSnapshot(snapshot, target->ps_snapshot_data);
 
+	if (instrument)
+	{
+		Size		sharedinfosz;
+
+		target->ps_offset_ins = offset;
+		sharedinfosz = offsetof(SharedIndexScanInstrumentation, winstrument) +
+			nworkers * sizeof(IndexScanInstrumentation);
+		offset = add_size(offset, sharedinfosz);
+		offset = MAXALIGN(offset);
+
+		/* Set leader's *sharedinfo pointer, and initialize stats */
+		*sharedinfo = (SharedIndexScanInstrumentation *)
+			OffsetToPointer(target, target->ps_offset_ins);
+		memset(*sharedinfo, 0, sharedinfosz);
+		(*sharedinfo)->num_workers = nworkers;
+	}
+
 	/* aminitparallelscan is optional; assume no-op if not provided by AM */
-	if (indexRelation->rd_indam->aminitparallelscan != NULL)
+	if (parallel_aware && indexRelation->rd_indam->aminitparallelscan != NULL)
 	{
 		void	   *amtarget;
 
-		amtarget = OffsetToPointer(target, offset);
+		target->ps_offset_am = offset;
+		amtarget = OffsetToPointer(target, target->ps_offset_am);
 		indexRelation->rd_indam->aminitparallelscan(amtarget);
 	}
 }
@@ -533,13 +595,17 @@ index_parallelrescan(IndexScanDesc scan)
  * Caller must be holding suitable locks on the heap and the index.
  */
 IndexScanDesc
-index_beginscan_parallel(Relation heaprel, Relation indexrel, int nkeys,
-						 int norderbys, ParallelIndexScanDesc pscan)
+index_beginscan_parallel(Relation heaprel, Relation indexrel,
+						 IndexScanInstrumentation *instrument,
+						 int nkeys, int norderbys,
+						 ParallelIndexScanDesc pscan)
 {
 	Snapshot	snapshot;
 	IndexScanDesc scan;
 
-	Assert(RelationGetRelid(heaprel) == pscan->ps_relid);
+	Assert(RelFileLocatorEquals(heaprel->rd_locator, pscan->ps_locator));
+	Assert(RelFileLocatorEquals(indexrel->rd_locator, pscan->ps_indexlocator));
+
 	snapshot = RestoreSnapshot(pscan->ps_snapshot_data);
 	RegisterSnapshot(snapshot);
 	scan = index_beginscan_internal(indexrel, nkeys, norderbys, snapshot,
@@ -551,6 +617,7 @@ index_beginscan_parallel(Relation heaprel, Relation indexrel, int nkeys,
 	 */
 	scan->heapRelation = heaprel;
 	scan->xs_snapshot = snapshot;
+	scan->instrument = instrument;
 
 	/* prepare to fetch index matches from table */
 	scan->xs_heapfetch = table_index_fetch_begin(heaprel);

@@ -2,8 +2,22 @@
 -- PARALLEL
 -- We have CBDB style parallel now, open this file in parallel mode.
 --
+<<<<<<< HEAD
 set enable_parallel = on;
 set optimizer = off;
+=======
+-- Save parallel worker stats, used for comparison at the end
+select pg_stat_force_next_flush();
+ pg_stat_force_next_flush 
+--------------------------
+ 
+(1 row)
+
+select parallel_workers_to_launch as parallel_workers_to_launch_before,
+       parallel_workers_launched as parallel_workers_launched_before
+  from pg_stat_database
+  where datname = current_database() \gset
+>>>>>>> REL_18_BETA1_branch
 create function sp_parallel_restricted(int) returns int as
   $$begin return $1; end$$ language plpgsql parallel restricted;
 begin;
@@ -308,6 +322,7 @@ alter table tenk2 set (parallel_workers = 0);
 explain (costs off)
 	select count(*) from tenk1 where (two, four) not in
 	(select hundred, thousand from tenk2 where thousand > 100);
+<<<<<<< HEAD
                                          QUERY PLAN                                         
 --------------------------------------------------------------------------------------------
  Aggregate
@@ -321,6 +336,20 @@ explain (costs off)
                                  Filter: (thousand > 100)
  Optimizer: Postgres query optimizer
 (10 rows)
+=======
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 4
+         ->  Partial Aggregate
+               ->  Parallel Seq Scan on tenk1
+                     Filter: (NOT (ANY ((two = (hashed SubPlan 1).col1) AND (four = (hashed SubPlan 1).col2))))
+                     SubPlan 1
+                       ->  Seq Scan on tenk2
+                             Filter: (thousand > 100)
+(9 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select count(*) from tenk1 where (two, four) not in
 	(select hundred, thousand from tenk2 where thousand > 100);
@@ -333,6 +362,7 @@ select count(*) from tenk1 where (two, four) not in
 explain (costs off)
 	select * from tenk1 where (unique1 + random())::integer not in
 	(select ten from tenk2);
+<<<<<<< HEAD
                            QUERY PLAN                            
 -----------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -344,6 +374,15 @@ explain (costs off)
                        ->  Seq Scan on tenk2
  Optimizer: Postgres query optimizer
 (8 rows)
+=======
+                                              QUERY PLAN                                               
+-------------------------------------------------------------------------------------------------------
+ Seq Scan on tenk1
+   Filter: (NOT (ANY ((((unique1)::double precision + random()))::integer = (hashed SubPlan 1).col1)))
+   SubPlan 1
+     ->  Seq Scan on tenk2
+(4 rows)
+>>>>>>> REL_18_BETA1_branch
 
 alter table tenk2 reset (parallel_workers);
 -- test parallel plan for a query containing initplan.
@@ -357,16 +396,28 @@ explain (costs off)
                        QUERY PLAN                       
 --------------------------------------------------------
  Aggregate
+<<<<<<< HEAD
    InitPlan 1 (returns $1)  (slice2)
+=======
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Finalize Aggregate
            ->  Gather Motion 6:1  (slice3; segments: 6)
                  ->  Partial Aggregate
                        ->  Parallel Seq Scan on tenk2
+<<<<<<< HEAD
    ->  Gather Motion 12:1  (slice1; segments: 12)
          ->  Parallel Seq Scan on tenk1
                Filter: (unique1 = $1)
  Optimizer: Postgres query optimizer
 (10 rows)
+=======
+   ->  Gather
+         Workers Planned: 4
+         ->  Parallel Seq Scan on tenk1
+               Filter: (unique1 = (InitPlan 1).col1)
+(11 rows)
+>>>>>>> REL_18_BETA1_branch
 
 select count(*) from tenk1
     where tenk1.unique1 = (Select max(tenk2.unique1) from tenk2);
@@ -382,6 +433,7 @@ alter table tenk2 reset (parallel_workers);
 -- test parallel index scans.
 set enable_seqscan to off;
 set enable_bitmapscan to off;
+set random_page_cost = 2;
 explain (costs off)
 	select  count((unique1)) from tenk1 where hundred > 1;
                              QUERY PLAN                             
@@ -398,6 +450,30 @@ select  count((unique1)) from tenk1 where hundred > 1;
  count 
 -------
   9800
+(1 row)
+
+-- Parallel ScalarArrayOp index scan
+explain (costs off)
+  select count((unique1)) from tenk1
+  where hundred = any ((select array_agg(i) from generate_series(1, 100, 15) i)::int[]);
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Finalize Aggregate
+   InitPlan 1
+     ->  Aggregate
+           ->  Function Scan on generate_series i
+   ->  Gather
+         Workers Planned: 4
+         ->  Partial Aggregate
+               ->  Parallel Index Scan using tenk1_hundred on tenk1
+                     Index Cond: (hundred = ANY ((InitPlan 1).col1))
+(9 rows)
+
+select count((unique1)) from tenk1
+where hundred = any ((select array_agg(i) from generate_series(1, 100, 15) i)::int[]);
+ count 
+-------
+   700
 (1 row)
 
 -- test parallel index-only scans.
@@ -536,6 +612,7 @@ END $$;
 set work_mem='64kB';  --set small work mem to force lossy pages
 explain (costs off)
 	select count(*) from tenk1, tenk2 where tenk1.hundred > 1 and tenk2.thousand=0;
+<<<<<<< HEAD
                                   QUERY PLAN                                  
 ------------------------------------------------------------------------------
  Finalize Aggregate
@@ -551,6 +628,23 @@ explain (costs off)
                                        ->  Bitmap Index Scan on tenk1_hundred
                                              Index Cond: (hundred > 1)
  Optimizer: Postgres query optimizer
+=======
+                         QUERY PLAN                         
+------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Gather
+               Workers Planned: 4
+               ->  Parallel Seq Scan on tenk2
+                     Disabled: true
+                     Filter: (thousand = 0)
+         ->  Gather
+               Workers Planned: 4
+               ->  Parallel Bitmap Heap Scan on tenk1
+                     Recheck Cond: (hundred > 1)
+                     ->  Bitmap Index Scan on tenk1_hundred
+                           Index Cond: (hundred > 1)
+>>>>>>> REL_18_BETA1_branch
 (13 rows)
 
 select count(*) from tenk1, tenk2 where tenk1.hundred > 1 and tenk2.thousand=0;
@@ -573,6 +667,7 @@ select count(*) from bmscantest where a>1;
 -- test accumulation of stats for parallel nodes
 reset enable_seqscan;
 alter table tenk2 set (parallel_workers = 0);
+<<<<<<< HEAD
 --start_ignore
 explain (analyze, timing off, summary off, costs off)
    select count(*) from tenk1, tenk2 where tenk1.hundred > 1
@@ -593,6 +688,25 @@ explain (analyze, timing off, summary off, costs off)
                                        Rows Removed by Filter: 66
  Optimizer: Postgres query optimizer
 (13 rows)
+=======
+explain (analyze, timing off, summary off, costs off, buffers off)
+   select count(*) from tenk1, tenk2 where tenk1.hundred > 1
+        and tenk2.thousand=0;
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Aggregate (actual rows=1.00 loops=1)
+   ->  Nested Loop (actual rows=98000.00 loops=1)
+         ->  Seq Scan on tenk2 (actual rows=10.00 loops=1)
+               Filter: (thousand = 0)
+               Rows Removed by Filter: 9990
+         ->  Gather (actual rows=9800.00 loops=10)
+               Workers Planned: 4
+               Workers Launched: 4
+               ->  Parallel Seq Scan on tenk1 (actual rows=1960.00 loops=50)
+                     Filter: (hundred > 1)
+                     Rows Removed by Filter: 40
+(11 rows)
+>>>>>>> REL_18_BETA1_branch
 
 --end_ignore
 alter table tenk2 reset (parallel_workers);
@@ -603,7 +717,7 @@ $$
 declare ln text;
 begin
     for ln in
-        explain (analyze, timing off, summary off, costs off)
+        explain (analyze, timing off, summary off, costs off, buffers off)
           select * from
           (select ten from tenk1 where ten < 100 order by ten) ss
           right join (values (1),(2),(3)) v(x) on true
@@ -616,6 +730,7 @@ $$;
 -- test sort stats plan, disable parallel
 set max_parallel_workers_per_gather = 0;
 select * from explain_parallel_sort_stats();
+<<<<<<< HEAD
                            explain_parallel_sort_stats                            
 ----------------------------------------------------------------------------------
  Nested Loop Left Join (actual rows=30000 loops=1)
@@ -630,6 +745,25 @@ select * from explain_parallel_sort_stats();
                            Filter: (ten < 100)
  Optimizer: Postgres query optimizer
 (11 rows)
+=======
+                         explain_parallel_sort_stats                         
+-----------------------------------------------------------------------------
+ Nested Loop Left Join (actual rows=30000.00 loops=1)
+   ->  Values Scan on "*VALUES*" (actual rows=3.00 loops=1)
+   ->  Gather Merge (actual rows=10000.00 loops=3)
+         Workers Planned: 4
+         Workers Launched: 4
+         ->  Sort (actual rows=2000.00 loops=15)
+               Sort Key: tenk1.ten
+               Sort Method: quicksort  Memory: xxx
+               Worker 0:  Sort Method: quicksort  Memory: xxx
+               Worker 1:  Sort Method: quicksort  Memory: xxx
+               Worker 2:  Sort Method: quicksort  Memory: xxx
+               Worker 3:  Sort Method: quicksort  Memory: xxx
+               ->  Parallel Seq Scan on tenk1 (actual rows=2000.00 loops=15)
+                     Filter: (ten < 100)
+(14 rows)
+>>>>>>> REL_18_BETA1_branch
 
 reset max_parallel_workers_per_gather;
 reset enable_indexscan;
@@ -667,6 +801,41 @@ select  count(*) from tenk1, tenk2 where tenk1.unique1 = tenk2.unique1;
 
 reset enable_hashjoin;
 reset enable_nestloop;
+-- test parallel nestloop join path with materialization of the inner path
+alter table tenk2 set (parallel_workers = 0);
+explain (costs off)
+select * from tenk1 t1, tenk2 t2 where t1.two > t2.two;
+                QUERY PLAN                 
+-------------------------------------------
+ Gather
+   Workers Planned: 4
+   ->  Nested Loop
+         Join Filter: (t1.two > t2.two)
+         ->  Parallel Seq Scan on tenk1 t1
+         ->  Materialize
+               ->  Seq Scan on tenk2 t2
+(7 rows)
+
+-- test that parallel nestloop join is not generated if the inner path is
+-- not parallel-safe
+explain (costs off)
+select * from tenk1 t1
+    left join lateral
+      (select t1.unique1 as x, * from tenk2 t2 order by 1) t2
+    on true
+where t1.two > t2.two;
+                QUERY PLAN                 
+-------------------------------------------
+ Nested Loop
+   ->  Gather
+         Workers Planned: 4
+         ->  Parallel Seq Scan on tenk1 t1
+   ->  Subquery Scan on t2
+         Filter: (t1.two > t2.two)
+         ->  Seq Scan on tenk2 t2_1
+(7 rows)
+
+alter table tenk2 reset (parallel_workers);
 -- test gather merge
 set enable_hashagg = false;
 explain (costs off)
@@ -1000,6 +1169,59 @@ select string4 from tenk1 order by string4 limit 5;
 
 reset parallel_leader_participation;
 reset max_parallel_workers;
+create function parallel_safe_volatile(a int) returns int as
+  $$ begin return a; end; $$ parallel safe volatile language plpgsql;
+-- Test gather merge atop of a sort of a partial path
+explain (costs off)
+select * from tenk1 where four = 2
+order by four, hundred, parallel_safe_volatile(thousand);
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Gather Merge
+   Workers Planned: 4
+   ->  Sort
+         Sort Key: hundred, (parallel_safe_volatile(thousand))
+         ->  Parallel Seq Scan on tenk1
+               Filter: (four = 2)
+(6 rows)
+
+-- Test gather merge atop of an incremental sort a of partial path
+set min_parallel_index_scan_size = 0;
+set enable_seqscan = off;
+explain (costs off)
+select * from tenk1 where four = 2
+order by four, hundred, parallel_safe_volatile(thousand);
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Gather Merge
+   Workers Planned: 4
+   ->  Incremental Sort
+         Sort Key: hundred, (parallel_safe_volatile(thousand))
+         Presorted Key: hundred
+         ->  Parallel Index Scan using tenk1_hundred on tenk1
+               Filter: (four = 2)
+(7 rows)
+
+reset min_parallel_index_scan_size;
+reset enable_seqscan;
+-- Test GROUP BY with a gather merge path atop of a sort of a partial path
+explain (costs off)
+select count(*) from tenk1
+group by twenty, parallel_safe_volatile(two);
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Finalize GroupAggregate
+   Group Key: twenty, (parallel_safe_volatile(two))
+   ->  Gather Merge
+         Workers Planned: 4
+         ->  Sort
+               Sort Key: twenty, (parallel_safe_volatile(two))
+               ->  Partial HashAggregate
+                     Group Key: twenty, parallel_safe_volatile(two)
+                     ->  Parallel Seq Scan on tenk1
+(9 rows)
+
+drop function parallel_safe_volatile(int);
 SAVEPOINT settings;
 SET LOCAL debug_parallel_query = 1;
 explain (costs off)
@@ -1061,6 +1283,7 @@ reset role;
 explain (costs off, verbose)
   select count(*) from tenk1 a where (unique1, two) in
     (select unique1, row_number() over() from tenk1 b);
+<<<<<<< HEAD
                                                                                                QUERY PLAN                                                                                                
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Finalize Aggregate
@@ -1088,6 +1311,30 @@ explain (costs off, verbose)
  Settings: enable_parallel = 'on', min_parallel_table_scan_size = '0', optimizer = 'off', parallel_setup_cost = '0', parallel_tuple_cost = '0'
  Optimizer: Postgres query optimizer
 (24 rows)
+=======
+                                       QUERY PLAN                                       
+----------------------------------------------------------------------------------------
+ Aggregate
+   Output: count(*)
+   ->  Hash Right Semi Join
+         Hash Cond: ((b.unique1 = a.unique1) AND ((row_number() OVER w1) = a.two))
+         ->  WindowAgg
+               Output: b.unique1, row_number() OVER w1
+               Window: w1 AS (ROWS UNBOUNDED PRECEDING)
+               ->  Gather
+                     Output: b.unique1
+                     Workers Planned: 4
+                     ->  Parallel Index Only Scan using tenk1_unique1 on public.tenk1 b
+                           Output: b.unique1
+         ->  Hash
+               Output: a.unique1, a.two
+               ->  Gather
+                     Output: a.unique1, a.two
+                     Workers Planned: 4
+                     ->  Parallel Seq Scan on public.tenk1 a
+                           Output: a.unique1, a.two
+(19 rows)
+>>>>>>> REL_18_BETA1_branch
 
 -- LIMIT/OFFSET within sub-selects can't be pushed to workers.
 explain (costs off)
@@ -1114,6 +1361,7 @@ explain (costs off)
 -- to increase the parallel query test coverage
 SAVEPOINT settings;
 SET LOCAL debug_parallel_query = 1;
+<<<<<<< HEAD
 -- CBDB_PARALLEL_FIXME: analyze actual rows may be different by running multiple times.
 EXPLAIN (timing off, summary off, costs off) SELECT * FROM tenk1;
                 QUERY PLAN                
@@ -1122,6 +1370,16 @@ EXPLAIN (timing off, summary off, costs off) SELECT * FROM tenk1;
    ->  Parallel Seq Scan on tenk1
  Optimizer: Postgres query optimizer
 (3 rows)
+=======
+EXPLAIN (analyze, timing off, summary off, costs off, buffers off) SELECT * FROM tenk1;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Gather (actual rows=10000.00 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   ->  Parallel Seq Scan on tenk1 (actual rows=2000.00 loops=5)
+(4 rows)
+>>>>>>> REL_18_BETA1_branch
 
 ROLLBACK TO SAVEPOINT settings;
 -- provoke error in worker
@@ -1160,6 +1418,7 @@ UNION ALL
 SELECT unique1 FROM tenk1 WHERE fivethous =
 	(SELECT unique2 FROM tenk1 WHERE fivethous = 1 LIMIT 1)
 ORDER BY 1;
+<<<<<<< HEAD
                                 QUERY PLAN                                
 --------------------------------------------------------------------------
  Gather Motion 6:1  (slice1; segments: 6)
@@ -1185,6 +1444,34 @@ ORDER BY 1;
                                                Filter: (fivethous = 1)
  Optimizer: Postgres query optimizer
 (22 rows)
+=======
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Sort
+   Sort Key: tenk1.unique1
+   ->  Append
+         ->  Gather
+               Workers Planned: 4
+               InitPlan 1
+                 ->  Limit
+                       ->  Gather
+                             Workers Planned: 4
+                             ->  Parallel Seq Scan on tenk1 tenk1_2
+                                   Filter: (fivethous = 1)
+               ->  Parallel Seq Scan on tenk1
+                     Filter: (fivethous = (InitPlan 1).col1)
+         ->  Gather
+               Workers Planned: 4
+               InitPlan 2
+                 ->  Limit
+                       ->  Gather
+                             Workers Planned: 4
+                             ->  Parallel Seq Scan on tenk1 tenk1_3
+                                   Filter: (fivethous = 1)
+               ->  Parallel Seq Scan on tenk1 tenk1_1
+                     Filter: (fivethous = (InitPlan 2).col1)
+(23 rows)
+>>>>>>> REL_18_BETA1_branch
 
 -- test interaction with SRFs
 SELECT * FROM information_schema.foreign_data_wrapper_options
@@ -1196,6 +1483,7 @@ ORDER BY 1, 2, 3;
 EXPLAIN (VERBOSE, COSTS OFF)
 SELECT generate_series(1, two), array(select generate_series(1, two))
   FROM tenk1 ORDER BY tenthous;
+<<<<<<< HEAD
                                                                   QUERY PLAN                                                                   
 -----------------------------------------------------------------------------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -1203,6 +1491,15 @@ SELECT generate_series(1, two), array(select generate_series(1, two))
    Merge Key: tenk1.tenthous
    ->  ProjectSet
          Output: generate_series(1, tenk1.two), (SubPlan 1), tenk1.tenthous
+=======
+                                QUERY PLAN                                 
+---------------------------------------------------------------------------
+ ProjectSet
+   Output: generate_series(1, tenk1.two), ARRAY(SubPlan 1), tenk1.tenthous
+   ->  Gather Merge
+         Output: tenk1.two, tenk1.tenthous
+         Workers Planned: 4
+>>>>>>> REL_18_BETA1_branch
          ->  Result
                Output: tenk1.two, tenk1.tenthous
                ->  Sort
@@ -1296,6 +1593,27 @@ SELECT 1 FROM tenk1_vw_sec
 (12 rows)
 
 rollback;
+<<<<<<< HEAD
+=======
+-- test that a newly-created session role propagates to workers.
+begin;
+create role regress_parallel_worker;
+set session authorization regress_parallel_worker;
+select current_setting('session_authorization');
+     current_setting     
+-------------------------
+ regress_parallel_worker
+(1 row)
+
+set debug_parallel_query = 1;
+select current_setting('session_authorization');
+     current_setting     
+-------------------------
+ regress_parallel_worker
+(1 row)
+
+rollback;
+>>>>>>> REL_18_BETA1_branch
 -- test that function option SET ROLE works in parallel workers.
 create role regress_parallel_worker;
 create function set_and_report_role() returns text as
@@ -1324,6 +1642,10 @@ select set_and_report_role();
 select set_role_and_error(0);
 ERROR:  division by zero
 CONTEXT:  SQL function "set_role_and_error" statement 1
+<<<<<<< HEAD
+=======
+parallel worker
+>>>>>>> REL_18_BETA1_branch
 reset debug_parallel_query;
 drop function set_and_report_role();
 drop function set_role_and_error(int);
@@ -1352,5 +1674,24 @@ CREATE UNIQUE INDEX parallel_hang_idx
 SET debug_parallel_query = on;
 DELETE FROM parallel_hang WHERE 380 <= i AND i <= 420;
 ROLLBACK;
+<<<<<<< HEAD
 reset enable_parallel;
 reset optimizer;
+=======
+-- Check parallel worker stats
+select pg_stat_force_next_flush();
+ pg_stat_force_next_flush 
+--------------------------
+ 
+(1 row)
+
+select parallel_workers_to_launch > :'parallel_workers_to_launch_before'  AS wrk_to_launch,
+       parallel_workers_launched > :'parallel_workers_launched_before' AS wrk_launched
+  from pg_stat_database
+  where datname = current_database();
+ wrk_to_launch | wrk_launched 
+---------------+--------------
+ t             | t
+(1 row)
+
+>>>>>>> REL_18_BETA1_branch

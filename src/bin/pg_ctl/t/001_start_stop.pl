@@ -1,8 +1,8 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
@@ -15,15 +15,24 @@ program_help_ok('pg_ctl');
 program_version_ok('pg_ctl');
 program_options_handling_ok('pg_ctl');
 
-command_exit_is([ 'pg_ctl', 'start', '-D', "$tempdir/nonexistent" ],
+command_exit_is([ 'pg_ctl', 'start', '--pgdata' => "$tempdir/nonexistent" ],
 	1, 'pg_ctl start with nonexistent directory');
 
+<<<<<<< HEAD
 command_ok([ 'pg_ctl', 'initdb', '-D', "$tempdir/data", '-o', '-N'],
+=======
+command_ok(
+	[
+		'pg_ctl', 'initdb',
+		'--pgdata' => "$tempdir/data",
+		'--options' => '--no-sync'
+	],
+>>>>>>> REL_18_BETA1_branch
 	'pg_ctl initdb');
 command_ok([ $ENV{PG_REGRESS}, '--config-auth', "$tempdir/data" ],
 	'configure authentication');
 my $node_port = PostgreSQL::Test::Cluster::get_free_port();
-open my $conf, '>>', "$tempdir/data/postgresql.conf";
+open my $conf, '>>', "$tempdir/data/postgresql.conf" or die $!;
 print $conf "fsync = off\n";
 print $conf "port = $node_port\n";
 print $conf PostgreSQL::Test::Utils::slurp_file($ENV{TEMP_CONFIG})
@@ -41,9 +50,15 @@ else
 }
 close $conf;
 my $ctlcmd = [
+<<<<<<< HEAD
 	'pg_ctl', 'start', '-D', "$tempdir/data", '-l',
 	"$PostgreSQL::Test::Utils::log_path/001_start_stop_server.log"
 	,'-o', '-c gp_role=utility --gp_dbid=-1 --gp_contentid=-1',
+=======
+	'pg_ctl', 'start',
+	'--pgdata' => "$tempdir/data",
+	'--log' => "$PostgreSQL::Test::Utils::log_path/001_start_stop_server.log"
+>>>>>>> REL_18_BETA1_branch
 ];
 command_like($ctlcmd, qr/done.*server started/s, 'pg_ctl start');
 
@@ -52,17 +67,23 @@ command_like($ctlcmd, qr/done.*server started/s, 'pg_ctl start');
 # postmaster they start.  Waiting more than the 2 seconds slop time allowed
 # by wait_for_postmaster() prevents that mistake.
 sleep 3 if ($windows_os);
-command_fails([ 'pg_ctl', 'start', '-D', "$tempdir/data" ],
+command_fails([ 'pg_ctl', 'start', '--pgdata' => "$tempdir/data" ],
 	'second pg_ctl start fails');
-command_ok([ 'pg_ctl', 'stop', '-D', "$tempdir/data" ], 'pg_ctl stop');
-command_fails([ 'pg_ctl', 'stop', '-D', "$tempdir/data" ],
+command_ok([ 'pg_ctl', 'stop', '--pgdata' => "$tempdir/data" ],
+	'pg_ctl stop');
+command_fails([ 'pg_ctl', 'stop', '--pgdata' => "$tempdir/data" ],
 	'second pg_ctl stop fails');
 
 # Log file for default permission test.  The permissions won't be checked on
 # Windows but we still want to do the restart test.
 my $logFileName = "$tempdir/data/perm-test-600.log";
 
-command_ok([ 'pg_ctl', 'restart', '-D', "$tempdir/data", '-l', $logFileName ],
+command_ok(
+	[
+		'pg_ctl', 'restart',
+		'--pgdata' => "$tempdir/data",
+		'--log' => $logFileName
+	],
 	'pg_ctl restart with server not running');
 
 # Permissions on log file should be default
@@ -83,15 +104,22 @@ SKIP:
 	skip "group access not supported on Windows", 3
 	  if ($windows_os || $Config::Config{osname} eq 'cygwin');
 
-	system_or_bail 'pg_ctl', 'stop', '-D', "$tempdir/data";
+	system_or_bail 'pg_ctl', 'stop', '--pgdata' => "$tempdir/data";
 
 	# Change the data dir mode so log file will be created with group read
 	# privileges on the next start
 	chmod_recursive("$tempdir/data", 0750, 0640);
 
 	command_ok(
+<<<<<<< HEAD
 		[ 'pg_ctl', 'start', '-D', "$tempdir/data", '-l', $logFileName,
 		  '-o', '-c gp_role=utility --gp_dbid=-1 --gp_contentid=-1 -c log_file_mode=0640',
+=======
+		[
+			'pg_ctl', 'start',
+			'--pgdata' => "$tempdir/data",
+			'--log' => $logFileName
+>>>>>>> REL_18_BETA1_branch
 		],
 		'start server to check group permissions');
 
@@ -99,10 +127,10 @@ SKIP:
 	ok(check_mode_recursive("$tempdir/data", 0750, 0640));
 }
 
-command_ok([ 'pg_ctl', 'restart', '-D', "$tempdir/data" ],
+command_ok([ 'pg_ctl', 'restart', '--pgdata' => "$tempdir/data" ],
 	'pg_ctl restart with server running');
 
-system_or_bail 'pg_ctl', 'stop', '-D', "$tempdir/data";
+system_or_bail 'pg_ctl', 'stop', '--pgdata' => "$tempdir/data";
 
 # gpdb specific: verify that --wrapper and --wrapper-args work as expected
 if (not $windows_os)

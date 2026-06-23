@@ -14,6 +14,41 @@
  </para>
 
  <para>
+  <filename>dblink</filename> can report the following wait events under the wait
+  event type <literal>Extension</literal>.
+ </para>
+
+ <variablelist>
+  <varlistentry>
+   <term><literal>DblinkConnect</literal></term>
+   <listitem>
+    <para>
+     Waiting to establish a connection to a remote server.
+    </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry>
+   <term><literal>DblinkGetConnect</literal></term>
+   <listitem>
+    <para>
+     Waiting to establish a connection to a remote server when it could not
+     be found in the list of already-opened connections.
+    </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry>
+   <term><literal>DblinkGetResult</literal></term>
+   <listitem>
+    <para>
+     Waiting to receive the results of a query from a remote server.
+    </para>
+   </listitem>
+  </varlistentry>
+ </variablelist>
+
+ <para>
   See also <xref linkend="postgres-fdw"/>, which provides roughly the same
   functionality using a more modern and standards-compliant infrastructure.
  </para>
@@ -116,8 +151,22 @@ dblink_connect(text connname, text connstr) returns text
    </para>
 
    <para>
+    The foreign-data wrapper <filename>dblink_fdw</filename> has an additional
+    Boolean option <literal>use_scram_passthrough</literal> that controls
+    whether <filename>dblink</filename> will use the SCRAM pass-through
+    authentication to connect to the remote database.  With SCRAM pass-through
+    authentication, <filename>dblink</filename> uses SCRAM-hashed secrets
+    instead of plain-text user passwords to connect to the remote server. This
+    avoids storing plain-text user passwords in PostgreSQL system catalogs.
+    See the documentation of the equivalent <link
+    linkend="postgres-fdw-option-use-scram-passthrough"><literal>use_scram_passthrough</literal></link>
+    option of postgres_fdw for further details and restrictions.
+   </para>
+
+   <para>
     Only superusers may use <function>dblink_connect</function> to create
-    non-password-authenticated and non-GSSAPI-authenticated connections.
+    connections that use neither password authentication, SCRAM pass-through,
+    nor GSSAPI-authentication.
     If non-superusers need this capability, use
     <function>dblink_connect_u</function> instead.
    </para>
@@ -146,8 +195,9 @@ SELECT dblink_connect('myconn', 'dbname=postgres options=-csearch_path=');
 (1 row)
 
 -- FOREIGN DATA WRAPPER functionality
--- Note: local connection must require password authentication for this to work properly
---       Otherwise, you will receive the following error from dblink_connect():
+-- Note: local connections that don't use SCRAM pass-through require password
+--       authentication for this to work properly. Otherwise, you will receive
+--       the following error from dblink_connect():
 --       ERROR:  password is required
 --       DETAIL:  Non-superuser cannot connect if the server does not request a password.
 --       HINT:  Target server's authentication method must be changed.

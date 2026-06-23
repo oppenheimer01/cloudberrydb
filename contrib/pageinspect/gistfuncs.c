@@ -2,7 +2,7 @@
  * gistfuncs.c
  *		Functions to investigate the content of GiST indexes
  *
- * Copyright (c) 2014-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2014-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		contrib/pageinspect/gistfuncs.c
@@ -10,10 +10,8 @@
 #include "postgres.h"
 
 #include "access/gist.h"
-#include "access/gist_private.h"
 #include "access/htup.h"
 #include "access/relation.h"
-#include "catalog/namespace.h"
 #include "catalog/pg_am_d.h"
 #include "funcapi.h"
 #include "miscadmin.h"
@@ -21,11 +19,10 @@
 #include "storage/itemptr.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
-#include "utils/pg_lsn.h"
 #include "utils/lsyscache.h"
+#include "utils/pg_lsn.h"
 #include "utils/rel.h"
 #include "utils/ruleutils.h"
-#include "utils/varlena.h"
 
 PG_FUNCTION_INFO_V1(gist_page_opaque_info);
 PG_FUNCTION_INFO_V1(gist_page_items);
@@ -286,8 +283,8 @@ gist_page_items(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		tupdesc = CreateTupleDescCopy(RelationGetDescr(indexRel));
-		tupdesc->natts = IndexRelationGetNumberOfKeyAttributes(indexRel);
+		tupdesc = CreateTupleDescTruncatedCopy(RelationGetDescr(indexRel),
+											   IndexRelationGetNumberOfKeyAttributes(indexRel));
 		printflags |= RULE_INDEXDEF_KEYS_ONLY;
 	}
 
@@ -350,7 +347,7 @@ gist_page_items(PG_FUNCTION_ARGS)
 					bool		typisvarlena;
 					Oid			typoid;
 
-					typoid = tupdesc->attrs[i].atttypid;
+					typoid = TupleDescAttr(tupdesc, i)->atttypid;
 					getTypeOutputInfo(typoid, &foutoid, &typisvarlena);
 					value = OidOutputFunctionCall(foutoid, itup_values[i]);
 				}

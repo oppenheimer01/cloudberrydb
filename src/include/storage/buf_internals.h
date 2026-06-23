@@ -5,7 +5,7 @@
  *	  strategy.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/buf_internals.h
@@ -17,15 +17,17 @@
 
 #include "pgstat.h"
 #include "port/atomics.h"
+#include "storage/aio_types.h"
 #include "storage/buf.h"
 #include "storage/bufmgr.h"
 #include "storage/condition_variable.h"
-#include "storage/latch.h"
 #include "storage/lwlock.h"
+#include "storage/procnumber.h"
 #include "storage/shmem.h"
 #include "storage/smgr.h"
 #include "storage/spin.h"
 #include "utils/relcache.h"
+#include "utils/resowner.h"
 
 /*
  * Buffer state is a single 32-bit variable where following data is combined.
@@ -39,12 +41,27 @@
  *
  * The definition of buffer state components is below.
  */
+#define BUF_REFCOUNT_BITS 18
+#define BUF_USAGECOUNT_BITS 4
+#define BUF_FLAG_BITS 10
+
+StaticAssertDecl(BUF_REFCOUNT_BITS + BUF_USAGECOUNT_BITS + BUF_FLAG_BITS == 32,
+				 "parts of buffer state space need to equal 32");
+
 #define BUF_REFCOUNT_ONE 1
+<<<<<<< HEAD
 #define BUF_REFCOUNT_MASK ((1U << 17) - 1)
 #define BUF_USAGECOUNT_MASK 0x001E0000U
 #define BUF_USAGECOUNT_ONE (1U << 17)
 #define BUF_USAGECOUNT_SHIFT 17
 #define BUF_FLAG_MASK 0xFFE00000U
+=======
+#define BUF_REFCOUNT_MASK ((1U << BUF_REFCOUNT_BITS) - 1)
+#define BUF_USAGECOUNT_MASK (((1U << BUF_USAGECOUNT_BITS) - 1) << (BUF_REFCOUNT_BITS))
+#define BUF_USAGECOUNT_ONE (1U << BUF_REFCOUNT_BITS)
+#define BUF_USAGECOUNT_SHIFT BUF_REFCOUNT_BITS
+#define BUF_FLAG_MASK (((1U << BUF_FLAG_BITS) - 1) << (BUF_REFCOUNT_BITS + BUF_USAGECOUNT_BITS))
+>>>>>>> REL_18_BETA1_branch
 
 /* Get refcount and usagecount from buffer state */
 #define BUF_STATE_GET_REFCOUNT(state) ((state) & BUF_REFCOUNT_MASK)
@@ -78,6 +95,11 @@
  * value to be very large.
  */
 #define BM_MAX_USAGE_COUNT	5
+
+StaticAssertDecl(BM_MAX_USAGE_COUNT < (1 << BUF_USAGECOUNT_BITS),
+				 "BM_MAX_USAGE_COUNT doesn't fit in BUF_USAGECOUNT_BITS bits");
+StaticAssertDecl(MAX_BACKENDS_BITS <= BUF_REFCOUNT_BITS,
+				 "MAX_BACKENDS_BITS needs to be <= BUF_REFCOUNT_BITS");
 
 /*
  * Buffer tag identifies which disk block the buffer contains.
@@ -253,6 +275,8 @@ typedef struct BufferDesc
 
 	int			wait_backend_pgprocno;	/* backend of pin-count waiter */
 	int			freeNext;		/* link in freelist chain */
+
+	PgAioWaitRef io_wref;		/* set iff AIO is in progress */
 	LWLock		content_lock;	/* to lock access to buffer contents */
 } BufferDesc;
 
@@ -385,6 +409,32 @@ typedef struct CkptSortItem
 
 extern PGDLLIMPORT CkptSortItem *CkptBufferIds;
 
+/* ResourceOwner callbacks to hold buffer I/Os and pins */
+extern PGDLLIMPORT const ResourceOwnerDesc buffer_io_resowner_desc;
+extern PGDLLIMPORT const ResourceOwnerDesc buffer_pin_resowner_desc;
+
+/* Convenience wrappers over ResourceOwnerRemember/Forget */
+static inline void
+ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer)
+{
+	ResourceOwnerRemember(owner, Int32GetDatum(buffer), &buffer_pin_resowner_desc);
+}
+static inline void
+ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer)
+{
+	ResourceOwnerForget(owner, Int32GetDatum(buffer), &buffer_pin_resowner_desc);
+}
+static inline void
+ResourceOwnerRememberBufferIO(ResourceOwner owner, Buffer buffer)
+{
+	ResourceOwnerRemember(owner, Int32GetDatum(buffer), &buffer_io_resowner_desc);
+}
+static inline void
+ResourceOwnerForgetBufferIO(ResourceOwner owner, Buffer buffer)
+{
+	ResourceOwnerForget(owner, Int32GetDatum(buffer), &buffer_io_resowner_desc);
+}
+
 /*
  * Internal buffer management routines
  */
@@ -393,6 +443,12 @@ extern void WritebackContextInit(WritebackContext *context, int *max_pending);
 extern void IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context);
 extern void ScheduleBufferTagForWriteback(WritebackContext *wb_context,
 										  IOContext io_context, BufferTag *tag);
+
+/* solely to make it easier to write tests */
+extern bool StartBufferIO(BufferDesc *buf, bool forInput, bool nowait);
+extern void TerminateBufferIO(BufferDesc *buf, bool clear_dirty, uint32 set_flag_bits,
+							  bool forget_owner, bool release_aio);
+
 
 /* freelist.c */
 extern IOContext IOContextForStrategy(BufferAccessStrategy strategy);
@@ -420,11 +476,16 @@ extern void BufTableDelete(BufferTag *tagPtr, uint32 hashcode);
 /* localbuf.c */
 extern bool PinLocalBuffer(BufferDesc *buf_hdr, bool adjust_usagecount);
 extern void UnpinLocalBuffer(Buffer buffer);
+extern void UnpinLocalBufferNoOwner(Buffer buffer);
 extern PrefetchBufferResult PrefetchLocalBuffer(SMgrRelation smgr,
 												ForkNumber forkNum,
 												BlockNumber blockNum);
 extern BufferDesc *LocalBufferAlloc(SMgrRelation smgr, ForkNumber forkNum,
+<<<<<<< HEAD
                                     BlockNumber blockNum, bool *foundPtr, Buffer non_evited_buffer);
+=======
+									BlockNumber blockNum, bool *foundPtr);
+>>>>>>> REL_18_BETA1_branch
 extern BlockNumber ExtendBufferedRelLocal(BufferManagerRelation bmr,
 										  ForkNumber fork,
 										  uint32 flags,
@@ -433,6 +494,11 @@ extern BlockNumber ExtendBufferedRelLocal(BufferManagerRelation bmr,
 										  Buffer *buffers,
 										  uint32 *extended_by);
 extern void MarkLocalBufferDirty(Buffer buffer);
+extern void TerminateLocalBufferIO(BufferDesc *bufHdr, bool clear_dirty,
+								   uint32 set_flag_bits, bool release_aio);
+extern bool StartLocalBufferIO(BufferDesc *bufHdr, bool forInput, bool nowait);
+extern void FlushLocalBuffer(BufferDesc *bufHdr, SMgrRelation reln);
+extern void InvalidateLocalBuffer(BufferDesc *bufHdr, bool check_unreferenced);
 extern void DropRelationLocalBuffers(RelFileLocator rlocator,
 									 ForkNumber forkNum,
 									 BlockNumber firstDelBlock);

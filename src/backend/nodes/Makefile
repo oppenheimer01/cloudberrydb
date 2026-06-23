@@ -23,7 +23,6 @@ OBJS = \
 	makefuncs.o \
 	multibitmapset.o \
 	nodeFuncs.o \
-	nodes.o \
 	outfuncs.o \
 	outfast.o \
 	params.o \
@@ -48,8 +47,12 @@ node_headers = \
 	nodes/plannodes.h \
 	nodes/execnodes.h \
 	access/amapi.h \
+<<<<<<< HEAD
 	access/extprotocol.h \
 	access/formatter.h \
+=======
+	access/cmptype.h \
+>>>>>>> REL_18_BETA1_branch
 	access/sdir.h \
 	access/tableam.h \
 	access/tsmapi.h \
@@ -78,9 +81,7 @@ node_headers = \
 
 # see also catalog/Makefile for an explanation of these make rules
 
-all: distprep generated-header-symlinks
-
-distprep: node-support-stamp
+all: generated-header-symlinks
 
 .PHONY: generated-header-symlinks
 
@@ -94,14 +95,12 @@ node-support-stamp: gen_node_support.pl $(addprefix $(top_srcdir)/src/include/,$
 	$(PERL) $^
 	touch $@
 
-# These generated headers must be symlinked into builddir/src/include/,
-# using absolute links for the reasons explained in src/backend/Makefile.
+# These generated headers must be symlinked into src/include/.
 # We use header-stamp to record that we've done this because the symlinks
 # themselves may appear older than node-support-stamp.
 $(top_builddir)/src/include/nodes/header-stamp: node-support-stamp
-	prereqdir=`cd '$(dir $<)' >/dev/null && pwd` && \
 	cd '$(dir $@)' && for file in nodetags.h; do \
-	  rm -f $$file && $(LN_S) "$$prereqdir/$$file" . ; \
+	  rm -f $$file && $(LN_S) "../../../$(subdir)/$$file" . ; \
 	done
 	touch $@
 
@@ -113,5 +112,10 @@ queryjumblefuncs.o: queryjumblefuncs.c queryjumblefuncs.funcs.c queryjumblefuncs
 readfuncs.o:  readfuncs.c readfuncs.funcs.c readfuncs.switch.c | node-support-stamp
 readfast.o:  readfast.c readfast.funcs.c readfast.switch.c | node-support-stamp
 
+<<<<<<< HEAD
 maintainer-clean: clean
 	rm -f node-support-stamp $(addsuffix funcs.funcs.c,copy equal out queryjumble read) $(addsuffix funcs.switch.c,copy equal out queryjumble read) $(addsuffix fast.funcs.c, out read) $(addsuffix fast.switch.c, out read) nodetags.h
+=======
+clean:
+	rm -f node-support-stamp $(addsuffix funcs.funcs.c,copy equal out queryjumble read) $(addsuffix funcs.switch.c,copy equal out queryjumble read) nodetags.h
+>>>>>>> REL_18_BETA1_branch

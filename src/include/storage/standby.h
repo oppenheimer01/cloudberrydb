@@ -4,7 +4,7 @@
  *	  Definitions for hot standby mode.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/standby.h
@@ -88,8 +88,14 @@ typedef struct RunningTransactionsData
 	int			xcnt;			/* # of xact ids in xids[] */
 	int			subxcnt;		/* # of subxact ids in xids[] */
 	subxids_array_status subxid_status;
+<<<<<<< HEAD
 	TransactionId nextXid;		/* xid from ShmemVariableCache->nextXid */
+=======
+	TransactionId nextXid;		/* xid from TransamVariables->nextXid */
+>>>>>>> REL_18_BETA1_branch
 	TransactionId oldestRunningXid; /* *not* oldestXmin */
+	TransactionId oldestDatabaseRunningXid; /* same as above, but within the
+											 * current database */
 	TransactionId latestCompletedXid;	/* so we can set xmax */
 
 	TransactionId *xids;		/* array of (sub)xids still running */

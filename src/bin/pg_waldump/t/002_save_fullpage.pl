@@ -1,8 +1,8 @@
 
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use File::Basename;
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::RecursiveCopy;
@@ -71,9 +71,10 @@ ok(-f $walfile, "Got a WAL file");
 
 $node->command_ok(
 	[
-		'pg_waldump', '--quiet',
-		'--save-fullpage', "$tmp_folder/raw",
-		'--relation', $relation,
+		'pg_waldump',
+		'--quiet',
+		'--save-fullpage' => "$tmp_folder/raw",
+		'--relation' => $relation,
 		$walfile
 	],
 	'pg_waldump with --save-fullpage runs');

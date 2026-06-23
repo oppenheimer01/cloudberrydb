@@ -21,9 +21,7 @@ PostgreSQL documentation
 
  <refsynopsisdiv>
 <synopsis>
-CLUSTER [VERBOSE] <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">index_name</replaceable> ]
-CLUSTER ( <replaceable class="parameter">option</replaceable> [, ...] ) <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">index_name</replaceable> ]
-CLUSTER [VERBOSE]
+CLUSTER [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] [ <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">index_name</replaceable> ] ]
 
 <phrase>where <replaceable class="parameter">option</replaceable> can be one of:</phrase>
 
@@ -109,7 +107,8 @@ CLUSTER [VERBOSE]
     <term><literal>VERBOSE</literal></term>
     <listitem>
      <para>
-      Prints a progress report as each table is clustered.
+      Prints a progress report as each table is clustered
+      at <literal>INFO</literal> level.
      </para>
     </listitem>
    </varlistentry>
@@ -164,6 +163,12 @@ CLUSTER [VERBOSE]
     scan followed by sorting.  It will attempt to choose the method that
     will be faster, based on planner cost parameters and available statistical
     information.
+   </para>
+
+   <para>
+    While <command>CLUSTER</command> is running, the <xref
+    linkend="guc-search-path"/> is temporarily changed to <literal>pg_catalog,
+    pg_temp</literal>.
    </para>
 
    <para>
@@ -252,12 +257,19 @@ CLUSTER;
   </para>
 
   <para>
-   The syntax
+   The following syntax was used before <productname>PostgreSQL</productname>
+   17 and is still supported:
+<synopsis>
+CLUSTER [ VERBOSE ] [ <replaceable class="parameter">table_name</replaceable> [ USING <replaceable class="parameter">index_name</replaceable> ] ]
+</synopsis>
+  </para>
+
+  <para>
+   The following syntax was used before <productname>PostgreSQL</productname>
+   8.3 and is still supported:
 <synopsis>
 CLUSTER <replaceable class="parameter">index_name</replaceable> ON <replaceable class="parameter">table_name</replaceable>
 </synopsis>
-  is also supported for compatibility with pre-8.3 <productname>PostgreSQL</productname>
-  versions.
   </para>
  </refsect1>
 

@@ -3,7 +3,7 @@
  * pg_proc.c
  *	  routines to support manipulation of the pg_proc relation
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -31,16 +31,17 @@
 #include "catalog/pg_proc_callback.h"
 #include "catalog/pg_transform.h"
 #include "catalog/pg_type.h"
+<<<<<<< HEAD
 #include "catalog/pg_rewrite.h"
 #include "commands/defrem.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "executor/functions.h"
 #include "funcapi.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
-#include "parser/analyze.h"
 #include "parser/parse_coerce.h"
-#include "parser/parse_type.h"
 #include "pgstat.h"
 #include "rewrite/rewriteHandler.h"
 #include "tcop/pquery.h"
@@ -70,6 +71,35 @@ static bool match_prosrc_to_literal(const char *prosrc, const char *literal,
 
 /* ----------------------------------------------------------------
  *		ProcedureCreate
+ *
+ *	procedureName: string name of routine (proname)
+ *	procNamespace: OID of namespace (pronamespace)
+ *	replace: true to allow replacement of an existing pg_proc entry
+ *	returnsSet: returns set? (proretset)
+ *	returnType: OID of result type (prorettype)
+ *	proowner: OID of owner role (proowner)
+ *	languageObjectId: OID of function language (prolang)
+ *	languageValidator: OID of validator function to apply, if any
+ *	prosrc: string form of function definition (prosrc)
+ *	probin: string form of binary reference, or NULL (probin)
+ *	prosqlbody: Node tree of pre-parsed SQL body, or NULL (prosqlbody)
+ *	prokind: function/aggregate/procedure/etc code (prokind)
+ *	security_definer: security definer? (prosecdef)
+ *	isLeakProof: leak proof? (proleakproof)
+ *	isStrict: strict? (proisstrict)
+ *	volatility: volatility code (provolatile)
+ *	parallel: parallel safety code (proparallel)
+ *	parameterTypes: input parameter types, as an oidvector (proargtypes)
+ *	allParameterTypes: all parameter types, as an OID array (proallargtypes)
+ *	parameterModes: parameter modes, as a "char" array (proargmodes)
+ *	parameterNames: parameter names, as a text array (proargnames)
+ *	parameterDefaults: defaults, as a List of Node trees (proargdefaults)
+ *	trftypes: transformable type OIDs, as an OID array (protrftypes)
+ *	trfoids: List of transform OIDs that routine should depend on
+ *	proconfig: GUC set clauses, as a text array (proconfig)
+ *	prosupport: OID of support function, if any (prosupport)
+ *	procost: cost factor (procost)
+ *	prorows: estimated output rows for a SRF (prorows)
  *
  * Note: allParameterTypes, parameterModes, parameterNames, trftypes, and proconfig
  * are either arrays of the proper types or NULL.  We declare them Datum,
@@ -101,6 +131,7 @@ ProcedureCreate(const char *procedureName,
 				Datum parameterNames,
 				List *parameterDefaults,
 				Datum trftypes,
+				List *trfoids,
 				Datum proconfig,
 				Oid prosupport,
 				float4 procost,
@@ -128,7 +159,6 @@ ProcedureCreate(const char *procedureName,
 				referenced;
 	char	   *detailmsg;
 	int			i;
-	Oid			trfid;
 	ObjectAddresses *addrs;
 
 	/*
@@ -453,7 +483,11 @@ ProcedureCreate(const char *procedureName,
 			if (olddesc == NULL && newdesc == NULL)
 				 /* ok, both are runtime-defined RECORDs */ ;
 			else if (olddesc == NULL || newdesc == NULL ||
+<<<<<<< HEAD
 					 !equalTupleDescs(olddesc, newdesc, true))
+=======
+					 !equalRowTypes(olddesc, newdesc))
+>>>>>>> REL_18_BETA1_branch
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 						 errmsg("cannot change return type of existing function"),
@@ -676,6 +710,7 @@ ProcedureCreate(const char *procedureName,
 	ObjectAddressSet(referenced, TypeRelationId, returnType);
 	add_exact_object_address(&referenced, addrs);
 
+<<<<<<< HEAD
 	/* dependency on describe function */
 	if (OidIsValid(describeFuncOid))
 	{
@@ -693,18 +728,20 @@ ProcedureCreate(const char *procedureName,
 		add_exact_object_address(&referenced, addrs);
 	}
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	/* dependency on parameter types */
 	for (i = 0; i < allParamCount; i++)
 	{
 		ObjectAddressSet(referenced, TypeRelationId, allParams[i]);
 		add_exact_object_address(&referenced, addrs);
+	}
 
-		/* dependency on transform used by parameter type, if any */
-		if ((trfid = get_transform_oid(allParams[i], languageObjectId, true)))
-		{
-			ObjectAddressSet(referenced, TransformRelationId, trfid);
-			add_exact_object_address(&referenced, addrs);
-		}
+	/* dependency on transforms, if any */
+	foreach_oid(transformid, trfoids)
+	{
+		ObjectAddressSet(referenced, TransformRelationId, transformid);
+		add_exact_object_address(&referenced, addrs);
 	}
 
 	/* dependency on support function, if any */
@@ -950,7 +987,7 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 		callback_arg.prosrc = prosrc;
 
 		sqlerrcontext.callback = sql_function_parse_error_callback;
-		sqlerrcontext.arg = (void *) &callback_arg;
+		sqlerrcontext.arg = &callback_arg;
 		sqlerrcontext.previous = error_context_stack;
 		error_context_stack = &sqlerrcontext;
 
@@ -1034,10 +1071,17 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 
 			(void) get_func_result_type(funcoid, &rettype, &rettupdesc);
 
+<<<<<<< HEAD
 			(void) check_sql_fn_retval_ext(querytree_list,
 										   rettype, rettupdesc,
 										   proc->prokind,
 										   false, NULL);
+=======
+			(void) check_sql_fn_retval(querytree_list,
+									   rettype, rettupdesc,
+									   proc->prokind,
+									   false);
+>>>>>>> REL_18_BETA1_branch
 		}
 
 		error_context_stack = sqlerrcontext.previous;

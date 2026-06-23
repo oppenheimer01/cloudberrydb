@@ -4,9 +4,13 @@
  *	   routines for accessing the system catalogs
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc.
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -39,11 +43,9 @@
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "nodes/supportnodes.h"
-#include "optimizer/clauses.h"
 #include "optimizer/cost.h"
 #include "optimizer/optimizer.h"
 #include "optimizer/plancat.h"
-#include "optimizer/prep.h"
 #include "parser/parse_relation.h"
 #include "parser/parsetree.h"
 #include "partitioning/partdesc.h"
@@ -183,6 +185,38 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 	rel->amhandler = relation->rd_amhandler;
 
 	/*
+	 * Record which columns are defined as NOT NULL.  We leave this
+	 * unpopulated for non-partitioned inheritance parent relations as it's
+	 * ambiguous as to what it means.  Some child tables may have a NOT NULL
+	 * constraint for a column while others may not.  We could work harder and
+	 * build a unioned set of all child relations notnullattnums, but there's
+	 * currently no need.  The RelOptInfo corresponding to the !inh
+	 * RangeTblEntry does get populated.
+	 */
+	if (!inhparent || relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
+	{
+		for (int i = 0; i < relation->rd_att->natts; i++)
+		{
+			CompactAttribute *attr = TupleDescCompactAttr(relation->rd_att, i);
+
+			Assert(attr->attnullability != ATTNULLABLE_UNKNOWN);
+
+			if (attr->attnullability == ATTNULLABLE_VALID)
+			{
+				rel->notnullattnums = bms_add_member(rel->notnullattnums,
+													 i + 1);
+
+				/*
+				 * Per RemoveAttributeById(), dropped columns will have their
+				 * attnotnull unset, so we needn't check for dropped columns
+				 * in the above condition.
+				 */
+				Assert(!attr->attisdropped);
+			}
+		}
+	}
+
+	/*
 	 * Estimate relation size --- unless it's an inheritance parent, in which
 	 * case the size we want is not the rel's own size but the size of its
 	 * inheritance tree.  That will be computed in set_append_rel_size().
@@ -238,7 +272,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			Oid			indexoid = lfirst_oid(l);
 			Relation	indexRelation;
 			Form_pg_index index;
-			IndexAmRoutine *amroutine;
+			IndexAmRoutine *amroutine = NULL;
 			IndexOptInfo *info;
 			int			ncolumns,
 						nkeycolumns;
@@ -332,7 +366,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 				info->amcanparallel = amroutine->amcanparallel;
 				info->amhasgettuple = (amroutine->amgettuple != NULL);
 				info->amhasgetbitmap = amroutine->amgetbitmap != NULL &&
-					relation->rd_tableam->scan_bitmap_next_block != NULL;
+					relation->rd_tableam->scan_bitmap_next_tuple != NULL;
 				info->amcanmarkpos = (amroutine->ammarkpos != NULL &&
 									  amroutine->amrestrpos != NULL);
 				info->amcostestimate = amroutine->amcostestimate;
@@ -372,14 +406,10 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 					 * Since "<" uniquely defines the behavior of a sort
 					 * order, this is a sufficient test.
 					 *
-					 * XXX This method is rather slow and also requires the
-					 * undesirable assumption that the other index AM numbers
-					 * its strategies the same as btree.  It'd be better to
-					 * have a way to explicitly declare the corresponding
-					 * btree opfamily for each opfamily of the other index
-					 * type.  But given the lack of current or foreseeable
-					 * amcanorder index types, it's not worth expending more
-					 * effort on now.
+					 * XXX This method is rather slow and complicated.  It'd
+					 * be better to have a way to explicitly declare the
+					 * corresponding btree opfamily for each opfamily of the
+					 * other index type.
 					 */
 					info->sortopfamily = (Oid *) palloc(sizeof(Oid) * nkeycolumns);
 					info->reverse_sort = (bool *) palloc(sizeof(bool) * nkeycolumns);
@@ -389,27 +419,27 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 					{
 						int16		opt = indexRelation->rd_indoption[i];
 						Oid			ltopr;
-						Oid			btopfamily;
-						Oid			btopcintype;
-						int16		btstrategy;
+						Oid			opfamily;
+						Oid			opcintype;
+						CompareType cmptype;
 
 						info->reverse_sort[i] = (opt & INDOPTION_DESC) != 0;
 						info->nulls_first[i] = (opt & INDOPTION_NULLS_FIRST) != 0;
 
-						ltopr = get_opfamily_member(info->opfamily[i],
-													info->opcintype[i],
-													info->opcintype[i],
-													BTLessStrategyNumber);
+						ltopr = get_opfamily_member_for_cmptype(info->opfamily[i],
+																info->opcintype[i],
+																info->opcintype[i],
+																COMPARE_LT);
 						if (OidIsValid(ltopr) &&
 							get_ordering_op_properties(ltopr,
-													   &btopfamily,
-													   &btopcintype,
-													   &btstrategy) &&
-							btopcintype == info->opcintype[i] &&
-							btstrategy == BTLessStrategyNumber)
+													   &opfamily,
+													   &opcintype,
+													   &cmptype) &&
+							opcintype == info->opcintype[i] &&
+							cmptype == COMPARE_LT)
 						{
 							/* Successful mapping */
-							info->sortopfamily[i] = btopfamily;
+							info->sortopfamily[i] = opfamily;
 						}
 						else
 						{
@@ -464,6 +494,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			info->indrestrictinfo = NIL;	/* set later, in indxpath.c */
 			info->predOK = false;	/* set later, in indxpath.c */
 			info->unique = index->indisunique;
+			info->nullsnotdistinct = index->indnullsnotdistinct;
 			info->immediate = index->indimmediate;
 			info->hypothetical = false;
 
@@ -490,8 +521,38 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 
 			if (IsIndexAccessMethod(info->relam, BTREE_AM_OID))
 			{
+<<<<<<< HEAD
 				/* For btrees, get tree height while we have the index open */
 				info->tree_height = _bt_getrootheight(indexRelation);
+=======
+				if (info->indpred == NIL)
+				{
+					info->pages = RelationGetNumberOfBlocks(indexRelation);
+					info->tuples = rel->tuples;
+				}
+				else
+				{
+					double		allvisfrac; /* dummy */
+
+					estimate_rel_size(indexRelation, NULL,
+									  &info->pages, &info->tuples, &allvisfrac);
+					if (info->tuples > rel->tuples)
+						info->tuples = rel->tuples;
+				}
+
+				/*
+				 * Get tree height while we have the index open
+				 */
+				if (amroutine->amgettreeheight)
+				{
+					info->tree_height = amroutine->amgettreeheight(indexRelation);
+				}
+				else
+				{
+					/* For other index types, just set it to "unknown" for now */
+					info->tree_height = -1;
+				}
+>>>>>>> REL_18_BETA1_branch
 			}
 			else
 			{
@@ -912,6 +973,10 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 		/* conrelid should always be that of the table we're considering */
 		Assert(cachedfk->conrelid == RelationGetRelid(relation));
 
+		/* skip constraints currently not enforced */
+		if (!cachedfk->conenforced)
+			continue;
+
 		/* Scan to find other RTEs matching confrelid */
 		rti = 0;
 		foreach(lc2, rtable)
@@ -1101,7 +1166,7 @@ infer_arbiter_indexes(PlannerInfo *root)
 		 */
 		if (indexOidFromConstraint == idxForm->indexrelid)
 		{
-			if (!idxForm->indisunique && onconflict->action == ONCONFLICT_UPDATE)
+			if (idxForm->indisexclusion && onconflict->action == ONCONFLICT_UPDATE)
 				ereport(ERROR,
 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 						 errmsg("ON CONFLICT DO UPDATE not supported with exclusion constraints")));
@@ -1124,6 +1189,13 @@ infer_arbiter_indexes(PlannerInfo *root)
 		 * skipped if it's not unique
 		 */
 		if (!idxForm->indisunique)
+			goto next;
+
+		/*
+		 * So-called unique constraints with WITHOUT OVERLAPS are really
+		 * exclusion constraints, so skip those too.
+		 */
+		if (idxForm->indisexclusion)
 			goto next;
 
 		/* Build BMS representation of plain (non expression) index attrs */
@@ -1456,7 +1528,7 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 int32
 get_rel_data_width(Relation rel, int32 *attr_widths)
 {
-	int32		tuple_width = 0;
+	int64		tuple_width = 0;
 	int			i;
 
 	for (i = 1; i <= RelationGetNumberOfAttributes(rel); i++)
@@ -1486,7 +1558,7 @@ get_rel_data_width(Relation rel, int32 *attr_widths)
 		tuple_width += item_width;
 	}
 
-	return tuple_width;
+	return clamp_width_est(tuple_width);
 }
 
 /*
@@ -1516,6 +1588,7 @@ get_relation_data_width(Oid relid, int32 *attr_widths)
  * get_relation_constraints
  *
  * Retrieve the applicable constraint expressions of the given relation.
+ * Only constraints that have been validated are considered.
  *
  * Returns a List (possibly empty) of constraint expressions.  Each one
  * has been canonicalized, and its Vars are changed to have the varno
@@ -1564,11 +1637,20 @@ get_relation_constraints(PlannerInfo *root,
 
 			/*
 			 * If this constraint hasn't been fully validated yet, we must
-			 * ignore it here.  Also ignore if NO INHERIT and we weren't told
-			 * that that's safe.
+			 * ignore it here.
 			 */
 			if (!constr->check[i].ccvalid)
 				continue;
+
+			/*
+			 * NOT ENFORCED constraints are always marked as invalid, which
+			 * should have been ignored.
+			 */
+			Assert(constr->check[i].ccenforced);
+
+			/*
+			 * Also ignore if NO INHERIT and we weren't told that that's safe.
+			 */
 			if (constr->check[i].ccnoinherit && !include_noinherit)
 				continue;
 
@@ -1607,17 +1689,18 @@ get_relation_constraints(PlannerInfo *root,
 
 			for (i = 1; i <= natts; i++)
 			{
-				Form_pg_attribute att = TupleDescAttr(relation->rd_att, i - 1);
+				CompactAttribute *att = TupleDescCompactAttr(relation->rd_att, i - 1);
 
-				if (att->attnotnull && !att->attisdropped)
+				if (att->attnullability == ATTNULLABLE_VALID && !att->attisdropped)
 				{
+					Form_pg_attribute wholeatt = TupleDescAttr(relation->rd_att, i - 1);
 					NullTest   *ntest = makeNode(NullTest);
 
 					ntest->arg = (Expr *) makeVar(varno,
 												  i,
-												  att->atttypid,
-												  att->atttypmod,
-												  att->attcollation,
+												  wholeatt->atttypid,
+												  wholeatt->atttypmod,
+												  wholeatt->attcollation,
 												  0);
 					ntest->nulltesttype = IS_NOT_NULL;
 
@@ -1942,16 +2025,17 @@ relation_excluded_by_constraints(PlannerInfo *root,
 
 	/*
 	 * Regardless of the setting of constraint_exclusion, detect
-	 * constant-FALSE-or-NULL restriction clauses.  Because const-folding will
-	 * reduce "anything AND FALSE" to just "FALSE", any such case should
-	 * result in exactly one baserestrictinfo entry.  This doesn't fire very
-	 * often, but it seems cheap enough to be worth doing anyway.  (Without
-	 * this, we'd miss some optimizations that 9.5 and earlier found via much
-	 * more roundabout methods.)
+	 * constant-FALSE-or-NULL restriction clauses.  Although const-folding
+	 * will reduce "anything AND FALSE" to just "FALSE", the baserestrictinfo
+	 * list can still have other members besides the FALSE constant, due to
+	 * qual pushdown and other mechanisms; so check them all.  This doesn't
+	 * fire very often, but it seems cheap enough to be worth doing anyway.
+	 * (Without this, we'd miss some optimizations that 9.5 and earlier found
+	 * via much more roundabout methods.)
 	 */
-	if (list_length(rel->baserestrictinfo) == 1)
+	foreach(lc, rel->baserestrictinfo)
 	{
-		RestrictInfo *rinfo = (RestrictInfo *) linitial(rel->baserestrictinfo);
+		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 		Expr	   *clause = rinfo->clause;
 
 		if (clause && IsA(clause, Const) &&
@@ -2060,6 +2144,8 @@ relation_excluded_by_constraints(PlannerInfo *root,
 	 * Currently, attnotnull constraints must be treated as NO INHERIT unless
 	 * this is a partitioned table.  In future we might track their
 	 * inheritance status more accurately, allowing this to be refined.
+	 *
+	 * XXX do we need/want to change this?
 	 */
 	include_notnull = (!rte->inh || rte->relkind == RELKIND_PARTITIONED_TABLE);
 
@@ -2212,8 +2298,8 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 		case RTE_NAMEDTUPLESTORE:
 		case RTE_RESULT:
 			/* Not all of these can have dropped cols, but share code anyway */
-			expandRTE(rte, varno, 0, -1, true /* include dropped */ ,
-					  NULL, &colvars);
+			expandRTE(rte, varno, 0, VAR_RETURNING_DEFAULT, -1,
+					  true /* include dropped */ , NULL, &colvars);
 			foreach(l, colvars)
 			{
 				var = (Var *) lfirst(l);

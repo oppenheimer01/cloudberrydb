@@ -52,7 +52,7 @@
  *   dynahash has better performance for large entries.
  * - Guarantees stable pointers to entries.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -272,7 +272,9 @@ static HASHBUCKET get_hash_entry(HTAB *hashp, int freelist_idx);
 static void hdefault(HTAB *hashp);
 static int	choose_nelem_alloc(Size entrysize);
 static bool init_htab(HTAB *hashp, long nelem);
-static void hash_corrupted(HTAB *hashp);
+pg_noreturn static void hash_corrupted(HTAB *hashp);
+static uint32 hash_initial_lookup(HTAB *hashp, uint32 hashvalue,
+								  HASHBUCKET **bucketptr);
 static long next_pow2_long(long num);
 static int	next_pow2_int(long num);
 static void register_seq_scan(HTAB *hashp);
@@ -973,10 +975,6 @@ hash_search_with_hash_value(HTAB *hashp,
 	HASHHDR    *hctl = hashp->hctl;
 	int			freelist_idx = FREELIST_IDX(hctl, hashvalue);
 	Size		keysize;
-	uint32		bucket;
-	long		segment_num;
-	long		segment_ndx;
-	HASHSEGMENT segp;
 	HASHBUCKET	currBucket;
 	HASHBUCKET *prevBucketPtr;
 	HashCompareFunc match;
@@ -1009,17 +1007,7 @@ hash_search_with_hash_value(HTAB *hashp,
 	/*
 	 * Do the initial lookup
 	 */
-	bucket = calc_bucket(hctl, hashvalue);
-
-	segment_num = bucket >> hashp->sshift;
-	segment_ndx = MOD(bucket, hashp->ssize);
-
-	segp = hashp->dir[segment_num];
-
-	if (segp == NULL)
-		hash_corrupted(hashp);
-
-	prevBucketPtr = &segp[segment_ndx];
+	(void) hash_initial_lookup(hashp, hashvalue, &prevBucketPtr);
 	currBucket = *prevBucketPtr;
 
 	/*
@@ -1051,7 +1039,7 @@ hash_search_with_hash_value(HTAB *hashp,
 	{
 		case HASH_FIND:
 			if (currBucket != NULL)
-				return (void *) ELEMENTKEY(currBucket);
+				return ELEMENTKEY(currBucket);
 			return NULL;
 
 		case HASH_REMOVE:
@@ -1080,7 +1068,7 @@ hash_search_with_hash_value(HTAB *hashp,
 				 * element, because someone else is going to reuse it the next
 				 * time something is added to the table
 				 */
-				return (void *) ELEMENTKEY(currBucket);
+				return ELEMENTKEY(currBucket);
 			}
 			return NULL;
 
@@ -1089,7 +1077,7 @@ hash_search_with_hash_value(HTAB *hashp,
 		case HASH_ENTER:
 			/* Return existing element if found, else create one */
 			if (currBucket != NULL)
-				return (void *) ELEMENTKEY(currBucket);
+				return ELEMENTKEY(currBucket);
 
 			/* disallow inserts if frozen */
 			if (hashp->frozen)
@@ -1128,7 +1116,7 @@ hash_search_with_hash_value(HTAB *hashp,
 			 * caller's data structure.
 			 */
 
-			return (void *) ELEMENTKEY(currBucket);
+			return ELEMENTKEY(currBucket);
 	}
 
 	elog(ERROR, "unrecognized hash action code: %d", (int) action);
@@ -1161,14 +1149,10 @@ hash_update_hash_key(HTAB *hashp,
 					 const void *newKeyPtr)
 {
 	HASHELEMENT *existingElement = ELEMENT_FROM_KEY(existingEntry);
-	HASHHDR    *hctl = hashp->hctl;
 	uint32		newhashvalue;
 	Size		keysize;
 	uint32		bucket;
 	uint32		newbucket;
-	long		segment_num;
-	long		segment_ndx;
-	HASHSEGMENT segp;
 	HASHBUCKET	currBucket;
 	HASHBUCKET *prevBucketPtr;
 	HASHBUCKET *oldPrevPtr;
@@ -1189,17 +1173,8 @@ hash_update_hash_key(HTAB *hashp,
 	 * this to be able to unlink it from its hash chain, but as a side benefit
 	 * we can verify the validity of the passed existingEntry pointer.
 	 */
-	bucket = calc_bucket(hctl, existingElement->hashvalue);
-
-	segment_num = bucket >> hashp->sshift;
-	segment_ndx = MOD(bucket, hashp->ssize);
-
-	segp = hashp->dir[segment_num];
-
-	if (segp == NULL)
-		hash_corrupted(hashp);
-
-	prevBucketPtr = &segp[segment_ndx];
+	bucket = hash_initial_lookup(hashp, existingElement->hashvalue,
+								 &prevBucketPtr);
 	currBucket = *prevBucketPtr;
 
 	while (currBucket != NULL)
@@ -1221,18 +1196,7 @@ hash_update_hash_key(HTAB *hashp,
 	 * chain we want to put the entry into.
 	 */
 	newhashvalue = hashp->hash(newKeyPtr, hashp->keysize);
-
-	newbucket = calc_bucket(hctl, newhashvalue);
-
-	segment_num = newbucket >> hashp->sshift;
-	segment_ndx = MOD(newbucket, hashp->ssize);
-
-	segp = hashp->dir[segment_num];
-
-	if (segp == NULL)
-		hash_corrupted(hashp);
-
-	prevBucketPtr = &segp[segment_ndx];
+	newbucket = hash_initial_lookup(hashp, newhashvalue, &prevBucketPtr);
 	currBucket = *prevBucketPtr;
 
 	/*
@@ -1425,9 +1389,38 @@ hash_seq_init(HASH_SEQ_STATUS *status, HTAB *hashp)
 	status->hashp = hashp;
 	status->curBucket = 0;
 	status->curEntry = NULL;
+<<<<<<< HEAD
 
 	if (hashp && !hashp->frozen)
+=======
+	status->hasHashvalue = false;
+	if (!hashp->frozen)
+>>>>>>> REL_18_BETA1_branch
 		register_seq_scan(hashp);
+}
+
+/*
+ * Same as above but scan by the given hash value.
+ * See also hash_seq_search().
+ *
+ * NOTE: the default hash function doesn't match syscache hash function.
+ * Thus, if you're going to use this function in syscache callback, make sure
+ * you're using custom hash function.  See relatt_cache_syshash()
+ * for example.
+ */
+void
+hash_seq_init_with_hash_value(HASH_SEQ_STATUS *status, HTAB *hashp,
+							  uint32 hashvalue)
+{
+	HASHBUCKET *bucketPtr;
+
+	hash_seq_init(status, hashp);
+
+	status->hasHashvalue = true;
+	status->hashvalue = hashvalue;
+
+	status->curBucket = hash_initial_lookup(hashp, hashvalue, &bucketPtr);
+	status->curEntry = *bucketPtr;
 }
 
 void *
@@ -1443,13 +1436,31 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	uint32		curBucket;
 	HASHELEMENT *curElem;
 
+	if (status->hasHashvalue)
+	{
+		/*
+		 * Scan entries only in the current bucket because only this bucket
+		 * can contain entries with the given hash value.
+		 */
+		while ((curElem = status->curEntry) != NULL)
+		{
+			status->curEntry = curElem->link;
+			if (status->hashvalue != curElem->hashvalue)
+				continue;
+			return (void *) ELEMENTKEY(curElem);
+		}
+
+		hash_seq_term(status);
+		return NULL;
+	}
+
 	if ((curElem = status->curEntry) != NULL)
 	{
 		/* Continuing scan of curBucket... */
 		status->curEntry = curElem->link;
 		if (status->curEntry == NULL)	/* end of this bucket */
 			++status->curBucket;
-		return (void *) ELEMENTKEY(curElem);
+		return ELEMENTKEY(curElem);
 	}
 
 	/*
@@ -1506,7 +1517,7 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	if (status->curEntry == NULL)	/* end of this bucket */
 		++curBucket;
 	status->curBucket = curBucket;
-	return (void *) ELEMENTKEY(curElem);
+	return ELEMENTKEY(curElem);
 }
 
 void
@@ -1745,6 +1756,33 @@ element_alloc(HTAB *hashp, int nelem, int freelist_idx)
 		SpinLockRelease(&hctl->freeList[freelist_idx].mutex);
 
 	return true;
+}
+
+/*
+ * Do initial lookup of a bucket for the given hash value, retrieving its
+ * bucket number and its hash bucket.
+ */
+static inline uint32
+hash_initial_lookup(HTAB *hashp, uint32 hashvalue, HASHBUCKET **bucketptr)
+{
+	HASHHDR    *hctl = hashp->hctl;
+	HASHSEGMENT segp;
+	long		segment_num;
+	long		segment_ndx;
+	uint32		bucket;
+
+	bucket = calc_bucket(hctl, hashvalue);
+
+	segment_num = bucket >> hashp->sshift;
+	segment_ndx = MOD(bucket, hashp->ssize);
+
+	segp = hashp->dir[segment_num];
+
+	if (segp == NULL)
+		hash_corrupted(hashp);
+
+	*bucketptr = &segp[segment_ndx];
+	return bucket;
 }
 
 /* complain when we have detected a corrupted hashtable */

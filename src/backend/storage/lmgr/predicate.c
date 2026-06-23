@@ -134,8 +134,13 @@
  *	SerializableXactHashLock
  *		- Protects both PredXact and SerializableXidHash.
  *
+ *	SerialControlLock
+ *		- Protects SerialControlData members
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ *	SLRU per-bank locks
+ *		- Protects SerialSlruCtl
+ *
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -148,7 +153,7 @@
  * INTERFACE ROUTINES
  *
  * housekeeping for setting up shared memory predicate lock structures
- *		InitPredicateLocks(void)
+ *		PredicateLockShmemInit(void)
  *		PredicateLockShmemSize(void)
  *
  * predicate lock reporting
@@ -194,7 +199,6 @@
 
 #include "access/parallel.h"
 #include "access/slru.h"
-#include "access/subtrans.h"
 #include "access/transam.h"
 #include "access/twophase.h"
 #include "access/twophase_rmgr.h"
@@ -203,11 +207,11 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "port/pg_lfind.h"
-#include "storage/bufmgr.h"
 #include "storage/predicate.h"
 #include "storage/predicate_internals.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
+#include "utils/guc_hooks.h"
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
 
@@ -340,7 +344,7 @@ static SlruCtlData SerialSlruCtlData;
 
 typedef struct SerialControlData
 {
-	int			headPage;		/* newest initialized page */
+	int64		headPage;		/* newest initialized page */
 	TransactionId headXid;		/* newest valid Xid in the SLRU */
 	TransactionId tailXid;		/* oldest xmin we might be interested in */
 }			SerialControlData;
@@ -437,7 +441,7 @@ static void SetPossibleUnsafeConflict(SERIALIZABLEXACT *roXact, SERIALIZABLEXACT
 static void ReleaseRWConflict(RWConflict conflict);
 static void FlagSxactUnsafe(SERIALIZABLEXACT *sxact);
 
-static bool SerialPagePrecedesLogically(int page1, int page2);
+static bool SerialPagePrecedesLogically(int64 page1, int64 page2);
 static void SerialInit(void);
 static void SerialAdd(TransactionId xid, SerCommitSeqNo minConflictCommitSeqNo);
 static SerCommitSeqNo SerialGetMinConflictCommitSeqNo(TransactionId xid);
@@ -647,7 +651,7 @@ SetRWConflict(SERIALIZABLEXACT *reader, SERIALIZABLEXACT *writer)
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("not enough elements in RWConflictPool to record a read/write conflict"),
-				 errhint("You might need to run fewer transactions at a time or increase max_connections.")));
+				 errhint("You might need to run fewer transactions at a time or increase \"max_connections\".")));
 
 	conflict = dlist_head_element(RWConflictData, outLink, &RWConflictPool->availableList);
 	dlist_delete(&conflict->outLink);
@@ -672,7 +676,7 @@ SetPossibleUnsafeConflict(SERIALIZABLEXACT *roXact,
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("not enough elements in RWConflictPool to record a potential read/write conflict"),
-				 errhint("You might need to run fewer transactions at a time or increase max_connections.")));
+				 errhint("You might need to run fewer transactions at a time or increase \"max_connections\".")));
 
 	conflict = dlist_head_element(RWConflictData, outLink, &RWConflictPool->availableList);
 	dlist_delete(&conflict->outLink);
@@ -724,7 +728,7 @@ FlagSxactUnsafe(SERIALIZABLEXACT *sxact)
  * Analogous to CLOGPagePrecedes().
  */
 static bool
-SerialPagePrecedesLogically(int page1, int page2)
+SerialPagePrecedesLogically(int64 page1, int64 page2)
 {
 	TransactionId xid1;
 	TransactionId xid2;
@@ -744,7 +748,7 @@ SerialPagePrecedesLogicallyUnitTests(void)
 {
 	int			per_page = SERIAL_ENTRIESPERPAGE,
 				offset = per_page / 2;
-	int			newestPage,
+	int64		newestPage,
 				oldestPage,
 				headPage,
 				targetPage;
@@ -807,9 +811,10 @@ SerialInit(void)
 	 * Set up SLRU management of the pg_serial data.
 	 */
 	SerialSlruCtl->PagePrecedes = SerialPagePrecedesLogically;
-	SimpleLruInit(SerialSlruCtl, "Serial",
-				  NUM_SERIAL_BUFFERS, 0, SerialSLRULock, "pg_serial",
-				  LWTRANCHE_SERIAL_BUFFER, SYNC_HANDLER_NONE);
+	SimpleLruInit(SerialSlruCtl, "serializable",
+				  serializable_buffers, 0, "pg_serial",
+				  LWTRANCHE_SERIAL_BUFFER, LWTRANCHE_SERIAL_SLRU,
+				  SYNC_HANDLER_NONE, false);
 #ifdef USE_ASSERT_CHECKING
 	SerialPagePrecedesLogicallyUnitTests();
 #endif
@@ -827,10 +832,21 @@ SerialInit(void)
 		/*
 		 * Set control information to reflect empty SLRU.
 		 */
+		LWLockAcquire(SerialControlLock, LW_EXCLUSIVE);
 		serialControl->headPage = -1;
 		serialControl->headXid = InvalidTransactionId;
 		serialControl->tailXid = InvalidTransactionId;
+		LWLockRelease(SerialControlLock);
 	}
+}
+
+/*
+ * GUC check_hook for serializable_buffers
+ */
+bool
+check_serial_buffers(int *newval, void **extra, GucSource source)
+{
+	return check_slru_buffers("serializable_buffers", newval);
 }
 
 /*
@@ -842,18 +858,28 @@ static void
 SerialAdd(TransactionId xid, SerCommitSeqNo minConflictCommitSeqNo)
 {
 	TransactionId tailXid;
-	int			targetPage;
+	int64		targetPage;
 	int			slotno;
-	int			firstZeroPage;
+	int64		firstZeroPage;
 	bool		isNewPage;
+	LWLock	   *lock;
 
 	Assert(TransactionIdIsValid(xid));
 
 	targetPage = SerialPage(xid);
-
-	LWLockAcquire(SerialSLRULock, LW_EXCLUSIVE);
+	lock = SimpleLruGetBankLock(SerialSlruCtl, targetPage);
 
 	/*
+<<<<<<< HEAD
+=======
+	 * In this routine, we must hold both SerialControlLock and the SLRU bank
+	 * lock simultaneously while making the SLRU data catch up with the new
+	 * state that we determine.
+	 */
+	LWLockAcquire(SerialControlLock, LW_EXCLUSIVE);
+
+	/*
+>>>>>>> REL_18_BETA1_branch
 	 * If 'xid' is older than the global xmin (== tailXid), there's no need to
 	 * store it, after all. This can happen if the oldest transaction holding
 	 * back the global xmin just finished, making 'xid' uninteresting, but
@@ -862,7 +888,11 @@ SerialAdd(TransactionId xid, SerCommitSeqNo minConflictCommitSeqNo)
 	tailXid = serialControl->tailXid;
 	if (!TransactionIdIsValid(tailXid) || TransactionIdPrecedes(xid, tailXid))
 	{
+<<<<<<< HEAD
 		LWLockRelease(SerialSLRULock);
+=======
+		LWLockRelease(SerialControlLock);
+>>>>>>> REL_18_BETA1_branch
 		return;
 	}
 
@@ -892,21 +922,29 @@ SerialAdd(TransactionId xid, SerCommitSeqNo minConflictCommitSeqNo)
 
 	if (isNewPage)
 	{
-		/* Initialize intervening pages. */
-		while (firstZeroPage != targetPage)
+		/* Initialize intervening pages; might involve trading locks */
+		for (;;)
 		{
-			(void) SimpleLruZeroPage(SerialSlruCtl, firstZeroPage);
+			lock = SimpleLruGetBankLock(SerialSlruCtl, firstZeroPage);
+			LWLockAcquire(lock, LW_EXCLUSIVE);
+			slotno = SimpleLruZeroPage(SerialSlruCtl, firstZeroPage);
+			if (firstZeroPage == targetPage)
+				break;
 			firstZeroPage = SerialNextPage(firstZeroPage);
+			LWLockRelease(lock);
 		}
-		slotno = SimpleLruZeroPage(SerialSlruCtl, targetPage);
 	}
 	else
+	{
+		LWLockAcquire(lock, LW_EXCLUSIVE);
 		slotno = SimpleLruReadPage(SerialSlruCtl, targetPage, true, xid);
+	}
 
 	SerialValue(slotno, xid) = minConflictCommitSeqNo;
 	SerialSlruCtl->shared->page_dirty[slotno] = true;
 
-	LWLockRelease(SerialSLRULock);
+	LWLockRelease(lock);
+	LWLockRelease(SerialControlLock);
 }
 
 /*
@@ -924,10 +962,10 @@ SerialGetMinConflictCommitSeqNo(TransactionId xid)
 
 	Assert(TransactionIdIsValid(xid));
 
-	LWLockAcquire(SerialSLRULock, LW_SHARED);
+	LWLockAcquire(SerialControlLock, LW_SHARED);
 	headXid = serialControl->headXid;
 	tailXid = serialControl->tailXid;
-	LWLockRelease(SerialSLRULock);
+	LWLockRelease(SerialControlLock);
 
 	if (!TransactionIdIsValid(headXid))
 		return 0;
@@ -939,13 +977,13 @@ SerialGetMinConflictCommitSeqNo(TransactionId xid)
 		return 0;
 
 	/*
-	 * The following function must be called without holding SerialSLRULock,
+	 * The following function must be called without holding SLRU bank lock,
 	 * but will return with that lock held, which must then be released.
 	 */
 	slotno = SimpleLruReadPage_ReadOnly(SerialSlruCtl,
 										SerialPage(xid), xid);
 	val = SerialValue(slotno, xid);
-	LWLockRelease(SerialSLRULock);
+	LWLockRelease(SimpleLruGetBankLock(SerialSlruCtl, SerialPage(xid)));
 	return val;
 }
 
@@ -958,7 +996,7 @@ SerialGetMinConflictCommitSeqNo(TransactionId xid)
 static void
 SerialSetActiveSerXmin(TransactionId xid)
 {
-	LWLockAcquire(SerialSLRULock, LW_EXCLUSIVE);
+	LWLockAcquire(SerialControlLock, LW_EXCLUSIVE);
 
 	/*
 	 * When no sxacts are active, nothing overlaps, set the xid values to
@@ -970,7 +1008,7 @@ SerialSetActiveSerXmin(TransactionId xid)
 	{
 		serialControl->tailXid = InvalidTransactionId;
 		serialControl->headXid = InvalidTransactionId;
-		LWLockRelease(SerialSLRULock);
+		LWLockRelease(SerialControlLock);
 		return;
 	}
 
@@ -988,7 +1026,7 @@ SerialSetActiveSerXmin(TransactionId xid)
 		{
 			serialControl->tailXid = xid;
 		}
-		LWLockRelease(SerialSLRULock);
+		LWLockRelease(SerialControlLock);
 		return;
 	}
 
@@ -997,7 +1035,7 @@ SerialSetActiveSerXmin(TransactionId xid)
 
 	serialControl->tailXid = xid;
 
-	LWLockRelease(SerialSLRULock);
+	LWLockRelease(SerialControlLock);
 }
 
 /*
@@ -1009,21 +1047,37 @@ SerialSetActiveSerXmin(TransactionId xid)
 void
 CheckPointPredicate(void)
 {
-	int			tailPage;
+	int64		truncateCutoffPage;
 
-	LWLockAcquire(SerialSLRULock, LW_EXCLUSIVE);
+	LWLockAcquire(SerialControlLock, LW_EXCLUSIVE);
 
 	/* Exit quickly if the SLRU is currently not in use. */
 	if (serialControl->headPage < 0)
 	{
-		LWLockRelease(SerialSLRULock);
+		LWLockRelease(SerialControlLock);
 		return;
 	}
 
 	if (TransactionIdIsValid(serialControl->tailXid))
 	{
-		/* We can truncate the SLRU up to the page containing tailXid */
+		int64		tailPage;
+
 		tailPage = SerialPage(serialControl->tailXid);
+
+		/*
+		 * It is possible for the tailXid to be ahead of the headXid.  This
+		 * occurs if we checkpoint while there are in-progress serializable
+		 * transaction(s) advancing the tail but we are yet to summarize the
+		 * transactions.  In this case, we cutoff up to the headPage and the
+		 * next summary will advance the headXid.
+		 */
+		if (SerialPagePrecedesLogically(tailPage, serialControl->headPage))
+		{
+			/* We can truncate the SLRU up to the page containing tailXid */
+			truncateCutoffPage = tailPage;
+		}
+		else
+			truncateCutoffPage = serialControl->headPage;
 	}
 	else
 	{
@@ -1056,14 +1110,18 @@ CheckPointPredicate(void)
 		 *   transaction instigating the summarize fails in
 		 *   SimpleLruReadPage().
 		 */
-		tailPage = serialControl->headPage;
+		truncateCutoffPage = serialControl->headPage;
 		serialControl->headPage = -1;
 	}
 
-	LWLockRelease(SerialSLRULock);
+	LWLockRelease(SerialControlLock);
 
-	/* Truncate away pages that are no longer required */
-	SimpleLruTruncate(SerialSlruCtl, tailPage);
+	/*
+	 * Truncate away pages that are no longer required.  Note that no
+	 * additional locking is required, because this is only called as part of
+	 * a checkpoint, and the validity limits have already been determined.
+	 */
+	SimpleLruTruncate(SerialSlruCtl, truncateCutoffPage);
 
 	/*
 	 * Write dirty SLRU pages to disk
@@ -1081,7 +1139,7 @@ CheckPointPredicate(void)
 /*------------------------------------------------------------------------*/
 
 /*
- * InitPredicateLocks -- Initialize the predicate locking data structures.
+ * PredicateLockShmemInit -- Initialize the predicate locking data structures.
  *
  * This is called from CreateSharedMemoryAndSemaphores(), which see for
  * more comments.  In the normal postmaster case, the shared hash tables
@@ -1091,7 +1149,7 @@ CheckPointPredicate(void)
  * shared hash tables.
  */
 void
-InitPredicateLocks(void)
+PredicateLockShmemInit(void)
 {
 	HASHCTL		info;
 	long		max_table_size;
@@ -1175,13 +1233,20 @@ InitPredicateLocks(void)
 	 */
 	max_table_size *= 10;
 
+	requestSize = add_size(PredXactListDataSize,
+						   (mul_size((Size) max_table_size,
+									 sizeof(SERIALIZABLEXACT))));
+
 	PredXact = ShmemInitStruct("PredXactList",
-							   PredXactListDataSize,
+							   requestSize,
 							   &found);
 	Assert(found == IsUnderPostmaster);
 	if (!found)
 	{
 		int			i;
+
+		/* clean everything, both the header and the element */
+		memset(PredXact, 0, requestSize);
 
 		dlist_init(&PredXact->availableList);
 		dlist_init(&PredXact->activeList);
@@ -1191,11 +1256,9 @@ InitPredicateLocks(void)
 		PredXact->LastSxactCommitSeqNo = FirstNormalSerCommitSeqNo - 1;
 		PredXact->CanPartialClearThrough = 0;
 		PredXact->HavePartialClearedThrough = 0;
-		requestSize = mul_size((Size) max_table_size,
-							   sizeof(SERIALIZABLEXACT));
-		PredXact->element = ShmemAlloc(requestSize);
+		PredXact->element
+			= (SERIALIZABLEXACT *) ((char *) PredXact + PredXactListDataSize);
 		/* Add all elements to available list, clean. */
-		memset(PredXact->element, 0, requestSize);
 		for (i = 0; i < max_table_size; i++)
 		{
 			LWLockInitialize(&PredXact->element[i].perXactPredicateListLock,
@@ -1217,7 +1280,7 @@ InitPredicateLocks(void)
 		PredXact->OldCommittedSxact->xmin = InvalidTransactionId;
 		PredXact->OldCommittedSxact->flags = SXACT_FLAG_COMMITTED;
 		PredXact->OldCommittedSxact->pid = 0;
-		PredXact->OldCommittedSxact->pgprocno = INVALID_PGPROCNO;
+		PredXact->OldCommittedSxact->pgprocno = INVALID_PROC_NUMBER;
 	}
 	/* This never changes, so let's keep a local copy. */
 	OldCommittedSxact = PredXact->OldCommittedSxact;
@@ -1249,20 +1312,25 @@ InitPredicateLocks(void)
 	 */
 	max_table_size *= 5;
 
+	requestSize = RWConflictPoolHeaderDataSize +
+		mul_size((Size) max_table_size,
+				 RWConflictDataSize);
+
 	RWConflictPool = ShmemInitStruct("RWConflictPool",
-									 RWConflictPoolHeaderDataSize,
+									 requestSize,
 									 &found);
 	Assert(found == IsUnderPostmaster);
 	if (!found)
 	{
 		int			i;
 
+		/* clean everything, including the elements */
+		memset(RWConflictPool, 0, requestSize);
+
 		dlist_init(&RWConflictPool->availableList);
-		requestSize = mul_size((Size) max_table_size,
-							   RWConflictDataSize);
-		RWConflictPool->element = ShmemAlloc(requestSize);
+		RWConflictPool->element = (RWConflict) ((char *) RWConflictPool +
+												RWConflictPoolHeaderDataSize);
 		/* Add all elements to available list, clean. */
-		memset(RWConflictPool->element, 0, requestSize);
 		for (i = 0; i < max_table_size; i++)
 		{
 			dlist_push_tail(&RWConflictPool->availableList,
@@ -1336,7 +1404,7 @@ PredicateLockShmemSize(void)
 
 	/* Shared memory structures for SLRU tracking of old committed xids. */
 	size = add_size(size, sizeof(SerialControlData));
-	size = add_size(size, SimpleLruShmemSize(NUM_SERIAL_BUFFERS, 0));
+	size = add_size(size, SimpleLruShmemSize(serializable_buffers, 0));
 
 	return size;
 }
@@ -1799,7 +1867,7 @@ GetSerializableTransactionSnapshotInt(Snapshot snapshot,
 	sxact->finishedBefore = InvalidTransactionId;
 	sxact->xmin = snapshot->xmin;
 	sxact->pid = MyProcPid;
-	sxact->pgprocno = MyProc->pgprocno;
+	sxact->pgprocno = MyProcNumber;
 	dlist_init(&sxact->predicateLocks);
 	dlist_node_init(&sxact->finishedLink);
 	sxact->flags = 0;
@@ -2415,7 +2483,7 @@ CreatePredicateLock(const PREDICATELOCKTARGETTAG *targettag,
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of shared memory"),
-				 errhint("You might need to increase %s.", "max_pred_locks_per_transaction")));
+				 errhint("You might need to increase \"%s\".", "max_pred_locks_per_transaction")));
 	if (!found)
 		dlist_init(&target->predicateLocks);
 
@@ -2430,7 +2498,7 @@ CreatePredicateLock(const PREDICATELOCKTARGETTAG *targettag,
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of shared memory"),
-				 errhint("You might need to increase %s.", "max_pred_locks_per_transaction")));
+				 errhint("You might need to increase \"%s\".", "max_pred_locks_per_transaction")));
 
 	if (!found)
 	{
@@ -3378,7 +3446,7 @@ ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe)
 	 * transaction to complete before freeing some RAM; correctness of visible
 	 * behavior is not affected.
 	 */
-	MySerializableXact->finishedBefore = XidFromFullTransactionId(ShmemVariableCache->nextXid);
+	MySerializableXact->finishedBefore = XidFromFullTransactionId(TransamVariables->nextXid);
 
 	/*
 	 * If it's not a commit it's either a rollback or a read-only transaction
@@ -3827,7 +3895,7 @@ ReleaseOneSerializableXact(SERIALIZABLEXACT *sxact, bool partial,
 				ereport(ERROR,
 						(errcode(ERRCODE_OUT_OF_MEMORY),
 						 errmsg("out of shared memory"),
-						 errhint("You might need to increase %s.", "max_pred_locks_per_transaction")));
+						 errhint("You might need to increase \"%s\".", "max_pred_locks_per_transaction")));
 			if (found)
 			{
 				Assert(predlock->commitSeqNo != 0);
@@ -4803,7 +4871,7 @@ PostPrepare_PredicateLocks(TransactionId xid)
 	Assert(SxactIsPrepared(MySerializableXact));
 
 	MySerializableXact->pid = 0;
-	MySerializableXact->pgprocno = INVALID_PGPROCNO;
+	MySerializableXact->pgprocno = INVALID_PROC_NUMBER;
 
 	hash_destroy(LocalPredicateLockHash);
 	LocalPredicateLockHash = NULL;
@@ -4875,11 +4943,11 @@ predicatelock_twophase_recover(TransactionId xid, uint16 info,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
 					 errmsg("out of shared memory")));
 
-		/* vxid for a prepared xact is InvalidBackendId/xid; no pid */
-		sxact->vxid.backendId = InvalidBackendId;
+		/* vxid for a prepared xact is INVALID_PROC_NUMBER/xid; no pid */
+		sxact->vxid.procNumber = INVALID_PROC_NUMBER;
 		sxact->vxid.localTransactionId = (LocalTransactionId) xid;
 		sxact->pid = 0;
-		sxact->pgprocno = INVALID_PGPROCNO;
+		sxact->pgprocno = INVALID_PROC_NUMBER;
 
 		/* a prepared xact hasn't committed yet */
 		sxact->prepareSeqNo = RecoverySerCommitSeqNo;

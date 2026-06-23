@@ -28,6 +28,10 @@ create extension test_ext7;
 alter extension test_ext7 update to '2.0';
 \dx+ test_ext7
 
+-- test reporting of errors in extension scripts
+alter extension test_ext7 update to '2.1bad';
+alter extension test_ext7 update to '2.2bad';
+
 -- test handling of temp objects created by extensions
 create extension test_ext8;
 
@@ -66,6 +70,19 @@ end';
 
 -- dropping it should still work
 drop extension test_ext8;
+
+-- check handling of types as extension members
+create extension test_ext9;
+\dx+ test_ext9
+alter extension test_ext9 drop type varbitrange;
+\dx+ test_ext9
+alter extension test_ext9 add type varbitrange;
+\dx+ test_ext9
+alter extension test_ext9 drop table sometable;
+\dx+ test_ext9
+alter extension test_ext9 add table sometable;
+\dx+ test_ext9
+drop extension test_ext9;
 
 -- Test creation of extension in temporary schema with two-phase commit,
 -- which should not work.  This function wrapper is useful for portability.
@@ -215,6 +232,19 @@ CREATE EXTENSION test_ext_extschema SCHEMA has$dollar;
 CREATE EXTENSION test_ext_extschema SCHEMA "has space";
 
 --
+<<<<<<< HEAD
+=======
+-- Test basic SET SCHEMA handling.
+--
+CREATE SCHEMA s1;
+CREATE SCHEMA s2;
+CREATE EXTENSION test_ext_set_schema SCHEMA s1;
+ALTER EXTENSION test_ext_set_schema SET SCHEMA s2;
+\dx+ test_ext_set_schema
+\sf s2.ess_func(int)
+
+--
+>>>>>>> REL_18_BETA1_branch
 -- Test extension with objects outside the extension's schema.
 --
 CREATE SCHEMA test_func_dep1;

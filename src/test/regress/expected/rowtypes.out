@@ -1279,6 +1279,7 @@ with cte(c) as materialized (select row(1, 2)),
 select * from cte2 as t
 where (select * from (select c as c1) s
        where (select (c1).f1 > 0)) is not null;
+<<<<<<< HEAD
                 QUERY PLAN                
 ------------------------------------------
  Subquery Scan on t
@@ -1297,6 +1298,24 @@ where (select * from (select c as c1) s
                    Output: ((t.c).f1 > 0)
  Optimizer: Postgres query optimizer
 (15 rows)
+=======
+                  QUERY PLAN                  
+----------------------------------------------
+ CTE Scan on cte
+   Output: cte.c
+   Filter: ((SubPlan 3) IS NOT NULL)
+   CTE cte
+     ->  Result
+           Output: '(1,2)'::record
+   SubPlan 3
+     ->  Result
+           Output: cte.c
+           One-Time Filter: (InitPlan 2).col1
+           InitPlan 2
+             ->  Result
+                   Output: ((cte.c).f1 > 0)
+(13 rows)
+>>>>>>> REL_18_BETA1_branch
 
 with cte(c) as materialized (select row(1, 2)),
      cte2(c) as (select * from cte)
@@ -1362,6 +1381,7 @@ explain (verbose, costs off)
 with cte(c) as materialized (select row(1, 2)),
      cte2(c) as (select * from cte)
 select (c).f1 from cte2 as t;
+<<<<<<< HEAD
                QUERY PLAN               
 ----------------------------------------
  Subquery Scan on t
@@ -1372,12 +1392,23 @@ select (c).f1 from cte2 as t;
                Output: ROW(1, 2)
  Optimizer: Postgres query optimizer
 (7 rows)
+=======
+            QUERY PLAN             
+-----------------------------------
+ CTE Scan on cte
+   Output: (cte.c).f1
+   CTE cte
+     ->  Result
+           Output: '(1,2)'::record
+(5 rows)
+>>>>>>> REL_18_BETA1_branch
 
 explain (verbose, costs off)
 with cte(c) as materialized (select row(1, 2)),
      cte2(c) as (select * from cte)
 select (c).f1 from cte2 as t
 where false;
+<<<<<<< HEAD
              QUERY PLAN              
 -------------------------------------
  Result
@@ -1385,6 +1416,17 @@ where false;
    One-Time Filter: false
  Optimizer: Postgres query optimizer
 (4 rows)
+=======
+            QUERY PLAN             
+-----------------------------------
+ Result
+   Output: (cte.c).f1
+   One-Time Filter: false
+   CTE cte
+     ->  Result
+           Output: '(1,2)'::record
+(6 rows)
+>>>>>>> REL_18_BETA1_branch
 
 --
 -- Tests for component access / FieldSelect

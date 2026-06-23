@@ -2,8 +2,13 @@
 # so the file references have one more level of .. than you might expect.
 
 override CPPFLAGS := -I../../include -I$(top_srcdir)/src/interfaces/ecpg/include \
+<<<<<<< HEAD
 	-I$(libpq_srcdir) $(CPPFLAGS) -Wno-error
 override CFLAGS += $(PTHREAD_CFLAGS)
+=======
+	-I$(libpq_srcdir) $(CPPFLAGS)
+override CFLAGS += $(PTHREAD_CFLAGS) $(PERMIT_MISSING_VARIABLE_DECLARATIONS)
+>>>>>>> REL_18_BETA1_branch
 
 LDFLAGS_INTERNAL += -L../../ecpglib -lecpg -L../../pgtypeslib -lpgtypes $(libpq)
 

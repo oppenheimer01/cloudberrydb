@@ -4,9 +4,13 @@
  *	  prototypes for files in optimizer/prep/
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/prep.h
@@ -28,6 +32,7 @@ extern void transform_MERGE_to_join(Query *parse);
 extern void replace_empty_jointree(Query *parse);
 extern void pull_up_sublinks(PlannerInfo *root);
 extern void preprocess_function_rtes(PlannerInfo *root);
+extern Query *expand_virtual_generated_columns(PlannerInfo *root);
 extern void pull_up_subqueries(PlannerInfo *root);
 extern void flatten_simple_union_all(PlannerInfo *root);
 extern void reduce_outer_joins(PlannerInfo *root);
@@ -73,6 +78,5 @@ extern int find_compatible_trans(List *aggtransinfos, bool shareable,
  * prototypes for prepunion.c
  */
 extern RelOptInfo *plan_set_operations(PlannerInfo *root);
-
 
 #endif							/* PREP_H */

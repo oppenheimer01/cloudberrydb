@@ -4,7 +4,7 @@
  *	  routines for managing the buffer pool's replacement strategy.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -512,7 +512,7 @@ StrategyInitialize(bool init)
 
 		/*
 		 * Grab the whole linked list of free buffers for our strategy. We
-		 * assume it was previously set up by InitBufferPool().
+		 * assume it was previously set up by BufferManagerShmemInit().
 		 */
 		StrategyControl->firstFreeBuffer = 0;
 		StrategyControl->lastFreeBuffer = NBuffers - 1;
@@ -561,13 +561,55 @@ GetAccessStrategy(BufferAccessStrategyType btype)
 			return NULL;
 
 		case BAS_BULKREAD:
-			ring_size_kb = 256;
-			break;
+			{
+				int			ring_max_kb;
+
+				/*
+				 * The ring always needs to be large enough to allow some
+				 * separation in time between providing a buffer to the user
+				 * of the strategy and that buffer being reused. Otherwise the
+				 * user's pin will prevent reuse of the buffer, even without
+				 * concurrent activity.
+				 *
+				 * We also need to ensure the ring always is large enough for
+				 * SYNC_SCAN_REPORT_INTERVAL, as noted above.
+				 *
+				 * Thus we start out a minimal size and increase the size
+				 * further if appropriate.
+				 */
+				ring_size_kb = 256;
+
+				/*
+				 * There's no point in a larger ring if we won't be allowed to
+				 * pin sufficiently many buffers.  But we never limit to less
+				 * than the minimal size above.
+				 */
+				ring_max_kb = GetPinLimit() * (BLCKSZ / 1024);
+				ring_max_kb = Max(ring_size_kb, ring_max_kb);
+
+				/*
+				 * We would like the ring to additionally have space for the
+				 * configured degree of IO concurrency. While being read in,
+				 * buffers can obviously not yet be reused.
+				 *
+				 * Each IO can be up to io_combine_limit blocks large, and we
+				 * want to start up to effective_io_concurrency IOs.
+				 *
+				 * Note that effective_io_concurrency may be 0, which disables
+				 * AIO.
+				 */
+				ring_size_kb += (BLCKSZ / 1024) *
+					io_combine_limit * effective_io_concurrency;
+
+				if (ring_size_kb > ring_max_kb)
+					ring_size_kb = ring_max_kb;
+				break;
+			}
 		case BAS_BULKWRITE:
 			ring_size_kb = 16 * 1024;
 			break;
 		case BAS_VACUUM:
-			ring_size_kb = 256;
+			ring_size_kb = 2048;
 			break;
 
 		default:
@@ -633,6 +675,48 @@ GetAccessStrategyBufferCount(BufferAccessStrategy strategy)
 		return 0;
 
 	return strategy->nbuffers;
+}
+
+/*
+ * GetAccessStrategyPinLimit -- get cap of number of buffers that should be pinned
+ *
+ * When pinning extra buffers to look ahead, users of a ring-based strategy are
+ * in danger of pinning too much of the ring at once while performing look-ahead.
+ * For some strategies, that means "escaping" from the ring, and in others it
+ * means forcing dirty data to disk very frequently with associated WAL
+ * flushing.  Since external code has no insight into any of that, allow
+ * individual strategy types to expose a clamp that should be applied when
+ * deciding on a maximum number of buffers to pin at once.
+ *
+ * Callers should combine this number with other relevant limits and take the
+ * minimum.
+ */
+int
+GetAccessStrategyPinLimit(BufferAccessStrategy strategy)
+{
+	if (strategy == NULL)
+		return NBuffers;
+
+	switch (strategy->btype)
+	{
+		case BAS_BULKREAD:
+
+			/*
+			 * Since BAS_BULKREAD uses StrategyRejectBuffer(), dirty buffers
+			 * shouldn't be a problem and the caller is free to pin up to the
+			 * entire ring at once.
+			 */
+			return strategy->nbuffers;
+
+		default:
+
+			/*
+			 * Tell caller not to pin more than half the buffers in the ring.
+			 * This is a trade-off between look ahead distance and deferring
+			 * writeback and associated WAL traffic.
+			 */
+			return strategy->nbuffers / 2;
+	}
 }
 
 /*

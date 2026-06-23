@@ -19,7 +19,7 @@
  * value; we must detoast it first.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -30,19 +30,21 @@
  */
 #include "postgres.h"
 
-#include "access/tupmacs.h"
 #include "common/hashfn.h"
-#include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "miscadmin.h"
+#include "nodes/makefuncs.h"
 #include "nodes/miscnodes.h"
-#include "port/pg_bitutils.h"
+#include "nodes/supportnodes.h"
+#include "optimizer/clauses.h"
+#include "optimizer/cost.h"
+#include "optimizer/optimizer.h"
 #include "utils/builtins.h"
 #include "utils/date.h"
 #include "utils/lsyscache.h"
 #include "utils/rangetypes.h"
+#include "utils/sortsupport.h"
 #include "utils/timestamp.h"
-#include "varatt.h"
 
 
 /* fn_extra cache entry for one of the range I/O functions */
@@ -56,6 +58,7 @@ typedef struct RangeIOData
 
 static RangeIOData *get_range_io_data(FunctionCallInfo fcinfo, Oid rngtypid,
 									  IOFuncSelector func);
+static int	range_fast_cmp(Datum a, Datum b, SortSupport ssup);
 static char range_parse_flags(const char *flags_str);
 static bool range_parse(const char *string, char *flags, char **lbound_str,
 						char **ubound_str, Node *escontext);
@@ -69,6 +72,12 @@ static Size datum_compute_size(Size data_length, Datum val, bool typbyval,
 							   char typalign, int16 typlen, char typstorage);
 static Pointer datum_write(Pointer ptr, Datum datum, bool typbyval,
 						   char typalign, int16 typlen, char typstorage);
+static Node *find_simplified_clause(PlannerInfo *root,
+									Expr *rangeExpr, Expr *elemExpr);
+static Expr *build_bound_expr(Expr *elemExpr, Datum val,
+							  bool isLowerBound, bool isInclusive,
+							  TypeCacheEntry *typeCache,
+							  Oid opfamily, Oid rng_collation);
 
 
 /*
@@ -352,7 +361,7 @@ get_range_io_data(FunctionCallInfo fcinfo, Oid rngtypid, IOFuncSelector func)
 		fmgr_info_cxt(typiofunc, &cache->typioproc,
 					  fcinfo->flinfo->fn_mcxt);
 
-		fcinfo->flinfo->fn_extra = (void *) cache;
+		fcinfo->flinfo->fn_extra = cache;
 	}
 
 	return cache;
@@ -1283,6 +1292,68 @@ range_cmp(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(cmp);
 }
 
+/* Sort support strategy routine */
+Datum
+range_sortsupport(PG_FUNCTION_ARGS)
+{
+	SortSupport ssup = (SortSupport) PG_GETARG_POINTER(0);
+
+	ssup->comparator = range_fast_cmp;
+	ssup->ssup_extra = NULL;
+
+	PG_RETURN_VOID();
+}
+
+/* like range_cmp, but uses the new sortsupport interface */
+static int
+range_fast_cmp(Datum a, Datum b, SortSupport ssup)
+{
+	RangeType  *range_a = DatumGetRangeTypeP(a);
+	RangeType  *range_b = DatumGetRangeTypeP(b);
+	TypeCacheEntry *typcache;
+	RangeBound	lower1,
+				lower2;
+	RangeBound	upper1,
+				upper2;
+	bool		empty1,
+				empty2;
+	int			cmp;
+
+	/* cache the range info between calls */
+	if (ssup->ssup_extra == NULL)
+	{
+		Assert(RangeTypeGetOid(range_a) == RangeTypeGetOid(range_b));
+		ssup->ssup_extra =
+			lookup_type_cache(RangeTypeGetOid(range_a), TYPECACHE_RANGE_INFO);
+	}
+	typcache = ssup->ssup_extra;
+
+	range_deserialize(typcache, range_a, &lower1, &upper1, &empty1);
+	range_deserialize(typcache, range_b, &lower2, &upper2, &empty2);
+
+	/* For b-tree use, empty ranges sort before all else */
+	if (empty1 && empty2)
+		cmp = 0;
+	else if (empty1)
+		cmp = -1;
+	else if (empty2)
+		cmp = 1;
+	else
+	{
+		cmp = range_cmp_bounds(typcache, &lower1, &lower2);
+		if (cmp == 0)
+			cmp = range_cmp_bounds(typcache, &upper1, &upper2);
+	}
+
+	if ((Datum) range_a != a)
+		pfree(range_a);
+	if ((Datum) range_b != b)
+		pfree(range_b);
+
+	return cmp;
+}
+
+
 /* inequality operators using the range_cmp function */
 Datum
 range_lt(PG_FUNCTION_ARGS)
@@ -1703,7 +1774,7 @@ range_get_typcache(FunctionCallInfo fcinfo, Oid rngtypid)
 		typcache = lookup_type_cache(rngtypid, TYPECACHE_RANGE_INFO);
 		if (typcache->rngelemtype == NULL)
 			elog(ERROR, "type %u is not a range type", rngtypid);
-		fcinfo->flinfo->fn_extra = (void *) typcache;
+		fcinfo->flinfo->fn_extra = typcache;
 	}
 
 	return typcache;
@@ -2173,6 +2244,58 @@ make_empty_range(TypeCacheEntry *typcache)
 	return make_range(typcache, &lower, &upper, true, NULL);
 }
 
+/*
+ * Planner support function for elem_contained_by_range (<@ operator).
+ */
+Datum
+elem_contained_by_range_support(PG_FUNCTION_ARGS)
+{
+	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
+	Node	   *ret = NULL;
+
+	if (IsA(rawreq, SupportRequestSimplify))
+	{
+		SupportRequestSimplify *req = (SupportRequestSimplify *) rawreq;
+		FuncExpr   *fexpr = req->fcall;
+		Expr	   *leftop,
+				   *rightop;
+
+		Assert(list_length(fexpr->args) == 2);
+		leftop = linitial(fexpr->args);
+		rightop = lsecond(fexpr->args);
+
+		ret = find_simplified_clause(req->root, rightop, leftop);
+	}
+
+	PG_RETURN_POINTER(ret);
+}
+
+/*
+ * Planner support function for range_contains_elem (@> operator).
+ */
+Datum
+range_contains_elem_support(PG_FUNCTION_ARGS)
+{
+	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
+	Node	   *ret = NULL;
+
+	if (IsA(rawreq, SupportRequestSimplify))
+	{
+		SupportRequestSimplify *req = (SupportRequestSimplify *) rawreq;
+		FuncExpr   *fexpr = req->fcall;
+		Expr	   *leftop,
+				   *rightop;
+
+		Assert(list_length(fexpr->args) == 2);
+		leftop = linitial(fexpr->args);
+		rightop = lsecond(fexpr->args);
+
+		ret = find_simplified_clause(req->root, leftop, rightop);
+	}
+
+	PG_RETURN_POINTER(ret);
+}
+
 
 /*
  *----------------------------------------------------------
@@ -2608,7 +2731,11 @@ range_contains_elem_internal(TypeCacheEntry *typcache, const RangeType *r, Datum
  * values into a range object.  They are modeled after heaptuple.c's
  * heap_compute_data_size() and heap_fill_tuple(), but we need not handle
  * null values here.  TYPE_IS_PACKABLE must test the same conditions as
+<<<<<<< HEAD
  * heaptuple.c's ATT_IS_PACKABLE macro.  See the comments thare for more
+=======
+ * heaptuple.c's ATT_IS_PACKABLE macro.  See the comments there for more
+>>>>>>> REL_18_BETA1_branch
  * details.
  */
 
@@ -2714,4 +2841,181 @@ datum_write(Pointer ptr, Datum datum, bool typbyval, char typalign,
 	ptr += data_length;
 
 	return ptr;
+}
+
+/*
+ * Common code for the elem_contained_by_range and range_contains_elem
+ * support functions.  The caller has extracted the function argument
+ * expressions, and swapped them if necessary to pass the range first.
+ *
+ * Returns a simplified replacement expression, or NULL if we can't simplify.
+ */
+static Node *
+find_simplified_clause(PlannerInfo *root, Expr *rangeExpr, Expr *elemExpr)
+{
+	RangeType  *range;
+	TypeCacheEntry *rangetypcache;
+	RangeBound	lower;
+	RangeBound	upper;
+	bool		empty;
+
+	/* can't do anything unless the range is a non-null constant */
+	if (!IsA(rangeExpr, Const) || ((Const *) rangeExpr)->constisnull)
+		return NULL;
+	range = DatumGetRangeTypeP(((Const *) rangeExpr)->constvalue);
+
+	rangetypcache = lookup_type_cache(RangeTypeGetOid(range),
+									  TYPECACHE_RANGE_INFO);
+	if (rangetypcache->rngelemtype == NULL)
+		elog(ERROR, "type %u is not a range type", RangeTypeGetOid(range));
+
+	range_deserialize(rangetypcache, range, &lower, &upper, &empty);
+
+	if (empty)
+	{
+		/* if the range is empty, then there can be no matches */
+		return makeBoolConst(false, false);
+	}
+	else if (lower.infinite && upper.infinite)
+	{
+		/* the range has infinite bounds, so it matches everything */
+		return makeBoolConst(true, false);
+	}
+	else
+	{
+		/* at least one bound is available, we have something to work with */
+		TypeCacheEntry *elemTypcache = rangetypcache->rngelemtype;
+		Oid			opfamily = rangetypcache->rng_opfamily;
+		Oid			rng_collation = rangetypcache->rng_collation;
+		Expr	   *lowerExpr = NULL;
+		Expr	   *upperExpr = NULL;
+
+		if (!lower.infinite && !upper.infinite)
+		{
+			/*
+			 * When both bounds are present, we have a problem: the
+			 * "simplified" clause would need to evaluate the elemExpr twice.
+			 * That's definitely not okay if the elemExpr is volatile, and
+			 * it's also unattractive if the elemExpr is expensive.
+			 */
+			QualCost	eval_cost;
+
+			if (contain_volatile_functions((Node *) elemExpr))
+				return NULL;
+
+			/*
+			 * We define "expensive" as "contains any subplan or more than 10
+			 * operators".  Note that the subplan search has to be done
+			 * explicitly, since cost_qual_eval() will barf on unplanned
+			 * subselects.
+			 */
+			if (contain_subplans((Node *) elemExpr))
+				return NULL;
+			cost_qual_eval_node(&eval_cost, (Node *) elemExpr, root);
+			if (eval_cost.startup + eval_cost.per_tuple >
+				10 * cpu_operator_cost)
+				return NULL;
+		}
+
+		/* Okay, try to build boundary comparison expressions */
+		if (!lower.infinite)
+		{
+			lowerExpr = build_bound_expr(elemExpr,
+										 lower.val,
+										 true,
+										 lower.inclusive,
+										 elemTypcache,
+										 opfamily,
+										 rng_collation);
+			if (lowerExpr == NULL)
+				return NULL;
+		}
+
+		if (!upper.infinite)
+		{
+			/* Copy the elemExpr if we need two copies */
+			if (!lower.infinite)
+				elemExpr = copyObject(elemExpr);
+			upperExpr = build_bound_expr(elemExpr,
+										 upper.val,
+										 false,
+										 upper.inclusive,
+										 elemTypcache,
+										 opfamily,
+										 rng_collation);
+			if (upperExpr == NULL)
+				return NULL;
+		}
+
+		if (lowerExpr != NULL && upperExpr != NULL)
+			return (Node *) make_andclause(list_make2(lowerExpr, upperExpr));
+		else if (lowerExpr != NULL)
+			return (Node *) lowerExpr;
+		else if (upperExpr != NULL)
+			return (Node *) upperExpr;
+		else
+		{
+			Assert(false);
+			return NULL;
+		}
+	}
+}
+
+/*
+ * Helper function for find_simplified_clause().
+ *
+ * Build the expression (elemExpr Operator val), where the operator is
+ * the appropriate member of the given opfamily depending on
+ * isLowerBound and isInclusive.  typeCache is the typcache entry for
+ * the "val" value (presently, this will be the same type as elemExpr).
+ * rng_collation is the collation to use in the comparison.
+ *
+ * Return NULL on failure (if, for some reason, we can't find the operator).
+ */
+static Expr *
+build_bound_expr(Expr *elemExpr, Datum val,
+				 bool isLowerBound, bool isInclusive,
+				 TypeCacheEntry *typeCache,
+				 Oid opfamily, Oid rng_collation)
+{
+	Oid			elemType = typeCache->type_id;
+	int16		elemTypeLen = typeCache->typlen;
+	bool		elemByValue = typeCache->typbyval;
+	Oid			elemCollation = typeCache->typcollation;
+	int16		strategy;
+	Oid			oproid;
+	Expr	   *constExpr;
+
+	/* Identify the comparison operator to use */
+	if (isLowerBound)
+		strategy = isInclusive ? BTGreaterEqualStrategyNumber : BTGreaterStrategyNumber;
+	else
+		strategy = isInclusive ? BTLessEqualStrategyNumber : BTLessStrategyNumber;
+
+	/*
+	 * We could use exprType(elemExpr) here, if it ever becomes possible that
+	 * elemExpr is not the exact same type as the range elements.
+	 */
+	oproid = get_opfamily_member(opfamily, elemType, elemType, strategy);
+
+	/* We don't really expect failure here, but just in case ... */
+	if (!OidIsValid(oproid))
+		return NULL;
+
+	/* OK, convert "val" to a full-fledged Const node, and make the OpExpr */
+	constExpr = (Expr *) makeConst(elemType,
+								   -1,
+								   elemCollation,
+								   elemTypeLen,
+								   val,
+								   false,
+								   elemByValue);
+
+	return make_opclause(oproid,
+						 BOOLOID,
+						 false,
+						 elemExpr,
+						 constExpr,
+						 InvalidOid,
+						 rng_collation);
 }

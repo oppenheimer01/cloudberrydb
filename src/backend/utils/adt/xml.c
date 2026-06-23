@@ -4,7 +4,7 @@
  *	  XML data type support.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/utils/adt/xml.c
@@ -47,6 +47,7 @@
 
 #ifdef USE_LIBXML
 #include <libxml/chvalid.h>
+#include <libxml/entities.h>
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <libxml/tree.h>
@@ -99,7 +100,6 @@
 #include "utils/date.h"
 #include "utils/datetime.h"
 #include "utils/lsyscache.h"
-#include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/syscache.h"
 #include "utils/xml.h"
@@ -224,14 +224,14 @@ static void XmlTableDestroyOpaque(struct TableFuncScanState *state);
 
 const TableFuncRoutine XmlTableRoutine =
 {
-	XmlTableInitOpaque,
-	XmlTableSetDocument,
-	XmlTableSetNamespace,
-	XmlTableSetRowFilter,
-	XmlTableSetColumnFilter,
-	XmlTableFetchRow,
-	XmlTableGetValue,
-	XmlTableDestroyOpaque
+	.InitOpaque = XmlTableInitOpaque,
+	.SetDocument = XmlTableSetDocument,
+	.SetNamespace = XmlTableSetNamespace,
+	.SetRowFilter = XmlTableSetRowFilter,
+	.SetColumnFilter = XmlTableSetColumnFilter,
+	.FetchRow = XmlTableFetchRow,
+	.GetValue = XmlTableGetValue,
+	.DestroyOpaque = XmlTableDestroyOpaque
 };
 
 #define NO_XML_SUPPORT() \
@@ -346,7 +346,7 @@ xml_out_internal(xmltype *x, pg_enc target_encoding)
 	}
 
 	ereport(WARNING,
-			errcode(ERRCODE_INTERNAL_ERROR),
+			errcode(ERRCODE_DATA_CORRUPTED),
 			errmsg_internal("could not parse XML declaration in stored value"),
 			errdetail_for_xml_code(res_code));
 #endif
@@ -524,6 +524,27 @@ xmlcomment(PG_FUNCTION_ARGS)
 #endif
 }
 
+
+Datum
+xmltext(PG_FUNCTION_ARGS)
+{
+#ifdef USE_LIBXML
+	text	   *arg = PG_GETARG_TEXT_PP(0);
+	text	   *result;
+	xmlChar    *xmlbuf = NULL;
+
+	xmlbuf = xmlEncodeSpecialChars(NULL, xml_text2xmlChar(arg));
+
+	Assert(xmlbuf);
+
+	result = cstring_to_text_with_len((const char *) xmlbuf, xmlStrlen(xmlbuf));
+	xmlFree(xmlbuf);
+	PG_RETURN_XML_P(result);
+#else
+	NO_XML_SUPPORT();
+	return 0;
+#endif							/* not USE_LIBXML */
+}
 
 
 /*
@@ -723,7 +744,7 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 		{
 			/* If it's a document, saving is easy. */
 			if (xmlSaveDoc(ctxt, doc) == -1 || xmlerrcxt->err_occurred)
-				xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+				xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
 							"could not save document to xmlBuffer");
 		}
 		else if (content_nodes != NULL)
@@ -766,7 +787,7 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 					if (xmlSaveTree(ctxt, newline) == -1 || xmlerrcxt->err_occurred)
 					{
 						xmlFreeNode(newline);
-						xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+						xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
 									"could not save newline to xmlBuffer");
 					}
 				}
@@ -774,7 +795,7 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 				if (xmlSaveTree(ctxt, node) == -1 || xmlerrcxt->err_occurred)
 				{
 					xmlFreeNode(newline);
-					xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+					xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
 								"could not save content to xmlBuffer");
 				}
 			}
@@ -985,7 +1006,7 @@ xmlpi(const char *target, text *arg, bool arg_is_null, bool *result_is_null)
 
 	if (pg_strcasecmp(target, "xml") == 0)
 		ereport(ERROR,
-				(errcode(ERRCODE_SYNTAX_ERROR), /* really */
+				(errcode(ERRCODE_INVALID_XML_PROCESSING_INSTRUCTION),
 				 errmsg("invalid XML processing instruction"),
 				 errdetail("XML processing instruction target name cannot be \"%s\".", target)));
 
@@ -1207,7 +1228,7 @@ pg_xml_init(PgXmlStrictness strictness)
 	errcxt->saved_errcxt = xmlGenericErrorContext;
 #endif
 
-	xmlSetStructuredErrorFunc((void *) errcxt, xml_errorHandler);
+	xmlSetStructuredErrorFunc(errcxt, xml_errorHandler);
 
 	/* set up our entity loader, too */
 	xmlSetExternalEntityLoader(xmlPgEntityLoader);
@@ -1232,7 +1253,7 @@ pg_xml_init(PgXmlStrictness strictness)
 	new_errcxt = xmlGenericErrorContext;
 #endif
 
-	if (new_errcxt != (void *) errcxt)
+	if (new_errcxt != errcxt)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("could not set up XML error handler"),
@@ -1293,7 +1314,7 @@ pg_xml_done(PgXmlErrorContext *errcxt, bool isError)
 	cur_errcxt = xmlGenericErrorContext;
 #endif
 
-	if (cur_errcxt != (void *) errcxt)
+	if (cur_errcxt != errcxt)
 		elog(WARNING, "libxml error handling state is out of sync with xml.c");
 
 	/* Restore the saved handlers */
@@ -2188,7 +2209,7 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 		xmlGenericErrorFunc errFuncSaved = xmlGenericError;
 		void	   *errCtxSaved = xmlGenericErrorContext;
 
-		xmlSetGenericErrorFunc((void *) errorBuf,
+		xmlSetGenericErrorFunc(errorBuf,
 							   (xmlGenericErrorFunc) appendStringInfo);
 
 		/* Add context information to errorBuf */
@@ -2217,8 +2238,7 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 		appendBinaryStringInfo(&xmlerrcxt->err_buf, errorBuf->data,
 							   errorBuf->len);
 
-		pfree(errorBuf->data);
-		pfree(errorBuf);
+		destroyStringInfo(errorBuf);
 		return;
 	}
 
@@ -2249,8 +2269,7 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 				(errmsg_internal("%s", errorBuf->data)));
 	}
 
-	pfree(errorBuf->data);
-	pfree(errorBuf);
+	destroyStringInfo(errorBuf);
 }
 
 
@@ -4377,7 +4396,7 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 	xpath_len = VARSIZE_ANY_EXHDR(xpath_expr_text);
 	if (xpath_len == 0)
 		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
+				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_XQUERY),
 				 errmsg("empty XPath expression")));
 
 	string = pg_xmlCharStrndup(datastr, len);
@@ -4460,7 +4479,7 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 		 */
 		xpathcomp = xmlXPathCtxtCompile(xpathctx, xpath_expr);
 		if (xpathcomp == NULL || xmlerrcxt->err_occurred)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 						"invalid XPath expression");
 
 		/*
@@ -4472,7 +4491,7 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 		 */
 		xpathobj = xmlXPathCompiledEval(xpathcomp, xpathctx);
 		if (xpathobj == NULL || xmlerrcxt->err_occurred)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 						"could not create XPath object");
 
 		/*
@@ -4802,7 +4821,7 @@ XmlTableSetNamespace(TableFuncScanState *state, const char *name, const char *ur
 	if (xmlXPathRegisterNs(xtCxt->xpathcxt,
 						   pg_xmlCharStrndup(name, strlen(name)),
 						   pg_xmlCharStrndup(uri, strlen(uri))))
-		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_DATA_EXCEPTION,
+		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 					"could not set XML namespace");
 #else
 	NO_XML_SUPPORT();
@@ -4824,7 +4843,7 @@ XmlTableSetRowFilter(TableFuncScanState *state, const char *path)
 
 	if (*path == '\0')
 		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
+				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_XQUERY),
 				 errmsg("row path filter must not be empty string")));
 
 	xstr = pg_xmlCharStrndup(path, strlen(path));
@@ -4834,7 +4853,7 @@ XmlTableSetRowFilter(TableFuncScanState *state, const char *path)
 
 	xtCxt->xpathcomp = xmlXPathCtxtCompile(xtCxt->xpathcxt, xstr);
 	if (xtCxt->xpathcomp == NULL || xtCxt->xmlerrcxt->err_occurred)
-		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_SYNTAX_ERROR,
+		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 					"invalid XPath expression");
 #else
 	NO_XML_SUPPORT();
@@ -4858,7 +4877,7 @@ XmlTableSetColumnFilter(TableFuncScanState *state, const char *path, int colnum)
 
 	if (*path == '\0')
 		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
+				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_XQUERY),
 				 errmsg("column path filter must not be empty string")));
 
 	xstr = pg_xmlCharStrndup(path, strlen(path));
@@ -4868,7 +4887,7 @@ XmlTableSetColumnFilter(TableFuncScanState *state, const char *path, int colnum)
 
 	xtCxt->xpathscomp[colnum] = xmlXPathCtxtCompile(xtCxt->xpathcxt, xstr);
 	if (xtCxt->xpathscomp[colnum] == NULL || xtCxt->xmlerrcxt->err_occurred)
-		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_DATA_EXCEPTION,
+		xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 					"invalid XPath expression");
 #else
 	NO_XML_SUPPORT();
@@ -4889,13 +4908,13 @@ XmlTableFetchRow(TableFuncScanState *state)
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableFetchRow");
 
 	/* Propagate our own error context to libxml2 */
-	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
+	xmlSetStructuredErrorFunc(xtCxt->xmlerrcxt, xml_errorHandler);
 
 	if (xtCxt->xpathobj == NULL)
 	{
 		xtCxt->xpathobj = xmlXPathCompiledEval(xtCxt->xpathcomp, xtCxt->xpathcxt);
 		if (xtCxt->xpathobj == NULL || xtCxt->xmlerrcxt->err_occurred)
-			xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+			xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 						"could not create XPath object");
 
 		xtCxt->row_count = 0;
@@ -4930,10 +4949,8 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 				 Oid typid, int32 typmod, bool *isnull)
 {
 #ifdef USE_LIBXML
-	XmlTableBuilderData *xtCxt;
 	Datum		result = (Datum) 0;
-	xmlNodePtr	cur;
-	char	   *cstr = NULL;
+	XmlTableBuilderData *xtCxt;
 	volatile xmlXPathObjectPtr xpathobj = NULL;
 
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableGetValue");
@@ -4943,23 +4960,25 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 		   xtCxt->xpathobj->nodesetval != NULL);
 
 	/* Propagate our own error context to libxml2 */
-	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
+	xmlSetStructuredErrorFunc(xtCxt->xmlerrcxt, xml_errorHandler);
 
 	*isnull = false;
-
-	cur = xtCxt->xpathobj->nodesetval->nodeTab[xtCxt->row_count - 1];
 
 	Assert(xtCxt->xpathscomp[colnum] != NULL);
 
 	PG_TRY();
 	{
+		xmlNodePtr	cur;
+		char	   *cstr = NULL;
+
 		/* Set current node as entry point for XPath evaluation */
+		cur = xtCxt->xpathobj->nodesetval->nodeTab[xtCxt->row_count - 1];
 		xtCxt->xpathcxt->node = cur;
 
 		/* Evaluate column path */
 		xpathobj = xmlXPathCompiledEval(xtCxt->xpathscomp[colnum], xtCxt->xpathcxt);
 		if (xpathobj == NULL || xtCxt->xmlerrcxt->err_occurred)
-			xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
+			xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
 						"could not create XPath object");
 
 		/*
@@ -5086,7 +5105,7 @@ XmlTableDestroyOpaque(TableFuncScanState *state)
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableDestroyOpaque");
 
 	/* Propagate our own error context to libxml2 */
-	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
+	xmlSetStructuredErrorFunc(xtCxt->xmlerrcxt, xml_errorHandler);
 
 	if (xtCxt->xpathscomp != NULL)
 	{

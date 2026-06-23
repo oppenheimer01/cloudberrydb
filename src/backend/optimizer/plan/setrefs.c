@@ -4,9 +4,13 @@
  *	  Post-processing of a completed plan tree: fix references to subplan
  *	  vars, compute regproc values for operators, etc
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -26,14 +30,18 @@
 #include "optimizer/pathnode.h"
 #include "optimizer/planmain.h"
 #include "optimizer/planner.h"
+#include "optimizer/subselect.h"
 #include "optimizer/tlist.h"
 #include "parser/parse_relation.h"
+<<<<<<< HEAD
 #include "parser/parsetree.h"
 #include "optimizer/pathnode.h"
 #include "optimizer/planmain.h"
 #include "optimizer/tlist.h"
+=======
+#include "rewrite/rewriteManip.h"
+>>>>>>> REL_18_BETA1_branch
 #include "tcop/utility.h"
-#include "utils/lsyscache.h"
 #include "utils/syscache.h"
 
 #include "cdb/cdbvars.h"
@@ -45,7 +53,7 @@ typedef enum
 {
 	NRM_EQUAL,					/* expect exact match of nullingrels */
 	NRM_SUBSET,					/* actual Var may have a subset of input */
-	NRM_SUPERSET				/* actual Var may have a superset of input */
+	NRM_SUPERSET,				/* actual Var may have a superset of input */
 } NullingRelsMatch;
 
 typedef struct
@@ -648,7 +656,7 @@ flatten_unplanned_rtes(PlannerGlobal *glob, RangeTblEntry *rte)
 	/* Use query_tree_walker to find all RTEs in the parse tree */
 	(void) query_tree_walker(rte->subquery,
 							 flatten_rtes_walker,
-							 (void *) &cxt,
+							 &cxt,
 							 QTW_EXAMINE_RTES_BEFORE);
 }
 
@@ -679,13 +687,12 @@ flatten_rtes_walker(Node *node, flatten_rtes_walker_context *cxt)
 		cxt->query = (Query *) node;
 		result = query_tree_walker((Query *) node,
 								   flatten_rtes_walker,
-								   (void *) cxt,
+								   cxt,
 								   QTW_EXAMINE_RTES_BEFORE);
 		cxt->query = save_query;
 		return result;
 	}
-	return expression_tree_walker(node, flatten_rtes_walker,
-								  (void *) cxt);
+	return expression_tree_walker(node, flatten_rtes_walker, cxt);
 }
 
 /*
@@ -721,13 +728,16 @@ add_rte_to_flat_rtable(PlannerGlobal *glob, List *rteperminfos,
 	newrte->coltypes = NIL;
 	newrte->coltypmods = NIL;
 	newrte->colcollations = NIL;
+	newrte->groupexprs = NIL;
 	newrte->securityQuals = NIL;
 
 	glob->finalrtable = lappend(glob->finalrtable, newrte);
 
 	/*
 	 * If it's a plain relation RTE (or a subquery that was once a view
-	 * reference), add the relation OID to relationOids.
+	 * reference), add the relation OID to relationOids.  Also add its new RT
+	 * index to the set of relations to be potentially accessed during
+	 * execution.
 	 *
 	 * We do this even though the RTE might be unreferenced in the plan tree;
 	 * this would correspond to cases such as views that were expanded, child
@@ -739,7 +749,11 @@ add_rte_to_flat_rtable(PlannerGlobal *glob, List *rteperminfos,
 	 */
 	if (newrte->rtekind == RTE_RELATION ||
 		(newrte->rtekind == RTE_SUBQUERY && OidIsValid(newrte->relid)))
+	{
 		glob->relationOids = lappend_oid(glob->relationOids, newrte->relid);
+		glob->allRelids = bms_add_member(glob->allRelids,
+										 list_length(glob->finalrtable));
+	}
 
 	/*
 	 * Add a copy of the RTEPermissionInfo, if any, corresponding to this RTE
@@ -1480,7 +1494,9 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 				 */
 				if (splan->mergeActionLists != NIL)
 				{
+					List	   *newMJC = NIL;
 					ListCell   *lca,
+							   *lcj,
 							   *lcr;
 
 					/*
@@ -1501,10 +1517,12 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 
 					itlist = build_tlist_index(subplan->targetlist);
 
-					forboth(lca, splan->mergeActionLists,
-							lcr, splan->resultRelations)
+					forthree(lca, splan->mergeActionLists,
+							 lcj, splan->mergeJoinConditions,
+							 lcr, splan->resultRelations)
 					{
 						List	   *mergeActionList = lfirst(lca);
+						Node	   *mergeJoinCondition = lfirst(lcj);
 						Index		resultrel = lfirst_int(lcr);
 
 						foreach(l, mergeActionList)
@@ -1529,7 +1547,19 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 																  NRM_EQUAL,
 																  NUM_EXEC_QUAL(plan));
 						}
+
+						/* Fix join condition too. */
+						mergeJoinCondition = (Node *)
+							fix_join_expr(root,
+										  (List *) mergeJoinCondition,
+										  NULL, itlist,
+										  resultrel,
+										  rtoffset,
+										  NRM_EQUAL,
+										  NUM_EXEC_QUAL(plan));
+						newMJC = lappend(newMJC, mergeJoinCondition);
 					}
+					splan->mergeJoinConditions = newMJC;
 				}
 
 				splan->nominalRelation += rtoffset;
@@ -1562,6 +1592,9 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 						lappend_int(root->glob->resultRelations,
 									splan->rootRelation);
 				}
+				root->glob->firstResultRels =
+					lappend_int(root->glob->firstResultRels,
+								linitial_int(splan->resultRelations));
 			}
 			break;
 		case T_Append:
@@ -1938,19 +1971,30 @@ clean_up_removed_plan_level(Plan *parent, Plan *child)
 {
 	/*
 	 * We have to be sure we don't lose any initplans, so move any that were
-	 * attached to the parent plan to the child.  If we do move any, the child
-	 * is no longer parallel-safe.
+	 * attached to the parent plan to the child.  If any are parallel-unsafe,
+	 * the child is no longer parallel-safe.  As a cosmetic matter, also add
+	 * the initplans' run costs to the child's costs.
 	 */
 	if (parent->initPlan)
-		child->parallel_safe = false;
+	{
+		Cost		initplan_cost;
+		bool		unsafe_initplans;
 
-	/*
-	 * Attach plans this way so that parent's initplans are processed before
-	 * any pre-existing initplans of the child.  Probably doesn't matter, but
-	 * let's preserve the ordering just in case.
-	 */
-	child->initPlan = list_concat(parent->initPlan,
-								  child->initPlan);
+		SS_compute_initplan_cost(parent->initPlan,
+								 &initplan_cost, &unsafe_initplans);
+		child->startup_cost += initplan_cost;
+		child->total_cost += initplan_cost;
+		if (unsafe_initplans)
+			child->parallel_safe = false;
+
+		/*
+		 * Attach plans this way so that parent's initplans are processed
+		 * before any pre-existing initplans of the child.  Probably doesn't
+		 * matter, but let's preserve the ordering just in case.
+		 */
+		child->initPlan = list_concat(parent->initPlan,
+									  child->initPlan);
+	}
 
 	/*
 	 * We also have to transfer the parent's column labeling info into the
@@ -2188,6 +2232,74 @@ set_customscan_references(PlannerInfo *root,
 }
 
 /*
+ * register_partpruneinfo
+ *		Subroutine for set_append_references and set_mergeappend_references
+ *
+ * Add the PartitionPruneInfo from root->partPruneInfos at the given index
+ * into PlannerGlobal->partPruneInfos and return its index there.
+ *
+ * Also update the RT indexes present in PartitionedRelPruneInfos to add the
+ * offset.
+ *
+ * Finally, if there are initial pruning steps, add the RT indexes of the
+ * leaf partitions to the set of relations that are prunable at execution
+ * startup time.
+ */
+static int
+register_partpruneinfo(PlannerInfo *root, int part_prune_index, int rtoffset)
+{
+	PlannerGlobal *glob = root->glob;
+	PartitionPruneInfo *pinfo;
+	ListCell   *l;
+
+	Assert(part_prune_index >= 0 &&
+		   part_prune_index < list_length(root->partPruneInfos));
+	pinfo = list_nth_node(PartitionPruneInfo, root->partPruneInfos,
+						  part_prune_index);
+
+	pinfo->relids = offset_relid_set(pinfo->relids, rtoffset);
+	foreach(l, pinfo->prune_infos)
+	{
+		List	   *prune_infos = lfirst(l);
+		ListCell   *l2;
+
+		foreach(l2, prune_infos)
+		{
+			PartitionedRelPruneInfo *prelinfo = lfirst(l2);
+			int			i;
+
+			prelinfo->rtindex += rtoffset;
+			prelinfo->initial_pruning_steps =
+				fix_scan_list(root, prelinfo->initial_pruning_steps,
+							  rtoffset, 1);
+			prelinfo->exec_pruning_steps =
+				fix_scan_list(root, prelinfo->exec_pruning_steps,
+							  rtoffset, 1);
+
+			for (i = 0; i < prelinfo->nparts; i++)
+			{
+				/*
+				 * Non-leaf partitions and partitions that do not have a
+				 * subplan are not included in this map as mentioned in
+				 * make_partitionedrel_pruneinfo().
+				 */
+				if (prelinfo->leafpart_rti_map[i])
+				{
+					prelinfo->leafpart_rti_map[i] += rtoffset;
+					if (prelinfo->initial_pruning_steps)
+						glob->prunableRelids = bms_add_member(glob->prunableRelids,
+															  prelinfo->leafpart_rti_map[i]);
+				}
+			}
+		}
+	}
+
+	glob->partPruneInfos = lappend(glob->partPruneInfos, pinfo);
+
+	return list_length(glob->partPruneInfos) - 1;
+}
+
+/*
  * set_append_references
  *		Do set_plan_references processing on an Append
  *
@@ -2239,6 +2351,7 @@ set_append_references(PlannerInfo *root,
 
 	aplan->apprelids = offset_relid_set(aplan->apprelids, rtoffset);
 
+<<<<<<< HEAD
 	if (aplan->part_prune_info)
 	{
 		foreach(l, aplan->part_prune_info->prune_infos)
@@ -2260,6 +2373,15 @@ set_append_references(PlannerInfo *root,
 			}
 		}
 	}
+=======
+	/*
+	 * Add PartitionPruneInfo, if any, to PlannerGlobal and update the index.
+	 * Also update the RT indexes present in it to add the offset.
+	 */
+	if (aplan->part_prune_index >= 0)
+		aplan->part_prune_index =
+			register_partpruneinfo(root, aplan->part_prune_index, rtoffset);
+>>>>>>> REL_18_BETA1_branch
 
 	/* We don't need to recurse to lefttree or righttree ... */
 	Assert(aplan->plan.lefttree == NULL);
@@ -2321,6 +2443,7 @@ set_mergeappend_references(PlannerInfo *root,
 
 	mplan->apprelids = offset_relid_set(mplan->apprelids, rtoffset);
 
+<<<<<<< HEAD
 	if (mplan->part_prune_info)
 	{
 		foreach(l, mplan->part_prune_info->prune_infos)
@@ -2342,6 +2465,15 @@ set_mergeappend_references(PlannerInfo *root,
 			}
 		}
 	}
+=======
+	/*
+	 * Add PartitionPruneInfo, if any, to PlannerGlobal and update the index.
+	 * Also update the RT indexes present in it to add the offset.
+	 */
+	if (mplan->part_prune_index >= 0)
+		mplan->part_prune_index =
+			register_partpruneinfo(root, mplan->part_prune_index, rtoffset);
+>>>>>>> REL_18_BETA1_branch
 
 	/* We don't need to recurse to lefttree or righttree ... */
 	Assert(mplan->plan.lefttree == NULL);
@@ -2714,8 +2846,7 @@ fix_scan_expr_mutator(Node *node, fix_scan_expr_context *context)
 															 context->num_exec),
 									 context);
 	fix_expr_common(context->root, node);
-	return expression_tree_mutator(node, fix_scan_expr_mutator,
-								   (void *) context);
+	return expression_tree_mutator(node, fix_scan_expr_mutator, context);
 }
 
 static bool
@@ -2727,8 +2858,7 @@ fix_scan_expr_walker(Node *node, fix_scan_expr_context *context)
 	Assert(!IsA(node, PlaceHolderVar));
 	Assert(!IsA(node, AlternativeSubPlan));
 	fix_expr_common(context->root, node);
-	return expression_tree_walker(node, fix_scan_expr_walker,
-								  (void *) context);
+	return expression_tree_walker(node, fix_scan_expr_walker, context);
 }
 
 /*
@@ -2904,6 +3034,28 @@ set_upper_references(PlannerInfo *root, Plan *plan, int rtoffset)
 	ListCell   *l;
 
 	subplan_itlist = build_tlist_index(subplan->targetlist);
+
+	/*
+	 * If it's a grouping node with grouping sets, any Vars and PHVs appearing
+	 * in the targetlist and quals should have nullingrels that include the
+	 * effects of the grouping step, ie they will have nullingrels equal to
+	 * the input Vars/PHVs' nullingrels plus the RT index of the grouping
+	 * step.  In order to perform exact nullingrels matches, we remove the RT
+	 * index of the grouping step first.
+	 */
+	if (IsA(plan, Agg) &&
+		root->group_rtindex > 0 &&
+		((Agg *) plan)->groupingSets)
+	{
+		plan->targetlist = (List *)
+			remove_nulling_relids((Node *) plan->targetlist,
+								  bms_make_singleton(root->group_rtindex),
+								  NULL);
+		plan->qual = (List *)
+			remove_nulling_relids((Node *) plan->qual,
+								  bms_make_singleton(root->group_rtindex),
+								  NULL);
+	}
 
 	output_targetlist = NIL;
 	foreach(l, plan->targetlist)
@@ -3083,8 +3235,7 @@ convert_combining_aggrefs(Node *node, void *context)
 
 		return (Node *) parent_agg;
 	}
-	return expression_tree_mutator(node, convert_combining_aggrefs,
-								   (void *) context);
+	return expression_tree_mutator(node, convert_combining_aggrefs, context);
 }
 
 static Node *
@@ -3444,11 +3595,11 @@ build_tlist_index_other_vars(List *tlist, int ignore_rel)
  * Also ensure that varnosyn is incremented by rtoffset.
  * If no match, return NULL.
  *
- * In debugging builds, we cross-check the varnullingrels of the subplan
- * output Var based on nrm_match.  Most call sites should pass NRM_EQUAL
- * indicating we expect an exact match.  However, there are places where
- * we haven't cleaned things up completely, and we have to settle for
- * allowing subset or superset matches.
+ * We cross-check the varnullingrels of the subplan output Var based on
+ * nrm_match.  Most call sites should pass NRM_EQUAL indicating we expect
+ * an exact match.  However, there are places where we haven't cleaned
+ * things up completely, and we have to settle for allowing subset or
+ * superset matches.
  */
 static Var *
 search_indexed_tlist_for_var(Var *var, indexed_tlist *itlist,
@@ -3620,7 +3771,14 @@ search_indexed_tlist_for_sortgroupref(Expr *node,
 	{
 		TargetEntry *tle = (TargetEntry *) lfirst(lc);
 
-		/* The equal() check should be redundant, but let's be paranoid */
+		/*
+		 * Usually the equal() check is redundant, but in setop plans it may
+		 * not be, since prepunion.c assigns ressortgroupref equal to the
+		 * column resno without regard to whether that matches the topmost
+		 * level's sortgrouprefs and without regard to whether any implicit
+		 * coercions are added in the setop tree.  We might have to clean that
+		 * up someday; but for now, just ignore any false matches.
+		 */
 		if (tle->ressortgroupref == sortgroupref &&
 			equal(node, tle->expr))
 		{
@@ -3826,6 +3984,21 @@ fix_join_expr_mutator(Node *node, fix_join_expr_context *context)
 	{
 		Var		   *var = (Var *) node;
 
+		/*
+		 * Verify that Vars with non-default varreturningtype only appear in
+		 * the RETURNING list, and refer to the target relation.
+		 */
+		if (var->varreturningtype != VAR_RETURNING_DEFAULT)
+		{
+			if (context->inner_itlist != NULL ||
+				context->outer_itlist == NULL ||
+				context->acceptable_rel == 0)
+				elog(ERROR, "variable returning old/new found outside RETURNING list");
+			if (var->varno != context->acceptable_rel)
+				elog(ERROR, "wrong varno %d (expected %d) for variable returning old/new",
+					 var->varno, context->acceptable_rel);
+		}
+
 		/* Look for the var in the input tlists, first in the outer */
 		if (context->outer_itlist)
 		{
@@ -3956,9 +4129,7 @@ fix_join_expr_mutator(Node *node, fix_join_expr_context *context)
 															 context->num_exec),
 									 context);
 	fix_expr_common(context->root, node);
-	return expression_tree_mutator(node,
-								   fix_join_expr_mutator,
-								   (void *) context);
+	return expression_tree_mutator(node, fix_join_expr_mutator, context);
 }
 
 /*
@@ -4091,9 +4262,7 @@ fix_upper_expr_mutator(Node *node, fix_upper_expr_context *context)
 															  context->num_exec),
 									  context);
 	fix_expr_common(context->root, node);
-	return expression_tree_mutator(node,
-								   fix_upper_expr_mutator,
-								   (void *) context);
+	return expression_tree_mutator(node, fix_upper_expr_mutator, context);
 }
 
 /*
@@ -4189,7 +4358,7 @@ fix_windowagg_condition_expr_mutator(Node *node,
 
 	return expression_tree_mutator(node,
 								   fix_windowagg_condition_expr_mutator,
-								   (void *) context);
+								   context);
 }
 
 /*
@@ -4457,12 +4626,12 @@ extract_query_dependencies_walker(Node *node, PlannerInfo *context)
 
 		/* And recurse into the query's subexpressions */
 		return query_tree_walker(query, extract_query_dependencies_walker,
-								 (void *) context, 0);
+								 context, 0);
 	}
 	/* Extract function dependencies and check for regclass Consts */
 	fix_expr_common(context, node);
 	return expression_tree_walker(node, extract_query_dependencies_walker,
-								  (void *) context);
+								  context);
 }
 
 /*

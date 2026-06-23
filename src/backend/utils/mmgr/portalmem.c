@@ -8,9 +8,13 @@
  * doesn't actually run the executor for them.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -21,7 +25,6 @@
 #include "postgres.h"
 
 #include "access/xact.h"
-#include "catalog/pg_type.h"
 #include "commands/portalcmds.h"
 #include "funcapi.h"
 #include "miscadmin.h"
@@ -307,7 +310,8 @@ PortalDefineQuery(Portal portal,
 				  NodeTag	  sourceTag,
 				  CommandTag commandTag,
 				  List *stmts,
-				  CachedPlan *cplan)
+				  CachedPlan *cplan,
+				  CachedPlanSource *plansource)
 {
 	Assert(PortalIsValid(portal));
 	Assert(portal->status == PORTAL_NEW);
@@ -323,6 +327,7 @@ PortalDefineQuery(Portal portal,
 	portal->commandTag = commandTag;
 	portal->stmts = stmts;
 	portal->cplan = cplan;
+	portal->plansource = plansource;
 	portal->status = PORTAL_DEFINED;
 }
 

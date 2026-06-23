@@ -1,5 +1,5 @@
 
-# Copyright (c) 2023, PostgreSQL Global Development Group
+# Copyright (c) 2023-2025, PostgreSQL Global Development Group
 
 =pod
 
@@ -30,7 +30,7 @@ compare the results of cross-version upgrade tests.
 package PostgreSQL::Test::AdjustUpgrade;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use Exporter 'import';
 use PostgreSQL::Version;
@@ -86,13 +86,19 @@ sub adjust_database_contents
 
 	# remove dbs of modules known to cause pg_upgrade to fail
 	# anything not builtin and incompatible should clean up its own db
-	foreach my $bad_module ('test_ddl_deparse', 'tsearch2')
+	foreach my $bad_module ('adminpack', 'test_ddl_deparse', 'tsearch2')
 	{
 		if ($dbnames{"contrib_regression_$bad_module"})
 		{
 			_add_st($result, 'postgres',
 				"drop database contrib_regression_$bad_module");
 			delete($dbnames{"contrib_regression_$bad_module"});
+		}
+		if ($dbnames{"regression_$bad_module"})
+		{
+			_add_st($result, 'postgres',
+				"drop database regression_$bad_module");
+			delete($dbnames{"regression_$bad_module"});
 		}
 	}
 
@@ -104,6 +110,23 @@ sub adjust_database_contents
 			'contrib_regression_test_extensions',
 			'drop extension if exists test_ext_cine',
 			'drop extension if exists test_ext7');
+	}
+
+	# we removed these test-support functions in v18
+	if ($old_version < 18)
+	{
+		_add_st($result, 'regression', 'drop function ttdummy()');
+		_add_st($result, 'regression', 'drop function set_ttdummy(integer)');
+		_add_st($result, 'regression', 'drop function autoinc()');
+		_add_st($result, 'regression', 'drop function check_foreign_key()');
+		_add_st($result, 'regression', 'drop function check_primary_key()');
+	}
+
+	# we removed this test-support function in v17
+	if ($old_version >= 15 && $old_version < 17)
+	{
+		_add_st($result, 'regression',
+			'drop function get_columns_length(oid[])');
 	}
 
 	# stuff not supported from release 16
@@ -281,12 +304,31 @@ sub adjust_old_dumpfile
 	# Version comments will certainly not match.
 	$dump =~ s/^-- Dumped from database version.*\n//mg;
 
+	# Same with version argument to pg_restore_relation_stats() or
+	# pg_restore_attribute_stats().
+	$dump =~ s {\n(\s+'version',) '\d+'::integer,$}
+		{$1 '000000'::integer,}mg;
+
 	if ($old_version < 16)
 	{
 		# Fix up some view queries that no longer require table-qualification.
 		$dump = _mash_view_qualifiers($dump);
 	}
 
+<<<<<<< HEAD
+=======
+	if ($old_version >= 14 && $old_version < 17)
+	{
+		# Fix up some privilege-set discrepancies.
+		$dump =~
+		  s {^REVOKE SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE}
+			{REVOKE ALL ON TABLE}mg;
+		$dump =~
+		  s {^(GRANT SELECT,INSERT,REFERENCES,TRIGGER,TRUNCATE),UPDATE ON TABLE}
+			{$1,MAINTAIN,UPDATE ON TABLE}mg;
+	}
+
+>>>>>>> REL_18_BETA1_branch
 	if ($old_version < 14)
 	{
 		# Remove mentions of extended hash functions.
@@ -307,6 +349,18 @@ sub adjust_old_dumpfile
 			(^CREATE\sTRIGGER\s.*?)
 			\sEXECUTE\sPROCEDURE
 			/$1 EXECUTE FUNCTION/mgx;
+	}
+
+	# During pg_upgrade, we reindex hash indexes if the source is pre-v10.
+	# This may change their tables' relallvisible values, so don't compare
+	# those.
+	if ($old_version < 10)
+	{
+		$dump =~ s/
+			(^SELECT\s\*\sFROM\spg_catalog\.pg_restore_relation_stats\(
+			[^;]*'relation',\s'public\.hash_[a-z0-9]*_heap'::regclass,
+			[^;]*'relallvisible',)\s'\d+'::integer
+			/$1 ''::integer/mgx;
 	}
 
 	if ($old_version lt '9.6')
@@ -510,7 +564,6 @@ sub _mash_view_qualifiers
 		{
 			my @thischunks = split /;/, $chunk, 2;
 			my $stmt = shift(@thischunks);
-			my $ostmt = $stmt;
 
 			# now $stmt is just the body of the CREATE [MATERIALIZED] VIEW
 			$stmt =~ s/$qualifier\.//g;
@@ -603,6 +656,19 @@ sub adjust_new_dumpfile
 	# Version comments will certainly not match.
 	$dump =~ s/^-- Dumped from database version.*\n//mg;
 
+<<<<<<< HEAD
+=======
+	# Same with version argument to pg_restore_relation_stats() or
+	# pg_restore_attribute_stats().
+	$dump =~ s {\n(\s+'version',) '\d+'::integer,$}
+		{$1 '000000'::integer,}mg;
+
+	if ($old_version < 18)
+	{
+		$dump =~ s {,\n(\s+'relallfrozen',) '-?\d+'::integer$}{}mg;
+	}
+
+>>>>>>> REL_18_BETA1_branch
 	# pre-v16 dumps do not know about XMLSERIALIZE(NO INDENT).
 	if ($old_version < 16)
 	{
@@ -638,6 +704,18 @@ sub adjust_new_dumpfile
 	if ($old_version < 12)
 	{
 		$dump =~ s/^SET default_table_access_method = heap;\n//mg;
+	}
+
+	# During pg_upgrade, we reindex hash indexes if the source is pre-v10.
+	# This may change their tables' relallvisible values, so don't compare
+	# those.
+	if ($old_version < 10)
+	{
+		$dump =~ s/
+			(^SELECT\s\*\sFROM\spg_catalog\.pg_restore_relation_stats\(
+			[^;]*'relation',\s'public\.hash_[a-z0-9]*_heap'::regclass,
+			[^;]*'relallvisible',)\s'\d+'::integer
+			/$1 ''::integer/mgx;
 	}
 
 	# dumps from pre-9.6 dblink may include redundant ACL settings

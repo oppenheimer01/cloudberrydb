@@ -40,7 +40,6 @@ OBJS += \
 	stem_ISO_8859_1_spanish.o \
 	stem_ISO_8859_1_swedish.o \
 	stem_ISO_8859_2_hungarian.o \
-	stem_ISO_8859_2_romanian.o \
 	stem_KOI8_R_russian.o \
 	stem_UTF_8_arabic.o \
 	stem_UTF_8_armenian.o \
@@ -49,6 +48,7 @@ OBJS += \
 	stem_UTF_8_danish.o \
 	stem_UTF_8_dutch.o \
 	stem_UTF_8_english.o \
+	stem_UTF_8_estonian.o \
 	stem_UTF_8_finnish.o \
 	stem_UTF_8_french.o \
 	stem_UTF_8_german.o \
@@ -104,8 +104,6 @@ include $(top_srcdir)/src/Makefile.shlib
 $(SQLSCRIPT): snowball_create.pl snowball_func.sql.in snowball.sql.in
 	$(PERL) $< --input ${srcdir} --outdir .
 
-distprep: $(SQLSCRIPT)
-
 install: all installdirs install-lib install-script
 	$(INSTALL_DATA) $(addprefix $(srcdir)/stopwords/,$(stop_files)) '$(DESTDIR)$(datadir)/$(DICTDIR)'
 
@@ -122,6 +120,4 @@ uninstall: uninstall-lib
 
 clean distclean: clean-lib
 	rm -f $(OBJS)
-
-maintainer-clean: distclean
 	rm -f $(SQLSCRIPT)

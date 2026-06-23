@@ -1182,18 +1182,25 @@ rollback;
 -- Check handling of non-backwards-scan-capable plans with scroll cursors
 begin;
 explain (costs off) declare c1 cursor for select (select 42) as x;
-        QUERY PLAN         
----------------------------
+   QUERY PLAN   
+----------------
  Result
-   InitPlan 1 (returns $0)
+   InitPlan 1
      ->  Result
 (3 rows)
 
 explain (costs off) declare c1 scroll cursor for select (select 42) as x;
+<<<<<<< HEAD
              QUERY PLAN              
 -------------------------------------
  Result
    InitPlan 1 (returns $0)
+=======
+   QUERY PLAN   
+----------------
+ Materialize
+   InitPlan 1
+>>>>>>> REL_18_BETA1_branch
      ->  Result
  Optimizer: Postgres query optimizer
 (4 rows)

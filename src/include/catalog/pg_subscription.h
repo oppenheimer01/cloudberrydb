@@ -3,7 +3,7 @@
  * pg_subscription.h
  *	  definition of the "subscription" system catalog (pg_subscription)
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_subscription.h
@@ -19,29 +19,9 @@
 
 #include "access/xlogdefs.h"
 #include "catalog/genbki.h"
-#include "catalog/pg_subscription_d.h"
-
+#include "catalog/pg_subscription_d.h"	/* IWYU pragma: export */
+#include "lib/stringinfo.h"
 #include "nodes/pg_list.h"
-
-/*
- * two_phase tri-state values. See comments atop worker.c to know more about
- * these states.
- */
-#define LOGICALREP_TWOPHASE_STATE_DISABLED 'd'
-#define LOGICALREP_TWOPHASE_STATE_PENDING 'p'
-#define LOGICALREP_TWOPHASE_STATE_ENABLED 'e'
-
-/*
- * The subscription will request the publisher to only send changes that do not
- * have any origin.
- */
-#define LOGICALREP_ORIGIN_NONE "none"
-
-/*
- * The subscription will request the publisher to send changes regardless
- * of their origin.
- */
-#define LOGICALREP_ORIGIN_ANY "any"
 
 /* ----------------
  *		pg_subscription definition. cpp turns this into
@@ -93,6 +73,11 @@ CATALOG(pg_subscription,6100,SubscriptionRelationId) BKI_SHARED_RELATION BKI_ROW
 	bool		subrunasowner;	/* True if replication should execute as the
 								 * subscription owner */
 
+	bool		subfailover;	/* True if the associated replication slots
+								 * (i.e. the main slot and the table sync
+								 * slots) in the upstream database are enabled
+								 * to be synchronized to the standbys. */
+
 #ifdef CATALOG_VARLEN			/* variable-length fields start here */
 	/* Connection string to the publisher */
 	text		subconninfo BKI_FORCE_NOT_NULL;
@@ -115,8 +100,11 @@ typedef FormData_pg_subscription *Form_pg_subscription;
 
 DECLARE_TOAST_WITH_MACRO(pg_subscription, 4183, 4184, PgSubscriptionToastTable, PgSubscriptionToastIndex);
 
-DECLARE_UNIQUE_INDEX_PKEY(pg_subscription_oid_index, 6114, SubscriptionObjectIndexId, on pg_subscription using btree(oid oid_ops));
-DECLARE_UNIQUE_INDEX(pg_subscription_subname_index, 6115, SubscriptionNameIndexId, on pg_subscription using btree(subdbid oid_ops, subname name_ops));
+DECLARE_UNIQUE_INDEX_PKEY(pg_subscription_oid_index, 6114, SubscriptionObjectIndexId, pg_subscription, btree(oid oid_ops));
+DECLARE_UNIQUE_INDEX(pg_subscription_subname_index, 6115, SubscriptionNameIndexId, pg_subscription, btree(subdbid oid_ops, subname name_ops));
+
+MAKE_SYSCACHE(SUBSCRIPTIONOID, pg_subscription_oid_index, 4);
+MAKE_SYSCACHE(SUBSCRIPTIONNAME, pg_subscription_subname_index, 4);
 
 typedef struct Subscription
 {
@@ -127,6 +115,7 @@ typedef struct Subscription
 								 * skipped */
 	char	   *name;			/* Name of the subscription */
 	Oid			owner;			/* Oid of the subscription owner */
+	bool		ownersuperuser; /* Is the subscription owner a superuser? */
 	bool		enabled;		/* Indicates if the subscription is enabled */
 	bool		binary;			/* Indicates if the subscription wants data in
 								 * binary format */
@@ -138,6 +127,10 @@ typedef struct Subscription
 								 * occurs */
 	bool		passwordrequired;	/* Must connection use a password? */
 	bool		runasowner;		/* Run replication as subscription owner */
+	bool		failover;		/* True if the associated replication slots
+								 * (i.e. the main slot and the table sync
+								 * slots) in the upstream database are enabled
+								 * to be synchronized to the standbys. */
 	char	   *conninfo;		/* Connection string to the publisher */
 	char	   *slotname;		/* Name of the replication slot */
 	char	   *synccommit;		/* Synchronous commit setting for worker */
@@ -145,6 +138,28 @@ typedef struct Subscription
 	char	   *origin;			/* Only publish data originating from the
 								 * specified origin */
 } Subscription;
+
+#ifdef EXPOSE_TO_CLIENT_CODE
+
+/*
+ * two_phase tri-state values. See comments atop worker.c to know more about
+ * these states.
+ */
+#define LOGICALREP_TWOPHASE_STATE_DISABLED 'd'
+#define LOGICALREP_TWOPHASE_STATE_PENDING 'p'
+#define LOGICALREP_TWOPHASE_STATE_ENABLED 'e'
+
+/*
+ * The subscription will request the publisher to only send changes that do not
+ * have any origin.
+ */
+#define LOGICALREP_ORIGIN_NONE "none"
+
+/*
+ * The subscription will request the publisher to send changes regardless
+ * of their origin.
+ */
+#define LOGICALREP_ORIGIN_ANY "any"
 
 /* Disallow streaming in-progress transactions. */
 #define LOGICALREP_STREAM_OFF 'f'
@@ -161,10 +176,15 @@ typedef struct Subscription
  */
 #define LOGICALREP_STREAM_PARALLEL 'p'
 
+#endif							/* EXPOSE_TO_CLIENT_CODE */
+
 extern Subscription *GetSubscription(Oid subid, bool missing_ok);
 extern void FreeSubscription(Subscription *sub);
 extern void DisableSubscription(Oid subid);
 
 extern int	CountDBSubscriptions(Oid dbid);
+
+extern void GetPublicationsStr(List *publications, StringInfo dest,
+							   bool quote_literal);
 
 #endif							/* PG_SUBSCRIPTION_H */

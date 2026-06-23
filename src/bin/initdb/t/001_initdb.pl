@@ -1,12 +1,12 @@
 
-# Copyright (c) 2021-2023, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # To test successful data directory creation with an additional feature, first
 # try to elaborate the "successful creation" test instead of adding a test.
 # Successful initdb consumes much time and I/O.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 use Fcntl ':mode';
 use File::stat qw{lstat};
 use PostgreSQL::Test::Cluster;
@@ -18,26 +18,25 @@ use Test::More tests => 22 + 2;
 my $tempdir = PostgreSQL::Test::Utils::tempdir;
 my $xlogdir = "$tempdir/pgxlog";
 my $datadir = "$tempdir/data";
+my $supports_syncfs = check_pg_config("#define HAVE_SYNCFS 1");
 
 program_help_ok('initdb');
 program_version_ok('initdb');
 program_options_handling_ok('initdb');
 
-command_fails([ 'initdb', '-S', "$tempdir/nonexistent" ],
+command_fails([ 'initdb', '--sync-only', "$tempdir/nonexistent" ],
 	'sync missing data directory');
 
 mkdir $xlogdir;
 mkdir "$xlogdir/lost+found";
-command_fails(
-	[ 'initdb', '-X', $xlogdir, $datadir ],
+command_fails([ 'initdb', '--waldir' => $xlogdir, $datadir ],
 	'existing nonempty xlog directory');
 rmdir "$xlogdir/lost+found";
 command_fails(
-	[ 'initdb', '-X', 'pgxlog', $datadir ],
+	[ 'initdb', '--waldir' => 'pgxlog', $datadir ],
 	'relative xlog directory not allowed');
 
-command_fails(
-	[ 'initdb', '-U', 'pg_test', $datadir ],
+command_fails([ 'initdb', '--username' => 'pg_test', $datadir ],
 	'role names cannot begin with "pg_"');
 
 command_fails_like(
@@ -55,14 +54,22 @@ mkdir $datadir;
 	local (%ENV) = %ENV;
 	delete $ENV{TZ};
 
-	# while we are here, also exercise -T and -c options
+	# while we are here, also exercise --text-search-config and --set options
 	command_ok(
 		[
+<<<<<<< HEAD
 			'initdb', '-N', '-T', 'german', '-c',
 			'default_text_search_config=german',
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
 			'-X', $xlogdir, $datadir
+=======
+			'initdb', '--no-sync',
+			'--text-search-config' => 'german',
+			'--set' => 'default_text_search_config=german',
+			'--waldir' => $xlogdir,
+			$datadir
+>>>>>>> REL_18_BETA1_branch
 		],
 		'successful creation');
 
@@ -77,19 +84,28 @@ mkdir $datadir;
 	}
 }
 
-# Control file should tell that data checksums are disabled by default.
+# Control file should tell that data checksums are enabled by default.
 command_like(
 	[ 'pg_controldata', $datadir ],
-	qr/Data page checksum version:.*0/,
-	'checksums are disabled in control file');
-# pg_checksums fails with checksums disabled by default.  This is
-# not part of the tests included in pg_checksums to save from
-# the creation of an extra instance.
-command_fails([ 'pg_checksums', '-D', $datadir ],
-	"pg_checksums fails with data checksum disabled");
+	qr/Data page checksum version:.*1/,
+	'checksums are enabled in control file');
 
-command_ok([ 'initdb', '-S', $datadir ], 'sync only');
+command_ok([ 'initdb', '--sync-only', $datadir ], 'sync only');
+command_ok([ 'initdb', '--sync-only', '--no-sync-data-files', $datadir ], '--no-sync-data-files');
 command_fails([ 'initdb', $datadir ], 'existing data directory');
+
+if ($supports_syncfs)
+{
+	command_ok(
+		[ 'initdb', '--sync-only', $datadir, '--sync-method' => 'syncfs' ],
+		'sync method syncfs');
+}
+else
+{
+	command_fails(
+		[ 'initdb', '--sync-only', $datadir, '--sync-method' => 'syncfs' ],
+		'sync method syncfs');
+}
 
 # Check group access on PGDATA
 SKIP:
@@ -100,11 +116,15 @@ SKIP:
 	# Init a new db with group access
 	my $datadir_group = "$tempdir/data_group";
 
+<<<<<<< HEAD
 	command_ok(
 		[ 'initdb', '-g', $datadir_group,
 		
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',],
+=======
+	command_ok([ 'initdb', '--allow-group-access', $datadir_group ],
+>>>>>>> REL_18_BETA1_branch
 		'successful creation with group access');
 
 	ok(check_mode_recursive($datadir_group, 0750, 0640),
@@ -116,17 +136,26 @@ SKIP:
 if ($ENV{with_icu} eq 'yes')
 {
 	command_fails_like(
-		[ 'initdb', '--no-sync', '--locale-provider=icu', "$tempdir/data2" ],
-		qr/initdb: error: ICU locale must be specified/,
+		[
+			'initdb', '--no-sync',
+			'--locale-provider' => 'icu',
+			"$tempdir/data2"
+		],
+		qr/initdb: error: locale must be specified if provider is icu/,
 		'locale provider ICU requires --icu-locale');
 
 	command_ok(
 		[
 			'initdb', '--no-sync',
+<<<<<<< HEAD
 			'--locale-provider=icu', '--icu-locale=en',
 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
+=======
+			'--locale-provider' => 'icu',
+			'--icu-locale' => 'en',
+>>>>>>> REL_18_BETA1_branch
 			"$tempdir/data3"
 		],
 		'option --icu-locale');
@@ -134,6 +163,7 @@ if ($ENV{with_icu} eq 'yes')
 	command_like(
 		[
 			'initdb', '--no-sync',
+<<<<<<< HEAD
 			'-A', 'trust',
 			'--locale-provider=icu', '--locale=und',
 			'--lc-collate=C', '--lc-ctype=C',
@@ -142,18 +172,34 @@ if ($ENV{with_icu} eq 'yes')
 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
+=======
+			'--auth' => 'trust',
+			'--locale-provider' => 'icu',
+			'--locale' => 'und',
+			'--lc-collate' => 'C',
+			'--lc-ctype' => 'C',
+			'--lc-messages' => 'C',
+			'--lc-numeric' => 'C',
+			'--lc-monetary' => 'C',
+			'--lc-time' => 'C',
+>>>>>>> REL_18_BETA1_branch
 			"$tempdir/data4"
 		],
-		qr/^\s+ICU locale:\s+und\n/ms,
+		qr/^\s+default collation:\s+und\n/ms,
 		'options --locale-provider=icu --locale=und --lc-*=C');
 
 	command_fails_like(
 		[
 			'initdb', '--no-sync',
+<<<<<<< HEAD
 			'--locale-provider=icu', '--icu-locale=@colNumeric=lower',
 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
+=======
+			'--locale-provider' => 'icu',
+			'--icu-locale' => '@colNumeric=lower',
+>>>>>>> REL_18_BETA1_branch
 			"$tempdir/dataX"
 		],
 		qr/could not open collator for locale/,
@@ -162,11 +208,18 @@ if ($ENV{with_icu} eq 'yes')
 	command_fails_like(
 		[
 			'initdb', '--no-sync',
+<<<<<<< HEAD
 			'--locale-provider=icu', '--encoding=SQL_ASCII',
 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
 			'--icu-locale=en', "$tempdir/dataX"
+=======
+			'--locale-provider' => 'icu',
+			'--encoding' => 'SQL_ASCII',
+			'--icu-locale' => 'en',
+			"$tempdir/dataX"
+>>>>>>> REL_18_BETA1_branch
 		],
 		qr/error: encoding mismatch/,
 		'fails for encoding not supported by ICU');
@@ -174,7 +227,8 @@ if ($ENV{with_icu} eq 'yes')
 	command_fails_like(
 		[
 			'initdb', '--no-sync',
-			'--locale-provider=icu', '--icu-locale=nonsense-nowhere',
+			'--locale-provider' => 'icu',
+			'--icu-locale' => 'nonsense-nowhere',
 			"$tempdir/dataX"
 		],
 		qr/error: locale "nonsense-nowhere" has unknown language "nonsense"/,
@@ -183,10 +237,15 @@ if ($ENV{with_icu} eq 'yes')
 	command_fails_like(
 		[
 			'initdb', '--no-sync',
+<<<<<<< HEAD
 			'--locale-provider=icu', '--icu-locale=@colNumeric=lower',
 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',
+=======
+			'--locale-provider' => 'icu',
+			'--icu-locale' => '@colNumeric=lower',
+>>>>>>> REL_18_BETA1_branch
 			"$tempdir/dataX"
 		],
 		qr/could not open collator for locale ""und-u-kn-lower"": U_ILLEGAL_ARGUMENT_ERROR/,
@@ -195,22 +254,102 @@ if ($ENV{with_icu} eq 'yes')
 else
 {
 	command_fails(
-		[ 'initdb', '--no-sync', '--locale-provider=icu', "$tempdir/data2" ],
+		[
+			'initdb', '--no-sync',
+			'--locale-provider' => 'icu',
+			"$tempdir/data2"
+		],
 		'locale provider ICU fails since no ICU support');
 }
 
 command_fails(
-	[ 'initdb', '--no-sync', '--locale-provider=xyz', "$tempdir/dataX" ],
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		"$tempdir/data6"
+	],
+	'locale provider builtin fails without --locale');
+
+command_ok(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--locale' => 'C',
+		"$tempdir/data7"
+	],
+	'locale provider builtin with --locale');
+
+command_ok(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--encoding' => 'UTF-8',
+		'--lc-collate' => 'C',
+		'--lc-ctype' => 'C',
+		'--builtin-locale' => 'C.UTF-8',
+		"$tempdir/data8"
+	],
+	'locale provider builtin with --encoding=UTF-8 --builtin-locale=C.UTF-8');
+
+command_fails(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--encoding' => 'SQL_ASCII',
+		'--lc-collate' => 'C',
+		'--lc-ctype' => 'C',
+		'--builtin-locale' => 'C.UTF-8',
+		"$tempdir/data9"
+	],
+	'locale provider builtin with --builtin-locale=C.UTF-8 fails for SQL_ASCII'
+);
+
+command_ok(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--lc-ctype' => 'C',
+		'--locale' => 'C',
+		"$tempdir/data10"
+	],
+	'locale provider builtin with --lc-ctype');
+
+command_fails(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--icu-locale' => 'en',
+		"$tempdir/dataX"
+	],
+	'fails for locale provider builtin with ICU locale');
+
+command_fails(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'builtin',
+		'--icu-rules' => '""',
+		"$tempdir/dataX"
+	],
+	'fails for locale provider builtin with ICU rules');
+
+command_fails(
+	[
+		'initdb', '--no-sync',
+		'--locale-provider' => 'xyz',
+		"$tempdir/dataX"
+	],
 	'fails for invalid locale provider');
 
 command_fails(
 	[
 		'initdb', '--no-sync',
-		'--locale-provider=libc', '--icu-locale=en',
+		'--locale-provider' => 'libc',
+		'--icu-locale' => 'en',
 		"$tempdir/dataX"
 	],
 	'fails for invalid option combination');
 
+<<<<<<< HEAD
 command_fails([ 'initdb', '--no-sync', '--set', 'foo=bar', "$tempdir/dataX", 
 			# CBDB_MERGE_16_FIXME: fix initdb defaults selection
 			'--shared_buffers=128000kB', '--max_connections=150',],
@@ -226,10 +365,53 @@ command_ok(
 		"$tempdir/dataY"
 	],
 	'multiple -c options with different case');
+=======
+command_fails(
+	[
+		'initdb', '--no-sync',
+		'--set' => 'foo=bar',
+		"$tempdir/dataX"
+	],
+	'fails for invalid --set option');
+
+# Make sure multiple invocations of --set parameters are added case
+# insensitive.
+command_ok(
+	[
+		'initdb', '--no-sync',
+		'--set' => 'work_mem=128',
+		'--set' => 'Work_Mem=256',
+		'--set' => 'WORK_MEM=512',
+		"$tempdir/dataY"
+	],
+	'multiple --set options with different case');
+>>>>>>> REL_18_BETA1_branch
 
 my $conf = slurp_file("$tempdir/dataY/postgresql.conf");
 ok($conf !~ qr/^WORK_MEM = /m, "WORK_MEM should not be configured");
 ok($conf !~ qr/^Work_Mem = /m, "Work_Mem should not be configured");
 ok($conf =~ qr/^work_mem = 512/m, "work_mem should be in config");
 
+<<<<<<< HEAD
+=======
+# Test the no-data-checksums flag
+my $datadir_nochecksums = "$tempdir/data_no_checksums";
+
+command_ok([ 'initdb', '--no-data-checksums', $datadir_nochecksums ],
+	'successful creation without data checksums');
+
+# Control file should tell that data checksums are disabled.
+command_like(
+	[ 'pg_controldata', $datadir_nochecksums ],
+	qr/Data page checksum version:.*0/,
+	'checksums are disabled in control file');
+
+# pg_checksums fails with checksums disabled. This is
+# not part of the tests included in pg_checksums to save from
+# the creation of an extra instance.
+command_fails(
+	[ 'pg_checksums', '--pgdata' => $datadir_nochecksums ],
+	"pg_checksums fails with data checksum disabled");
+
+>>>>>>> REL_18_BETA1_branch
 done_testing();

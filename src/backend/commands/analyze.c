@@ -3,6 +3,7 @@
  * analyze.c
  *	  the Postgres statistics generator
  *
+<<<<<<< HEAD
  *
  * There are a few things in Cloudberry that make this more complicated
  * than in upstream:
@@ -54,6 +55,9 @@
  * TODO: explain how this works.
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -71,20 +75,15 @@
 #include "access/heapam.h"
 #include "access/multixact.h"
 #include "access/relation.h"
-#include "access/sysattr.h"
 #include "access/table.h"
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "access/tupconvert.h"
 #include "access/visibilitymap.h"
 #include "access/xact.h"
-#include "catalog/catalog.h"
 #include "catalog/index.h"
 #include "catalog/indexing.h"
-#include "catalog/pg_collation.h"
 #include "catalog/pg_inherits.h"
-#include "catalog/pg_namespace.h"
-#include "catalog/pg_statistic_ext.h"
 #include "commands/dbcommands.h"
 #include "commands/progress.h"
 #include "commands/tablecmds.h"
@@ -97,18 +96,12 @@
 #include "parser/parse_oper.h"
 #include "parser/parse_relation.h"
 #include "pgstat.h"
-#include "postmaster/autovacuum.h"
 #include "statistics/extended_stats_internal.h"
 #include "statistics/statistics.h"
 #include "storage/bufmgr.h"
-#include "storage/lmgr.h"
-#include "storage/proc.h"
 #include "storage/procarray.h"
-#include "utils/acl.h"
 #include "utils/attoptcache.h"
-#include "utils/builtins.h"
 #include "utils/datum.h"
-#include "utils/fmgroids.h"
 #include "utils/guc.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
@@ -116,7 +109,6 @@
 #include "utils/rel.h"
 #include "utils/sampling.h"
 #include "utils/sortsupport.h"
-#include "utils/spccache.h"
 #include "utils/syscache.h"
 #include "utils/timestamp.h"
 
@@ -482,7 +474,9 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 				ind;
 	Relation   *Irel;
 	int			nindexes;
-	bool		hasindex;
+	bool		verbose,
+				instrument,
+				hasindex;
 	VacAttrStats **vacattrstats;
 	AnlIndexData *indexdata;
 	int			targrows,
@@ -497,6 +491,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	Oid			save_userid;
 	int			save_sec_context;
 	int			save_nestlevel;
+<<<<<<< HEAD
 
 	Bitmapset **colLargeRowIndexes;
 	double     *colLargeRowLength;
@@ -506,11 +501,19 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	int64		AnalyzePageHit = VacuumPageHit;
 	int64		AnalyzePageMiss = VacuumPageMiss;
 	int64		AnalyzePageDirty = VacuumPageDirty;
+=======
+	WalUsage	startwalusage = pgWalUsage;
+	BufferUsage startbufferusage = pgBufferUsage;
+	BufferUsage bufferusage;
+>>>>>>> REL_18_BETA1_branch
 	PgStat_Counter startreadtime = 0;
 	PgStat_Counter startwritetime = 0;
 	int max_natts = onerel->rd_att->natts;
 
 
+	verbose = (params->options & VACOPT_VERBOSE) != 0;
+	instrument = (verbose || (AmAutoVacuumWorkerProcess() &&
+							  params->log_min_duration >= 0));
 	if (inh)
 		ereport(elevel,
 				(errmsg("analyzing \"%s.%s\" inheritance tree",
@@ -540,9 +543,13 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	SetUserIdAndSecContext(onerel->rd_rel->relowner,
 						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
 	save_nestlevel = NewGUCNestLevel();
+	RestrictSearchPath();
 
-	/* measure elapsed time iff autovacuum logging requires it */
-	if (IsAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
+	/*
+	 * When verbose or autovacuum logging is used, initialize a resource usage
+	 * snapshot and optionally track I/O timing.
+	 */
+	if (instrument)
 	{
 		if (track_io_timing)
 		{
@@ -551,8 +558,10 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 		}
 
 		pg_rusage_init(&ru0);
-		starttime = GetCurrentTimestamp();
 	}
+
+	/* Used for instrumentation and stats report */
+	starttime = GetCurrentTimestamp();
 
 	/*
 	 * Determine which columns to analyze
@@ -1026,7 +1035,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			 * If the appropriate flavor of the n_distinct option is
 			 * specified, override with the corresponding value.
 			 */
-			aopt = get_attribute_options(onerel->rd_id, stats->attr->attnum);
+			aopt = get_attribute_options(onerel->rd_id, stats->tupattnum);
 			if (aopt != NULL)
 			{
 				float8		n_distinct;
@@ -1036,12 +1045,16 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 					stats->stadistinct = n_distinct;
 			}
 
+<<<<<<< HEAD
 			if (Gp_role == GP_ROLE_EXECUTE) {
 				Assert(ctx->stadistincts);
 				ctx->stadistincts[stats->attr->attnum - 1] = Float8GetDatum(stats->stadistinct);
 			}
 
 			MemoryContextResetAndDeleteChildren(col_context);
+=======
+			MemoryContextReset(col_context);
+>>>>>>> REL_18_BETA1_branch
 		}
 
 		/*
@@ -1100,12 +1113,18 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	 */
 	if (!inh)
 	{
-		BlockNumber relallvisible;
+		BlockNumber relallvisible = 0;
+		BlockNumber relallfrozen = 0;
 
+<<<<<<< HEAD
 		if (RelationStorageIsAO(onerel))
 			relallvisible = 0;
 		else
 			relallvisible = AcquireNumberOfAllVisibleBlocks(onerel);
+=======
+		if (RELKIND_HAS_STORAGE(onerel->rd_rel->relkind))
+			visibilitymap_count(onerel, &relallvisible, &relallfrozen);
+>>>>>>> REL_18_BETA1_branch
 
 		/*
 		 * Update pg_class for table relation.  CCI first, in case acquirefunc
@@ -1116,6 +1135,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 							relpages,
 							totalrows,
 							relallvisible,
+							relallfrozen,
 							hasindex,
 							InvalidTransactionId,
 							InvalidMultiXactId,
@@ -1187,7 +1207,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			vac_update_relstats(Irel[ind],
 								estimatedIndexPages,
 								totalindexrows,
-								0,
+								0, 0,
 								false,
 								InvalidTransactionId,
 								InvalidMultiXactId,
@@ -1204,7 +1224,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 		 */
 		CommandCounterIncrement();
 		vac_update_relstats(onerel, -1, totalrows,
-							0, hasindex, InvalidTransactionId,
+							0, 0, hasindex, InvalidTransactionId,
 							InvalidMultiXactId,
 							NULL, NULL,
 							in_outer_xact,
@@ -1222,9 +1242,9 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	 */
 	if (!inh)
 		pgstat_report_analyze(onerel, totalrows, totaldeadrows,
-							  (va_cols == NIL));
+							  (va_cols == NIL), starttime);
 	else if (onerel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		pgstat_report_analyze(onerel, 0, 0, (va_cols == NIL));
+		pgstat_report_analyze(onerel, 0, 0, (va_cols == NIL), starttime);
 
 	/*
 	 * If this isn't part of VACUUM ANALYZE, let index AMs do cleanup.
@@ -1259,27 +1279,35 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	vac_close_indexes(nindexes, Irel, NoLock);
 
 	/* Log the action if appropriate */
-	if (IsAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
+	if (instrument)
 	{
 		TimestampTz endtime = GetCurrentTimestamp();
 
-		if (params->log_min_duration == 0 ||
+		if (verbose || params->log_min_duration == 0 ||
 			TimestampDifferenceExceeds(starttime, endtime,
 									   params->log_min_duration))
 		{
 			long		delay_in_ms;
+			WalUsage	walusage;
 			double		read_rate = 0;
 			double		write_rate = 0;
+			char	   *msgfmt;
 			StringInfoData buf;
+			int64		total_blks_hit;
+			int64		total_blks_read;
+			int64		total_blks_dirtied;
 
-			/*
-			 * Calculate the difference in the Page Hit/Miss/Dirty that
-			 * happened as part of the analyze by subtracting out the
-			 * pre-analyze values which we saved above.
-			 */
-			AnalyzePageHit = VacuumPageHit - AnalyzePageHit;
-			AnalyzePageMiss = VacuumPageMiss - AnalyzePageMiss;
-			AnalyzePageDirty = VacuumPageDirty - AnalyzePageDirty;
+			memset(&bufferusage, 0, sizeof(BufferUsage));
+			BufferUsageAccumDiff(&bufferusage, &pgBufferUsage, &startbufferusage);
+			memset(&walusage, 0, sizeof(WalUsage));
+			WalUsageAccumDiff(&walusage, &pgWalUsage, &startwalusage);
+
+			total_blks_hit = bufferusage.shared_blks_hit +
+				bufferusage.local_blks_hit;
+			total_blks_read = bufferusage.shared_blks_read +
+				bufferusage.local_blks_read;
+			total_blks_dirtied = bufferusage.shared_blks_dirtied +
+				bufferusage.local_blks_dirtied;
 
 			/*
 			 * We do not expect an analyze to take > 25 days and it simplifies
@@ -1305,10 +1333,10 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 
 			if (delay_in_ms > 0)
 			{
-				read_rate = (double) BLCKSZ * AnalyzePageMiss / (1024 * 1024) /
-					(delay_in_ms / 1000.0);
-				write_rate = (double) BLCKSZ * AnalyzePageDirty / (1024 * 1024) /
-					(delay_in_ms / 1000.0);
+				read_rate = (double) BLCKSZ * total_blks_read /
+					(1024 * 1024) / (delay_in_ms / 1000.0);
+				write_rate = (double) BLCKSZ * total_blks_dirtied /
+					(1024 * 1024) / (delay_in_ms / 1000.0);
 			}
 
 			/*
@@ -1317,10 +1345,25 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			 */
 
 			initStringInfo(&buf);
-			appendStringInfo(&buf, _("automatic analyze of table \"%s.%s.%s\"\n"),
+
+			if (AmAutoVacuumWorkerProcess())
+				msgfmt = _("automatic analyze of table \"%s.%s.%s\"\n");
+			else
+				msgfmt = _("finished analyzing table \"%s.%s.%s\"\n");
+
+			appendStringInfo(&buf, msgfmt,
 							 get_database_name(MyDatabaseId),
 							 get_namespace_name(RelationGetNamespace(onerel)),
 							 RelationGetRelationName(onerel));
+			if (track_cost_delay_timing)
+			{
+				/*
+				 * We bypass the changecount mechanism because this value is
+				 * only updated by the calling process.
+				 */
+				appendStringInfo(&buf, _("delay time: %.3f ms\n"),
+								 (double) MyBEEntry->st_progress_param[PROGRESS_ANALYZE_DELAY_TIME] / 1000000.0);
+			}
 			if (track_io_timing)
 			{
 				double		read_ms = (double) (pgStatBlockReadTime - startreadtime) / 1000;
@@ -1331,13 +1374,19 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			}
 			appendStringInfo(&buf, _("avg read rate: %.3f MB/s, avg write rate: %.3f MB/s\n"),
 							 read_rate, write_rate);
-			appendStringInfo(&buf, _("buffer usage: %lld hits, %lld misses, %lld dirtied\n"),
-							 (long long) AnalyzePageHit,
-							 (long long) AnalyzePageMiss,
-							 (long long) AnalyzePageDirty);
+			appendStringInfo(&buf, _("buffer usage: %" PRId64 " hits, %" PRId64 " reads, %" PRId64 " dirtied\n"),
+							 total_blks_hit,
+							 total_blks_read,
+							 total_blks_dirtied);
+			appendStringInfo(&buf,
+							 _("WAL usage: %" PRId64 " records, %" PRId64 " full page images, %" PRIu64 " bytes, %" PRId64 " buffers full\n"),
+							 walusage.wal_records,
+							 walusage.wal_fpi,
+							 walusage.wal_bytes,
+							 walusage.wal_buffers_full);
 			appendStringInfo(&buf, _("system usage: %s"), pg_rusage_show(&ru0));
 
-			ereport(LOG,
+			ereport(verbose ? INFO : LOG,
 					(errmsg_internal("%s", buf.data)));
 
 			pfree(buf.data);
@@ -1423,7 +1472,7 @@ compute_index_stats(Relation onerel, double totalrows,
 		{
 			HeapTuple	heapTuple = rows[rowno];
 
-			vacuum_delay_point();
+			vacuum_delay_point(true);
 
 			/*
 			 * Reset the per-tuple context each time, to reclaim any cruft
@@ -1461,7 +1510,7 @@ compute_index_stats(Relation onerel, double totalrows,
 				for (i = 0; i < attr_cnt; i++)
 				{
 					VacAttrStats *stats = thisdata->vacattrstats[i];
-					int			attnum = stats->attr->attnum;
+					int			attnum = stats->tupattnum;
 
 					if (isnull[attnum - 1])
 					{
@@ -1505,7 +1554,7 @@ compute_index_stats(Relation onerel, double totalrows,
 									 numindexrows,
 									 totalindexrows);
 
-				MemoryContextResetAndDeleteChildren(col_context);
+				MemoryContextReset(col_context);
 			}
 		}
 
@@ -1514,7 +1563,7 @@ compute_index_stats(Relation onerel, double totalrows,
 
 		ExecDropSingleTupleTableSlot(slot);
 		FreeExecutorState(estate);
-		MemoryContextResetAndDeleteChildren(ind_context);
+		MemoryContextReset(ind_context);
 	}
 
 	MemoryContextSwitchTo(old_context);
@@ -1534,6 +1583,10 @@ static VacAttrStats *
 examine_attribute(Relation onerel, int attnum, Node *index_expr, int elevel)
 {
 	Form_pg_attribute attr = TupleDescAttr(onerel->rd_att, attnum - 1);
+	int			attstattarget;
+	HeapTuple	atttuple;
+	Datum		dat;
+	bool		isnull;
 	HeapTuple	typtuple;
 	VacAttrStats *stats;
 	int			i;
@@ -1543,18 +1596,38 @@ examine_attribute(Relation onerel, int attnum, Node *index_expr, int elevel)
 	if (attr->attisdropped)
 		return NULL;
 
-	/* Don't analyze column if user has specified not to */
-	if (attr->attstattarget == 0)
+	/* Don't analyze virtual generated columns */
+	if (attr->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
 		return NULL;
 
 	/*
-	 * Create the VacAttrStats struct.  Note that we only have a copy of the
-	 * fixed fields of the pg_attribute tuple.
+	 * Get attstattarget value.  Set to -1 if null.  (Analyze functions expect
+	 * -1 to mean use default_statistics_target; see for example
+	 * std_typanalyze.)
+	 */
+	atttuple = SearchSysCache2(ATTNUM, ObjectIdGetDatum(RelationGetRelid(onerel)), Int16GetDatum(attnum));
+	if (!HeapTupleIsValid(atttuple))
+		elog(ERROR, "cache lookup failed for attribute %d of relation %u",
+			 attnum, RelationGetRelid(onerel));
+	dat = SysCacheGetAttr(ATTNUM, atttuple, Anum_pg_attribute_attstattarget, &isnull);
+	attstattarget = isnull ? -1 : DatumGetInt16(dat);
+	ReleaseSysCache(atttuple);
+
+	/* Don't analyze column if user has specified not to */
+	if (attstattarget == 0)
+		return NULL;
+
+	/*
+	 * Create the VacAttrStats struct.
 	 */
 	stats = (VacAttrStats *) palloc0(sizeof(VacAttrStats));
+<<<<<<< HEAD
 	stats->elevel = elevel;
 	stats->attr = (Form_pg_attribute) palloc(ATTRIBUTE_FIXED_PART_SIZE);
 	memcpy(stats->attr, attr, ATTRIBUTE_FIXED_PART_SIZE);
+=======
+	stats->attstattarget = attstattarget;
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * When analyzing an expression index, believe the expression tree's type
@@ -1635,7 +1708,6 @@ examine_attribute(Relation onerel, int attnum, Node *index_expr, int elevel)
 	if (!ok || stats->compute_stats == NULL || stats->minrows <= 0)
 	{
 		heap_freetuple(typtuple);
-		pfree(stats->attr);
 		pfree(stats);
 		return NULL;
 	}
@@ -1644,6 +1716,7 @@ examine_attribute(Relation onerel, int attnum, Node *index_expr, int elevel)
 }
 
 /*
+<<<<<<< HEAD
  * GPDB: If we are the dispatcher, then issue analyze on the segments and
  * collect the statistics from them.
  */
@@ -1671,6 +1744,19 @@ gp_acquire_sample_rows_func(Relation onerel, int elevel,
     
 	return acquire_sample_rows(onerel, elevel, rows,
 							   targrows, totalrows, totaldeadrows);
+=======
+ * Read stream callback returning the next BlockNumber as chosen by the
+ * BlockSampling algorithm.
+ */
+static BlockNumber
+block_sampling_read_stream_next(ReadStream *stream,
+								void *callback_private_data,
+								void *per_buffer_data)
+{
+	BlockSamplerData *bs = callback_private_data;
+
+	return BlockSampler_HasMore(bs) ? BlockSampler_Next(bs) : InvalidBlockNumber;
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -1725,10 +1811,7 @@ acquire_sample_rows(Relation onerel, int elevel,
 	TableScanDesc scan;
 	BlockNumber nblocks;
 	BlockNumber blksdone = 0;
-#ifdef USE_PREFETCH
-	int			prefetch_maximum = 0;	/* blocks to prefetch if enabled */
-	BlockSamplerData prefetch_bs;
-#endif
+	ReadStream *stream;
 
 	Assert(targrows > 0);
 
@@ -1772,6 +1855,7 @@ acquire_sample_rows(Relation onerel, int elevel,
 	randseed = pg_prng_uint32(&pg_global_prng_state);
 	nblocks = BlockSampler_Init(&bs, totalblocks, targrows, randseed);
 
+<<<<<<< HEAD
 #ifdef USE_PREFETCH
 	/*
 	 * GPDB_14_MERGE_FIXME: pre-fetching is introduced in PG14.
@@ -1792,6 +1876,8 @@ acquire_sample_rows(Relation onerel, int elevel,
 	}
 #endif
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	/* Report sampling block numbers */
 	pgstat_progress_update_param(PROGRESS_ANALYZE_BLOCKS_TOTAL,
 								 nblocks);
@@ -1802,70 +1888,23 @@ acquire_sample_rows(Relation onerel, int elevel,
 	scan = table_beginscan_analyze(onerel);
 	slot = table_slot_create(onerel, NULL);
 
-#ifdef USE_PREFETCH
-
 	/*
-	 * If we are doing prefetching, then go ahead and tell the kernel about
-	 * the first set of pages we are going to want.  This also moves our
-	 * iterator out ahead of the main one being used, where we will keep it so
-	 * that we're always pre-fetching out prefetch_maximum number of blocks
-	 * ahead.
+	 * It is safe to use batching, as block_sampling_read_stream_next never
+	 * blocks.
 	 */
-	if (prefetch_maximum)
-	{
-		for (int i = 0; i < prefetch_maximum; i++)
-		{
-			BlockNumber prefetch_block;
-
-			if (!BlockSampler_HasMore(&prefetch_bs))
-				break;
-
-			prefetch_block = BlockSampler_Next(&prefetch_bs);
-			PrefetchBuffer(scan->rs_rd, MAIN_FORKNUM, prefetch_block);
-		}
-	}
-#endif
+	stream = read_stream_begin_relation(READ_STREAM_MAINTENANCE |
+										READ_STREAM_USE_BATCHING,
+										vac_strategy,
+										scan->rs_rd,
+										MAIN_FORKNUM,
+										block_sampling_read_stream_next,
+										&bs,
+										0);
 
 	/* Outer loop over blocks to sample */
-	while (BlockSampler_HasMore(&bs))
+	while (table_scan_analyze_next_block(scan, stream))
 	{
-		bool		block_accepted;
-		BlockNumber targblock = BlockSampler_Next(&bs);
-#ifdef USE_PREFETCH
-		BlockNumber prefetch_targblock = InvalidBlockNumber;
-
-		/*
-		 * Make sure that every time the main BlockSampler is moved forward
-		 * that our prefetch BlockSampler also gets moved forward, so that we
-		 * always stay out ahead.
-		 */
-		if (prefetch_maximum && BlockSampler_HasMore(&prefetch_bs))
-			prefetch_targblock = BlockSampler_Next(&prefetch_bs);
-#endif
-
-		vacuum_delay_point();
-
-		block_accepted = table_scan_analyze_next_block(scan, targblock, vac_strategy);
-
-#ifdef USE_PREFETCH
-
-		/*
-		 * When pre-fetching, after we get a block, tell the kernel about the
-		 * next one we will want, if there's any left.
-		 *
-		 * We want to do this even if the table_scan_analyze_next_block() call
-		 * above decides against analyzing the block it picked.
-		 */
-		if (prefetch_maximum && prefetch_targblock != InvalidBlockNumber)
-			PrefetchBuffer(scan->rs_rd, MAIN_FORKNUM, prefetch_targblock);
-#endif
-
-		/*
-		 * Don't analyze if table_scan_analyze_next_block() indicated this
-		 * block is unsuitable for analyzing.
-		 */
-		if (!block_accepted)
-			continue;
+		vacuum_delay_point(true);
 
 		while (table_scan_analyze_next_tuple(scan, OldestXmin, &liverows, &deadrows, slot))
 		{
@@ -1916,6 +1955,8 @@ acquire_sample_rows(Relation onerel, int elevel,
 									 ++blksdone);
 		SIMPLE_FAULT_INJECTOR("analyze_block");
 	}
+
+	read_stream_end(stream);
 
 	ExecDropSingleTupleTableSlot(slot);
 	table_endscan(scan);
@@ -2224,9 +2265,14 @@ acquire_inherited_sample_rows(Relation onerel, int elevel,
 
 				/* We may need to convert from child's rowtype to parent's */
 				if (childrows > 0 &&
+<<<<<<< HEAD
 					!equalTupleDescs(RelationGetDescr(childrel),
 									 RelationGetDescr(onerel),
 									 false))
+=======
+					!equalRowTypes(RelationGetDescr(childrel),
+								   RelationGetDescr(onerel)))
+>>>>>>> REL_18_BETA1_branch
 				{
 					TupleConversionMap *map;
 
@@ -3163,7 +3209,7 @@ update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
 		}
 
 		values[Anum_pg_statistic_starelid - 1] = ObjectIdGetDatum(relid);
-		values[Anum_pg_statistic_staattnum - 1] = Int16GetDatum(stats->attr->attnum);
+		values[Anum_pg_statistic_staattnum - 1] = Int16GetDatum(stats->tupattnum);
 		values[Anum_pg_statistic_stainherit - 1] = BoolGetDatum(inh);
 		values[Anum_pg_statistic_stanullfrac - 1] = Float4GetDatum(stats->stanullfrac);
 		values[Anum_pg_statistic_stawidth - 1] = Int32GetDatum(stats->stawidth);
@@ -3229,7 +3275,7 @@ update_attstats(Oid relid, bool inh, int natts, VacAttrStats **vacattrstats)
 		/* Is there already a pg_statistic tuple for this attribute? */
 		oldtup = SearchSysCache3(STATRELATTINH,
 								 ObjectIdGetDatum(relid),
-								 Int16GetDatum(stats->attr->attnum),
+								 Int16GetDatum(stats->tupattnum),
 								 BoolGetDatum(inh));
 
 		/* Open index information when we know we need it */
@@ -3362,15 +3408,13 @@ static int	analyze_mcv_list(int *mcv_counts,
 bool
 std_typanalyze(VacAttrStats *stats)
 {
-	Form_pg_attribute attr = stats->attr;
 	Oid			ltopr;
 	Oid			eqopr;
 	StdAnalyzeData *mystats;
 
 	/* If the attstattarget column is negative, use the default value */
-	/* NB: it is okay to scribble on stats->attr since it's a copy */
-	if (attr->attstattarget < 0)
-		attr->attstattarget = default_statistics_target;
+	if (stats->attstattarget < 0)
+		stats->attstattarget = default_statistics_target;
 
 	/* Look for default "<" and "=" operators for column's type */
 	get_sort_group_operators(stats->attrtypid,
@@ -3423,21 +3467,21 @@ std_typanalyze(VacAttrStats *stats)
 		 * know it at this point.
 		 *--------------------
 		 */
-		stats->minrows = 300 * attr->attstattarget;
+		stats->minrows = 300 * stats->attstattarget;
 	}
 	else if (OidIsValid(eqopr))
 	{
 		/* We can still recognize distinct values */
 		stats->compute_stats = compute_distinct_stats;
 		/* Might as well use the same minrows as above */
-		stats->minrows = 300 * attr->attstattarget;
+		stats->minrows = 300 * stats->attstattarget;
 	}
 	else
 	{
 		/* Can't do much but the trivial stuff */
 		stats->compute_stats = compute_trivial_stats;
 		/* Might as well use the same minrows as above */
-		stats->minrows = 300 * attr->attstattarget;
+		stats->minrows = 300 * stats->attstattarget;
 	}
 	list_free(va_cols);
 	return true;
@@ -3471,7 +3515,7 @@ compute_trivial_stats(VacAttrStatsP stats,
 		Datum		value;
 		bool		isnull;
 
-		vacuum_delay_point();
+		vacuum_delay_point(true);
 
 		value = fetchfunc(stats, i, &isnull);
 
@@ -3565,7 +3609,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 	TrackItem  *track;
 	int			track_cnt,
 				track_max;
-	int			num_mcv = stats->attr->attstattarget;
+	int			num_mcv = stats->attstattarget;
 	StdAnalyzeData *mystats = (StdAnalyzeData *) stats->extra_data;
 
 	/*
@@ -3593,7 +3637,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 		int			firstcount1,
 					j;
 
-		vacuum_delay_point();
+		vacuum_delay_point(true);
 
 		value = fetchfunc(stats, i, &isnull);
 
@@ -3918,8 +3962,8 @@ compute_scalar_stats(VacAttrStatsP stats,
 	int		   *tupnoLink;
 	ScalarMCVItem *track;
 	int			track_cnt = 0;
-	int			num_mcv = stats->attr->attstattarget;
-	int			num_bins = stats->attr->attstattarget;
+	int			num_mcv = stats->attstattarget;
+	int			num_bins = stats->attstattarget;
 	StdAnalyzeData *mystats = (StdAnalyzeData *) stats->extra_data;
 
 	values = (ScalarItem *) palloc(samplerows * sizeof(ScalarItem));
@@ -3953,7 +3997,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 		Datum		value;
 		bool		isnull;
 
-		vacuum_delay_point();
+		vacuum_delay_point(true);
 
 		value = fetchfunc(stats, i, &isnull);
 

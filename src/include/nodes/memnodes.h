@@ -4,9 +4,13 @@
  *	  POSTGRES memory context node definitions.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/memnodes.h
@@ -59,14 +63,51 @@ typedef void (*MemoryStatsPrintFunc) (MemoryContext context, void *passthru,
 
 typedef struct MemoryContextMethods
 {
-	void	   *(*alloc) (MemoryContext context, Size size);
+	/*
+	 * Function to handle memory allocation requests of 'size' to allocate
+	 * memory into the given 'context'.  The function must handle flags
+	 * MCXT_ALLOC_HUGE and MCXT_ALLOC_NO_OOM.  MCXT_ALLOC_ZERO is handled by
+	 * the calling function.
+	 */
+	void	   *(*alloc) (MemoryContext context, Size size, int flags);
+
 	/* call this free_p in case someone #define's free() */
 	void		(*free_p) (void *pointer);
-	void	   *(*realloc) (void *pointer, Size size);
+
+	/*
+	 * Function to handle a size change request for an existing allocation.
+	 * The implementation must handle flags MCXT_ALLOC_HUGE and
+	 * MCXT_ALLOC_NO_OOM.  MCXT_ALLOC_ZERO is handled by the calling function.
+	 */
+	void	   *(*realloc) (void *pointer, Size size, int flags);
+
+	/*
+	 * Invalidate all previous allocations in the given memory context and
+	 * prepare the context for a new set of allocations.  Implementations may
+	 * optionally free() excess memory back to the OS during this time.
+	 */
 	void		(*reset) (MemoryContext context);
+<<<<<<< HEAD
 	void		(*delete_context) (MemoryContext context, MemoryContext parent);
+=======
+
+	/* Free all memory consumed by the given MemoryContext. */
+	void		(*delete_context) (MemoryContext context);
+
+	/* Return the MemoryContext that the given pointer belongs to. */
+>>>>>>> REL_18_BETA1_branch
 	MemoryContext (*get_chunk_context) (void *pointer);
+
+	/*
+	 * Return the number of bytes consumed by the given pointer within its
+	 * memory context, including the overhead of alignment and chunk headers.
+	 */
 	Size		(*get_chunk_space) (void *pointer);
+
+	/*
+	 * Return true if the given MemoryContext has not had any allocations
+	 * since it was created or last reset.
+	 */
 	bool		(*is_empty) (MemoryContext context);
 	void		(*stats) (MemoryContext context,
 						  MemoryStatsPrintFunc printfunc, void *passthru,
@@ -78,6 +119,11 @@ typedef struct MemoryContextMethods
 	Size		(*set_peak_usage) (MemoryContext context, Size nbytes);
 
 #ifdef MEMORY_CONTEXT_CHECKING
+
+	/*
+	 * Perform validation checks on the given context and raise any discovered
+	 * anomalies as WARNINGs.
+	 */
 	void		(*check) (MemoryContext context);
 #endif
 } MemoryContextMethods;
@@ -97,6 +143,7 @@ typedef struct MemoryContextData
 	MemoryContext firstchild;	/* head of linked list of children */
 	MemoryContext prevchild;	/* previous child of same parent */
 	MemoryContext nextchild;	/* next child of same parent */
+<<<<<<< HEAD
 	const char *name;			/* context name (just for debugging) */
 	const char *ident;			/* context ID if any (just for debugging) */
 
@@ -105,6 +152,10 @@ typedef struct MemoryContextData
     int         callerLine;     /* __LINE__ of most recent caller */
 #endif
 
+=======
+	const char *name;			/* context name */
+	const char *ident;			/* context ID if any */
+>>>>>>> REL_18_BETA1_branch
 	MemoryContextCallback *reset_cbs;	/* list of reset/delete callbacks */
 } MemoryContextData;
 
@@ -121,6 +172,7 @@ typedef struct MemoryContextData
 	((context) != NULL && \
 	 (IsA((context), AllocSetContext) || \
 	  IsA((context), SlabContext) || \
-	  IsA((context), GenerationContext)))
+	  IsA((context), GenerationContext) || \
+	  IsA((context), BumpContext)))
 
 #endif							/* MEMNODES_H */

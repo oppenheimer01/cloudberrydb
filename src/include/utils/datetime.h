@@ -6,7 +6,7 @@
  *	   including date, and time.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/datetime.h
@@ -347,6 +347,11 @@ extern int	DecodeUnits(int field, const char *lowtoken, int *val);
 
 extern int	DecodeTimezoneName(const char *tzname, int *offset, pg_tz **tz);
 extern pg_tz *DecodeTimezoneNameToTz(const char *tzname);
+
+extern int	DecodeTimezoneAbbrevPrefix(const char *str,
+									   int *offset, pg_tz **tz);
+
+extern void ClearTimeZoneAbbrevCache(void);
 
 extern int	j2day(int date);
 

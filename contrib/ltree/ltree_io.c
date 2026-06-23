@@ -11,7 +11,6 @@
 #include "crc32.h"
 #include "libpq/pqformat.h"
 #include "ltree.h"
-#include "utils/memutils.h"
 #include "varatt.h"
 
 
@@ -418,7 +417,11 @@ parse_lquery(const char *buf, struct Node *escontext)
 			case LQPRS_WAITFNUM:
 				if (t_iseq(ptr, ','))
 					state = LQPRS_WAITSNUM;
+<<<<<<< HEAD
 				else if (t_isdigit_cstr(ptr))
+=======
+				else if (isdigit((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					int			low = atoi(ptr);
 
@@ -436,7 +439,11 @@ parse_lquery(const char *buf, struct Node *escontext)
 					UNCHAR;
 				break;
 			case LQPRS_WAITSNUM:
+<<<<<<< HEAD
 				if (t_isdigit_cstr(ptr))
+=======
+				if (isdigit((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					int			high = atoi(ptr);
 
@@ -467,7 +474,11 @@ parse_lquery(const char *buf, struct Node *escontext)
 			case LQPRS_WAITCLOSE:
 				if (t_iseq(ptr, '}'))
 					state = LQPRS_WAITEND;
+<<<<<<< HEAD
 				else if (!t_isdigit_cstr(ptr))
+=======
+				else if (!isdigit((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 					UNCHAR;
 				break;
 			case LQPRS_WAITND:
@@ -478,7 +489,11 @@ parse_lquery(const char *buf, struct Node *escontext)
 				}
 				else if (t_iseq(ptr, ','))
 					state = LQPRS_WAITSNUM;
+<<<<<<< HEAD
 				else if (!t_isdigit_cstr(ptr))
+=======
+				else if (!isdigit((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 					UNCHAR;
 				break;
 			case LQPRS_WAITEND:

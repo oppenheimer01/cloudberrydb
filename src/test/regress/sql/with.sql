@@ -37,11 +37,11 @@ SELECT * FROM t;
 
 -- UNION DISTINCT requires hashable type
 WITH RECURSIVE t(n) AS (
-    VALUES (1::money)
+    VALUES ('01'::varbit)
 UNION
-    SELECT n+1::money FROM t WHERE n < 100::money
+    SELECT n || '10'::varbit FROM t WHERE n < '100'::varbit
 )
-SELECT sum(n) FROM t;
+SELECT n FROM t;
 
 -- recursive view
 CREATE RECURSIVE VIEW nums (n) AS
@@ -224,6 +224,20 @@ WITH RECURSIVE subdepartment AS
 )
 SELECT * FROM subdepartment ORDER BY name;
 
+-- exercise the deduplication code of a UNION with mixed input slot types
+WITH RECURSIVE subdepartment AS
+(
+	-- select all columns to prevent projection
+	SELECT id, parent_department, name FROM department WHERE name = 'A'
+
+	UNION
+
+	-- joins do projection
+	SELECT d.id, d.parent_department, d.name FROM department AS d
+	INNER JOIN subdepartment AS sd ON d.parent_department = sd.id
+)
+SELECT * FROM subdepartment ORDER BY name;
+
 -- inside subqueries
 SELECT count(*) FROM (
     WITH RECURSIVE t(n) AS (
@@ -367,6 +381,28 @@ WITH RECURSIVE cte (a) as (
 )
 SELECT a FROM cte;
 
+<<<<<<< HEAD
+=======
+-- test that column statistics from a materialized CTE are available
+-- to upper planner (otherwise, we'd get a stupider plan)
+explain (costs off)
+with x as materialized (select unique1 from tenk1 b)
+select count(*) from tenk1 a
+  where unique1 in (select * from x);
+
+explain (costs off)
+with x as materialized (insert into tenk1 default values returning unique1)
+select count(*) from tenk1 a
+  where unique1 in (select * from x);
+
+-- test that pathkeys from a materialized CTE are propagated up to the
+-- outer query
+explain (costs off)
+with x as materialized (select unique1 from tenk1 b order by unique1)
+select count(*) from tenk1 a
+  where unique1 in (select * from x);
+
+>>>>>>> REL_18_BETA1_branch
 -- SEARCH clause
 
 create table graph0( f int, t int, label text );
@@ -928,6 +964,7 @@ WITH RECURSIVE x(n) AS (SELECT n FROM x)
 WITH RECURSIVE x(n) AS (SELECT n FROM x UNION ALL SELECT 1)
 	SELECT * FROM x;
 
+<<<<<<< HEAD
 
 -- recursive term with a self-reference within a subquery is not allowed
 WITH RECURSIVE cte(level, id) as (
@@ -954,6 +991,8 @@ WITH RECURSIVE x(n) AS (
 	SELECT level+1, row_number() over() FROM x, bar)
   SELECT * FROM x LIMIT 10;
 
+=======
+>>>>>>> REL_18_BETA1_branch
 -- allow this, because we historically have
 WITH RECURSIVE x(n) AS (
   WITH x1 AS (SELECT 1 AS n)
@@ -989,8 +1028,13 @@ WITH RECURSIVE x(n) AS (
   DELETE FROM graph RETURNING f)
 	SELECT * FROM x;
 
+<<<<<<< HEAD
 CREATE TEMPORARY TABLE y (a INTEGER) DISTRIBUTED RANDOMLY;
 
+=======
+
+CREATE TEMPORARY TABLE y (a INTEGER);
+>>>>>>> REL_18_BETA1_branch
 INSERT INTO y SELECT generate_series(1, 10);
 
 -- LEFT JOIN
@@ -1695,6 +1739,14 @@ VALUES(FALSE);
 -- no RETURNING in a referenced data-modifying WITH
 WITH t AS (
 	INSERT INTO y VALUES(0)
+)
+SELECT * FROM t;
+
+-- RETURNING tries to return its own output
+WITH RECURSIVE t(action, a) AS (
+	MERGE INTO y USING (VALUES (11)) v(a) ON y.a = v.a
+		WHEN NOT MATCHED THEN INSERT VALUES (v.a)
+		RETURNING merge_action(), (SELECT a FROM t)
 )
 SELECT * FROM t;
 

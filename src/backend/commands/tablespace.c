@@ -41,9 +41,13 @@
  * and munge the system catalogs of the new database.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010 Greenplum Inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -63,7 +67,6 @@
 #include "access/heapam.h"
 #include "access/htup_details.h"
 #include "access/reloptions.h"
-#include "access/sysattr.h"
 #include "access/tableam.h"
 #include "access/xact.h"
 #include "access/xloginsert.h"
@@ -72,15 +75,12 @@
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
 #include "catalog/indexing.h"
-#include "catalog/namespace.h"
 #include "catalog/objectaccess.h"
-#include "catalog/pg_namespace.h"
 #include "catalog/pg_tablespace.h"
 #include "catalog/pg_type.h"
 #include "catalog/storage_tablespace.h"
 #include "commands/comment.h"
 #include "commands/seclabel.h"
-#include "commands/tablecmds.h"
 #include "commands/tablespace.h"
 #include "commands/tag.h"
 #include "common/file_perm.h"
@@ -89,13 +89,11 @@
 #include "postmaster/bgwriter.h"
 #include "storage/bufmgr.h"
 #include "storage/fd.h"
-#include "storage/lmgr.h"
 #include "storage/standby.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/guc_hooks.h"
-#include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/resource_manager.h"
@@ -506,9 +504,9 @@ CreateTableSpace(CreateTableSpaceStmt *stmt)
 		xlrec.ts_id = tablespaceoid;
 
 		XLogBeginInsert();
-		XLogRegisterData((char *) &xlrec,
+		XLogRegisterData(&xlrec,
 						 offsetof(xl_tblspc_create_rec, ts_path));
-		XLogRegisterData((char *) location, strlen(location) + 1);
+		XLogRegisterData(location, strlen(location) + 1);
 
 		SIMPLE_FAULT_INJECTOR("before_xlog_create_tablespace");
 		(void) XLogInsert(RM_TBLSPC_ID, XLOG_TBLSPC_CREATE);
@@ -784,7 +782,7 @@ DropTableSpace(DropTableSpaceStmt *stmt)
 		xlrec.ts_id = tablespaceoid;
 
 		XLogBeginInsert();
-		XLogRegisterData((char *) &xlrec, sizeof(xl_tblspc_drop_rec));
+		XLogRegisterData(&xlrec, sizeof(xl_tblspc_drop_rec));
 
 		(void) XLogInsert(RM_TBLSPC_ID, XLOG_TBLSPC_DROP);
 	}
@@ -845,10 +843,14 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
 	struct stat st;
 	bool		in_place;
 
+<<<<<<< HEAD
 	elog(LOG, "creating tablespace directories for tablespaceoid %d on dbid %d location: '%s'",
 		tablespaceoid, GpIdentity.dbid, location);
 
 	linkloc = psprintf("pg_tblspc/%u", tablespaceoid);
+=======
+	linkloc = psprintf("%s/%u", PG_TBLSPC_DIR, tablespaceoid);
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * If we're asked to make an 'in place' tablespace, create the directory
@@ -1109,6 +1111,7 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 	char	   *subfile;
 	struct stat st;
 
+<<<<<<< HEAD
 	Assert(LWLockHeldByMe(TablespaceCreateLock));
 
 	elog(DEBUG5, "destroy_tablespace_directories for tablespace %u on dbid %d",
@@ -1116,6 +1119,10 @@ destroy_tablespace_directories(Oid tablespaceoid, bool redo)
 
 	linkloc_with_version_dir = psprintf("pg_tblspc/%u/%s", tablespaceoid,
 										GP_TABLESPACE_VERSION_DIRECTORY);
+=======
+	linkloc_with_version_dir = psprintf("%s/%u/%s", PG_TBLSPC_DIR, tablespaceoid,
+										TABLESPACE_VERSION_DIRECTORY);
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Check if the tablespace still contains any files.  We try to rmdir each
@@ -1837,7 +1844,7 @@ check_temp_tablespaces(char **newval, void **extra, GucSource source)
 			return false;
 		myextra->numSpcs = numSpcs;
 		memcpy(myextra->tblSpcs, tblSpcs, numSpcs * sizeof(Oid));
-		*extra = (void *) myextra;
+		*extra = myextra;
 
 		pfree(tblSpcs);
 	}

@@ -6,7 +6,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pg_waldump (PostgreSQL) 10\n"
 "Report-Msgid-Bugs-To: pgsql-bugs@lists.postgresql.org\n"
+<<<<<<< HEAD
 "POT-Creation-Date: 2024-02-02 18:10+0300\n"
+=======
+"POT-Creation-Date: 2024-09-02 09:29+0300\n"
+>>>>>>> REL_18_BETA1_branch
 "PO-Revision-Date: 2024-09-07 08:59+0300\n"
 "Last-Translator: Alexander Lakhin <exclusion@gmail.com>\n"
 "Language-Team: Russian <pgsql-ru-general@postgresql.org>\n"
@@ -37,6 +41,7 @@ msgstr "подробности: "
 msgid "hint: "
 msgstr "подсказка: "
 
+<<<<<<< HEAD
 #: pg_waldump.c:137
 #, c-format
 msgid "could not create directory \"%s\": %m"
@@ -53,53 +58,141 @@ msgid "could not access directory \"%s\": %m"
 msgstr "ошибка при обращении к каталогу \"%s\": %m"
 
 #: pg_waldump.c:199 pg_waldump.c:528
+=======
+#: ../../common/fe_memutils.c:35 ../../common/fe_memutils.c:75
+#: ../../common/fe_memutils.c:98 ../../common/fe_memutils.c:161
+#, c-format
+msgid "out of memory\n"
+msgstr "нехватка памяти\n"
+
+#: ../../common/fe_memutils.c:92 ../../common/fe_memutils.c:153
+#, c-format
+msgid "cannot duplicate null pointer (internal error)\n"
+msgstr "попытка дублирования нулевого указателя (внутренняя ошибка)\n"
+
+#: ../../common/file_utils.c:70 ../../common/file_utils.c:347
+#: ../../common/file_utils.c:406 ../../common/file_utils.c:480 pg_waldump.c:199
+#: pg_waldump.c:532
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\": %m"
 msgstr "не удалось открыть файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:255
+=======
+#: ../../common/file_utils.c:76
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid ""
-"WAL segment size must be a power of two between 1 MB and 1 GB, but the WAL "
-"file \"%s\" header specifies %d byte"
-msgid_plural ""
-"WAL segment size must be a power of two between 1 MB and 1 GB, but the WAL "
-"file \"%s\" header specifies %d bytes"
-msgstr[0] ""
-"Размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но в заголовке файла WAL \"%s\" указано значение: %d"
-msgstr[1] ""
-"Размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но в заголовке файла WAL \"%s\" указано значение: %d"
-msgstr[2] ""
-"Размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 "
-"ГБ, но в заголовке файла WAL \"%s\" указано значение: %d"
+msgid "could not synchronize file system for file \"%s\": %m"
+msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:261
+=======
+#: ../../common/file_utils.c:120 ../../common/file_utils.c:566
+#, c-format
+msgid "could not stat file \"%s\": %m"
+msgstr "не удалось получить информацию о файле \"%s\": %m"
+
+#: ../../common/file_utils.c:130 ../../common/file_utils.c:227
+#, c-format
+msgid "this build does not support sync method \"%s\""
+msgstr "эта сборка программы не поддерживает метод синхронизации \"%s\""
+
+#: ../../common/file_utils.c:151 ../../common/file_utils.c:281
+#: pg_waldump.c:1104 pg_waldump.c:1127
+#, c-format
+msgid "could not open directory \"%s\": %m"
+msgstr "не удалось открыть каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:169 ../../common/file_utils.c:315
+#, c-format
+msgid "could not read directory \"%s\": %m"
+msgstr "не удалось прочитать каталог \"%s\": %m"
+
+#: ../../common/file_utils.c:418 ../../common/file_utils.c:488
+#, c-format
+msgid "could not fsync file \"%s\": %m"
+msgstr "не удалось синхронизировать с ФС файл \"%s\": %m"
+
+#: ../../common/file_utils.c:498
+#, c-format
+msgid "could not rename file \"%s\" to \"%s\": %m"
+msgstr "не удалось переименовать файл \"%s\" в \"%s\": %m"
+
+#: pg_waldump.c:137
+#, c-format
+msgid "could not create directory \"%s\": %m"
+msgstr "не удалось создать каталог \"%s\": %m"
+
+#: pg_waldump.c:146
+#, c-format
+msgid "directory \"%s\" exists but is not empty"
+msgstr "каталог \"%s\" существует, но он не пуст"
+
+#: pg_waldump.c:150
+#, c-format
+msgid "could not access directory \"%s\": %m"
+msgstr "ошибка при обращении к каталогу \"%s\": %m"
+
+#: pg_waldump.c:256
+#, c-format
+msgid "invalid WAL segment size in WAL file \"%s\" (%d byte)"
+msgid_plural "invalid WAL segment size in WAL file \"%s\" (%d bytes)"
+msgstr[0] "WAL-файл \"%s\" содержит неверный размер сегмента WAL (%d Б)"
+msgstr[1] "WAL-файл \"%s\" содержит неверный размер сегмента WAL (%d Б)"
+msgstr[2] "WAL-файл \"%s\" содержит неверный размер сегмента WAL (%d Б)"
+
+#: pg_waldump.c:260
+#, c-format
+msgid "The WAL segment size must be a power of two between 1 MB and 1 GB."
+msgstr ""
+"Размер сегмента WAL должен задаваться степенью 2 в интервале от 1 МБ до 1 ГБ."
+
+#: pg_waldump.c:265
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read file \"%s\": %m"
 msgstr "не удалось прочитать файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:264
+=======
+#: pg_waldump.c:268
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not read file \"%s\": read %d of %d"
 msgstr "не удалось прочитать файл \"%s\" (прочитано байт: %d из %d)"
 
+<<<<<<< HEAD
 #: pg_waldump.c:325
+=======
+#: pg_waldump.c:329
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not locate WAL file \"%s\""
 msgstr "не удалось найти файл WAL \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:327
+=======
+#: pg_waldump.c:331
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find any WAL file"
 msgstr "не удалось найти ни одного файла WAL"
 
+<<<<<<< HEAD
 #: pg_waldump.c:368
+=======
+#: pg_waldump.c:372
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find file \"%s\": %m"
 msgstr "не удалось найти файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:417
 #, c-format
 msgid "could not read from file %s, offset %d: %m"
@@ -111,26 +204,56 @@ msgid "could not read from file %s, offset %d: read %d of %d"
 msgstr "не удалось прочитать файл %s по смещению %d (прочитано байт: %d из %d)"
 
 #: pg_waldump.c:511
+=======
+#: pg_waldump.c:421
+#, c-format
+msgid "could not read from file \"%s\", offset %d: %m"
+msgstr "не удалось прочитать файл \"%s\" по смещению %d: %m"
+
+#: pg_waldump.c:425
+#, c-format
+msgid "could not read from file \"%s\", offset %d: read %d of %d"
+msgstr ""
+"не удалось прочитать файл \"%s\" по смещению %d (прочитано байт: %d из %d)"
+
+#: pg_waldump.c:515
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s"
 msgstr "%s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:519
+=======
+#: pg_waldump.c:523
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid fork number: %u"
 msgstr "неверный номер слоя: %u"
 
+<<<<<<< HEAD
 #: pg_waldump.c:531
+=======
+#: pg_waldump.c:535
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not write file \"%s\": %m"
 msgstr "не удалось записать файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:534
+=======
+#: pg_waldump.c:538
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not close file \"%s\": %m"
 msgstr "не удалось закрыть файл \"%s\": %m"
 
+<<<<<<< HEAD
 #: pg_waldump.c:754
+=======
+#: pg_waldump.c:758
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "%s decodes and displays PostgreSQL write-ahead logs for debugging.\n"
@@ -139,17 +262,29 @@ msgstr ""
 "%s декодирует и показывает журналы предзаписи PostgreSQL для целей отладки.\n"
 "\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:756
+=======
+#: pg_waldump.c:760
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Usage:\n"
 msgstr "Использование:\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:757
+=======
+#: pg_waldump.c:761
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  %s [OPTION]... [STARTSEG [ENDSEG]]\n"
 msgstr "  %s [ПАРАМЕТР]... [НАЧАЛЬНЫЙ_СЕГМЕНТ [КОНЕЧНЫЙ_СЕГМЕНТ]]\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:758
+=======
+#: pg_waldump.c:762
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -158,14 +293,22 @@ msgstr ""
 "\n"
 "Параметры:\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:759
+=======
+#: pg_waldump.c:763
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -b, --bkp-details      output detailed information about backup blocks\n"
 msgstr ""
 "  -b, --bkp-details      вывести подробную информацию о копиях страниц\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:760
+=======
+#: pg_waldump.c:764
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -B, --block=N          with --relation, only show records that modify "
@@ -175,20 +318,32 @@ msgstr ""
 "                         записи, в которых меняется блок N\n"
 
 # well-spelled: ПОЗЗАП
+<<<<<<< HEAD
 #: pg_waldump.c:761
+=======
+#: pg_waldump.c:765
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -e, --end=RECPTR       stop reading at WAL location RECPTR\n"
 msgstr ""
 "  -e, --end=ПОЗЗАП       прекратить чтение в заданной позиции записи в WAL\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:762
+=======
+#: pg_waldump.c:766
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -f, --follow           keep retrying after reaching end of WAL\n"
 msgstr ""
 "  -f, --follow           повторять попытки чтения по достижении конца WAL\n"
 
 # well-spelled: МНГР
+<<<<<<< HEAD
 #: pg_waldump.c:763
+=======
+#: pg_waldump.c:767
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -F, --fork=FORK        only show records that modify blocks in fork FORK;\n"
@@ -198,13 +353,21 @@ msgstr ""
 "СЛОЕ\n"
 "                         с именем из списка: main, fsm, vm, init\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:765
+=======
+#: pg_waldump.c:769
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -n, --limit=N          number of records to display\n"
 msgstr "  -n, --limit=N          число выводимых записей\n"
 
 # skip-rule: space-before-period
+<<<<<<< HEAD
 #: pg_waldump.c:766
+=======
+#: pg_waldump.c:770
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -p, --path=PATH        directory in which to find WAL segment files or a\n"
@@ -218,13 +381,21 @@ msgstr ""
 "                         (по умолчанию: текущий каталог,\n"
 "                         ./pg_wal, $PGDATA/pg_wal)\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:769
+=======
+#: pg_waldump.c:773
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -q, --quiet            do not print any output, except for errors\n"
 msgstr "  -q, --quiet            не выводить никаких сообщений, кроме ошибок\n"
 
 # well-spelled: МНГР
+<<<<<<< HEAD
 #: pg_waldump.c:770
+=======
+#: pg_waldump.c:774
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -r, --rmgr=RMGR        only show records generated by resource manager "
@@ -236,7 +407,11 @@ msgstr ""
 "                         для просмотра списка доступных менеджеров ресурсов\n"
 "                         укажите --rmgr=list\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:772
+=======
+#: pg_waldump.c:776
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -R, --relation=T/D/R   only show records that modify blocks in relation T/"
@@ -246,14 +421,22 @@ msgstr ""
 "                         в отношении T/D/R\n"
 
 # well-spelled: ПОЗЗАП
+<<<<<<< HEAD
 #: pg_waldump.c:773
+=======
+#: pg_waldump.c:777
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -s, --start=RECPTR     start reading at WAL location RECPTR\n"
 msgstr ""
 "  -s, --start=ПОЗЗАП     начать чтение с заданной позиции записи в WAL\n"
 
 # well-spelled: ЛВР
+<<<<<<< HEAD
 #: pg_waldump.c:774
+=======
+#: pg_waldump.c:778
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -t, --timeline=TLI     timeline from which to read WAL records\n"
@@ -264,25 +447,41 @@ msgstr ""
 "аргументом\n"
 "                         НАЧАЛЬНЫЙ_СЕГМЕНТ)\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:776
+=======
+#: pg_waldump.c:780
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -V, --version          output version information, then exit\n"
 msgstr "  -V, --version          показать версию и выйти\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:777
+=======
+#: pg_waldump.c:781
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -w, --fullpage         only show records with a full page write\n"
 msgstr ""
 "  -w, --fullpage         выводить только записи, содержащие полные страницы\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:778
+=======
+#: pg_waldump.c:782
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -x, --xid=XID          only show records with transaction ID XID\n"
 msgstr ""
 "  -x, --xid=XID          выводить только записи с заданным\n"
 "                         идентификатором транзакции\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:779
+=======
+#: pg_waldump.c:783
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "  -z, --stats[=record]   show statistics instead of records\n"
@@ -291,19 +490,31 @@ msgstr ""
 "  -z, --stats[=record]   показывать статистику вместо записей\n"
 "                         (также возможно получить статистику по записям)\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:781
+=======
+#: pg_waldump.c:785
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  --save-fullpage=DIR    save full page images to DIR\n"
 msgstr ""
 "  --save-fullpage=ПУТЬ   записывать полные образы страниц в заданный "
 "каталог\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:782
+=======
+#: pg_waldump.c:786
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "  -?, --help             show this help, then exit\n"
 msgstr "  -?, --help             показать эту справку и выйти\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:783
+=======
+#: pg_waldump.c:787
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "\n"
@@ -312,200 +523,344 @@ msgstr ""
 "\n"
 "Об ошибках сообщайте по адресу <%s>.\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:784
+=======
+#: pg_waldump.c:788
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s home page: <%s>\n"
 msgstr "Домашняя страница %s: <%s>\n"
 
+<<<<<<< HEAD
 #: pg_waldump.c:880
+=======
+#: pg_waldump.c:884
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no arguments specified"
 msgstr "аргументы не указаны"
 
+<<<<<<< HEAD
 #: pg_waldump.c:896
+=======
+#: pg_waldump.c:900
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid block number: \"%s\""
 msgstr "неверный номер блока: \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:905 pg_waldump.c:1003
+=======
+#: pg_waldump.c:909 pg_waldump.c:1007
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid WAL location: \"%s\""
 msgstr "неверная позиция в WAL: \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:918
+=======
+#: pg_waldump.c:922
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid fork name: \"%s\""
 msgstr "неверное имя слоя: \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:926 pg_waldump.c:1029
+=======
+#: pg_waldump.c:930 pg_waldump.c:1033
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid value \"%s\" for option %s"
 msgstr "неверное значение \"%s\" для параметра %s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:957
+=======
+#: pg_waldump.c:961
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "custom resource manager \"%s\" does not exist"
 msgstr "пользовательский менеджер ресурсов \"%s\" не существует"
 
+<<<<<<< HEAD
 #: pg_waldump.c:978
+=======
+#: pg_waldump.c:982
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "resource manager \"%s\" does not exist"
 msgstr "менеджер ресурсов \"%s\" не существует"
 
+<<<<<<< HEAD
 #: pg_waldump.c:993
+=======
+#: pg_waldump.c:997
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid relation specification: \"%s\""
 msgstr "неверное указание отношения: \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:994
+=======
+#: pg_waldump.c:998
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Expecting \"tablespace OID/database OID/relation filenode\"."
 msgstr ""
 "Ожидается \"OID табл. пространства/OID базы данных/файловый узел отношения\"."
 
+<<<<<<< HEAD
 #: pg_waldump.c:1036
+=======
+#: pg_waldump.c:1040
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "%s must be in range %u..%u"
 msgstr "значение %s должно быть в диапазоне %u..%u"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1051
+=======
+#: pg_waldump.c:1055
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid transaction ID specification: \"%s\""
 msgstr "неверное указание ID транзакции: \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:1066
+=======
+#: pg_waldump.c:1070
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unrecognized value for option %s: %s"
 msgstr "нераспознанное значение параметра %s: %s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1083
+=======
+#: pg_waldump.c:1087
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "option %s requires option %s to be specified"
 msgstr "параметр %s требует указания параметра %s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1090
+=======
+#: pg_waldump.c:1094
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "too many command-line arguments (first is \"%s\")"
 msgstr "слишком много аргументов командной строки (первый: \"%s\")"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1100 pg_waldump.c:1123
 #, c-format
 msgid "could not open directory \"%s\": %m"
 msgstr "не удалось открыть каталог \"%s\": %m"
 
 #: pg_waldump.c:1129 pg_waldump.c:1159
+=======
+#: pg_waldump.c:1133 pg_waldump.c:1163
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not open file \"%s\""
 msgstr "не удалось открыть файл \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:1139
+=======
+#: pg_waldump.c:1143
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "start WAL location %X/%X is not inside file \"%s\""
 msgstr "начальная позиция в WAL %X/%X находится не в файле \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:1166
+=======
+#: pg_waldump.c:1170
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "ENDSEG %s is before STARTSEG %s"
 msgstr "КОНЕЧНЫЙ_СЕГМЕНТ %s меньше, чем НАЧАЛЬНЫЙ_СЕГМЕНТ %s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1181
+=======
+#: pg_waldump.c:1185
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "end WAL location %X/%X is not inside file \"%s\""
 msgstr "конечная позиция в WAL %X/%X находится не в файле \"%s\""
 
+<<<<<<< HEAD
 #: pg_waldump.c:1193
+=======
+#: pg_waldump.c:1197
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "no start WAL location given"
 msgstr "начальная позиция в WAL не задана"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1207
+=======
+#: pg_waldump.c:1211
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out of memory while allocating a WAL reading processor"
 msgstr "не удалось выделить память для чтения WAL"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1213
+=======
+#: pg_waldump.c:1217
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not find a valid record after %X/%X"
 msgstr "не удалось найти корректную запись после %X/%X"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1223
+=======
+#: pg_waldump.c:1227
+>>>>>>> REL_18_BETA1_branch
 #, c-format
-msgid "first record is after %X/%X, at %X/%X, skipping over %u byte\n"
-msgid_plural "first record is after %X/%X, at %X/%X, skipping over %u bytes\n"
+msgid "first record is after %X/%X, at %X/%X, skipping over %u byte"
+msgid_plural "first record is after %X/%X, at %X/%X, skipping over %u bytes"
 msgstr[0] ""
-"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б\n"
+"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б"
 msgstr[1] ""
-"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б\n"
+"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б"
 msgstr[2] ""
-"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б\n"
+"первая запись обнаружена после %X/%X, в позиции %X/%X, пропускается %u Б"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1308
+=======
+#: pg_waldump.c:1312
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "error in WAL record at %X/%X: %s"
 msgstr "ошибка в записи WAL в позиции %X/%X: %s"
 
+<<<<<<< HEAD
 #: pg_waldump.c:1317
+=======
+#: pg_waldump.c:1321
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "Try \"%s --help\" for more information."
 msgstr "Для дополнительной информации попробуйте \"%s --help\"."
 
+<<<<<<< HEAD
 #: xlogreader.c:621
+=======
+#: xlogreader.c:619
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid record offset at %X/%X: expected at least %u, got %u"
 msgstr ""
 "неверное смещение записи в позиции %X/%X: ожидалось минимум %u, получено %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:630
+=======
+#: xlogreader.c:628
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "contrecord is requested by %X/%X"
 msgstr "в позиции %X/%X запрошено продолжение записи"
 
+<<<<<<< HEAD
 #: xlogreader.c:671 xlogreader.c:1136
+=======
+#: xlogreader.c:669 xlogreader.c:1134
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid record length at %X/%X: expected at least %u, got %u"
 msgstr ""
 "неверная длина записи в позиции %X/%X: ожидалось минимум %u, получено %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:760
+=======
+#: xlogreader.c:758
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "there is no contrecord flag at %X/%X"
 msgstr "нет флага contrecord в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:773
+=======
+#: xlogreader.c:771
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid contrecord length %u (expected %lld) at %X/%X"
 msgstr "неверная длина contrecord: %u (ожидалась %lld) в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1144
+=======
+#: xlogreader.c:1142
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid resource manager ID %u at %X/%X"
 msgstr "неверный ID менеджера ресурсов %u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1157 xlogreader.c:1173
+=======
+#: xlogreader.c:1155 xlogreader.c:1171
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "record with incorrect prev-link %X/%X at %X/%X"
 msgstr "запись с неверной ссылкой назад %X/%X в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1211
+=======
+#: xlogreader.c:1209
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "incorrect resource manager data checksum in record at %X/%X"
 msgstr ""
 "некорректная контрольная сумма данных менеджера ресурсов в записи в позиции "
 "%X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1245
+=======
+#: xlogreader.c:1243
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid magic number %04X in WAL segment %s, LSN %X/%X, offset %u"
 msgstr ""
 "неверное магическое число %04X в сегменте WAL %s, LSN %X/%X, смещение %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:1260 xlogreader.c:1302
+=======
+#: xlogreader.c:1258 xlogreader.c:1300
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid info bits %04X in WAL segment %s, LSN %X/%X, offset %u"
 msgstr ""
 "неверные информационные биты %04X в сегменте WAL %s, LSN %X/%X, смещение %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:1276
+=======
+#: xlogreader.c:1274
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "WAL file is from different database system: WAL file database system "
@@ -514,7 +869,11 @@ msgstr ""
 "файл WAL принадлежит другой СУБД: в нём указан идентификатор системы БД "
 "%llu, а идентификатор системы pg_control: %llu"
 
+<<<<<<< HEAD
 #: xlogreader.c:1284
+=======
+#: xlogreader.c:1282
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "WAL file is from different database system: incorrect segment size in page "
@@ -523,7 +882,11 @@ msgstr ""
 "файл WAL принадлежит другой СУБД: некорректный размер сегмента в заголовке "
 "страницы"
 
+<<<<<<< HEAD
 #: xlogreader.c:1290
+=======
+#: xlogreader.c:1288
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "WAL file is from different database system: incorrect XLOG_BLCKSZ in page "
@@ -532,12 +895,20 @@ msgstr ""
 "файл WAL принадлежит другой СУБД: некорректный XLOG_BLCKSZ в заголовке "
 "страницы"
 
+<<<<<<< HEAD
 #: xlogreader.c:1322
+=======
+#: xlogreader.c:1320
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "unexpected pageaddr %X/%X in WAL segment %s, LSN %X/%X, offset %u"
 msgstr "неожиданный pageaddr %X/%X в сегменте WAL %s, LSN %X/%X, смещение %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:1348
+=======
+#: xlogreader.c:1346
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "out-of-sequence timeline ID %u (after %u) in WAL segment %s, LSN %X/%X, "
@@ -546,23 +917,39 @@ msgstr ""
 "нарушение последовательности ID линии времени %u (после %u) в сегменте WAL "
 "%s, LSN %X/%X, смещение %u"
 
+<<<<<<< HEAD
 #: xlogreader.c:1754
+=======
+#: xlogreader.c:1749
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "out-of-order block_id %u at %X/%X"
 msgstr "идентификатор блока %u идёт не по порядку в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1778
+=======
+#: xlogreader.c:1773
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "BKPBLOCK_HAS_DATA set, but no data included at %X/%X"
 msgstr "BKPBLOCK_HAS_DATA установлен, но данных в позиции %X/%X нет"
 
+<<<<<<< HEAD
 #: xlogreader.c:1785
+=======
+#: xlogreader.c:1780
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "BKPBLOCK_HAS_DATA not set, but data length is %u at %X/%X"
 msgstr ""
 "BKPBLOCK_HAS_DATA не установлен, но длина данных равна %u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1821
+=======
+#: xlogreader.c:1816
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "BKPIMAGE_HAS_HOLE set, but hole offset %u length %u block image length %u at "
@@ -571,21 +958,33 @@ msgstr ""
 "BKPIMAGE_HAS_HOLE установлен, но для пропуска заданы смещение %u и длина %u "
 "при длине образа блока %u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1837
+=======
+#: xlogreader.c:1832
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "BKPIMAGE_HAS_HOLE not set, but hole offset %u length %u at %X/%X"
 msgstr ""
 "BKPIMAGE_HAS_HOLE не установлен, но для пропуска заданы смещение %u и длина "
 "%u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1851
+=======
+#: xlogreader.c:1846
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "BKPIMAGE_COMPRESSED set, but block image length %u at %X/%X"
 msgstr ""
 "BKPIMAGE_COMPRESSED установлен, но длина образа блока равна %u в позиции %X/"
 "%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1866
+=======
+#: xlogreader.c:1861
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "neither BKPIMAGE_HAS_HOLE nor BKPIMAGE_COMPRESSED set, but block image "
@@ -594,41 +993,69 @@ msgstr ""
 "ни BKPIMAGE_HAS_HOLE, ни BKPIMAGE_COMPRESSED не установлены, но длина образа "
 "блока равна %u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1882
+=======
+#: xlogreader.c:1877
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "BKPBLOCK_SAME_REL set but no previous rel at %X/%X"
 msgstr ""
 "BKPBLOCK_SAME_REL установлен, но предыдущее значение не задано в позиции %X/"
 "%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1894
+=======
+#: xlogreader.c:1889
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "invalid block_id %u at %X/%X"
 msgstr "неверный идентификатор блока %u в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1961
+=======
+#: xlogreader.c:1956
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "record with invalid length at %X/%X"
 msgstr "запись с неверной длиной в позиции %X/%X"
 
+<<<<<<< HEAD
 #: xlogreader.c:1987
+=======
+#: xlogreader.c:1982
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not locate backup block with ID %d in WAL record"
 msgstr "не удалось найти копию блока с ID %d в записи журнала WAL"
 
+<<<<<<< HEAD
 #: xlogreader.c:2071
+=======
+#: xlogreader.c:2066
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not restore image at %X/%X with invalid block %d specified"
 msgstr ""
 "не удалось восстановить образ в позиции %X/%X с указанным неверным блоком %d"
 
+<<<<<<< HEAD
 #: xlogreader.c:2078
+=======
+#: xlogreader.c:2073
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not restore image at %X/%X with invalid state, block %d"
 msgstr ""
 "не удалось восстановить образ в позиции %X/%X с неверным состоянием, блок %d"
 
+<<<<<<< HEAD
 #: xlogreader.c:2105 xlogreader.c:2122
+=======
+#: xlogreader.c:2100 xlogreader.c:2117
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not restore image at %X/%X compressed with %s not supported by build, "
@@ -637,7 +1064,11 @@ msgstr ""
 "не удалось восстановить образ в позиции %X/%X, сжатый методом %s, который не "
 "поддерживается этой сборкой, блок %d"
 
+<<<<<<< HEAD
 #: xlogreader.c:2131
+=======
+#: xlogreader.c:2126
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid ""
 "could not restore image at %X/%X compressed with unknown method, block %d"
@@ -645,7 +1076,11 @@ msgstr ""
 "не удалось восстановить образ в позиции %X/%X, сжатый неизвестным методом, "
 "блок %d"
 
+<<<<<<< HEAD
 #: xlogreader.c:2139
+=======
+#: xlogreader.c:2134
+>>>>>>> REL_18_BETA1_branch
 #, c-format
 msgid "could not decompress image at %X/%X, block %d"
 msgstr "не удалось развернуть образ в позиции %X/%X, блок %d"
@@ -700,9 +1135,6 @@ msgstr "не удалось развернуть образ в позиции %X
 
 #~ msgid "not enough data in file \"%s\""
 #~ msgstr "недостаточно данных в файле \"%s\""
-
-#~ msgid "out of memory"
-#~ msgstr "нехватка памяти"
 
 #~ msgid "path \"%s\" could not be opened: %s"
 #~ msgstr "не удалось открыть путь \"%s\": %s"

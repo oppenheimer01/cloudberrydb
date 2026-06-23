@@ -55,7 +55,7 @@
  *	 HeapTupleSatisfiesAny()
  *		  all tuples are visible
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -69,7 +69,6 @@
 #include "access/heapam.h"
 #include "access/htup_details.h"
 #include "access/multixact.h"
-#include "access/subtrans.h"
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "access/xact.h"
@@ -77,7 +76,6 @@
 #include "storage/bufmgr.h"
 #include "storage/procarray.h"
 #include "utils/builtins.h"
-#include "utils/combocid.h"
 #include "utils/snapmgr.h"
 
 #include "catalog/pg_namespace.h"
@@ -1048,6 +1046,15 @@ HeapTupleSatisfiesMVCC(Relation relation, HeapTuple htup, Snapshot snapshot,
 	HeapTupleHeader tuple = htup->t_data;
 	bool setDistributedSnapshotIgnore = false;
 	XidInMVCCSnapshotCheckResult snapshotCheckResult;
+
+	/*
+	 * Assert that the caller has registered the snapshot.  This function
+	 * doesn't care about the registration as such, but in general you
+	 * shouldn't try to use a snapshot without registration because it might
+	 * get invalidated while it's still in use, and this is a convenient place
+	 * to check for that.
+	 */
+	Assert(snapshot->regd_count > 0 || snapshot->active_count > 0);
 
 	Assert(ItemPointerIsValid(&htup->t_self));
 	Assert(htup->t_tableOid != InvalidOid);

@@ -3,7 +3,7 @@
  * pg_attrdef.c
  *	  routines to support manipulation of the pg_attrdef relation
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -14,18 +14,13 @@
  */
 #include "postgres.h"
 
-#include "access/genam.h"
 #include "access/relation.h"
 #include "access/table.h"
-#include "catalog/catalog.h"
 #include "catalog/dependency.h"
 #include "catalog/indexing.h"
 #include "catalog/objectaccess.h"
 #include "catalog/oid_dispatch.h"
 #include "catalog/pg_attrdef.h"
-#include "executor/executor.h"
-#include "optimizer/optimizer.h"
-#include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/rel.h"
@@ -36,29 +31,30 @@
  * Store a default expression for column attnum of relation rel.
  *
  * Returns the OID of the new pg_attrdef tuple.
- *
- * add_column_mode must be true if we are storing the default for a new
- * attribute, and false if it's for an already existing attribute. The reason
- * for this is that the missing value must never be updated after it is set,
- * which can only be when a column is added to the table. Otherwise we would
- * in effect be changing existing tuples.
  */
 Oid
 StoreAttrDefault(Relation rel, AttrNumber attnum,
+<<<<<<< HEAD
 				 Node *expr,
 				 bool *cookedMissingVal,
 				 Datum *missingval_p,
 				 bool *missingIsNull_p,
 				 bool is_internal, bool add_column_mode)
+=======
+				 Node *expr, bool is_internal)
+>>>>>>> REL_18_BETA1_branch
 {
 	char	   *adbin;
 	Relation	adrel;
 	HeapTuple	tuple;
-	Datum		values[4];
-	static bool nulls[4] = {false, false, false, false};
+	Datum		values[Natts_pg_attrdef];
+	static bool nulls[Natts_pg_attrdef] = {false, false, false, false};
 	Relation	attrrel;
 	HeapTuple	atttup;
 	Form_pg_attribute attStruct;
+	Datum		valuesAtt[Natts_pg_attribute] = {0};
+	bool		nullsAtt[Natts_pg_attribute] = {0};
+	bool		replacesAtt[Natts_pg_attribute] = {0};
 	char		attgenerated;
 	Oid			attrdefOid;
 	ObjectAddress colobject,
@@ -79,8 +75,8 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 										 RelationGetRelid(rel),
 										 attnum);
 	values[Anum_pg_attrdef_oid - 1] = ObjectIdGetDatum(attrdefOid);
-	values[Anum_pg_attrdef_adrelid - 1] = RelationGetRelid(rel);
-	values[Anum_pg_attrdef_adnum - 1] = attnum;
+	values[Anum_pg_attrdef_adrelid - 1] = ObjectIdGetDatum(RelationGetRelid(rel));
+	values[Anum_pg_attrdef_adnum - 1] = Int16GetDatum(attnum);
 	values[Anum_pg_attrdef_adbin - 1] = CStringGetTextDatum(adbin);
 
 	tuple = heap_form_tuple(adrel->rd_att, values, nulls);
@@ -110,23 +106,14 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 			 attnum, RelationGetRelid(rel));
 	attStruct = (Form_pg_attribute) GETSTRUCT(atttup);
 	attgenerated = attStruct->attgenerated;
-	if (!attStruct->atthasdef)
-	{
-		Form_pg_attribute defAttStruct;
 
-		ExprState  *exprState;
-		Expr	   *expr2 = (Expr *) expr;
-		EState	   *estate = NULL;
-		ExprContext *econtext;
-		Datum		valuesAtt[Natts_pg_attribute] = {0};
-		bool		nullsAtt[Natts_pg_attribute] = {0};
-		bool		replacesAtt[Natts_pg_attribute] = {0};
-		Datum		missingval = (Datum) 0;
-		bool		missingIsNull = true;
+	valuesAtt[Anum_pg_attribute_atthasdef - 1] = BoolGetDatum(true);
+	replacesAtt[Anum_pg_attribute_atthasdef - 1] = true;
 
-		valuesAtt[Anum_pg_attribute_atthasdef - 1] = true;
-		replacesAtt[Anum_pg_attribute_atthasdef - 1] = true;
+	atttup = heap_modify_tuple(atttup, RelationGetDescr(attrrel),
+							   valuesAtt, nullsAtt, replacesAtt);
 
+<<<<<<< HEAD
 		/*
 		 * Note: this code is dead so far as core Postgres is concerned,
 		 * because no caller passes add_column_mode = true anymore.  We keep
@@ -193,6 +180,10 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 //		if (!missingIsNull)
 //			pfree(DatumGetPointer(missingval));
 	}
+=======
+	CatalogTupleUpdate(attrrel, &atttup->t_self, atttup);
+
+>>>>>>> REL_18_BETA1_branch
 	table_close(attrrel, RowExclusiveLock);
 	heap_freetuple(atttup);
 

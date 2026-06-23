@@ -68,7 +68,7 @@ DROP TABLE tbl;
 CREATE TABLE tbl (c1 int,c2 int, c3 int, c4 box,
 				CONSTRAINT covering PRIMARY KEY(c1,c2) INCLUDE(c3,c4));
 SELECT indexrelid::regclass, indnatts, indnkeyatts, indisunique, indisprimary, indkey, indclass FROM pg_index WHERE indrelid = 'tbl'::regclass::oid;
-SELECT pg_get_constraintdef(oid), conname, conkey FROM pg_constraint WHERE conrelid = 'tbl'::regclass::oid;
+SELECT pg_get_constraintdef(oid), conname, conkey FROM pg_constraint WHERE conrelid = 'tbl'::regclass::oid AND contype = 'p';
 -- ensure that constraint works
 INSERT INTO tbl SELECT 1, 2, 3*x, box('4,4,4,4') FROM generate_series(1,10) AS x;
 INSERT INTO tbl SELECT 1, NULL, 3*x, box('4,4,4,4') FROM generate_series(1,10) AS x;
@@ -98,7 +98,7 @@ DROP TABLE tbl;
 CREATE TABLE tbl (c1 int,c2 int, c3 int, c4 box,
 				PRIMARY KEY(c1,c2) INCLUDE(c3,c4));
 SELECT indexrelid::regclass, indnatts, indnkeyatts, indisunique, indisprimary, indkey, indclass FROM pg_index WHERE indrelid = 'tbl'::regclass::oid;
-SELECT pg_get_constraintdef(oid), conname, conkey FROM pg_constraint WHERE conrelid = 'tbl'::regclass::oid;
+SELECT pg_get_constraintdef(oid), conname, conkey FROM pg_constraint WHERE conrelid = 'tbl'::regclass::oid AND contype = 'p';
 -- ensure that constraint works
 INSERT INTO tbl SELECT 1, 2, 3*x, box('4,4,4,4') FROM generate_series(1,10) AS x;
 INSERT INTO tbl SELECT 1, NULL, 3*x, box('4,4,4,4') FROM generate_series(1,10) AS x;
@@ -226,9 +226,16 @@ DROP TABLE tbl;
  */
 CREATE TABLE nametbl (c1 int, c2 name, c3 float);
 CREATE INDEX nametbl_c1_c2_idx ON nametbl (c2, c1) INCLUDE (c3);
+<<<<<<< HEAD
 INSERT INTO nametbl  SELECT x, 'two', 3.0 FROM generate_series(1,100) AS x;;
 VACUUM FREEZE nametbl;
 SET enable_seqscan = 0;
+=======
+INSERT INTO nametbl VALUES(1, 'two', 3.0);
+VACUUM nametbl;
+SET enable_seqscan = 0;
+
+>>>>>>> REL_18_BETA1_branch
 -- Ensure we get an index only scan plan
 EXPLAIN (COSTS OFF) SELECT c2, c1, c3 FROM nametbl WHERE c2 = 'two' AND c1 = 1;
 
@@ -237,4 +244,8 @@ SELECT c2, c1, c3 FROM nametbl WHERE c2 = 'two' AND c1 = 1;
 
 RESET enable_seqscan;
 
+<<<<<<< HEAD
 DROP TABLE nametbl;
+=======
+DROP TABLE nametbl;
+>>>>>>> REL_18_BETA1_branch

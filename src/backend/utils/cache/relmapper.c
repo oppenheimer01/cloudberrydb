@@ -28,7 +28,7 @@
  * all these files commit in a single map file update rather than being tied
  * to transaction commit.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -46,7 +46,6 @@
 #include "access/xact.h"
 #include "access/xlog.h"
 #include "access/xloginsert.h"
-#include "catalog/catalog.h"
 #include "catalog/pg_tablespace.h"
 #include "catalog/storage.h"
 #include "miscadmin.h"
@@ -855,7 +854,7 @@ read_relmap_file(RelMapFile *map, char *dbpath, bool lock_held, int elevel)
 
 	/* verify the CRC */
 	INIT_CRC32C(crc);
-	COMP_CRC32C(crc, (char *) map, offsetof(RelMapFile, crc));
+	COMP_CRC32C(crc, map, offsetof(RelMapFile, crc));
 	FIN_CRC32C(crc);
 
 	if (!EQ_CRC32C(crc, map->crc))
@@ -911,7 +910,7 @@ write_relmap_file(RelMapFile *newmap, bool write_wal, bool send_sinval,
 		elog(ERROR, "attempt to write bogus relation mapping");
 
 	INIT_CRC32C(newmap->crc);
-	COMP_CRC32C(newmap->crc, (char *) newmap, offsetof(RelMapFile, crc));
+	COMP_CRC32C(newmap->crc, newmap, offsetof(RelMapFile, crc));
 	FIN_CRC32C(newmap->crc);
 
 	/*
@@ -970,8 +969,8 @@ write_relmap_file(RelMapFile *newmap, bool write_wal, bool send_sinval,
 		xlrec.nbytes = sizeof(RelMapFile);
 
 		XLogBeginInsert();
-		XLogRegisterData((char *) (&xlrec), MinSizeOfRelmapUpdate);
-		XLogRegisterData((char *) newmap, sizeof(RelMapFile));
+		XLogRegisterData(&xlrec, MinSizeOfRelmapUpdate);
+		XLogRegisterData(newmap, sizeof(RelMapFile));
 
 		lsn = XLogInsert(RM_RELMAP_ID, XLOG_RELMAP_UPDATE);
 

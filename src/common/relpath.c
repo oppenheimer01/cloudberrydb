@@ -4,7 +4,7 @@
  *
  * This module also contains some logic associated with fork names.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -21,7 +21,7 @@
 #include "catalog/pg_tablespace_d.h"
 #include "cdb/cdbvars.h"
 #include "common/relpath.h"
-#include "storage/backendid.h"
+#include "storage/procnumber.h"
 
 
 /*
@@ -32,10 +32,10 @@
  * pg_relation_size().
  */
 const char *const forkNames[] = {
-	"main",						/* MAIN_FORKNUM */
-	"fsm",						/* FSM_FORKNUM */
-	"vm",						/* VISIBILITYMAP_FORKNUM */
-	"init"						/* INIT_FORKNUM */
+	[MAIN_FORKNUM] = "main",
+	[FSM_FORKNUM] = "fsm",
+	[VISIBILITYMAP_FORKNUM] = "vm",
+	[INIT_FORKNUM] = "init",
 };
 
 StaticAssertDecl(lengthof(forkNames) == (MAX_FORKNUM + 1),
@@ -124,16 +124,24 @@ GetDatabasePath(Oid dbOid, Oid spcOid)
 	else
 	{
 		/* All other tablespaces are accessed via symlinks */
+<<<<<<< HEAD
 		return psprintf("pg_tblspc/%u/%s/%u",
 						spcOid, GP_TABLESPACE_VERSION_DIRECTORY, dbOid);
+=======
+		return psprintf("%s/%u/%s/%u",
+						PG_TBLSPC_DIR, spcOid,
+						TABLESPACE_VERSION_DIRECTORY, dbOid);
+>>>>>>> REL_18_BETA1_branch
 	}
 }
 
 /*
  * GetRelationPath - construct path to a relation's file
  *
- * Result is a palloc'd string.
+ * The result is returned in-place as a struct, to make it suitable for use in
+ * critical sections etc.
  *
+<<<<<<< HEAD
  * Note: ideally, backendId would be declared as type BackendId, but relpath.h
  * would have to include a backend-only header to do that; doesn't seem worth
  * the trouble considering BackendId is just int anyway.
@@ -145,54 +153,72 @@ GetDatabasePath(Oid dbOid, Oid spcOid)
  * it's InvalidBackendId or not. If you need to construct the path of a
  * temporary relation, but don't know the real backend ID, pass
  * TempRelBackendId.
+=======
+ * Note: ideally, procNumber would be declared as type ProcNumber, but
+ * relpath.h would have to include a backend-only header to do that; doesn't
+ * seem worth the trouble considering ProcNumber is just int anyway.
+>>>>>>> REL_18_BETA1_branch
  */
-char *
+RelPathStr
 GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
-				int backendId, ForkNumber forkNumber)
+				int procNumber, ForkNumber forkNumber)
 {
-	char	   *path;
+	RelPathStr	rp;
 
 	if (spcOid == GLOBALTABLESPACE_OID)
 	{
 		/* Shared system relations live in {datadir}/global */
 		Assert(dbOid == 0);
-		Assert(backendId == InvalidBackendId);
+		Assert(procNumber == INVALID_PROC_NUMBER);
 		if (forkNumber != MAIN_FORKNUM)
-			path = psprintf("global/%u_%s",
-							relNumber, forkNames[forkNumber]);
+			sprintf(rp.str, "global/%u_%s",
+					relNumber, forkNames[forkNumber]);
 		else
-			path = psprintf("global/%u", relNumber);
+			sprintf(rp.str, "global/%u",
+					relNumber);
 	}
 	else if (spcOid == DEFAULTTABLESPACE_OID)
 	{
 		/* The default tablespace is {datadir}/base */
-		if (backendId == InvalidBackendId)
+		if (procNumber == INVALID_PROC_NUMBER)
 		{
 			if (forkNumber != MAIN_FORKNUM)
-				path = psprintf("base/%u/%u_%s",
-								dbOid, relNumber,
-								forkNames[forkNumber]);
+			{
+				sprintf(rp.str, "base/%u/%u_%s",
+						dbOid, relNumber,
+						forkNames[forkNumber]);
+			}
 			else
-				path = psprintf("base/%u/%u",
-								dbOid, relNumber);
+				sprintf(rp.str, "base/%u/%u",
+						dbOid, relNumber);
 		}
 		else
 		{
 			if (forkNumber != MAIN_FORKNUM)
+<<<<<<< HEAD
 				path = psprintf("base/%u/t_%u_%s",
 								dbOid, relNumber,
 								forkNames[forkNumber]);
 			else
 				path = psprintf("base/%u/t_%u",
 								dbOid, relNumber);
+=======
+				sprintf(rp.str, "base/%u/t%d_%u_%s",
+						dbOid, procNumber, relNumber,
+						forkNames[forkNumber]);
+			else
+				sprintf(rp.str, "base/%u/t%d_%u",
+						dbOid, procNumber, relNumber);
+>>>>>>> REL_18_BETA1_branch
 		}
 	}
 	else
 	{
 		/* All other tablespaces are accessed via symlinks */
-		if (backendId == InvalidBackendId)
+		if (procNumber == INVALID_PROC_NUMBER)
 		{
 			if (forkNumber != MAIN_FORKNUM)
+<<<<<<< HEAD
 				path = psprintf("pg_tblspc/%u/%s/%u/%u_%s",
 								spcOid, GP_TABLESPACE_VERSION_DIRECTORY,
 								dbOid, relNumber,
@@ -201,10 +227,23 @@ GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 				path = psprintf("pg_tblspc/%u/%s/%u/%u",
 								spcOid, GP_TABLESPACE_VERSION_DIRECTORY,
 								dbOid, relNumber);
+=======
+				sprintf(rp.str, "%s/%u/%s/%u/%u_%s",
+						PG_TBLSPC_DIR, spcOid,
+						TABLESPACE_VERSION_DIRECTORY,
+						dbOid, relNumber,
+						forkNames[forkNumber]);
+			else
+				sprintf(rp.str, "%s/%u/%s/%u/%u",
+						PG_TBLSPC_DIR, spcOid,
+						TABLESPACE_VERSION_DIRECTORY,
+						dbOid, relNumber);
+>>>>>>> REL_18_BETA1_branch
 		}
 		else
 		{
 			if (forkNumber != MAIN_FORKNUM)
+<<<<<<< HEAD
 				path = psprintf("pg_tblspc/%u/%s/%u/t_%u_%s",
 								spcOid, GP_TABLESPACE_VERSION_DIRECTORY,
 								dbOid, relNumber,
@@ -213,7 +252,22 @@ GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 				path = psprintf("pg_tblspc/%u/%s/%u/t_%u",
 								spcOid, GP_TABLESPACE_VERSION_DIRECTORY,
 								dbOid, relNumber);
+=======
+				sprintf(rp.str, "%s/%u/%s/%u/t%d_%u_%s",
+						PG_TBLSPC_DIR, spcOid,
+						TABLESPACE_VERSION_DIRECTORY,
+						dbOid, procNumber, relNumber,
+						forkNames[forkNumber]);
+			else
+				sprintf(rp.str, "%s/%u/%s/%u/t%d_%u",
+						PG_TBLSPC_DIR, spcOid,
+						TABLESPACE_VERSION_DIRECTORY,
+						dbOid, procNumber, relNumber);
+>>>>>>> REL_18_BETA1_branch
 		}
 	}
-	return path;
+
+	Assert(strnlen(rp.str, REL_PATH_STR_MAXLEN + 1) <= REL_PATH_STR_MAXLEN);
+
+	return rp;
 }

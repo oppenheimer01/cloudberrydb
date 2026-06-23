@@ -36,7 +36,13 @@ PostgreSQL documentation
     </arg>
    </arg>
 
-   <arg choice="opt"><replaceable>dbname</replaceable></arg>
+   <arg choice="opt">
+    <group choice="plain">
+     <arg choice="plain"><replaceable>dbname</replaceable></arg>
+     <arg choice="plain"><option>-a</option></arg>
+     <arg choice="plain"><option>--all</option></arg>
+    </group>
+   </arg>
   </cmdsynopsis>
 
   <cmdsynopsis>
@@ -47,40 +53,44 @@ PostgreSQL documentation
    <arg choice="plain" rep="repeat">
     <arg choice="opt">
      <group choice="plain">
-       <arg choice="plain">
-        <arg choice="opt">
-         <group choice="plain">
-          <arg choice="plain"><option>-n</option></arg>
-          <arg choice="plain"><option>--schema</option></arg>
-         </group>
-         <replaceable>schema</replaceable>
-        </arg>
-       </arg>
-
-       <arg choice="plain">
-        <arg choice="opt">
-         <group choice="plain">
-          <arg choice="plain"><option>-N</option></arg>
-          <arg choice="plain"><option>--exclude-schema</option></arg>
-         </group>
-         <replaceable>schema</replaceable>
-        </arg>
-       </arg>
+      <arg choice="plain"><option>-n</option></arg>
+      <arg choice="plain"><option>--schema</option></arg>
      </group>
+     <replaceable>schema</replaceable>
     </arg>
    </arg>
 
-   <arg choice="opt"><replaceable>dbname</replaceable></arg>
+   <arg choice="opt">
+    <group choice="plain">
+     <arg choice="plain"><replaceable>dbname</replaceable></arg>
+     <arg choice="plain"><option>-a</option></arg>
+     <arg choice="plain"><option>--all</option></arg>
+    </group>
+   </arg>
   </cmdsynopsis>
 
   <cmdsynopsis>
    <command>vacuumdb</command>
    <arg rep="repeat"><replaceable>connection-option</replaceable></arg>
    <arg rep="repeat"><replaceable>option</replaceable></arg>
-   <group choice="plain">
-    <arg choice="plain"><option>-a</option></arg>
-    <arg choice="plain"><option>--all</option></arg>
-   </group>
+
+   <arg choice="plain" rep="repeat">
+    <arg choice="opt">
+     <group choice="plain">
+      <arg choice="plain"><option>-N</option></arg>
+      <arg choice="plain"><option>--exclude-schema</option></arg>
+     </group>
+     <replaceable>schema</replaceable>
+    </arg>
+   </arg>
+
+   <arg choice="opt">
+    <group choice="plain">
+     <arg choice="plain"><replaceable>dbname</replaceable></arg>
+     <arg choice="plain"><option>-a</option></arg>
+     <arg choice="plain"><option>--all</option></arg>
+    </group>
+   </arg>
   </cmdsynopsis>
  </refsynopsisdiv>
 
@@ -263,6 +273,22 @@ PostgreSQL documentation
         issued by <application>vacuumdb</application> will also process the
         <acronym>TOAST</acronym> table for the relation if necessary, it does
         not need to be considered separately.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><option>--missing-stats-only</option></term>
+      <listitem>
+       <para>
+        Only analyze relations that are missing statistics for a column, index
+        expression, or extended statistics object.  This option prevents
+        <application>vacuumdb</application> from deleting existing statistics
+        so that the query optimizer's choices do not become transiently worse.
+       </para>
+       <para>
+        This option can only be used in conjunction with
+        <option>--analyze-only</option> or <option>--analyze-in-stages</option>.
        </para>
       </listitem>
      </varlistentry>
@@ -602,19 +628,6 @@ PostgreSQL documentation
    library will apply.
   </para>
 
- </refsect1>
-
-
- <refsect1>
-  <title>Notes</title>
-
-  <para>
-   <application>vacuumdb</application> might need to connect several
-   times to the <productname>PostgreSQL</productname> server, asking
-   for a password each time. It is convenient to have a
-   <filename>~/.pgpass</filename> file in such cases. See <xref
-   linkend="libpq-pgpass"/> for more information.
-  </para>
  </refsect1>
 
  <refsect1>

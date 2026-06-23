@@ -3,7 +3,7 @@
  * llvmjit_expr.c
  *	  JIT compile expressions.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -105,6 +105,8 @@ llvm_compile_expr(ExprState *state)
 	LLVMValueRef v_innerslot;
 	LLVMValueRef v_outerslot;
 	LLVMValueRef v_scanslot;
+	LLVMValueRef v_oldslot;
+	LLVMValueRef v_newslot;
 	LLVMValueRef v_resultslot;
 
 	/* nulls/values of slots */
@@ -114,6 +116,10 @@ llvm_compile_expr(ExprState *state)
 	LLVMValueRef v_outernulls;
 	LLVMValueRef v_scanvalues;
 	LLVMValueRef v_scannulls;
+	LLVMValueRef v_oldvalues;
+	LLVMValueRef v_oldnulls;
+	LLVMValueRef v_newvalues;
+	LLVMValueRef v_newnulls;
 	LLVMValueRef v_resultvalues;
 	LLVMValueRef v_resultnulls;
 
@@ -122,7 +128,9 @@ llvm_compile_expr(ExprState *state)
 	LLVMValueRef v_aggnulls;
 
 	instr_time	starttime;
+	instr_time	deform_starttime;
 	instr_time	endtime;
+	instr_time	deform_endtime;
 
 	llvm_enter_fatal_on_oom();
 
@@ -198,6 +206,19 @@ llvm_compile_expr(ExprState *state)
 									v_econtext,
 									FIELDNO_EXPRCONTEXT_OUTERTUPLE,
 									"v_outerslot");
+<<<<<<< HEAD
+=======
+	v_oldslot = l_load_struct_gep(b,
+								  StructExprContext,
+								  v_econtext,
+								  FIELDNO_EXPRCONTEXT_OLDTUPLE,
+								  "v_oldslot");
+	v_newslot = l_load_struct_gep(b,
+								  StructExprContext,
+								  v_econtext,
+								  FIELDNO_EXPRCONTEXT_NEWTUPLE,
+								  "v_newslot");
+>>>>>>> REL_18_BETA1_branch
 	v_resultslot = l_load_struct_gep(b,
 									 StructExprState,
 									 v_state,
@@ -235,6 +256,29 @@ llvm_compile_expr(ExprState *state)
 									 v_outerslot,
 									 FIELDNO_TUPLETABLESLOT_ISNULL,
 									 "v_outernulls");
+<<<<<<< HEAD
+=======
+	v_oldvalues = l_load_struct_gep(b,
+									StructTupleTableSlot,
+									v_oldslot,
+									FIELDNO_TUPLETABLESLOT_VALUES,
+									"v_oldvalues");
+	v_oldnulls = l_load_struct_gep(b,
+								   StructTupleTableSlot,
+								   v_oldslot,
+								   FIELDNO_TUPLETABLESLOT_ISNULL,
+								   "v_oldnulls");
+	v_newvalues = l_load_struct_gep(b,
+									StructTupleTableSlot,
+									v_newslot,
+									FIELDNO_TUPLETABLESLOT_VALUES,
+									"v_newvalues");
+	v_newnulls = l_load_struct_gep(b,
+								   StructTupleTableSlot,
+								   v_newslot,
+								   FIELDNO_TUPLETABLESLOT_ISNULL,
+								   "v_newnulls");
+>>>>>>> REL_18_BETA1_branch
 	v_resultvalues = l_load_struct_gep(b,
 									   StructTupleTableSlot,
 									   v_resultslot,
@@ -283,7 +327,7 @@ llvm_compile_expr(ExprState *state)
 
 		switch (opcode)
 		{
-			case EEOP_DONE:
+			case EEOP_DONE_RETURN:
 				{
 					LLVMValueRef v_tmpisnull;
 					LLVMValueRef v_tmpvalue;
@@ -297,9 +341,15 @@ llvm_compile_expr(ExprState *state)
 					break;
 				}
 
+			case EEOP_DONE_NO_RETURN:
+				LLVMBuildRet(b, l_sizet_const(0));
+				break;
+
 			case EEOP_INNER_FETCHSOME:
 			case EEOP_OUTER_FETCHSOME:
 			case EEOP_SCAN_FETCHSOME:
+			case EEOP_OLD_FETCHSOME:
+			case EEOP_NEW_FETCHSOME:
 				{
 					TupleDesc	desc = NULL;
 					LLVMValueRef v_slot;
@@ -324,8 +374,12 @@ llvm_compile_expr(ExprState *state)
 						v_slot = v_innerslot;
 					else if (opcode == EEOP_OUTER_FETCHSOME)
 						v_slot = v_outerslot;
-					else
+					else if (opcode == EEOP_SCAN_FETCHSOME)
 						v_slot = v_scanslot;
+					else if (opcode == EEOP_OLD_FETCHSOME)
+						v_slot = v_oldslot;
+					else
+						v_slot = v_newslot;
 
 					/*
 					 * Check if all required attributes are available, or
@@ -353,10 +407,14 @@ llvm_compile_expr(ExprState *state)
 					 */
 					if (tts_ops && desc && (context->base.flags & PGJIT_DEFORM))
 					{
+						INSTR_TIME_SET_CURRENT(deform_starttime);
 						l_jit_deform =
 							slot_compile_deform(context, desc,
 												tts_ops,
 												op->d.fetch.last_var);
+						INSTR_TIME_SET_CURRENT(deform_endtime);
+						INSTR_TIME_ACCUM_DIFF(context->base.instr.deform_counter,
+											  deform_endtime, deform_starttime);
 					}
 
 					if (l_jit_deform)
@@ -390,6 +448,8 @@ llvm_compile_expr(ExprState *state)
 			case EEOP_INNER_VAR:
 			case EEOP_OUTER_VAR:
 			case EEOP_SCAN_VAR:
+			case EEOP_OLD_VAR:
+			case EEOP_NEW_VAR:
 				{
 					LLVMValueRef value,
 								isnull;
@@ -407,10 +467,20 @@ llvm_compile_expr(ExprState *state)
 						v_values = v_outervalues;
 						v_nulls = v_outernulls;
 					}
-					else
+					else if (opcode == EEOP_SCAN_VAR)
 					{
 						v_values = v_scanvalues;
 						v_nulls = v_scannulls;
+					}
+					else if (opcode == EEOP_OLD_VAR)
+					{
+						v_values = v_oldvalues;
+						v_nulls = v_oldnulls;
+					}
+					else
+					{
+						v_values = v_newvalues;
+						v_nulls = v_newnulls;
 					}
 
 					v_attnum = l_int32_const(lc, op->d.var.attnum);
@@ -426,6 +496,8 @@ llvm_compile_expr(ExprState *state)
 			case EEOP_INNER_SYSVAR:
 			case EEOP_OUTER_SYSVAR:
 			case EEOP_SCAN_SYSVAR:
+			case EEOP_OLD_SYSVAR:
+			case EEOP_NEW_SYSVAR:
 				{
 					LLVMValueRef v_slot;
 
@@ -433,8 +505,12 @@ llvm_compile_expr(ExprState *state)
 						v_slot = v_innerslot;
 					else if (opcode == EEOP_OUTER_SYSVAR)
 						v_slot = v_outerslot;
-					else
+					else if (opcode == EEOP_SCAN_SYSVAR)
 						v_slot = v_scanslot;
+					else if (opcode == EEOP_OLD_SYSVAR)
+						v_slot = v_oldslot;
+					else
+						v_slot = v_newslot;
 
 					build_EvalXFunc(b, mod, "ExecEvalSysVar",
 									v_state, op, v_econtext, v_slot);
@@ -452,6 +528,8 @@ llvm_compile_expr(ExprState *state)
 			case EEOP_ASSIGN_INNER_VAR:
 			case EEOP_ASSIGN_OUTER_VAR:
 			case EEOP_ASSIGN_SCAN_VAR:
+			case EEOP_ASSIGN_OLD_VAR:
+			case EEOP_ASSIGN_NEW_VAR:
 				{
 					LLVMValueRef v_value;
 					LLVMValueRef v_isnull;
@@ -472,10 +550,20 @@ llvm_compile_expr(ExprState *state)
 						v_values = v_outervalues;
 						v_nulls = v_outernulls;
 					}
-					else
+					else if (opcode == EEOP_ASSIGN_SCAN_VAR)
 					{
 						v_values = v_scanvalues;
 						v_nulls = v_scannulls;
+					}
+					else if (opcode == EEOP_ASSIGN_OLD_VAR)
+					{
+						v_values = v_oldvalues;
+						v_nulls = v_oldnulls;
+					}
+					else
+					{
+						v_values = v_newvalues;
+						v_nulls = v_newnulls;
 					}
 
 					/* load data */
@@ -580,12 +668,16 @@ llvm_compile_expr(ExprState *state)
 
 			case EEOP_FUNCEXPR:
 			case EEOP_FUNCEXPR_STRICT:
+			case EEOP_FUNCEXPR_STRICT_1:
+			case EEOP_FUNCEXPR_STRICT_2:
 				{
 					FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
 					LLVMValueRef v_fcinfo_isnull;
 					LLVMValueRef v_retval;
 
-					if (opcode == EEOP_FUNCEXPR_STRICT)
+					if (opcode == EEOP_FUNCEXPR_STRICT ||
+						opcode == EEOP_FUNCEXPR_STRICT_1 ||
+						opcode == EEOP_FUNCEXPR_STRICT_2)
 					{
 						LLVMBasicBlockRef b_nonull;
 						LLVMBasicBlockRef *b_checkargnulls;
@@ -713,11 +805,14 @@ llvm_compile_expr(ExprState *state)
 
 					v_boolnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
+<<<<<<< HEAD
 
 					/* set resnull to boolnull */
 					LLVMBuildStore(b, v_boolnull, v_resnullp);
 					/* set revalue to boolvalue */
 					LLVMBuildStore(b, v_boolvalue, v_resvaluep);
+=======
+>>>>>>> REL_18_BETA1_branch
 
 					/* check if current input is NULL */
 					LLVMBuildCondBr(b,
@@ -809,11 +904,14 @@ llvm_compile_expr(ExprState *state)
 						LLVMBuildStore(b, l_sbool_const(0), v_boolanynullp);
 					v_boolnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
+<<<<<<< HEAD
 
 					/* set resnull to boolnull */
 					LLVMBuildStore(b, v_boolnull, v_resnullp);
 					/* set revalue to boolvalue */
 					LLVMBuildStore(b, v_boolvalue, v_resvaluep);
+=======
+>>>>>>> REL_18_BETA1_branch
 
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolnull,
@@ -869,21 +967,28 @@ llvm_compile_expr(ExprState *state)
 			case EEOP_BOOL_NOT_STEP:
 				{
 					LLVMValueRef v_boolvalue;
-					LLVMValueRef v_boolnull;
 					LLVMValueRef v_negbool;
 
+<<<<<<< HEAD
 					v_boolnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
 
+=======
+					/* compute !boolvalue */
+					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
+>>>>>>> REL_18_BETA1_branch
 					v_negbool = LLVMBuildZExt(b,
 											  LLVMBuildICmp(b, LLVMIntEQ,
 															v_boolvalue,
 															l_sizet_const(0),
 															""),
 											  TypeSizeT, "");
-					/* set resnull to boolnull */
-					LLVMBuildStore(b, v_boolnull, v_resnullp);
-					/* set revalue to !boolvalue */
+
+					/*
+					 * Store it back in resvalue.  We can ignore resnull here;
+					 * if it was true, it stays true, and the value we store
+					 * in resvalue doesn't matter.
+					 */
 					LLVMBuildStore(b, v_negbool, v_resvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
@@ -1139,6 +1244,12 @@ llvm_compile_expr(ExprState *state)
 					break;
 				}
 
+			case EEOP_PARAM_SET:
+				build_EvalXFunc(b, mod, "ExecEvalParamSet",
+								v_state, op, v_econtext);
+				LLVMBuildBr(b, opblocks[opno + 1]);
+				break;
+
 			case EEOP_SBSREF_SUBSCRIPTS:
 				{
 					int			jumpdone = op->d.sbsref_subscript.jumpdone;
@@ -1190,24 +1301,17 @@ llvm_compile_expr(ExprState *state)
 
 			case EEOP_CASE_TESTVAL:
 				{
-					LLVMBasicBlockRef b_avail,
-								b_notavail;
 					LLVMValueRef v_casevaluep,
 								v_casevalue;
 					LLVMValueRef v_casenullp,
 								v_casenull;
-					LLVMValueRef v_casevaluenull;
-
-					b_avail = l_bb_before_v(opblocks[opno + 1],
-											"op.%d.avail", opno);
-					b_notavail = l_bb_before_v(opblocks[opno + 1],
-											   "op.%d.notavail", opno);
 
 					v_casevaluep = l_ptr_const(op->d.casetest.value,
 											   l_ptr(TypeSizeT));
 					v_casenullp = l_ptr_const(op->d.casetest.isnull,
 											  l_ptr(TypeStorageBool));
 
+<<<<<<< HEAD
 					v_casevaluenull =
 						LLVMBuildICmp(b, LLVMIntEQ,
 									  LLVMBuildPtrToInt(b, v_casevaluep,
@@ -1217,14 +1321,22 @@ llvm_compile_expr(ExprState *state)
 
 					/* if casetest != NULL */
 					LLVMPositionBuilderAtEnd(b, b_avail);
+=======
+>>>>>>> REL_18_BETA1_branch
 					v_casevalue = l_load(b, TypeSizeT, v_casevaluep, "");
 					v_casenull = l_load(b, TypeStorageBool, v_casenullp, "");
 					LLVMBuildStore(b, v_casevalue, v_resvaluep);
 					LLVMBuildStore(b, v_casenull, v_resnullp);
-					LLVMBuildBr(b, opblocks[opno + 1]);
 
-					/* if casetest == NULL */
-					LLVMPositionBuilderAtEnd(b, b_notavail);
+					LLVMBuildBr(b, opblocks[opno + 1]);
+					break;
+				}
+
+			case EEOP_CASE_TESTVAL_EXT:
+				{
+					LLVMValueRef v_casevalue;
+					LLVMValueRef v_casenull;
+
 					v_casevalue =
 						l_load_struct_gep(b,
 										  StructExprContext,
@@ -1425,6 +1537,12 @@ llvm_compile_expr(ExprState *state)
 					break;
 				}
 
+			case EEOP_IOCOERCE_SAFE:
+				build_EvalXFunc(b, mod, "ExecEvalCoerceViaIOSafe",
+								v_state, op);
+				LLVMBuildBr(b, opblocks[opno + 1]);
+				break;
+
 			case EEOP_DISTINCT:
 			case EEOP_NOT_DISTINCT:
 				{
@@ -1622,7 +1740,6 @@ llvm_compile_expr(ExprState *state)
 					LLVMPositionBuilderAtEnd(b, b_argsequal);
 					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
 					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
-					LLVMBuildStore(b, v_retval, v_resvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
 					break;
@@ -1645,6 +1762,45 @@ llvm_compile_expr(ExprState *state)
 								v_state, op);
 				LLVMBuildBr(b, opblocks[opno + 1]);
 				break;
+
+			case EEOP_RETURNINGEXPR:
+				{
+					LLVMBasicBlockRef b_isnull;
+					LLVMValueRef v_flagsp;
+					LLVMValueRef v_flags;
+					LLVMValueRef v_nullflag;
+
+					b_isnull = l_bb_before_v(opblocks[opno + 1],
+											 "op.%d.row.isnull", opno);
+
+					/*
+					 * The next op actually evaluates the expression.  If the
+					 * OLD/NEW row doesn't exist, skip that and return NULL.
+					 */
+					v_flagsp = l_struct_gep(b,
+											StructExprState,
+											v_state,
+											FIELDNO_EXPRSTATE_FLAGS,
+											"v.state.flags");
+					v_flags = l_load(b, TypeStorageBool, v_flagsp, "");
+
+					v_nullflag = l_int8_const(lc, op->d.returningexpr.nullflag);
+
+					LLVMBuildCondBr(b,
+									LLVMBuildICmp(b, LLVMIntEQ,
+												  LLVMBuildAnd(b, v_flags,
+															   v_nullflag, ""),
+												  l_sbool_const(0), ""),
+									opblocks[opno + 1], b_isnull);
+
+					LLVMPositionBuilderAtEnd(b, b_isnull);
+
+					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
+					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
+
+					LLVMBuildBr(b, opblocks[op->d.returningexpr.jumpdone]);
+					break;
+				}
 
 			case EEOP_ARRAYEXPR:
 				build_EvalXFunc(b, mod, "ExecEvalArrayExpr",
@@ -1762,7 +1918,7 @@ llvm_compile_expr(ExprState *state)
 
 			case EEOP_ROWCOMPARE_FINAL:
 				{
-					RowCompareType rctype = op->d.rowcompare_final.rctype;
+					CompareType cmptype = op->d.rowcompare_final.cmptype;
 
 					LLVMValueRef v_cmpresult;
 					LLVMValueRef v_result;
@@ -1778,18 +1934,18 @@ llvm_compile_expr(ExprState *state)
 									   l_load(b, TypeSizeT, v_resvaluep, ""),
 									   LLVMInt32TypeInContext(lc), "");
 
-					switch (rctype)
+					switch (cmptype)
 					{
-						case ROWCOMPARE_LT:
+						case COMPARE_LT:
 							predicate = LLVMIntSLT;
 							break;
-						case ROWCOMPARE_LE:
+						case COMPARE_LE:
 							predicate = LLVMIntSLE;
 							break;
-						case ROWCOMPARE_GT:
+						case COMPARE_GT:
 							predicate = LLVMIntSGT;
 							break;
-						case ROWCOMPARE_GE:
+						case COMPARE_GE:
 							predicate = LLVMIntSGE;
 							break;
 						default:
@@ -1839,24 +1995,17 @@ llvm_compile_expr(ExprState *state)
 
 			case EEOP_DOMAIN_TESTVAL:
 				{
-					LLVMBasicBlockRef b_avail,
-								b_notavail;
 					LLVMValueRef v_casevaluep,
 								v_casevalue;
 					LLVMValueRef v_casenullp,
 								v_casenull;
-					LLVMValueRef v_casevaluenull;
-
-					b_avail = l_bb_before_v(opblocks[opno + 1],
-											"op.%d.avail", opno);
-					b_notavail = l_bb_before_v(opblocks[opno + 1],
-											   "op.%d.notavail", opno);
 
 					v_casevaluep = l_ptr_const(op->d.casetest.value,
 											   l_ptr(TypeSizeT));
 					v_casenullp = l_ptr_const(op->d.casetest.isnull,
 											  l_ptr(TypeStorageBool));
 
+<<<<<<< HEAD
 					v_casevaluenull =
 						LLVMBuildICmp(b, LLVMIntEQ,
 									  LLVMBuildPtrToInt(b, v_casevaluep,
@@ -1868,14 +2017,22 @@ llvm_compile_expr(ExprState *state)
 
 					/* if casetest != NULL */
 					LLVMPositionBuilderAtEnd(b, b_avail);
+=======
+>>>>>>> REL_18_BETA1_branch
 					v_casevalue = l_load(b, TypeSizeT, v_casevaluep, "");
 					v_casenull = l_load(b, TypeStorageBool, v_casenullp, "");
 					LLVMBuildStore(b, v_casevalue, v_resvaluep);
 					LLVMBuildStore(b, v_casenull, v_resnullp);
-					LLVMBuildBr(b, opblocks[opno + 1]);
 
-					/* if casetest == NULL */
-					LLVMPositionBuilderAtEnd(b, b_notavail);
+					LLVMBuildBr(b, opblocks[opno + 1]);
+					break;
+				}
+
+			case EEOP_DOMAIN_TESTVAL_EXT:
+				{
+					LLVMValueRef v_casevalue;
+					LLVMValueRef v_casenull;
+
 					v_casevalue =
 						l_load_struct_gep(b,
 										  StructExprContext,
@@ -1906,6 +2063,216 @@ llvm_compile_expr(ExprState *state)
 								v_state, op);
 				LLVMBuildBr(b, opblocks[opno + 1]);
 				break;
+
+			case EEOP_HASHDATUM_SET_INITVAL:
+				{
+					LLVMValueRef v_initvalue;
+
+					v_initvalue = l_sizet_const(op->d.hashdatum_initvalue.init_value);
+
+					LLVMBuildStore(b, v_initvalue, v_resvaluep);
+					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
+					LLVMBuildBr(b, opblocks[opno + 1]);
+					break;
+				}
+
+			case EEOP_HASHDATUM_FIRST:
+			case EEOP_HASHDATUM_FIRST_STRICT:
+			case EEOP_HASHDATUM_NEXT32:
+			case EEOP_HASHDATUM_NEXT32_STRICT:
+				{
+					FunctionCallInfo fcinfo = op->d.hashdatum.fcinfo_data;
+					LLVMValueRef v_fcinfo;
+					LLVMValueRef v_fcinfo_isnull;
+					LLVMValueRef v_retval;
+					LLVMBasicBlockRef b_checkargnull;
+					LLVMBasicBlockRef b_ifnotnull;
+					LLVMBasicBlockRef b_ifnullblock;
+					LLVMValueRef v_argisnull;
+					LLVMValueRef v_prevhash = NULL;
+
+					/*
+					 * When performing the next hash and not in strict mode we
+					 * perform a rotation of the previously stored hash value
+					 * before doing the NULL check.  We want to do this even
+					 * when we receive a NULL Datum to hash.  In strict mode,
+					 * we do this after the NULL check so as not to waste the
+					 * effort of rotating the bits when we're going to throw
+					 * away the hash value and return NULL.
+					 */
+					if (opcode == EEOP_HASHDATUM_NEXT32)
+					{
+						LLVMValueRef v_tmp1;
+						LLVMValueRef v_tmp2;
+						LLVMValueRef tmp;
+
+						tmp = l_ptr_const(&op->d.hashdatum.iresult->value,
+										  l_ptr(TypeSizeT));
+
+						/*
+						 * Fetch the previously hashed value from where the
+						 * previous hash operation stored it.
+						 */
+						v_prevhash = l_load(b, TypeSizeT, tmp, "prevhash");
+
+						/*
+						 * Rotate bits left by 1 bit.  Be careful not to
+						 * overflow uint32 when working with size_t.
+						 */
+						v_tmp1 = LLVMBuildShl(b, v_prevhash, l_sizet_const(1),
+											  "");
+						v_tmp1 = LLVMBuildAnd(b, v_tmp1,
+											  l_sizet_const(0xffffffff), "");
+						v_tmp2 = LLVMBuildLShr(b, v_prevhash,
+											   l_sizet_const(31), "");
+						v_prevhash = LLVMBuildOr(b, v_tmp1, v_tmp2,
+												 "rotatedhash");
+					}
+
+					/*
+					 * Block for the actual function call, if args are
+					 * non-NULL.
+					 */
+					b_ifnotnull = l_bb_before_v(opblocks[opno + 1],
+												"b.%d.ifnotnull",
+												opno);
+
+					/* we expect the hash function to have 1 argument */
+					if (fcinfo->nargs != 1)
+						elog(ERROR, "incorrect number of function arguments");
+
+					v_fcinfo = l_ptr_const(fcinfo,
+										   l_ptr(StructFunctionCallInfoData));
+
+					b_checkargnull = l_bb_before_v(b_ifnotnull,
+												   "b.%d.isnull.0", opno);
+
+					LLVMBuildBr(b, b_checkargnull);
+
+					/*
+					 * Determine what to do if we find the argument to be
+					 * NULL.
+					 */
+					if (opcode == EEOP_HASHDATUM_FIRST_STRICT ||
+						opcode == EEOP_HASHDATUM_NEXT32_STRICT)
+					{
+						b_ifnullblock = l_bb_before_v(b_ifnotnull,
+													  "b.%d.strictnull",
+													  opno);
+
+						LLVMPositionBuilderAtEnd(b, b_ifnullblock);
+
+						/*
+						 * In strict node, NULL inputs result in NULL.  Save
+						 * the NULL result and goto jumpdone.
+						 */
+						LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
+						LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
+						LLVMBuildBr(b, opblocks[op->d.hashdatum.jumpdone]);
+					}
+					else
+					{
+						b_ifnullblock = l_bb_before_v(b_ifnotnull,
+													  "b.%d.null",
+													  opno);
+
+						LLVMPositionBuilderAtEnd(b, b_ifnullblock);
+
+
+						LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
+
+						if (opcode == EEOP_HASHDATUM_NEXT32)
+						{
+							Assert(v_prevhash != NULL);
+
+							/*
+							 * Save the rotated hash value and skip to the
+							 * next op.
+							 */
+							LLVMBuildStore(b, v_prevhash, v_resvaluep);
+						}
+						else
+						{
+							Assert(opcode == EEOP_HASHDATUM_FIRST);
+
+							/*
+							 * Store a zero Datum when the Datum to hash is
+							 * NULL
+							 */
+							LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
+						}
+
+						LLVMBuildBr(b, opblocks[opno + 1]);
+					}
+
+					LLVMPositionBuilderAtEnd(b, b_checkargnull);
+
+					/* emit code to check if the input parameter is NULL */
+					v_argisnull = l_funcnull(b, v_fcinfo, 0);
+					LLVMBuildCondBr(b,
+									LLVMBuildICmp(b,
+												  LLVMIntEQ,
+												  v_argisnull,
+												  l_sbool_const(1),
+												  ""),
+									b_ifnullblock,
+									b_ifnotnull);
+
+					LLVMPositionBuilderAtEnd(b, b_ifnotnull);
+
+					/*
+					 * Rotate the previously stored hash value when performing
+					 * NEXT32 in strict mode.  In non-strict mode we already
+					 * did this before checking for NULLs.
+					 */
+					if (opcode == EEOP_HASHDATUM_NEXT32_STRICT)
+					{
+						LLVMValueRef v_tmp1;
+						LLVMValueRef v_tmp2;
+						LLVMValueRef tmp;
+
+						tmp = l_ptr_const(&op->d.hashdatum.iresult->value,
+										  l_ptr(TypeSizeT));
+
+						/*
+						 * Fetch the previously hashed value from where the
+						 * previous hash operation stored it.
+						 */
+						v_prevhash = l_load(b, TypeSizeT, tmp, "prevhash");
+
+						/*
+						 * Rotate bits left by 1 bit.  Be careful not to
+						 * overflow uint32 when working with size_t.
+						 */
+						v_tmp1 = LLVMBuildShl(b, v_prevhash, l_sizet_const(1),
+											  "");
+						v_tmp1 = LLVMBuildAnd(b, v_tmp1,
+											  l_sizet_const(0xffffffff), "");
+						v_tmp2 = LLVMBuildLShr(b, v_prevhash,
+											   l_sizet_const(31), "");
+						v_prevhash = LLVMBuildOr(b, v_tmp1, v_tmp2,
+												 "rotatedhash");
+					}
+
+					/* call the hash function */
+					v_retval = BuildV1Call(context, b, mod, fcinfo,
+										   &v_fcinfo_isnull);
+
+					/*
+					 * For NEXT32 ops, XOR (^) the returned hash value with
+					 * the existing hash value.
+					 */
+					if (opcode == EEOP_HASHDATUM_NEXT32 ||
+						opcode == EEOP_HASHDATUM_NEXT32_STRICT)
+						v_retval = LLVMBuildXor(b, v_prevhash, v_retval,
+												"xorhash");
+
+					LLVMBuildStore(b, v_retval, v_resvaluep);
+					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
+
+					LLVMBuildBr(b, opblocks[opno + 1]);
+					break;
+				}
 
 			case EEOP_CONVERT_ROWTYPE:
 				build_EvalXFunc(b, mod, "ExecEvalConvertRowtype",
@@ -1952,6 +2319,114 @@ llvm_compile_expr(ExprState *state)
 			case EEOP_IS_JSON:
 				build_EvalXFunc(b, mod, "ExecEvalJsonIsPredicate",
 								v_state, op);
+				LLVMBuildBr(b, opblocks[opno + 1]);
+				break;
+
+			case EEOP_JSONEXPR_PATH:
+				{
+					JsonExprState *jsestate = op->d.jsonexpr.jsestate;
+					LLVMValueRef v_ret;
+
+					/*
+					 * Call ExecEvalJsonExprPath().  It returns the address of
+					 * the step to perform next.
+					 */
+					v_ret = build_EvalXFunc(b, mod, "ExecEvalJsonExprPath",
+											v_state, op, v_econtext);
+
+					/*
+					 * Build a switch to map the return value (v_ret above),
+					 * which is a runtime value of the step address to perform
+					 * next, to either jump_empty, jump_error,
+					 * jump_eval_coercion, or jump_end.
+					 */
+					if (jsestate->jump_empty >= 0 ||
+						jsestate->jump_error >= 0 ||
+						jsestate->jump_eval_coercion >= 0)
+					{
+						LLVMValueRef v_jump_empty;
+						LLVMValueRef v_jump_error;
+						LLVMValueRef v_jump_coercion;
+						LLVMValueRef v_switch;
+						LLVMBasicBlockRef b_done,
+									b_empty,
+									b_error,
+									b_coercion;
+
+						b_empty =
+							l_bb_before_v(opblocks[opno + 1],
+										  "op.%d.jsonexpr_empty", opno);
+						b_error =
+							l_bb_before_v(opblocks[opno + 1],
+										  "op.%d.jsonexpr_error", opno);
+						b_coercion =
+							l_bb_before_v(opblocks[opno + 1],
+										  "op.%d.jsonexpr_coercion", opno);
+						b_done =
+							l_bb_before_v(opblocks[opno + 1],
+										  "op.%d.jsonexpr_done", opno);
+
+						v_switch = LLVMBuildSwitch(b,
+												   v_ret,
+												   b_done,
+												   3);
+						/* Returned jsestate->jump_empty? */
+						if (jsestate->jump_empty >= 0)
+						{
+							v_jump_empty = l_int32_const(lc, jsestate->jump_empty);
+							LLVMAddCase(v_switch, v_jump_empty, b_empty);
+						}
+						/* ON EMPTY code */
+						LLVMPositionBuilderAtEnd(b, b_empty);
+						if (jsestate->jump_empty >= 0)
+							LLVMBuildBr(b, opblocks[jsestate->jump_empty]);
+						else
+							LLVMBuildUnreachable(b);
+
+						/* Returned jsestate->jump_error? */
+						if (jsestate->jump_error >= 0)
+						{
+							v_jump_error = l_int32_const(lc, jsestate->jump_error);
+							LLVMAddCase(v_switch, v_jump_error, b_error);
+						}
+						/* ON ERROR code */
+						LLVMPositionBuilderAtEnd(b, b_error);
+						if (jsestate->jump_error >= 0)
+							LLVMBuildBr(b, opblocks[jsestate->jump_error]);
+						else
+							LLVMBuildUnreachable(b);
+
+						/* Returned jsestate->jump_eval_coercion? */
+						if (jsestate->jump_eval_coercion >= 0)
+						{
+							v_jump_coercion = l_int32_const(lc, jsestate->jump_eval_coercion);
+							LLVMAddCase(v_switch, v_jump_coercion, b_coercion);
+						}
+						/* jump_eval_coercion code */
+						LLVMPositionBuilderAtEnd(b, b_coercion);
+						if (jsestate->jump_eval_coercion >= 0)
+							LLVMBuildBr(b, opblocks[jsestate->jump_eval_coercion]);
+						else
+							LLVMBuildUnreachable(b);
+
+						LLVMPositionBuilderAtEnd(b, b_done);
+					}
+
+					LLVMBuildBr(b, opblocks[jsestate->jump_end]);
+					break;
+				}
+
+			case EEOP_JSONEXPR_COERCION:
+				build_EvalXFunc(b, mod, "ExecEvalJsonCoercion",
+								v_state, op, v_econtext);
+
+				LLVMBuildBr(b, opblocks[opno + 1]);
+				break;
+
+			case EEOP_JSONEXPR_COERCION_FINISH:
+				build_EvalXFunc(b, mod, "ExecEvalJsonCoercionFinish",
+								v_state, op);
+
 				LLVMBuildBr(b, opblocks[opno + 1]);
 				break;
 
@@ -2092,6 +2567,12 @@ llvm_compile_expr(ExprState *state)
 					break;
 				}
 
+			case EEOP_MERGE_SUPPORT_FUNC:
+				build_EvalXFunc(b, mod, "ExecEvalMergeSupportFunc",
+								v_state, op, v_econtext);
+				LLVMBuildBr(b, opblocks[opno + 1]);
+				break;
+
 			case EEOP_SUBPLAN:
 				build_EvalXFunc(b, mod, "ExecEvalSubPlan",
 								v_state, op, v_econtext);
@@ -2152,6 +2633,7 @@ llvm_compile_expr(ExprState *state)
 				}
 
 			case EEOP_AGG_STRICT_INPUT_CHECK_ARGS:
+			case EEOP_AGG_STRICT_INPUT_CHECK_ARGS_1:
 			case EEOP_AGG_STRICT_INPUT_CHECK_NULLS:
 				{
 					int			nargs = op->d.agg_strict_input_check.nargs;
@@ -2756,12 +3238,8 @@ create_LifetimeEnd(LLVMModuleRef mod)
 	LLVMTypeRef param_types[2];
 	LLVMContextRef lc;
 
-	/* LLVM 5+ has a variadic pointer argument */
-#if LLVM_VERSION_MAJOR < 5
-	const char *nm = "llvm.lifetime.end";
-#else
-	const char *nm = "llvm.lifetime.end.p0i8";
-#endif
+	/* variadic pointer argument */
+	const char *nm = "llvm.lifetime.end.p0";
 
 	fn = LLVMGetNamedFunction(mod, nm);
 	if (fn)

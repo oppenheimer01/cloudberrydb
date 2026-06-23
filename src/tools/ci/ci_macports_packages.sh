@@ -82,7 +82,11 @@ fi
 
 # check if any ports should be uninstalled
 if [ -n "$(port -q installed rleaves)" ] ; then
+<<<<<<< HEAD
     echo superflous packages installed
+=======
+    echo superfluous packages installed
+>>>>>>> REL_18_BETA1_branch
     update_cached_image=1
     sudo port uninstall --follow-dependencies rleaves
 

@@ -9,7 +9,7 @@
  * proper FooMain() routine for the incarnation.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -33,9 +33,11 @@
 #include "bootstrap/bootstrap.h"
 #include "common/username.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "port/atomics.h"
+=======
+>>>>>>> REL_18_BETA1_branch
 #include "postmaster/postmaster.h"
-#include "storage/spin.h"
 #include "tcop/tcopprot.h"
 #include "utils/help_config.h"
 #include "utils/memutils.h"
@@ -47,6 +49,19 @@
 const char *progname;
 static bool reached_main = false;
 
+/* names of special must-be-first options for dispatching to subprograms */
+static const char *const DispatchOptionNames[] =
+{
+	[DISPATCH_CHECK] = "check",
+	[DISPATCH_BOOT] = "boot",
+	[DISPATCH_FORKCHILD] = "forkchild",
+	[DISPATCH_DESCRIBE_CONFIG] = "describe-config",
+	[DISPATCH_SINGLE] = "single",
+	/* DISPATCH_POSTMASTER has no name */
+};
+
+StaticAssertDecl(lengthof(DispatchOptionNames) == DISPATCH_POSTMASTER,
+				 "array length mismatch");
 
 static void startup_hacks(const char *progname);
 static void init_locale(const char *categoryname, int category, const char *locale);
@@ -107,6 +122,7 @@ int
 main(int argc, char *argv[])
 {
 	bool		do_check_root = true;
+	DispatchOption dispatch_option = DISPATCH_POSTMASTER;
 
 	reached_main = true;
 
@@ -149,6 +165,12 @@ main(int argc, char *argv[])
 	MemoryContextInit();
 
 	/*
+	 * Set reference point for stack-depth checking.  (There's no point in
+	 * enabling this before error reporting works.)
+	 */
+	(void) set_stack_base();
+
+	/*
 	 * Set up locale information
 	 */
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("postgres"));
@@ -171,10 +193,7 @@ main(int argc, char *argv[])
 	init_locale("LC_MESSAGES", LC_MESSAGES, "");
 #endif
 
-	/*
-	 * We keep these set to "C" always, except transiently in pg_locale.c; see
-	 * that file for explanations.
-	 */
+	/* We keep these set to "C" always.  See pg_locale.c for explanation. */
 	init_locale("LC_MONETARY", LC_MONETARY, "C");
 	init_locale("LC_NUMERIC", LC_NUMERIC, "C");
 	init_locale("LC_TIME", LC_TIME, "C");
@@ -241,14 +260,24 @@ main(int argc, char *argv[])
 	 * Dispatch to one of various subprograms depending on first argument.
 	 */
 
-	if (argc > 1 && strcmp(argv[1], "--check") == 0)
-		BootstrapModeMain(argc, argv, true);
-	else if (argc > 1 && strcmp(argv[1], "--boot") == 0)
-		BootstrapModeMain(argc, argv, false);
+	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == '-')
+		dispatch_option = parse_dispatch_option(&argv[1][2]);
+
+	switch (dispatch_option)
+	{
+		case DISPATCH_CHECK:
+			BootstrapModeMain(argc, argv, true);
+			break;
+		case DISPATCH_BOOT:
+			BootstrapModeMain(argc, argv, false);
+			break;
+		case DISPATCH_FORKCHILD:
 #ifdef EXEC_BACKEND
-	else if (argc > 1 && strncmp(argv[1], "--fork", 6) == 0)
-		SubPostmasterMain(argc, argv);
+			SubPostmasterMain(argc, argv);
+#else
+			Assert(false);		/* should never happen */
 #endif
+<<<<<<< HEAD
 	else if (argc > 1 && strcmp(argv[1], "--describe-config") == 0)
 		GucInfoMain();
 	else if (argc > 1 && strcmp(argv[1], "--single") == 0)
@@ -258,11 +287,57 @@ main(int argc, char *argv[])
 		CallExtMain(argc, argv, false);
 	else
 		PostmasterMain(argc, argv);
+=======
+			break;
+		case DISPATCH_DESCRIBE_CONFIG:
+			GucInfoMain();
+			break;
+		case DISPATCH_SINGLE:
+			PostgresSingleUserMain(argc, argv,
+								   strdup(get_user_name_or_exit(progname)));
+			break;
+		case DISPATCH_POSTMASTER:
+			PostmasterMain(argc, argv);
+			break;
+	}
+
+>>>>>>> REL_18_BETA1_branch
 	/* the functions above should not return */
 	abort();
 }
 
+/*
+ * Returns the matching DispatchOption value for the given option name.  If no
+ * match is found, DISPATCH_POSTMASTER is returned.
+ */
+DispatchOption
+parse_dispatch_option(const char *name)
+{
+	for (int i = 0; i < lengthof(DispatchOptionNames); i++)
+	{
+		/*
+		 * Unlike the other dispatch options, "forkchild" takes an argument,
+		 * so we just look for the prefix for that one.  For non-EXEC_BACKEND
+		 * builds, we never want to return DISPATCH_FORKCHILD, so skip over it
+		 * in that case.
+		 */
+		if (i == DISPATCH_FORKCHILD)
+		{
+#ifdef EXEC_BACKEND
+			if (strncmp(DispatchOptionNames[DISPATCH_FORKCHILD], name,
+						strlen(DispatchOptionNames[DISPATCH_FORKCHILD])) == 0)
+				return DISPATCH_FORKCHILD;
+#endif
+			continue;
+		}
 
+		if (strcmp(DispatchOptionNames[i], name) == 0)
+			return (DispatchOption) i;
+	}
+
+	/* no match means this is a postmaster */
+	return DISPATCH_POSTMASTER;
+}
 
 /*
  * Place platform-specific startup hacks here.  This is the right
@@ -350,12 +425,6 @@ startup_hacks(const char *progname)
 		_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
 	}
 #endif							/* WIN32 */
-
-	/*
-	 * Initialize dummy_spinlock, in case we are on a platform where we have
-	 * to use the fallback implementation of pg_memory_barrier().
-	 */
-	SpinLockInit(&dummy_spinlock);
 }
 
 

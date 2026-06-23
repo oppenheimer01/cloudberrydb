@@ -38,7 +38,7 @@
  * parsenodes.h will warrant a catversion update.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/catversion.h
@@ -59,7 +59,12 @@
  * catalog versions from Greenplum.
  */
 
+<<<<<<< HEAD
 /*							3yyymmddN */
 #define CATALOG_VERSION_NO	302512051
+=======
+/*							yyyymmddN */
+#define CATALOG_VERSION_NO	202504091
+>>>>>>> REL_18_BETA1_branch
 
 #endif

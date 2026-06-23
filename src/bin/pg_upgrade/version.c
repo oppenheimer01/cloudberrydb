@@ -3,16 +3,16 @@
  *
  *	Postgres-version-specific routines
  *
- *	Copyright (c) 2010-2023, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2025, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/version.c
  */
 
 #include "postgres_fe.h"
 
-#include "catalog/pg_class_d.h"
 #include "fe_utils/string_utils.h"
 #include "pg_upgrade.h"
 
+<<<<<<< HEAD
 
 static PQExpBuffer
 create_recursive_oids(PGconn *conn, int major_version, const char *base_query)
@@ -90,28 +90,22 @@ create_recursive_oids(PGconn *conn, int major_version, const char *base_query)
 
 	return querybuf;
 }
+=======
+>>>>>>> REL_18_BETA1_branch
 /*
- * check_for_data_types_usage()
- *	Detect whether there are any stored columns depending on given type(s)
- *
- * If so, write a report to the given file name, and return true.
- *
- * base_query should be a SELECT yielding a single column named "oid",
- * containing the pg_type OIDs of one or more types that are known to have
- * inconsistent on-disk representations across server versions.
- *
- * We check for the type(s) in tables, matviews, and indexes, but not views;
- * there's no storage involved in a view.
+ * version_hook functions for check_for_data_types_usage in order to determine
+ * whether a data type check should be executed for the cluster in question or
+ * not.
  */
 bool
-check_for_data_types_usage(ClusterInfo *cluster,
-						   const char *base_query,
-						   const char *output_path)
+jsonb_9_4_check_applicable(ClusterInfo *cluster)
 {
-	bool		found = false;
-	FILE	   *script = NULL;
-	int			dbnum;
+	/* JSONB changed its storage format during 9.4 beta */
+	if (GET_MAJOR_VERSION(cluster->major_version) == 904 &&
+		cluster->controldata.cat_ver < JSONB_FORMAT_CHANGE_CAT_VER)
+		return true;
 
+<<<<<<< HEAD
 	if (cluster->version.type == Cloudberry && cluster->version.version <= 2)
 	{
 		pg_log(PG_REPORT, "Skip checking for data type, current version CBDB do not support recursive query");
@@ -342,6 +336,9 @@ old_9_6_check_for_unknown_data_type_usage(ClusterInfo *cluster)
 	}
 	else
 		check_ok();
+=======
+	return false;
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -392,8 +389,7 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 			if (!check_mode)
 			{
 				if (script == NULL && (script = fopen_priv(output_path, "w")) == NULL)
-					pg_fatal("could not open file \"%s\": %s", output_path,
-							 strerror(errno));
+					pg_fatal("could not open file \"%s\": %m", output_path);
 				if (!db_used)
 				{
 					PQExpBufferData connectbuf;
@@ -457,20 +453,21 @@ old_9_6_invalidate_hash_indexes(ClusterInfo *cluster, bool check_mode)
 }
 
 /*
- * old_11_check_for_sql_identifier_data_type_usage()
- *	11 -> 12
- *	In 12, the sql_identifier data type was switched from name to varchar,
- *	which does affect the storage (name is by-ref, but not varlena). This
- *	means user tables using sql_identifier for columns are broken because
- *	the on-disk format is different.
+ * Callback function for processing results of query for
+ * report_extension_updates()'s UpgradeTask.  If the query returned any rows,
+ * write the details to the report file.
  */
-void
-old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
+static void
+process_extension_updates(DbInfo *dbinfo, PGresult *res, void *arg)
 {
-	char		output_path[MAXPGPATH];
+	int			ntups = PQntuples(res);
+	int			i_name = PQfnumber(res, "name");
+	UpgradeTaskReport *report = (UpgradeTaskReport *) arg;
+	PQExpBufferData connectbuf;
 
-	prep_status("Checking for invalid \"sql_identifier\" user columns");
+	AssertVariableIsOfType(&process_extension_updates, UpgradeTaskProcessCB);
 
+<<<<<<< HEAD
 	snprintf(output_path, sizeof(output_path), "%s/%s",
 			 log_opts.basedir, "tables_using_sql_identifier.txt");
 
@@ -487,6 +484,23 @@ old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 	}
 	else
 		check_ok();
+=======
+	if (ntups == 0)
+		return;
+
+	if (report->file == NULL &&
+		(report->file = fopen_priv(report->path, "w")) == NULL)
+		pg_fatal("could not open file \"%s\": %m", report->path);
+
+	initPQExpBuffer(&connectbuf);
+	appendPsqlMetaConnect(&connectbuf, dbinfo->db_name);
+	fputs(connectbuf.data, report->file);
+	termPQExpBuffer(&connectbuf);
+
+	for (int rowno = 0; rowno < ntups; rowno++)
+		fprintf(report->file, "ALTER EXTENSION %s UPDATE;\n",
+				quote_identifier(PQgetvalue(res, rowno, i_name)));
+>>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -496,15 +510,33 @@ old_11_check_for_sql_identifier_data_type_usage(ClusterInfo *cluster)
 void
 report_extension_updates(ClusterInfo *cluster)
 {
+<<<<<<< HEAD
 	int			dbnum;
 	FILE	   *script = NULL;
 	bool		found = false;
 	char	   *output_path = "update_extensions.sql";
+=======
+	UpgradeTaskReport report;
+	UpgradeTask *task = upgrade_task_create();
+	const char *query = "SELECT name "
+		"FROM pg_available_extensions "
+		"WHERE installed_version != default_version";
+>>>>>>> REL_18_BETA1_branch
 
 	prep_status("Checking for extension updates");
 
-	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
+	report.file = NULL;
+	strcpy(report.path, "update_extensions.sql");
+
+	upgrade_task_add_step(task, query, process_extension_updates,
+						  true, &report);
+
+	upgrade_task_run(task, cluster);
+	upgrade_task_free(task);
+
+	if (report.file)
 	{
+<<<<<<< HEAD
 		PGresult   *res;
 		bool		db_used = false;
 		int			ntups;
@@ -561,6 +593,17 @@ report_extension_updates(ClusterInfo *cluster)
 				"| when executed by psql by the database superuser will update\n"
 				"| these extensions.\n\n",
 				output_path);
+=======
+		fclose(report.file);
+		report_status(PG_REPORT, "notice");
+		pg_log(PG_REPORT, "\n"
+			   "Your installation contains extensions that should be updated\n"
+			   "with the ALTER EXTENSION command.  The file\n"
+			   "    %s\n"
+			   "when executed by psql by the database superuser will update\n"
+			   "these extensions.",
+			   report.path);
+>>>>>>> REL_18_BETA1_branch
 	}
 	else
 		check_ok();

@@ -3,7 +3,7 @@
  * numutils.c
  *	  utility functions for I/O of built-in numeric types.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -19,8 +19,8 @@
 #include <ctype.h>
 
 #include "common/int.h"
-#include "utils/builtins.h"
 #include "port/pg_bitutils.h"
+#include "utils/builtins.h"
 
 /*
  * A table of all two-digit numbers. This is used to speed up decimal digit
@@ -132,6 +132,10 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 	uint16		tmp = 0;
 	bool		neg = false;
 	unsigned char digit;
+<<<<<<< HEAD
+=======
+	int16		result;
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * The majority of cases are likely to be base-10 digits without any
@@ -191,10 +195,16 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 
 	if (neg)
 	{
+<<<<<<< HEAD
 		/* check the negative equivalent will fit without overflowing */
 		if (unlikely(tmp > (uint16) (-(PG_INT16_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int16) tmp);
+=======
+		if (unlikely(pg_neg_u16_overflow(tmp, &result)))
+			goto out_of_range;
+		return result;
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	if (unlikely(tmp > PG_INT16_MAX))
@@ -334,10 +344,9 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
-		if (tmp > (uint16) (-(PG_INT16_MIN + 1)) + 1)
+		if (unlikely(pg_neg_u16_overflow(tmp, &result)))
 			goto out_of_range;
-		return -((int16) tmp);
+		return result;
 	}
 
 	if (tmp > PG_INT16_MAX)
@@ -394,6 +403,10 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 	uint32		tmp = 0;
 	bool		neg = false;
 	unsigned char digit;
+<<<<<<< HEAD
+=======
+	int32		result;
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * The majority of cases are likely to be base-10 digits without any
@@ -453,10 +466,16 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 
 	if (neg)
 	{
+<<<<<<< HEAD
 		/* check the negative equivalent will fit without overflowing */
 		if (unlikely(tmp > (uint32) (-(PG_INT32_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int32) tmp);
+=======
+		if (unlikely(pg_neg_u32_overflow(tmp, &result)))
+			goto out_of_range;
+		return result;
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	if (unlikely(tmp > PG_INT32_MAX))
@@ -596,10 +615,9 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
-		if (tmp > (uint32) (-(PG_INT32_MIN + 1)) + 1)
+		if (unlikely(pg_neg_u32_overflow(tmp, &result)))
 			goto out_of_range;
-		return -((int32) tmp);
+		return result;
 	}
 
 	if (tmp > PG_INT32_MAX)
@@ -656,6 +674,10 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 	uint64		tmp = 0;
 	bool		neg = false;
 	unsigned char digit;
+<<<<<<< HEAD
+=======
+	int64		result;
+>>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * The majority of cases are likely to be base-10 digits without any
@@ -715,10 +737,16 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 
 	if (neg)
 	{
+<<<<<<< HEAD
 		/* check the negative equivalent will fit without overflowing */
 		if (unlikely(tmp > (uint64) (-(PG_INT64_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int64) tmp);
+=======
+		if (unlikely(pg_neg_u64_overflow(tmp, &result)))
+			goto out_of_range;
+		return result;
+>>>>>>> REL_18_BETA1_branch
 	}
 
 	if (unlikely(tmp > PG_INT64_MAX))
@@ -858,10 +886,9 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
-		if (tmp > (uint64) (-(PG_INT64_MIN + 1)) + 1)
+		if (unlikely(pg_neg_u64_overflow(tmp, &result)))
 			goto out_of_range;
-		return -((int64) tmp);
+		return result;
 	}
 
 	if (tmp > PG_INT64_MAX)
@@ -891,7 +918,7 @@ invalid_syntax:
  * so that caller can parse the rest.  Otherwise, it's an error if anything
  * but whitespace follows.
  *
- * typname is what is reported in error messges.
+ * typname is what is reported in error messages.
  *
  * If escontext points to an ErrorSaveContext node, that is filled instead
  * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
@@ -978,7 +1005,7 @@ uint32in_subr(const char *s, char **endloc,
  * so that caller can parse the rest.  Otherwise, it's an error if anything
  * but whitespace follows.
  *
- * typname is what is reported in error messges.
+ * typname is what is reported in error messages.
  *
  * If escontext points to an ErrorSaveContext node, that is filled instead
  * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()

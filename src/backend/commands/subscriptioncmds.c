@@ -3,7 +3,7 @@
  * subscriptioncmds.c
  *		subscription catalog manipulation functions
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -16,6 +16,7 @@
 
 #include "access/htup_details.h"
 #include "access/table.h"
+#include "access/twophase.h"
 #include "access/xact.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
@@ -74,8 +75,9 @@
 #define SUBOPT_DISABLE_ON_ERR		0x00000400
 #define SUBOPT_PASSWORD_REQUIRED	0x00000800
 #define SUBOPT_RUN_AS_OWNER			0x00001000
-#define SUBOPT_LSN					0x00002000
-#define SUBOPT_ORIGIN				0x00004000
+#define SUBOPT_FAILOVER				0x00002000
+#define SUBOPT_LSN					0x00004000
+#define SUBOPT_ORIGIN				0x00008000
 
 /* check if the 'val' has 'bits' set */
 #define IsSet(val, bits)  (((val) & (bits)) == (bits))
@@ -100,6 +102,7 @@ typedef struct SubOpts
 	bool		disableonerr;
 	bool		passwordrequired;
 	bool		runasowner;
+	bool		failover;
 	char	   *origin;
 	XLogRecPtr	lsn;
 } SubOpts;
@@ -112,6 +115,8 @@ static void check_publications_origin(WalReceiverConn *wrconn,
 static void check_duplicates_in_publist(List *publist, Datum *datums);
 static List *merge_publications(List *oldpublist, List *newpublist, bool addpub, const char *subname);
 static void ReportSlotConnectionError(List *rstates, Oid subid, char *slotname, char *err);
+static void CheckAlterSubOption(Subscription *sub, const char *option,
+								bool slot_needs_update, bool isTopLevel);
 
 
 /*
@@ -151,7 +156,7 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 	if (IsSet(supported_opts, SUBOPT_BINARY))
 		opts->binary = false;
 	if (IsSet(supported_opts, SUBOPT_STREAMING))
-		opts->streaming = LOGICALREP_STREAM_OFF;
+		opts->streaming = LOGICALREP_STREAM_PARALLEL;
 	if (IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT))
 		opts->twophase = false;
 	if (IsSet(supported_opts, SUBOPT_DISABLE_ON_ERR))
@@ -160,6 +165,8 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 		opts->passwordrequired = true;
 	if (IsSet(supported_opts, SUBOPT_RUN_AS_OWNER))
 		opts->runasowner = false;
+	if (IsSet(supported_opts, SUBOPT_FAILOVER))
+		opts->failover = false;
 	if (IsSet(supported_opts, SUBOPT_ORIGIN))
 		opts->origin = pstrdup(LOGICALREP_ORIGIN_ANY);
 
@@ -260,21 +267,9 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 			opts->specified_opts |= SUBOPT_STREAMING;
 			opts->streaming = defGetStreamingMode(defel);
 		}
-		else if (strcmp(defel->defname, "two_phase") == 0)
+		else if (IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT) &&
+				 strcmp(defel->defname, "two_phase") == 0)
 		{
-			/*
-			 * Do not allow toggling of two_phase option. Doing so could cause
-			 * missing of transactions and lead to an inconsistent replica.
-			 * See comments atop worker.c
-			 *
-			 * Note: Unsupported twophase indicates that this call originated
-			 * from AlterSubscription.
-			 */
-			if (!IsSet(supported_opts, SUBOPT_TWOPHASE_COMMIT))
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("unrecognized subscription parameter: \"%s\"", defel->defname)));
-
 			if (IsSet(opts->specified_opts, SUBOPT_TWOPHASE_COMMIT))
 				errorConflictingDefElem(defel, pstate);
 
@@ -307,6 +302,15 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 
 			opts->specified_opts |= SUBOPT_RUN_AS_OWNER;
 			opts->runasowner = defGetBoolean(defel);
+		}
+		else if (IsSet(supported_opts, SUBOPT_FAILOVER) &&
+				 strcmp(defel->defname, "failover") == 0)
+		{
+			if (IsSet(opts->specified_opts, SUBOPT_FAILOVER))
+				errorConflictingDefElem(defel, pstate);
+
+			opts->specified_opts |= SUBOPT_FAILOVER;
+			opts->failover = defGetBoolean(defel);
 		}
 		else if (IsSet(supported_opts, SUBOPT_ORIGIN) &&
 				 strcmp(defel->defname, "origin") == 0)
@@ -441,37 +445,6 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
 }
 
 /*
- * Add publication names from the list to a string.
- */
-static void
-get_publications_str(List *publications, StringInfo dest, bool quote_literal)
-{
-	ListCell   *lc;
-	bool		first = true;
-
-	Assert(publications != NIL);
-
-	foreach(lc, publications)
-	{
-		char	   *pubname = strVal(lfirst(lc));
-
-		if (first)
-			first = false;
-		else
-			appendStringInfoString(dest, ", ");
-
-		if (quote_literal)
-			appendStringInfoString(dest, quote_literal_cstr(pubname));
-		else
-		{
-			appendStringInfoChar(dest, '"');
-			appendStringInfoString(dest, pubname);
-			appendStringInfoChar(dest, '"');
-		}
-	}
-}
-
-/*
  * Check that the specified publications are present on the publisher.
  */
 static void
@@ -487,12 +460,11 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 	appendStringInfoString(cmd, "SELECT t.pubname FROM\n"
 						   " pg_catalog.pg_publication t WHERE\n"
 						   " t.pubname IN (");
-	get_publications_str(publications, cmd, true);
+	GetPublicationsStr(publications, cmd, true);
 	appendStringInfoChar(cmd, ')');
 
 	res = walrcv_exec(wrconn, cmd->data, 1, tableRow);
-	pfree(cmd->data);
-	pfree(cmd);
+	destroyStringInfo(cmd);
 
 	if (res->status != WALRCV_OK_TUPLES)
 		ereport(ERROR,
@@ -525,7 +497,7 @@ check_publications(WalReceiverConn *wrconn, List *publications)
 		/* Prepare the list of non-existent publication(s) for error message. */
 		StringInfo	pubnames = makeStringInfo();
 
-		get_publications_str(publicationsCopy, pubnames, false);
+		GetPublicationsStr(publicationsCopy, pubnames, false);
 		ereport(WARNING,
 				errcode(ERRCODE_UNDEFINED_OBJECT),
 				errmsg_plural("publication %s does not exist on the publisher",
@@ -596,7 +568,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 					  SUBOPT_SYNCHRONOUS_COMMIT | SUBOPT_BINARY |
 					  SUBOPT_STREAMING | SUBOPT_TWOPHASE_COMMIT |
 					  SUBOPT_DISABLE_ON_ERR | SUBOPT_PASSWORD_REQUIRED |
-					  SUBOPT_RUN_AS_OWNER | SUBOPT_ORIGIN);
+					  SUBOPT_RUN_AS_OWNER | SUBOPT_FAILOVER | SUBOPT_ORIGIN);
 	parse_subscription_options(pstate, stmt->options, supported_opts, &opts);
 
 	/*
@@ -716,6 +688,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	values[Anum_pg_subscription_subdisableonerr - 1] = BoolGetDatum(opts.disableonerr);
 	values[Anum_pg_subscription_subpasswordrequired - 1] = BoolGetDatum(opts.passwordrequired);
 	values[Anum_pg_subscription_subrunasowner - 1] = BoolGetDatum(opts.runasowner);
+	values[Anum_pg_subscription_subfailover - 1] = BoolGetDatum(opts.failover);
 	values[Anum_pg_subscription_subconninfo - 1] =
 		CStringGetTextDatum(conninfo);
 	if (opts.slot_name)
@@ -756,12 +729,13 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 
 		/* Try to connect to the publisher. */
 		must_use_password = !superuser_arg(owner) && opts.passwordrequired;
-		wrconn = walrcv_connect(conninfo, true, must_use_password,
+		wrconn = walrcv_connect(conninfo, true, true, must_use_password,
 								stmt->subname, &err);
 		if (!wrconn)
 			ereport(ERROR,
 					(errcode(ERRCODE_CONNECTION_FAILURE),
-					 errmsg("could not connect to the publisher: %s", err)));
+					 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+							stmt->subname, err)));
 
 		PG_TRY();
 		{
@@ -792,7 +766,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 										 rv->schemaname, rv->relname);
 
 				AddSubscriptionRelState(subid, relid, table_state,
-										InvalidXLogRecPtr);
+										InvalidXLogRecPtr, true);
 			}
 
 			/*
@@ -826,7 +800,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 					twophase_enabled = true;
 
 				walrcv_create_slot(wrconn, opts.slot_name, false, twophase_enabled,
-								   CRS_NOEXPORT_SNAPSHOT, NULL);
+								   opts.failover, CRS_NOEXPORT_SNAPSHOT, NULL);
 
 				if (twophase_enabled)
 					UpdateTwoPhaseState(subid, LOGICALREP_TWOPHASE_STATE_ENABLED);
@@ -910,13 +884,14 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		libpqwalreceiver_PG_init();
 
 	/* Try to connect to the publisher. */
-	must_use_password = !superuser_arg(sub->owner) && sub->passwordrequired;
-	wrconn = walrcv_connect(sub->conninfo, true, must_use_password,
+	must_use_password = sub->passwordrequired && !sub->ownersuperuser;
+	wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password,
 							sub->name, &err);
 	if (!wrconn)
 		ereport(ERROR,
 				(errcode(ERRCODE_CONNECTION_FAILURE),
-				 errmsg("could not connect to the publisher: %s", err)));
+				 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+						sub->name, err)));
 
 	PG_TRY();
 	{
@@ -984,7 +959,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 			{
 				AddSubscriptionRelState(sub->oid, relid,
 										copy_data ? SUBREL_STATE_INIT : SUBREL_STATE_READY,
-										InvalidXLogRecPtr);
+										InvalidXLogRecPtr, true);
 				ereport(DEBUG1,
 						(errmsg_internal("table \"%s.%s\" added to subscription \"%s\"",
 										 rv->schemaname, rv->relname, sub->name)));
@@ -1106,6 +1081,60 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 }
 
 /*
+ * Common checks for altering failover and two_phase options.
+ */
+static void
+CheckAlterSubOption(Subscription *sub, const char *option,
+					bool slot_needs_update, bool isTopLevel)
+{
+	/*
+	 * The checks in this function are required only for failover and
+	 * two_phase options.
+	 */
+	Assert(strcmp(option, "failover") == 0 ||
+		   strcmp(option, "two_phase") == 0);
+
+	/*
+	 * Do not allow changing the option if the subscription is enabled. This
+	 * is because both failover and two_phase options of the slot on the
+	 * publisher cannot be modified if the slot is currently acquired by the
+	 * existing walsender.
+	 *
+	 * Note that two_phase is enabled (aka changed from 'false' to 'true') on
+	 * the publisher by the existing walsender, so we could have allowed that
+	 * even when the subscription is enabled. But we kept this restriction for
+	 * the sake of consistency and simplicity.
+	 */
+	if (sub->enabled)
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("cannot set option \"%s\" for enabled subscription",
+						option)));
+
+	if (slot_needs_update)
+	{
+		StringInfoData cmd;
+
+		/*
+		 * A valid slot must be associated with the subscription for us to
+		 * modify any of the slot's properties.
+		 */
+		if (!sub->slotname)
+			ereport(ERROR,
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					 errmsg("cannot set option \"%s\" for a subscription that does not have a slot name",
+							option)));
+
+		/* The changed option of the slot can't be rolled back. */
+		initStringInfo(&cmd);
+		appendStringInfo(&cmd, "ALTER SUBSCRIPTION ... SET (%s)", option);
+
+		PreventInTransactionBlock(isTopLevel, cmd.data);
+		pfree(cmd.data);
+	}
+}
+
+/*
  * Alter the existing subscription.
  */
 ObjectAddress
@@ -1120,6 +1149,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 	HeapTuple	tup;
 	Oid			subid;
 	bool		update_tuple = false;
+	bool		update_failover = false;
+	bool		update_two_phase = false;
 	Subscription *sub;
 	Form_pg_subscription form;
 	bits32		supported_opts;
@@ -1171,9 +1202,11 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 			{
 				supported_opts = (SUBOPT_SLOT_NAME |
 								  SUBOPT_SYNCHRONOUS_COMMIT | SUBOPT_BINARY |
-								  SUBOPT_STREAMING | SUBOPT_DISABLE_ON_ERR |
+								  SUBOPT_STREAMING | SUBOPT_TWOPHASE_COMMIT |
+								  SUBOPT_DISABLE_ON_ERR |
 								  SUBOPT_PASSWORD_REQUIRED |
-								  SUBOPT_RUN_AS_OWNER | SUBOPT_ORIGIN);
+								  SUBOPT_RUN_AS_OWNER | SUBOPT_FAILOVER |
+								  SUBOPT_ORIGIN);
 
 				parse_subscription_options(pstate, stmt->options,
 										   supported_opts, &opts);
@@ -1252,6 +1285,90 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 					replaces[Anum_pg_subscription_subrunasowner - 1] = true;
 				}
 
+<<<<<<< HEAD
+=======
+				if (IsSet(opts.specified_opts, SUBOPT_TWOPHASE_COMMIT))
+				{
+					/*
+					 * We need to update both the slot and the subscription
+					 * for the two_phase option. We can enable the two_phase
+					 * option for a slot only once the initial data
+					 * synchronization is done. This is to avoid missing some
+					 * data as explained in comments atop worker.c.
+					 */
+					update_two_phase = !opts.twophase;
+
+					CheckAlterSubOption(sub, "two_phase", update_two_phase,
+										isTopLevel);
+
+					/*
+					 * Modifying the two_phase slot option requires a slot
+					 * lookup by slot name, so changing the slot name at the
+					 * same time is not allowed.
+					 */
+					if (update_two_phase &&
+						IsSet(opts.specified_opts, SUBOPT_SLOT_NAME))
+						ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								 errmsg("slot_name and two_phase cannot be altered at the same time")));
+
+					/*
+					 * Note that workers may still survive even if the
+					 * subscription has been disabled.
+					 *
+					 * Ensure workers have already been exited to avoid
+					 * getting prepared transactions while we are disabling
+					 * the two_phase option. Otherwise, the changes of an
+					 * already prepared transaction can be replicated again
+					 * along with its corresponding commit, leading to
+					 * duplicate data or errors.
+					 */
+					if (logicalrep_workers_find(subid, true, true))
+						ereport(ERROR,
+								(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+								 errmsg("cannot alter two_phase when logical replication worker is still running"),
+								 errhint("Try again after some time.")));
+
+					/*
+					 * two_phase cannot be disabled if there are any
+					 * uncommitted prepared transactions present otherwise it
+					 * can lead to duplicate data or errors as explained in
+					 * the comment above.
+					 */
+					if (update_two_phase &&
+						sub->twophasestate == LOGICALREP_TWOPHASE_STATE_ENABLED &&
+						LookupGXactBySubid(subid))
+						ereport(ERROR,
+								(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+								 errmsg("cannot disable two_phase when prepared transactions are present"),
+								 errhint("Resolve these transactions and try again.")));
+
+					/* Change system catalog accordingly */
+					values[Anum_pg_subscription_subtwophasestate - 1] =
+						CharGetDatum(opts.twophase ?
+									 LOGICALREP_TWOPHASE_STATE_PENDING :
+									 LOGICALREP_TWOPHASE_STATE_DISABLED);
+					replaces[Anum_pg_subscription_subtwophasestate - 1] = true;
+				}
+
+				if (IsSet(opts.specified_opts, SUBOPT_FAILOVER))
+				{
+					/*
+					 * Similar to the two_phase case above, we need to update
+					 * the failover option for both the slot and the
+					 * subscription.
+					 */
+					update_failover = true;
+
+					CheckAlterSubOption(sub, "failover", update_failover,
+										isTopLevel);
+
+					values[Anum_pg_subscription_subfailover - 1] =
+						BoolGetDatum(opts.failover);
+					replaces[Anum_pg_subscription_subfailover - 1] = true;
+				}
+
+>>>>>>> REL_18_BETA1_branch
 				if (IsSet(opts.specified_opts, SUBOPT_ORIGIN))
 				{
 					values[Anum_pg_subscription_suborigin - 1] =
@@ -1296,7 +1413,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 				libpqwalreceiver_PG_init();
 			/* Check the connection info string. */
 			walrcv_check_conninfo(stmt->conninfo,
-								  sub->passwordrequired && !superuser_arg(sub->owner));
+								  sub->passwordrequired && !sub->ownersuperuser);
 
 			values[Anum_pg_subscription_subconninfo - 1] =
 				CStringGetTextDatum(stmt->conninfo);
@@ -1500,6 +1617,46 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 		heap_freetuple(tup);
 	}
 
+	/*
+	 * Try to acquire the connection necessary for altering the slot, if
+	 * needed.
+	 *
+	 * This has to be at the end because otherwise if there is an error while
+	 * doing the database operations we won't be able to rollback altered
+	 * slot.
+	 */
+	if (update_failover || update_two_phase)
+	{
+		bool		must_use_password;
+		char	   *err;
+		WalReceiverConn *wrconn;
+
+		/* Load the library providing us libpq calls. */
+		load_file("libpqwalreceiver", false);
+
+		/* Try to connect to the publisher. */
+		must_use_password = sub->passwordrequired && !sub->ownersuperuser;
+		wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password,
+								sub->name, &err);
+		if (!wrconn)
+			ereport(ERROR,
+					(errcode(ERRCODE_CONNECTION_FAILURE),
+					 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+							sub->name, err)));
+
+		PG_TRY();
+		{
+			walrcv_alter_slot(wrconn, sub->slotname,
+							  update_failover ? &opts.failover : NULL,
+							  update_two_phase ? &opts.twophase : NULL);
+		}
+		PG_FINALLY();
+		{
+			walrcv_disconnect(wrconn);
+		}
+		PG_END_TRY();
+	}
+
 	table_close(rel, RowExclusiveLock);
 
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -1654,9 +1811,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	 * New workers won't be started because we hold an exclusive lock on the
 	 * subscription till the end of the transaction.
 	 */
-	LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
-	subworkers = logicalrep_workers_find(subid, false);
-	LWLockRelease(LogicalRepWorkerLock);
+	subworkers = logicalrep_workers_find(subid, false, true);
 	foreach(lc, subworkers)
 	{
 		LogicalRepWorker *w = (LogicalRepWorker *) lfirst(lc);
@@ -1737,6 +1892,12 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	pgstat_drop_subscription(subid);
 
 	/*
+	 * Tell the cumulative stats system that the subscription is getting
+	 * dropped.
+	 */
+	pgstat_drop_subscription(subid);
+
+	/*
 	 * If there is no slot associated with the subscription, we can finish
 	 * here.
 	 */
@@ -1765,7 +1926,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 	if (!WalReceiverFunctions)
 		libpqwalreceiver_PG_init();
 
-	wrconn = walrcv_connect(conninfo, true, must_use_password,
+	wrconn = walrcv_connect(conninfo, true, true, must_use_password,
 							subname, &err);
 	if (wrconn == NULL)
 	{
@@ -2061,7 +2222,7 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 						   "                   SELECT relid FROM pg_partition_tree(PS.srrelid))),\n"
 						   "     pg_class C JOIN pg_namespace N ON (N.oid = C.relnamespace)\n"
 						   "WHERE C.oid = GPT.relid AND P.pubname IN (");
-	get_publications_str(publications, &cmd, true);
+	GetPublicationsStr(publications, &cmd, true);
 	appendStringInfoString(&cmd, ")\n");
 
 	/*
@@ -2123,7 +2284,7 @@ check_publications_origin(WalReceiverConn *wrconn, List *publications,
 		StringInfo	pubnames = makeStringInfo();
 
 		/* Prepare the list of publication(s) for warning message. */
-		get_publications_str(publist, pubnames, false);
+		GetPublicationsStr(publist, pubnames, false);
 		ereport(WARNING,
 				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				errmsg("subscription \"%s\" requested copy_data with origin = NONE but might copy data that had a different origin",
@@ -2158,17 +2319,17 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 	List	   *tablelist = NIL;
 	int			server_version = walrcv_server_version(wrconn);
 	bool		check_columnlist = (server_version >= 150000);
+	StringInfo	pub_names = makeStringInfo();
 
 	initStringInfo(&cmd);
+
+	/* Build the pub_names comma-separated string. */
+	GetPublicationsStr(publications, pub_names, true);
 
 	/* Get the list of tables from the publisher. */
 	if (server_version >= 160000)
 	{
-		StringInfoData pub_names;
-
 		tableRow[2] = INT2VECTOROID;
-		initStringInfo(&pub_names);
-		get_publications_str(publications, &pub_names, true);
 
 		/*
 		 * From version 16, we allowed passing multiple publications to the
@@ -2181,7 +2342,7 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 		 *
 		 * Note that attrs are always stored in sorted order so we don't need
 		 * to worry if different publications have specified them in a
-		 * different order. See publication_translate_columns.
+		 * different order. See pub_collist_validate.
 		 */
 		appendStringInfo(&cmd, "SELECT DISTINCT n.nspname, c.relname, gpt.attrs\n"
 						 "       FROM pg_class c\n"
@@ -2190,9 +2351,7 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 						 "                FROM pg_publication\n"
 						 "                WHERE pubname IN ( %s )) AS gpt\n"
 						 "             ON gpt.relid = c.oid\n",
-						 pub_names.data);
-
-		pfree(pub_names.data);
+						 pub_names->data);
 	}
 	else
 	{
@@ -2203,11 +2362,12 @@ fetch_table_list(WalReceiverConn *wrconn, List *publications)
 		if (check_columnlist)
 			appendStringInfoString(&cmd, ", t.attnames\n");
 
-		appendStringInfoString(&cmd, "FROM pg_catalog.pg_publication_tables t\n"
-							   " WHERE t.pubname IN (");
-		get_publications_str(publications, &cmd, true);
-		appendStringInfoChar(&cmd, ')');
+		appendStringInfo(&cmd, "FROM pg_catalog.pg_publication_tables t\n"
+						 " WHERE t.pubname IN ( %s )",
+						 pub_names->data);
 	}
+
+	destroyStringInfo(pub_names);
 
 	res = walrcv_exec(wrconn, cmd.data, check_columnlist ? 3 : 2, tableRow);
 	pfree(cmd.data);

@@ -3,9 +3,13 @@
  * pg_proc.h
  *	  definition of the "procedure" system catalog (pg_proc)
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2006-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_proc.h
@@ -21,7 +25,7 @@
 
 #include "catalog/genbki.h"
 #include "catalog/objectaddress.h"
-#include "catalog/pg_proc_d.h"
+#include "catalog/pg_proc_d.h"	/* IWYU pragma: export */
 #include "nodes/pg_list.h"
 
 /* ----------------
@@ -63,7 +67,7 @@ CATALOG(pg_proc,1255,ProcedureRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(81,Proce
 	/* security definer */
 	bool		prosecdef BKI_DEFAULT(f);
 
-	/* is it a leak-proof function? */
+	/* is it a leakproof function? */
 	bool		proleakproof BKI_DEFAULT(f);
 
 	/* strict with respect to NULLs? */
@@ -154,8 +158,11 @@ typedef FormData_pg_proc *Form_pg_proc;
 
 DECLARE_TOAST(pg_proc, 2836, 2837);
 
-DECLARE_UNIQUE_INDEX_PKEY(pg_proc_oid_index, 2690, ProcedureOidIndexId, on pg_proc using btree(oid oid_ops));
-DECLARE_UNIQUE_INDEX(pg_proc_proname_args_nsp_index, 2691, ProcedureNameArgsNspIndexId, on pg_proc using btree(proname name_ops, proargtypes oidvector_ops, pronamespace oid_ops));
+DECLARE_UNIQUE_INDEX_PKEY(pg_proc_oid_index, 2690, ProcedureOidIndexId, pg_proc, btree(oid oid_ops));
+DECLARE_UNIQUE_INDEX(pg_proc_proname_args_nsp_index, 2691, ProcedureNameArgsNspIndexId, pg_proc, btree(proname name_ops, proargtypes oidvector_ops, pronamespace oid_ops));
+
+MAKE_SYSCACHE(PROCOID, pg_proc_oid_index, 128);
+MAKE_SYSCACHE(PROCNAMEARGSNSP, pg_proc_proname_args_nsp_index, 128);
 
 /*
  * TODO: It would be nice if we could default prodataaccess to 'c' for all
@@ -246,6 +253,7 @@ extern ObjectAddress ProcedureCreate(const char *procedureName,
 									 Datum parameterNames,
 									 List *parameterDefaults,
 									 Datum trftypes,
+									 List *trfoids,
 									 Datum proconfig,
 									 Oid prosupport,
 									 float4 procost,

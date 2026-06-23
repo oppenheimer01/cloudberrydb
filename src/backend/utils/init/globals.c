@@ -3,7 +3,7 @@
  * globals.c
  *	  global variable declarations
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -22,8 +22,14 @@
 #include "libpq/libpq-be.h"
 #include "libpq/pqcomm.h"
 #include "miscadmin.h"
+<<<<<<< HEAD
 #include "storage/backendid.h"
 #include "postmaster/postmaster.h"
+=======
+#include "postmaster/postmaster.h"
+#include "storage/procnumber.h"
+#include "storage/procsignal.h"
+>>>>>>> REL_18_BETA1_branch
 
 
 ProtocolVersion FrontendProtocol;
@@ -36,6 +42,7 @@ volatile sig_atomic_t ProcDiePending = false;
 volatile sig_atomic_t CheckClientConnectionPending = false;
 volatile sig_atomic_t ClientConnectionLost = false;
 volatile sig_atomic_t IdleInTransactionSessionTimeoutPending = false;
+volatile sig_atomic_t TransactionTimeoutPending = false;
 volatile sig_atomic_t IdleSessionTimeoutPending = false;
 volatile sig_atomic_t ProcSignalBarrierPending = false;
 
@@ -47,13 +54,16 @@ volatile int32 InterruptHoldoffCount = 0;
 volatile int32 QueryCancelHoldoffCount = 0;
 volatile int32 CritSectionCount = 0;
 volatile sig_atomic_t LogMemoryContextPending = false;
+volatile sig_atomic_t PublishMemoryContextPending = false;
 volatile sig_atomic_t IdleStatsUpdateTimeoutPending = false;
 
 int			MyProcPid;
 pg_time_t	MyStartTime;
 TimestampTz MyStartTimestamp;
+struct ClientSocket *MyClientSocket;
 struct Port *MyProcPort;
-int32		MyCancelKey;
+char		MyCancelKey[MAX_CANCEL_KEY_LENGTH];
+int			MyCancelKeyLength = 0;
 int			MyPMChildSlot;
 
 /*
@@ -90,13 +100,15 @@ char		postgres_exec_path[MAXPGPATH];	/* full path to backend */
 /* note: currently this is not valid in backend processes */
 #endif
 
-BackendId	MyBackendId = InvalidBackendId;
+ProcNumber	MyProcNumber = INVALID_PROC_NUMBER;
 
-BackendId	ParallelLeaderBackendId = InvalidBackendId;
+ProcNumber	ParallelLeaderProcNumber = INVALID_PROC_NUMBER;
 
 Oid			MyDatabaseId = InvalidOid;
 
 Oid			MyDatabaseTableSpace = InvalidOid;
+
+bool		MyDatabaseHasLoginEventTriggers = false;
 
 /*
  * DatabasePath is the path (relative to DataDir) of my database's
@@ -120,7 +132,6 @@ pid_t		PostmasterPid = 0;
 bool		IsPostmasterEnvironment = false;
 bool		IsUnderPostmaster = false;
 bool		IsBinaryUpgrade = false;
-bool		IsBackgroundWorker = false;
 
 /* Cloudberry seeds the creation of a segment from a copy of the master segment
  * directory.  However, the first time the segment starts up small adjustments
@@ -163,7 +174,7 @@ int			max_parallel_workers = 8;
 int			MaxBackends = 0;
 
 /* GUC parameters for vacuum */
-int			VacuumBufferUsageLimit = 256;
+int			VacuumBufferUsageLimit = 2048;
 
 int			VacuumCostPageHit = 1;
 int			VacuumCostPageMiss = 2;
@@ -172,13 +183,10 @@ int			VacuumCostLimit = 200;
 double		VacuumCostDelay = 0;
 int 			login_monitor_max_processes = 2; /* login monitor launcher and 1 worker */
 
-int64		VacuumPageHit = 0;
-int64		VacuumPageMiss = 0;
-int64		VacuumPageDirty = 0;
-
 int			VacuumCostBalance = 0;	/* working state for vacuum */
 bool		VacuumCostActive = false;
 
+<<<<<<< HEAD
 double		vacuum_cleanup_index_scale_factor;
 
 /* for pljava */
@@ -193,3 +201,13 @@ bool	pljava_classpath_insecure = false;
 /* Memory protection GUCs*/
 int gp_vmem_protect_limit = 8192;
 int gp_vmem_protect_gang_cache_limit = 500;
+=======
+/* configurable SLRU buffer sizes */
+int			commit_timestamp_buffers = 0;
+int			multixact_member_buffers = 32;
+int			multixact_offset_buffers = 16;
+int			notify_buffers = 16;
+int			serializable_buffers = 32;
+int			subtransaction_buffers = 0;
+int			transaction_buffers = 0;
+>>>>>>> REL_18_BETA1_branch

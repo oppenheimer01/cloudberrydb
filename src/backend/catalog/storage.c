@@ -3,7 +3,7 @@
  * storage.c
  *	  code to create and destroy physical storage for relations
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -19,7 +19,6 @@
 
 #include "postgres.h"
 
-#include "access/parallel.h"
 #include "access/visibilitymap.h"
 #include "access/xact.h"
 #include "access/xlog.h"
@@ -31,7 +30,10 @@
 #include "common/relpath.h"
 #include "commands/dbcommands.h"
 #include "miscadmin.h"
+#include "pgstat.h"
+#include "storage/bulk_write.h"
 #include "storage/freespace.h"
+#include "storage/proc.h"
 #include "storage/smgr.h"
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
@@ -60,6 +62,18 @@ int			wal_skip_threshold = 2048;	/* in kilobytes */
  * but I'm being paranoid.
  */
 
+<<<<<<< HEAD
+=======
+typedef struct PendingRelDelete
+{
+	RelFileLocator rlocator;	/* relation that may need to be deleted */
+	ProcNumber	procNumber;		/* INVALID_PROC_NUMBER if not a temp rel */
+	bool		atCommit;		/* T=delete at commit; F=delete at abort */
+	int			nestLevel;		/* xact nesting level of request */
+	struct PendingRelDelete *next;	/* linked-list link */
+} PendingRelDelete;
+
+>>>>>>> REL_18_BETA1_branch
 typedef struct PendingRelSync
 {
 	RelFileLocator rlocator;
@@ -146,7 +160,7 @@ SMgrRelation
 RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool register_delete, SMgrImpl smgr_which, Relation rel)
 {
 	SMgrRelation srel;
-	BackendId	backend;
+	ProcNumber	procNumber;
 	bool		needs_wal;
 
 	Assert(!IsInParallelMode());	/* couldn't update pendingSyncHash */
@@ -154,15 +168,15 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 	switch (relpersistence)
 	{
 		case RELPERSISTENCE_TEMP:
-			backend = BackendIdForTempRelations();
+			procNumber = ProcNumberForTempRelations();
 			needs_wal = false;
 			break;
 		case RELPERSISTENCE_UNLOGGED:
-			backend = InvalidBackendId;
+			procNumber = INVALID_PROC_NUMBER;
 			needs_wal = false;
 			break;
 		case RELPERSISTENCE_PERMANENT:
-			backend = InvalidBackendId;
+			procNumber = INVALID_PROC_NUMBER;
 			needs_wal = true;
 			break;
 		default:
@@ -170,7 +184,11 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 			return NULL;		/* placate compiler */
 	}
 
+<<<<<<< HEAD
 	srel = smgropen(rlocator, backend, smgr_which, rel);
+=======
+	srel = smgropen(rlocator, procNumber);
+>>>>>>> REL_18_BETA1_branch
 	smgrcreate(srel, MAIN_FORKNUM, false);
 
 	if (needs_wal)
@@ -186,9 +204,14 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 
 		pending = (PendingRelDelete *)
 			MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
+<<<<<<< HEAD
 		pending->rlocator.node = rlocator;
 		pending->rlocator.isTempRelation = backend == TempRelBackendId;
 		pending->backend = backend;
+=======
+		pending->rlocator = rlocator;
+		pending->procNumber = procNumber;
+>>>>>>> REL_18_BETA1_branch
 		pending->atCommit = false;	/* delete if abort */
 		pending->nestLevel = GetCurrentTransactionNestLevel();
 		pending->rlocator.smgr_which = smgr_which;
@@ -198,7 +221,7 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 
 	if (relpersistence == RELPERSISTENCE_PERMANENT && !XLogIsNeeded())
 	{
-		Assert(backend == InvalidBackendId);
+		Assert(procNumber == INVALID_PROC_NUMBER);
 		AddPendingSync(&rlocator);
 	}
 
@@ -221,7 +244,7 @@ log_smgrcreate(const RelFileLocator *rlocator, ForkNumber forkNum, SMgrImpl impl
 	xlrec.impl = impl;
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+	XLogRegisterData(&xlrec, sizeof(xlrec));
 	XLogInsert(RM_SMGR_ID, XLOG_SMGR_CREATE | XLR_SPECIAL_REL_UPDATE);
 }
 
@@ -237,9 +260,14 @@ RelationDropStorage(Relation rel)
 	/* Add the relation to the list of stuff to delete at commit */
 	pending = (PendingRelDelete *)
 		MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
+<<<<<<< HEAD
 	pending->rlocator.node = rel->rd_locator;
 	pending->backend = rel->rd_backend;
 	pending->rlocator.isTempRelation = rel->rd_backend == TempRelBackendId;
+=======
+	pending->rlocator = rel->rd_locator;
+	pending->procNumber = rel->rd_backend;
+>>>>>>> REL_18_BETA1_branch
 	pending->atCommit = true;	/* delete if commit */
 	pending->nestLevel = GetCurrentTransactionNestLevel();
 	pending->rlocator.smgr_which = smgr_get_impl(rel);
@@ -415,7 +443,11 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * replay or visibility invariants downstream.  The critical section also
 	 * suppresses interrupts.
 	 *
+<<<<<<< HEAD
 	 * (See also pg_visibilitymap.c if changing this code.)
+=======
+	 * (See also visibilitymap.c if changing this code.)
+>>>>>>> REL_18_BETA1_branch
 	 */
 	START_CRIT_SECTION();
 
@@ -432,7 +464,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 		xlrec.flags = SMGR_TRUNCATE_ALL;
 
 		XLogBeginInsert();
-		XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+		XLogRegisterData(&xlrec, sizeof(xlrec));
 
 		lsn = XLogInsert(RM_SMGR_ID,
 						 XLOG_SMGR_TRUNCATE | XLR_SPECIAL_REL_UPDATE);
@@ -453,7 +485,11 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * longer exist after truncation is complete, and then truncate the
 	 * corresponding files on disk.
 	 */
+<<<<<<< HEAD
 	smgrtruncate2(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
+=======
+	smgrtruncate(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
+>>>>>>> REL_18_BETA1_branch
 
 	END_CRIT_SECTION();
 
@@ -512,14 +548,11 @@ void
 RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 					ForkNumber forkNum, char relpersistence)
 {
-	PGIOAlignedBlock buf;
-	Page		page;
 	bool		use_wal;
 	bool		copying_initfork;
 	BlockNumber nblocks;
 	BlockNumber blkno;
-
-	page = (Page) buf.data;
+	BulkWriteState *bulkstate;
 
 	/*
 	 * The init fork for an unlogged relation in many respects has to be
@@ -538,15 +571,24 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 	use_wal = XLogIsNeeded() &&
 		(relpersistence == RELPERSISTENCE_PERMANENT || copying_initfork);
 
+	bulkstate = smgr_bulk_start_smgr(dst, forkNum, use_wal);
+
 	nblocks = smgrnblocks(src, forkNum);
 
 	for (blkno = 0; blkno < nblocks; blkno++)
 	{
+		BulkWriteBuffer buf;
+		int			piv_flags;
+		bool		checksum_failure;
+		bool		verified;
+
 		/* If we got a cancel signal during the copy of the data, quit */
 		CHECK_FOR_INTERRUPTS();
 
-		smgrread(src, forkNum, blkno, buf.data);
+		buf = smgr_bulk_get_buf(bulkstate);
+		smgrread(src, forkNum, blkno, (Page) buf);
 
+<<<<<<< HEAD
 		if (!PageIsVerifiedExtended(page, forkNum,
 									blkno, PIV_LOG_WARNING | PIV_REPORT_STAT))
 			ereport(ERROR,
@@ -556,11 +598,46 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 							relpathbackend(src->smgr_rlocator.locator,
 										   src->smgr_rlocator.backend,
 										   forkNum))));
+=======
+		piv_flags = PIV_LOG_WARNING;
+		if (ignore_checksum_failure)
+			piv_flags |= PIV_IGNORE_CHECKSUM_FAILURE;
+		verified = PageIsVerified((Page) buf, blkno, piv_flags,
+								  &checksum_failure);
+		if (checksum_failure)
+		{
+			RelFileLocatorBackend rloc = src->smgr_rlocator;
+
+			pgstat_prepare_report_checksum_failure(rloc.locator.dbOid);
+			pgstat_report_checksum_failures_in_db(rloc.locator.dbOid, 1);
+		}
+
+		if (!verified)
+		{
+			/*
+			 * For paranoia's sake, capture the file path before invoking the
+			 * ereport machinery.  This guards against the possibility of a
+			 * relcache flush caused by, e.g., an errcontext callback.
+			 * (errcontext callbacks shouldn't be risking any such thing, but
+			 * people have been known to forget that rule.)
+			 */
+			RelPathStr	relpath = relpathbackend(src->smgr_rlocator.locator,
+												 src->smgr_rlocator.backend,
+												 forkNum);
+
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_CORRUPTED),
+					 errmsg("invalid page in block %u of relation %s",
+							blkno, relpath.str)));
+		}
+
+>>>>>>> REL_18_BETA1_branch
 		/*
-		 * WAL-log the copied page. Unfortunately we don't know what kind of a
-		 * page this is, so we have to log the full page including any unused
-		 * space.
+		 * Queue the page for WAL-logging and writing out.  Unfortunately we
+		 * don't know what kind of a page this is, so we have to log the full
+		 * page including any unused space.
 		 */
+<<<<<<< HEAD
 		if (use_wal)
 			log_newpage(&dst->smgr_rlocator.locator, forkNum, blkno, page, false);
 
@@ -574,19 +651,11 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 		 * ourselves below.
 		 */
 		smgrextend(dst, forkNum, blkno, buf.data, true);
+=======
+		smgr_bulk_write(bulkstate, blkno, buf, false);
+>>>>>>> REL_18_BETA1_branch
 	}
-
-	/*
-	 * When we WAL-logged rel pages, we must nonetheless fsync them.  The
-	 * reason is that since we're copying outside shared buffers, a CHECKPOINT
-	 * occurring during the copy has no way to flush the previously written
-	 * data to disk (indeed it won't know the new rel even exists).  A crash
-	 * later on would replay WAL from the checkpoint, therefore it wouldn't
-	 * replay our earlier WAL entries. If we do not fsync those pages here,
-	 * they might still not be on disk when the crash occurs.
-	 */
-	if (use_wal || copying_initfork)
-		smgrimmedsync(dst, forkNum);
+	smgr_bulk_finish(bulkstate);
 }
 
 /*
@@ -736,9 +805,29 @@ smgrDoPendingDeletes(bool isCommit)
 			/* do deletion if called for */
 			if (pending->atCommit == isCommit)
 			{
+<<<<<<< HEAD
 				Assert(pending->action);
 				Assert(pending->action->do_pending_rel_delete);
 				pending->action->do_pending_rel_delete(pending);
+=======
+				SMgrRelation srel;
+
+				srel = smgropen(pending->rlocator, pending->procNumber);
+
+				/* allocate the initial array, or extend it, if needed */
+				if (maxrels == 0)
+				{
+					maxrels = 8;
+					srels = palloc(sizeof(SMgrRelation) * maxrels);
+				}
+				else if (maxrels <= nrels)
+				{
+					maxrels *= 2;
+					srels = repalloc(srels, sizeof(SMgrRelation) * maxrels);
+				}
+
+				srels[nrels++] = srel;
+>>>>>>> REL_18_BETA1_branch
 			}
 
 			/* must explicitly free the list entry */
@@ -803,12 +892,16 @@ smgrDoPendingSyncs(bool isCommit, bool isParallelWorker)
 		uint64		total_blocks = 0;
 		SMgrRelation srel;
 
+<<<<<<< HEAD
 		srel = smgropen(pendingsync->rlocator, InvalidBackendId, SMGR_MD, NULL);
+=======
+		srel = smgropen(pendingsync->rlocator, INVALID_PROC_NUMBER);
+>>>>>>> REL_18_BETA1_branch
 
 		/*
 		 * We emit newpage WAL records for smaller relations.
 		 *
-		 * Small WAL records have a chance to be emitted along with other
+		 * Small WAL records have a chance to be flushed along with other
 		 * backends' WAL records.  We emit WAL records instead of syncing for
 		 * files that are smaller than a certain threshold, expecting faster
 		 * commit.  The threshold is defined by the GUC wal_skip_threshold.
@@ -936,12 +1029,16 @@ smgrGetPendingDeletes(bool forCommit, RelFileNodePendingDelete **ptr)
 		}
 
 		if (pending->nestLevel >= nestLevel && pending->atCommit == forCommit
+<<<<<<< HEAD
 			/*
 			 * Cloudberry allows transactions that access temporary tables to be
 			 * prepared.
 			 */
 			/* && pending->relnode.backend == InvalidBackendId) */
 				)
+=======
+			&& pending->procNumber == INVALID_PROC_NUMBER)
+>>>>>>> REL_18_BETA1_branch
 			nrels++;
 	}
 	if (nrels == 0)
@@ -960,11 +1057,15 @@ smgrGetPendingDeletes(bool forCommit, RelFileNodePendingDelete **ptr)
 		}
 
 		if (pending->nestLevel >= nestLevel && pending->atCommit == forCommit
+<<<<<<< HEAD
 			/*
 			 * Keep this loop condition identical to above
 			 */
 			/* && pending->relnode.backend == InvalidBackendId) */
 				)
+=======
+			&& pending->procNumber == INVALID_PROC_NUMBER)
+>>>>>>> REL_18_BETA1_branch
 		{
 			*rptr = pending->rlocator;
 			rptr++;
@@ -1058,7 +1159,11 @@ smgr_redo(XLogReaderState *record)
 		xl_smgr_create *xlrec = (xl_smgr_create *) XLogRecGetData(record);
 		SMgrRelation reln;
 
+<<<<<<< HEAD
 		reln = smgropen(xlrec->rlocator, InvalidBackendId, xlrec->impl, NULL);
+=======
+		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER);
+>>>>>>> REL_18_BETA1_branch
 		smgrcreate(reln, xlrec->forkNum, true);
 	}
 	else if (info == XLOG_SMGR_TRUNCATE)
@@ -1072,12 +1177,16 @@ smgr_redo(XLogReaderState *record)
 		int			nforks = 0;
 		bool		need_fsm_vacuum = false;
 
+<<<<<<< HEAD
 		/*
 		 * AO-specific implementation of SMGR is not needed because truncate
 		 * for AO takes a different code path, it does not involve emitting
 		 * SMGR_TRUNCATE WAL record.
 		 */
 		reln = smgropen(xlrec->rlocator, InvalidBackendId, SMGR_MD, NULL);
+=======
+		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER);
+>>>>>>> REL_18_BETA1_branch
 
 		/*
 		 * Forcibly create relation if it doesn't exist (which suggests that
@@ -1147,7 +1256,11 @@ smgr_redo(XLogReaderState *record)
 		if (nforks > 0)
 		{
 			START_CRIT_SECTION();
+<<<<<<< HEAD
 			smgrtruncate2(reln, forks, nforks, old_blocks, blocks);
+=======
+			smgrtruncate(reln, forks, nforks, old_blocks, blocks);
+>>>>>>> REL_18_BETA1_branch
 			END_CRIT_SECTION();
 		}
 

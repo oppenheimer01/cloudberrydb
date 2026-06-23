@@ -7,7 +7,7 @@
  * declare them all here to avoid having to propagate guc.h into
  * a lot of unrelated header files.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *	  src/include/utils/guc_hooks.h
  *
@@ -29,8 +29,6 @@ extern bool check_application_name(char **newval, void **extra,
 								   GucSource source);
 extern void assign_application_name(const char *newval, void *extra);
 extern const char *show_archive_command(void);
-extern bool check_autovacuum_max_workers(int *newval, void **extra,
-										 GucSource source);
 extern bool check_autovacuum_work_mem(int *newval, void **extra,
 									  GucSource source);
 extern bool check_vacuum_buffer_usage_limit(int *newval, void **extra,
@@ -46,11 +44,18 @@ extern bool check_client_connection_check_interval(int *newval, void **extra,
 extern bool check_client_encoding(char **newval, void **extra, GucSource source);
 extern void assign_client_encoding(const char *newval, void *extra);
 extern bool check_cluster_name(char **newval, void **extra, GucSource source);
+extern bool check_commit_ts_buffers(int *newval, void **extra,
+									GucSource source);
 extern const char *show_data_directory_mode(void);
 extern bool check_datestyle(char **newval, void **extra, GucSource source);
 extern void assign_datestyle(const char *newval, void *extra);
 extern bool check_debug_io_direct(char **newval, void **extra, GucSource source);
 extern void assign_debug_io_direct(const char *newval, void *extra);
+<<<<<<< HEAD
+=======
+extern bool check_log_connections(char **newval, void **extra, GucSource source);
+extern void assign_log_connections(const char *newval, void *extra);
+>>>>>>> REL_18_BETA1_branch
 extern bool check_default_table_access_method(char **newval, void **extra,
 											  GucSource source);
 extern bool check_default_tablespace(char **newval, void **extra,
@@ -59,9 +64,9 @@ extern bool check_default_text_search_config(char **newval, void **extra, GucSou
 extern void assign_default_text_search_config(const char *newval, void *extra);
 extern bool check_default_with_oids(bool *newval, void **extra,
 									GucSource source);
-extern bool check_effective_io_concurrency(int *newval, void **extra,
-										   GucSource source);
 extern bool check_huge_page_size(int *newval, void **extra, GucSource source);
+extern void assign_io_method(int newval, void *extra);
+extern bool check_io_max_concurrency(int *newval, void **extra, GucSource source);
 extern const char *show_in_hot_standby(void);
 extern bool check_locale_messages(char **newval, void **extra, GucSource source);
 extern void assign_locale_messages(const char *newval, void *extra);
@@ -79,16 +84,19 @@ extern bool check_log_stats(bool *newval, void **extra, GucSource source);
 extern bool check_log_timezone(char **newval, void **extra, GucSource source);
 extern void assign_log_timezone(const char *newval, void *extra);
 extern const char *show_log_timezone(void);
-extern bool check_maintenance_io_concurrency(int *newval, void **extra,
-											 GucSource source);
 extern void assign_maintenance_io_concurrency(int newval, void *extra);
-extern bool check_max_connections(int *newval, void **extra, GucSource source);
-extern bool check_max_wal_senders(int *newval, void **extra, GucSource source);
+extern void assign_io_max_combine_limit(int newval, void *extra);
+extern void assign_io_combine_limit(int newval, void *extra);
+extern bool check_max_slot_wal_keep_size(int *newval, void **extra,
+										 GucSource source);
 extern void assign_max_wal_size(int newval, void *extra);
-extern bool check_max_worker_processes(int *newval, void **extra,
-									   GucSource source);
 extern bool check_max_stack_depth(int *newval, void **extra, GucSource source);
 extern void assign_max_stack_depth(int newval, void *extra);
+extern bool check_multixact_member_buffers(int *newval, void **extra,
+										   GucSource source);
+extern bool check_multixact_offset_buffers(int *newval, void **extra,
+										   GucSource source);
+extern bool check_notify_buffers(int *newval, void **extra, GucSource source);
 extern bool check_primary_slot_name(char **newval, void **extra,
 									GucSource source);
 extern bool check_random_seed(double *newval, void **extra, GucSource source);
@@ -123,12 +131,15 @@ extern bool check_restrict_nonsystem_relation_kind(char **newval, void **extra,
 extern void assign_restrict_nonsystem_relation_kind(const char *newval, void *extra);
 extern bool check_search_path(char **newval, void **extra, GucSource source);
 extern void assign_search_path(const char *newval, void *extra);
+extern bool check_serial_buffers(int *newval, void **extra, GucSource source);
 extern bool check_session_authorization(char **newval, void **extra, GucSource source);
 extern void assign_session_authorization(const char *newval, void *extra);
 extern void assign_session_replication_role(int newval, void *extra);
 extern void assign_stats_fetch_consistency(int newval, void *extra);
 extern bool check_ssl(bool *newval, void **extra, GucSource source);
 extern bool check_stage_log_stats(bool *newval, void **extra, GucSource source);
+extern bool check_subtrans_buffers(int *newval, void **extra,
+								   GucSource source);
 extern bool check_synchronous_standby_names(char **newval, void **extra,
 											GucSource source);
 extern void assign_synchronous_standby_names(const char *newval, void *extra);
@@ -153,14 +164,26 @@ extern const char *show_timezone(void);
 extern bool check_timezone_abbreviations(char **newval, void **extra,
 										 GucSource source);
 extern void assign_timezone_abbreviations(const char *newval, void *extra);
+extern bool check_transaction_buffers(int *newval, void **extra, GucSource source);
 extern bool check_transaction_deferrable(bool *newval, void **extra, GucSource source);
 extern bool check_transaction_isolation(int *newval, void **extra, GucSource source);
 extern bool check_transaction_read_only(bool *newval, void **extra, GucSource source);
+extern void assign_transaction_timeout(int newval, void *extra);
 extern const char *show_unix_socket_permissions(void);
 extern bool check_wal_buffers(int *newval, void **extra, GucSource source);
 extern bool check_wal_consistency_checking(char **newval, void **extra,
 										   GucSource source);
 extern void assign_wal_consistency_checking(const char *newval, void *extra);
+<<<<<<< HEAD
 extern void assign_xlog_sync_method(int new_sync_method, void *extra);
+=======
+extern bool check_wal_segment_size(int *newval, void **extra, GucSource source);
+extern void assign_wal_sync_method(int new_wal_sync_method, void *extra);
+extern bool check_synchronized_standby_slots(char **newval, void **extra,
+											 GucSource source);
+extern void assign_synchronized_standby_slots(const char *newval, void *extra);
+extern bool check_idle_replication_slot_timeout(int *newval, void **extra,
+												GucSource source);
+>>>>>>> REL_18_BETA1_branch
 
 #endif							/* GUC_HOOKS_H */

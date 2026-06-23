@@ -61,8 +61,13 @@ installdirs:
 uninstall:
 	rm -f '$(DESTDIR)$(bindir)/pg_waldump$(X)'
 
+<<<<<<< HEAD
 clean distclean maintainer-clean:
 	rm -f pg_waldump$(X) $(OBJS) $(RMGRDESCSOURCES) xlogreader.c paxc_desc.c paxc_desc.h xlogstats.c
+=======
+clean distclean:
+	rm -f pg_waldump$(X) $(OBJS) $(RMGRDESCSOURCES) xlogreader.c xlogstats.c
+>>>>>>> REL_18_BETA1_branch
 	rm -rf tmp_check
 
 check:

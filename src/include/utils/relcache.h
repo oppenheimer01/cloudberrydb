@@ -4,9 +4,13 @@
  *	  Relation descriptor cache definitions.
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc.
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/relcache.h
@@ -40,6 +44,14 @@ typedef Relation *RelationPtr;
 /*
  * Routines to open (lookup) and close a relcache entry
  */
+#ifdef USE_ASSERT_CHECKING
+extern void AssertCouldGetRelation(void);
+#else
+static inline void
+AssertCouldGetRelation(void)
+{
+}
+#endif
 extern Relation RelationIdGetRelation(Oid relationId);
 extern void RelationClose(Relation relation);
 
@@ -50,12 +62,11 @@ struct GpPolicy *RelationGetPartitioningKey(Relation relation);
 extern List *RelationGetFKeyList(Relation relation);
 extern List *RelationGetIndexList(Relation relation);
 extern List *RelationGetStatExtList(Relation relation);
-extern Oid	RelationGetPrimaryKeyIndex(Relation relation);
+extern Oid	RelationGetPrimaryKeyIndex(Relation relation, bool deferrable_ok);
 extern Oid	RelationGetReplicaIndex(Relation relation);
 extern List *RelationGetIndexExpressions(Relation relation);
 extern List *RelationGetDummyIndexExpressions(Relation relation);
 extern List *RelationGetIndexPredicate(Relation relation);
-extern Datum *RelationGetIndexRawAttOptions(Relation indexrel);
 extern bytea **RelationGetIndexAttOptions(Relation relation, bool copy);
 
 /*
@@ -67,7 +78,7 @@ typedef enum IndexAttrBitmapKind
 	INDEX_ATTR_BITMAP_PRIMARY_KEY,
 	INDEX_ATTR_BITMAP_IDENTITY_KEY,
 	INDEX_ATTR_BITMAP_HOT_BLOCKING,
-	INDEX_ATTR_BITMAP_SUMMARIZED
+	INDEX_ATTR_BITMAP_SUMMARIZED,
 } IndexAttrBitmapKind;
 
 extern Bitmapset *RelationGetIndexAttrBitmap(Relation relation,
@@ -133,8 +144,6 @@ extern void RelationForgetRelation(Oid rid);
 extern void RelationCacheInvalidateEntry(Oid relationId);
 
 extern void RelationCacheInvalidate(bool debug_discard);
-
-extern void RelationCloseSmgrByOid(Oid relationId);
 
 #ifdef USE_ASSERT_CHECKING
 extern void AssertPendingSyncs_RelationCache(void);

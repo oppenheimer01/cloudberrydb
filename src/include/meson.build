@@ -1,13 +1,4 @@
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
-
-pg_config_ext = configure_file(
-  input: 'pg_config_ext.h.meson',
-  output: 'pg_config_ext.h',
-  configuration: cdata,
-  install: true,
-  install_dir: dir_include,
-)
-configure_files += pg_config_ext
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 pg_config_os = configure_file(
   output: 'pg_config_os.h',
@@ -44,9 +35,9 @@ config_paths_data.set_quoted('MANDIR', dir_prefix / dir_man)
 
 var_cc = ' '.join(cc.cmd_array())
 var_cpp = ' '.join(cc.cmd_array() + ['-E'])
-var_cflags = ' '.join(cflags + cflags_warn + get_option('c_args'))
+var_cflags = ' '.join(cflags + cflags_builtin + cflags_warn + get_option('c_args'))
 if llvm.found()
-  var_cxxflags = ' '.join(cxxflags + cxxflags_warn + get_option('cpp_args'))
+  var_cxxflags = ' '.join(cxxflags + cxxflags_builtin + cxxflags_warn + get_option('cpp_args'))
 else
   var_cxxflags = ''
 endif
@@ -94,6 +85,7 @@ install_headers(
 
 install_headers(
   'libpq/pqcomm.h',
+  'libpq/protocol.h',
   install_dir: dir_include_internal / 'libpq',
 )
 
@@ -115,7 +107,6 @@ install_headers(
   'postgres_fe.h',
   'varatt.h',
   'windowapi.h',
-  pg_config_ext,
   pg_config_os,
   pg_config,
   install_dir: dir_include_server,
@@ -185,4 +176,4 @@ install_subdir('catalog',
 )
 
 # autoconf generates the file there, ensure we get a conflict
-generated_sources_ac += {'src/include': ['stamp-h', 'stamp-ext-h']}
+generated_sources_ac += {'src/include': ['stamp-h']}

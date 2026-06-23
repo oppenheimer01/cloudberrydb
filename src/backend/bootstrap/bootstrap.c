@@ -4,7 +4,7 @@
  *	  routines to support running postgres in 'bootstrap' mode
  *	bootstrap mode is used to create the initial template database
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -23,7 +23,6 @@
 #include "access/tableam.h"
 #include "access/toast_compression.h"
 #include "access/xact.h"
-#include "access/xlog_internal.h"
 #include "bootstrap/bootstrap.h"
 #include "catalog/index.h"
 #include "catalog/pg_collation.h"
@@ -31,6 +30,7 @@
 #include "catalog/storage_tablespace.h"
 #include "commands/tablespace.h"
 #include "common/link-canary.h"
+<<<<<<< HEAD
 #include "crypto/bufenc.h"
 #include "libpq/pqsignal.h"
 #include "miscadmin.h"
@@ -43,21 +43,29 @@
 #include "postmaster/walwriter.h"
 #include "replication/walreceiver.h"
 #include "storage/bufmgr.h"
+=======
+#include "miscadmin.h"
+#include "nodes/makefuncs.h"
+#include "pg_getopt.h"
+#include "postmaster/postmaster.h"
+>>>>>>> REL_18_BETA1_branch
 #include "storage/bufpage.h"
-#include "storage/condition_variable.h"
 #include "storage/ipc.h"
 #include "storage/proc.h"
-#include "tcop/tcopprot.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
+#include "utils/guc.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/relmapper.h"
 
+<<<<<<< HEAD
 uint32      bootstrap_data_checksum_version = 0;	/* No checksum */
 int         bootstrap_file_encryption_method = DISABLED_ENCRYPTION_METHOD;
 char        *bootstrap_old_key_datadir = NULL;	/* disabled */
 
+=======
+>>>>>>> REL_18_BETA1_branch
 
 static void CheckerModeMain(void);
 static void bootstrap_signals(void);
@@ -217,6 +225,8 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	char	   *progname = argv[0];
 	int			flag;
 	char	   *userDoption = NULL;
+	uint32		bootstrap_data_checksum_version = 0;	/* No checksum */
+	yyscan_t	scanner;
 
 	Assert(!IsUnderPostmaster);
 
@@ -239,8 +249,21 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 			case 'B':
 				SetConfigOption("shared_buffers", optarg, PGC_POSTMASTER, PGC_S_ARGV);
 				break;
-			case 'c':
 			case '-':
+
+				/*
+				 * Error if the user misplaced a special must-be-first option
+				 * for dispatching to a subprogram.  parse_dispatch_option()
+				 * returns DISPATCH_POSTMASTER if it doesn't find a match, so
+				 * error for anything else.
+				 */
+				if (parse_dispatch_option(optarg) != DISPATCH_POSTMASTER)
+					ereport(ERROR,
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("--%s must be first argument", optarg)));
+
+				/* FALLTHROUGH */
+			case 'c':
 				{
 					char	   *name,
 							   *value;
@@ -315,16 +338,7 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
  				bootstrap_old_key_datadir = pstrdup(optarg);
  				break;
 			case 'X':
-				{
-					int			WalSegSz = strtoul(optarg, NULL, 0);
-
-					if (!IsValidWalSegSize(WalSegSz))
-						ereport(ERROR,
-								(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-								 errmsg("-X requires a power of two value between 1 MB and 1 GB")));
-					SetConfigOption("wal_segment_size", optarg, PGC_INTERNAL,
-									PGC_S_DYNAMIC_DEFAULT);
-				}
+				SetConfigOption("wal_segment_size", optarg, PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
 				break;
 			default:
 				write_stderr("Try \"%s --help\" for more information.\n",
@@ -365,7 +379,22 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 
 	InitializeMaxBackends();
 
+	/*
+	 * Even though bootstrapping runs in single-process mode, initialize
+	 * postmaster child slots array so that --check can detect running out of
+	 * shared memory or other resources if max_connections is set too high.
+	 */
+	InitPostmasterChildSlots();
+
+	InitializeFastPathLocks();
+
 	CreateSharedMemoryAndSemaphores();
+
+	/*
+	 * Estimate number of openable files.  This is essential too in --check
+	 * mode, because on some platforms semaphores count as open files.
+	 */
+	set_max_safe_fds();
 
 	/*
 	 * XXX: It might make sense to move this into its own function at some
@@ -387,7 +416,7 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	BaseInit();
 
 	bootstrap_signals();
-	BootStrapXLOG();
+	BootStrapXLOG(bootstrap_data_checksum_version);
 
 	/*
 	 * To ensure that src/common/link-canary.c is linked into the backend, we
@@ -396,7 +425,7 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	if (pg_link_canary_is_frontend())
 		elog(ERROR, "backend is incorrectly linked to frontend functions");
 
-	InitPostgres(NULL, InvalidOid, NULL, InvalidOid, false, false, NULL);
+	InitPostgres(NULL, InvalidOid, NULL, InvalidOid, 0, NULL);
 
 	/* Initialize stuff for bootstrap-file processing */
 	for (i = 0; i < MAXATTR; i++)
@@ -405,11 +434,14 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 		Nulls[i] = false;
 	}
 
+	if (boot_yylex_init(&scanner) != 0)
+		elog(ERROR, "yylex_init() failed: %m");
+
 	/*
 	 * Process bootstrap input.
 	 */
 	StartTransactionCommand();
-	boot_yyparse();
+	boot_yyparse(scanner);
 	CommitTransactionCommand();
 
 	/*
@@ -486,8 +518,8 @@ boot_openrel(char *relname)
 	{
 		if (attrtypes[i] == NULL)
 			attrtypes[i] = AllocateAttribute();
-		memmove((char *) attrtypes[i],
-				(char *) TupleDescAttr(boot_reldesc->rd_att, i),
+		memmove(attrtypes[i],
+				TupleDescAttr(boot_reldesc->rd_att, i),
 				ATTRIBUTE_FIXED_PART_SIZE);
 
 		{
@@ -603,8 +635,6 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 	if (OidIsValid(attrtypes[attnum]->attcollation))
 		attrtypes[attnum]->attcollation = C_COLLATION_OID;
 
-	attrtypes[attnum]->attstattarget = -1;
-	attrtypes[attnum]->attcacheoff = -1;
 	attrtypes[attnum]->atttypmod = -1;
 	attrtypes[attnum]->attislocal = true;
 
@@ -956,7 +986,7 @@ AllocateAttribute(void)
 void
 index_register(Oid heap,
 			   Oid ind,
-			   IndexInfo *indexInfo)
+			   const IndexInfo *indexInfo)
 {
 	IndexList  *newind;
 	MemoryContext oldcxt;

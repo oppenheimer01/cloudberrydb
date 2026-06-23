@@ -4,9 +4,13 @@
  *	  internal structures for hash joins
  *
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/hashjoin.h
@@ -154,7 +158,7 @@ typedef struct HashMemoryChunkData
 
 typedef struct HashMemoryChunkData *HashMemoryChunk;
 
-#define HASH_CHUNK_SIZE			(32 * 1024L)
+#define HASH_CHUNK_SIZE			((Size) (32 * 1024))
 #define HASH_CHUNK_HEADER_SIZE	MAXALIGN(sizeof(HashMemoryChunkData))
 #define HASH_CHUNK_DATA(hc)		(((char *) (hc)) + HASH_CHUNK_HEADER_SIZE)
 /* tuples exceeding HASH_CHUNK_THRESHOLD bytes are put in their own chunk */
@@ -272,7 +276,7 @@ typedef enum ParallelHashGrowth
 	/* The memory budget would be exhausted, so we need to repartition. */
 	PHJ_GROWTH_NEED_MORE_BATCHES,
 	/* Repartitioning didn't help last time, so don't try to do that again. */
-	PHJ_GROWTH_DISABLED
+	PHJ_GROWTH_DISABLED,
 } ParallelHashGrowth;
 
 /*
@@ -353,8 +357,6 @@ typedef struct HashJoinTableData
 		dsa_pointer_atomic *shared;
 	}			buckets;
 
-	bool		keepNulls;		/* true to store unmatchable NULL tuples */
-
 	bool		skewEnabled;	/* are we using skew optimization? */
 	HashSkewBucket **skewBucket;	/* hashtable of skew buckets */
 	int			skewBucketLen;	/* size of skewBucket array (a power of 2!) */
@@ -383,6 +385,7 @@ typedef struct HashJoinTableData
 	BufFile	  **innerBatchFile; /* buffered virtual temp file per batch */
 	BufFile   **outerBatchFile; /* buffered virtual temp file per batch */
 
+<<<<<<< HEAD
 	/* Representation of all spill file names, for spill file reuse */
 	workfile_set * work_set;
 
@@ -398,6 +401,8 @@ typedef struct HashJoinTableData
 	bool	   *hashStrict;		/* is each hash join operator strict? */
 	Oid		   *collations;
 
+=======
+>>>>>>> REL_18_BETA1_branch
 	Size		spaceUsed;		/* memory space currently used by tuples */
 	Size		spaceAllowed;	/* upper limit for space used */
 	Size		spacePeak;		/* peak space used */

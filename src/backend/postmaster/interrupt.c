@@ -3,7 +3,7 @@
  * interrupt.c
  *	  Interrupt handling routines.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -32,7 +32,7 @@ volatile sig_atomic_t ShutdownRequestPending = false;
  * Simple interrupt handler for main loops of background processes.
  */
 void
-HandleMainLoopInterrupts(void)
+ProcessMainLoopInterrupts(void)
 {
 	if (ProcSignalBarrierPending)
 		ProcessProcSignalBarrier();
@@ -49,6 +49,10 @@ HandleMainLoopInterrupts(void)
 	/* Perform logging of memory contexts of this process */
 	if (LogMemoryContextPending)
 		ProcessLogMemoryContextInterrupt();
+
+	/* Publish memory contexts of this process */
+	if (PublishMemoryContextPending)
+		ProcessGetMemoryContextInterrupt();
 }
 
 /*
@@ -56,17 +60,13 @@ HandleMainLoopInterrupts(void)
  *
  * Normally, this handler would be used for SIGHUP. The idea is that code
  * which uses it would arrange to check the ConfigReloadPending flag at
- * convenient places inside main loops, or else call HandleMainLoopInterrupts.
+ * convenient places inside main loops, or else call ProcessMainLoopInterrupts.
  */
 void
 SignalHandlerForConfigReload(SIGNAL_ARGS)
 {
-	int			save_errno = errno;
-
 	ConfigReloadPending = true;
 	SetLatch(MyLatch);
-
-	errno = save_errno;
 }
 
 /*
@@ -106,15 +106,11 @@ SignalHandlerForCrashExit(SIGNAL_ARGS)
  * SIGINT or SIGTERM.
  *
  * ShutdownRequestPending should be checked at a convenient place within the
- * main loop, or else the main loop should call HandleMainLoopInterrupts.
+ * main loop, or else the main loop should call ProcessMainLoopInterrupts.
  */
 void
 SignalHandlerForShutdownRequest(SIGNAL_ARGS)
 {
-	int			save_errno = errno;
-
 	ShutdownRequestPending = true;
 	SetLatch(MyLatch);
-
-	errno = save_errno;
 }

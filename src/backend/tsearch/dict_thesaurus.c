@@ -3,7 +3,7 @@
  * dict_thesaurus.c
  *		Thesaurus dictionary: phrase to phrase substitution
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -17,8 +17,8 @@
 #include "commands/defrem.h"
 #include "tsearch/ts_cache.h"
 #include "tsearch/ts_locale.h"
-#include "tsearch/ts_utils.h"
-#include "utils/builtins.h"
+#include "tsearch/ts_public.h"
+#include "utils/fmgrprotos.h"
 #include "utils/regproc.h"
 
 
@@ -190,8 +190,13 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 		ptr = line;
 
 		/* is it a comment? */
+<<<<<<< HEAD
 		while (*ptr && t_isspace_cstr(ptr))
 			ptr += pg_mblen_cstr(ptr);
+=======
+		while (*ptr && isspace((unsigned char) *ptr))
+			ptr += pg_mblen(ptr);
+>>>>>>> REL_18_BETA1_branch
 
 		if (t_iseq(ptr, '#') || *ptr == '\0' ||
 			t_iseq(ptr, '\n') || t_iseq(ptr, '\r'))
@@ -212,7 +217,11 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 								 errmsg("unexpected delimiter")));
 					state = TR_WAITSUBS;
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(ptr))
+=======
+				else if (!isspace((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					beginwrd = ptr;
 					state = TR_INLEX;
@@ -225,7 +234,11 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 					newLexeme(d, beginwrd, ptr, idsubst, posinsubst++);
 					state = TR_WAITSUBS;
 				}
+<<<<<<< HEAD
 				else if (t_isspace_cstr(ptr))
+=======
+				else if (isspace((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					newLexeme(d, beginwrd, ptr, idsubst, posinsubst++);
 					state = TR_WAITLEX;
@@ -245,7 +258,11 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 					state = TR_INSUBS;
 					beginwrd = ptr + pg_mblen_cstr(ptr);
 				}
+<<<<<<< HEAD
 				else if (!t_isspace_cstr(ptr))
+=======
+				else if (!isspace((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					useasis = false;
 					beginwrd = ptr;
@@ -254,7 +271,11 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 			}
 			else if (state == TR_INSUBS)
 			{
+<<<<<<< HEAD
 				if (t_isspace_cstr(ptr))
+=======
+				if (isspace((unsigned char) *ptr))
+>>>>>>> REL_18_BETA1_branch
 				{
 					if (ptr == beginwrd)
 						ereport(ERROR,
@@ -859,7 +880,7 @@ thesaurus_lexize(PG_FUNCTION_ARGS)
 		info = NULL;			/* word isn't recognized */
 	}
 
-	dstate->private_state = (void *) info;
+	dstate->private_state = info;
 
 	if (!info)
 	{

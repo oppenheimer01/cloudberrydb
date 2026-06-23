@@ -3,9 +3,13 @@
  * syscache.c
  *	  System cache management routines
  *
+<<<<<<< HEAD
  * Portions Copyright (c) 2007-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+=======
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -23,6 +27,7 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+<<<<<<< HEAD
 #include "access/sysattr.h"
 #include "catalog/pg_aggregate.h"
 #include "catalog/pg_attribute_encoding.h"
@@ -86,6 +91,16 @@
 #include "catalog/pg_user_mapping.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/gp_storage_server.h"
+=======
+#include "catalog/pg_db_role_setting_d.h"
+#include "catalog/pg_depend_d.h"
+#include "catalog/pg_description_d.h"
+#include "catalog/pg_seclabel_d.h"
+#include "catalog/pg_shdepend_d.h"
+#include "catalog/pg_shdescription_d.h"
+#include "catalog/pg_shseclabel_d.h"
+#include "common/int.h"
+>>>>>>> REL_18_BETA1_branch
 #include "lib/qunique.h"
 #include "miscadmin.h"
 #include "storage/lmgr.h"
@@ -109,24 +124,19 @@
 
 	Adding system caches:
 
-	Add your new cache to the list in include/utils/syscache.h.
-	Keep the list sorted alphabetically.
-
-	Add your entry to the cacheinfo[] array below. All cache lists are
-	alphabetical, so add it in the proper place.  Specify the relation OID,
-	index OID, number of keys, key attribute numbers, and initial number of
-	hash buckets.
-
-	The number of hash buckets must be a power of 2.  It's reasonable to
-	set this to the number of entries that might be in the particular cache
-	in a medium-size database.
-
 	There must be a unique index underlying each syscache (ie, an index
 	whose key is the same as that of the cache).  If there is not one
 	already, add the definition for it to include/catalog/pg_*.h using
 	DECLARE_UNIQUE_INDEX.
 	(Adding an index requires a catversion.h update, while simply
 	adding/deleting caches only requires a recompile.)
+
+	Add a MAKE_SYSCACHE call to the same pg_*.h file specifying the name of
+	your cache, the underlying index, and the initial number of hash buckets.
+
+	The number of hash buckets must be a power of 2.  It's reasonable to
+	set this to the number of entries that might be in the particular cache
+	in a medium-size database.
 
 	Finally, any place your relation gets heap_insert() or
 	heap_update() calls, use CatalogTupleInsert() or CatalogTupleUpdate()
@@ -150,6 +160,7 @@ struct cachedesc
 /* Macro to provide nkeys and key array with convenient syntax. */
 #define KEY(...) VA_ARGS_NARGS(__VA_ARGS__), { __VA_ARGS__ }
 
+<<<<<<< HEAD
 static const struct cachedesc cacheinfo[] = {
 	[AGGFNOID] = {
 		AggregateRelationId,
@@ -833,6 +844,9 @@ static const struct cachedesc cacheinfo[] = {
 		2
 	}
 };
+=======
+#include "catalog/syscache_info.h"
+>>>>>>> REL_18_BETA1_branch
 
 StaticAssertDecl(lengthof(cacheinfo) == SysCacheSize,
 				 "SysCacheSize does not match syscache.c's array");
@@ -875,7 +889,9 @@ InitCatalogCache(void)
 		 * Assert that every enumeration value defined in syscache.h has been
 		 * populated in the cacheinfo array.
 		 */
-		Assert(cacheinfo[cacheId].reloid != 0);
+		Assert(OidIsValid(cacheinfo[cacheId].reloid));
+		Assert(OidIsValid(cacheinfo[cacheId].indoid));
+		/* .nbuckets and .key[] are checked by InitCatCache() */
 
 		SysCache[cacheId] = InitCatCache(cacheId,
 										 cacheinfo[cacheId].reloid,
@@ -901,14 +917,14 @@ InitCatalogCache(void)
 	Assert(SysCacheSupportingRelOidSize <= lengthof(SysCacheSupportingRelOid));
 
 	/* Sort and de-dup OID arrays, so we can use binary search. */
-	pg_qsort(SysCacheRelationOid, SysCacheRelationOidSize,
-			 sizeof(Oid), oid_compare);
+	qsort(SysCacheRelationOid, SysCacheRelationOidSize,
+		  sizeof(Oid), oid_compare);
 	SysCacheRelationOidSize =
 		qunique(SysCacheRelationOid, SysCacheRelationOidSize, sizeof(Oid),
 				oid_compare);
 
-	pg_qsort(SysCacheSupportingRelOid, SysCacheSupportingRelOidSize,
-			 sizeof(Oid), oid_compare);
+	qsort(SysCacheSupportingRelOid, SysCacheSupportingRelOidSize,
+		  sizeof(Oid), oid_compare);
 	SysCacheSupportingRelOidSize =
 		qunique(SysCacheSupportingRelOid, SysCacheSupportingRelOidSize,
 				sizeof(Oid), oid_compare);
@@ -1108,8 +1124,12 @@ SearchSysCacheLocked1(int cacheId,
 
 		/*
 		 * If an inplace update just finished, ensure we process the syscache
+<<<<<<< HEAD
 		 * inval.  XXX this is insufficient: the inplace updater may not yet
 		 * have reached AtEOXact_Inval().  See test at inplace-inval.spec.
+=======
+		 * inval.
+>>>>>>> REL_18_BETA1_branch
 		 *
 		 * If a heap_update() call just released its LOCKTAG_TUPLE, we'll
 		 * probably find the old tuple and reach "tuple concurrently updated".
@@ -1542,7 +1562,7 @@ RelationSupportsSysCache(Oid relid)
 
 
 /*
- * OID comparator for pg_qsort
+ * OID comparator for qsort
  */
 static int
 oid_compare(const void *a, const void *b)
@@ -1550,7 +1570,5 @@ oid_compare(const void *a, const void *b)
 	Oid			oa = *((const Oid *) a);
 	Oid			ob = *((const Oid *) b);
 
-	if (oa == ob)
-		return 0;
-	return (oa > ob) ? 1 : -1;
+	return pg_cmp_u32(oa, ob);
 }

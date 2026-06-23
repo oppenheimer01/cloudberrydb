@@ -39,6 +39,7 @@ step ex: EXPLAIN (verbose, costs off)
            MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val
              WHEN NOT MATCHED THEN INSERT VALUES (src.id, src.val);
+<<<<<<< HEAD
 QUERY PLAN                                                            
 ----------------------------------------------------------------------
 Merge on public.tgt                                                   
@@ -55,6 +56,22 @@ Merge on public.tgt
 Settings: enable_mergejoin = 'off', enable_nestloop = 'off'           
 Optimizer: Postgres query optimizer                                   
 (13 rows)
+=======
+QUERY PLAN                                         
+---------------------------------------------------
+Merge on public.tgt                                
+  ->  Hash Left Join                               
+        Output: tgt.ctid, src.val, src.id, src.ctid
+        Inner Unique: true                         
+        Hash Cond: (src.id = tgt.id)               
+        ->  Seq Scan on public.src                 
+              Output: src.val, src.id, src.ctid    
+        ->  Hash                                   
+              Output: tgt.ctid, tgt.id             
+              ->  Seq Scan on public.tgt           
+                    Output: tgt.ctid, tgt.id       
+(11 rows)
+>>>>>>> REL_18_BETA1_branch
 
 step m2: MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val
@@ -82,6 +99,7 @@ step ex: EXPLAIN (verbose, costs off)
            MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val
              WHEN NOT MATCHED THEN INSERT VALUES (src.id, src.val);
+<<<<<<< HEAD
 QUERY PLAN                                                            
 ----------------------------------------------------------------------
 Merge on public.tgt                                                   
@@ -96,6 +114,20 @@ Merge on public.tgt
 Settings: enable_hashjoin = 'off', enable_nestloop = 'off'            
 Optimizer: Postgres query optimizer                                   
 (11 rows)
+=======
+QUERY PLAN                                         
+---------------------------------------------------
+Merge on public.tgt                                
+  ->  Merge Left Join                              
+        Output: tgt.ctid, src.val, src.id, src.ctid
+        Inner Unique: true                         
+        Merge Cond: (src.id = tgt.id)              
+        ->  Index Scan using src_pkey on public.src
+              Output: src.val, src.id, src.ctid    
+        ->  Index Scan using tgt_pkey on public.tgt
+              Output: tgt.ctid, tgt.id             
+(9 rows)
+>>>>>>> REL_18_BETA1_branch
 
 step m2: MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val
@@ -123,6 +155,7 @@ step ex: EXPLAIN (verbose, costs off)
            MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val
              WHEN NOT MATCHED THEN INSERT VALUES (src.id, src.val);
+<<<<<<< HEAD
 QUERY PLAN                                                            
 ----------------------------------------------------------------------
 Merge on public.tgt                                                   
@@ -137,6 +170,20 @@ Merge on public.tgt
 Settings: enable_hashjoin = 'off', enable_mergejoin = 'off'           
 Optimizer: Postgres query optimizer                                   
 (11 rows)
+=======
+QUERY PLAN                                         
+---------------------------------------------------
+Merge on public.tgt                                
+  ->  Nested Loop Left Join                        
+        Output: tgt.ctid, src.val, src.id, src.ctid
+        Inner Unique: true                         
+        ->  Seq Scan on public.src                 
+              Output: src.val, src.id, src.ctid    
+        ->  Index Scan using tgt_pkey on public.tgt
+              Output: tgt.ctid, tgt.id             
+              Index Cond: (tgt.id = src.id)        
+(9 rows)
+>>>>>>> REL_18_BETA1_branch
 
 step m2: MERGE INTO tgt USING src ON tgt.id = src.id
              WHEN MATCHED THEN UPDATE SET val = src.val

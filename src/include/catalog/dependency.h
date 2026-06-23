@@ -4,7 +4,7 @@
  *	  Routines to support inter-object dependencies.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/dependency.h
@@ -36,7 +36,7 @@ typedef enum DependencyType
 	DEPENDENCY_PARTITION_PRI = 'P',
 	DEPENDENCY_PARTITION_SEC = 'S',
 	DEPENDENCY_EXTENSION = 'e',
-	DEPENDENCY_AUTO_EXTENSION = 'x'
+	DEPENDENCY_AUTO_EXTENSION = 'x',
 } DependencyType;
 
 /*
@@ -56,11 +56,17 @@ typedef enum DependencyType
  * created for the owner of an object; hence two objects may be linked by
  * one or the other, but not both, of these dependency types.)
  *
- * (c) a SHARED_DEPENDENCY_POLICY entry means that the referenced object is
+ * (c) a SHARED_DEPENDENCY_INITACL entry means that the referenced object is
+ * a role mentioned in a pg_init_privs entry for the dependent object.
+ * The referenced object must be a pg_authid entry.  (Unlike the case for
+ * SHARED_DEPENDENCY_ACL, we make an entry for such a role whether or not
+ * it is the object's owner.)
+ *
+ * (d) a SHARED_DEPENDENCY_POLICY entry means that the referenced object is
  * a role mentioned in a policy object.  The referenced object must be a
  * pg_authid entry.
  *
- * (d) a SHARED_DEPENDENCY_TABLESPACE entry means that the referenced
+ * (e) a SHARED_DEPENDENCY_TABLESPACE entry means that the referenced
  * object is a tablespace mentioned in a relation without storage.  The
  * referenced object must be a pg_tablespace entry.  (Relations that have
  * storage don't need this: they are protected by the existence of a physical
@@ -81,17 +87,23 @@ typedef enum SharedDependencyType
 {
 	SHARED_DEPENDENCY_OWNER = 'o',
 	SHARED_DEPENDENCY_ACL = 'a',
+	SHARED_DEPENDENCY_INITACL = 'i',
 	SHARED_DEPENDENCY_POLICY = 'r',
 	SHARED_DEPENDENCY_TABLESPACE = 't',
+<<<<<<< HEAD
 	SHARED_DEPENDENCY_PROFILE = 'f',
 	SHARED_DEPENDENCY_STORAGE_SERVER = 's',
 	SHARED_DEPENDENCY_TAG = 'g',
 	SHARED_DEPENDENCY_INVALID = 0
+=======
+	SHARED_DEPENDENCY_INVALID = 0,
+>>>>>>> REL_18_BETA1_branch
 } SharedDependencyType;
 
 /* expansible list of ObjectAddresses (private in dependency.c) */
 typedef struct ObjectAddresses ObjectAddresses;
 
+<<<<<<< HEAD
 /*
  * This enum covers all system catalogs whose OIDs can appear in
  * pg_depend.classId or pg_shdepend.classId.  Keep object_classes[] in sync.
@@ -155,6 +167,8 @@ typedef enum ObjectClass
 
 #define LAST_OCLASS		OCLASS_TASK
 
+=======
+>>>>>>> REL_18_BETA1_branch
 /* flag bits for performDeletion/performMultipleDeletions: */
 #define PERFORM_DELETION_INTERNAL			0x0001	/* internal action */
 #define PERFORM_DELETION_CONCURRENTLY		0x0002	/* concurrent drop */
@@ -187,8 +201,6 @@ extern void recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 											DependencyType behavior,
 											DependencyType self_behavior,
 											bool reverse_self);
-
-extern ObjectClass getObjectClass(const ObjectAddress *object);
 
 extern ObjectAddresses *new_object_addresses(void);
 
@@ -249,7 +261,7 @@ extern Oid	getExtensionType(Oid extensionOid, const char *typname);
 
 extern bool sequenceIsOwned(Oid seqId, char deptype, Oid *tableId, int32 *colId);
 extern List *getOwnedSequences(Oid relid);
-extern Oid	getIdentitySequence(Oid relid, AttrNumber attnum, bool missing_ok);
+extern Oid	getIdentitySequence(Relation rel, AttrNumber attnum, bool missing_ok);
 
 extern Oid	get_index_constraint(Oid indexId);
 
@@ -279,6 +291,10 @@ extern void updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
 								  Oid ownerId,
 								  int noldmembers, Oid *oldmembers,
 								  int nnewmembers, Oid *newmembers);
+
+extern void updateInitAclDependencies(Oid classId, Oid objectId, int32 objsubId,
+									  int noldmembers, Oid *oldmembers,
+									  int nnewmembers, Oid *newmembers);
 
 extern bool checkSharedDependencies(Oid classId, Oid objectId,
 									char **detail_msg, char **detail_log_msg);

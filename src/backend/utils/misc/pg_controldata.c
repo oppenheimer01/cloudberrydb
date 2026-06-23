@@ -5,7 +5,7 @@
  * Routines to expose the contents of the control data file via
  * a set of SQL functions.
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -20,7 +20,6 @@
 #include "access/xlog.h"
 #include "access/xlog_internal.h"
 #include "catalog/pg_control.h"
-#include "catalog/pg_type.h"
 #include "common/controldata_utils.h"
 #include "funcapi.h"
 #include "miscadmin.h"
@@ -206,8 +205,13 @@ pg_control_recovery(PG_FUNCTION_ARGS)
 Datum
 pg_control_init(PG_FUNCTION_ARGS)
 {
+<<<<<<< HEAD
 	Datum		values[CONTROL_FILE_COLS];
 	bool		nulls[CONTROL_FILE_COLS];
+=======
+	Datum		values[12];
+	bool		nulls[12];
+>>>>>>> REL_18_BETA1_branch
 	TupleDesc	tupdesc;
 	HeapTuple	htup;
 	ControlFileData *ControlFile;
@@ -257,7 +261,11 @@ pg_control_init(PG_FUNCTION_ARGS)
 	values[10] = Int32GetDatum(ControlFile->data_checksum_version);
 	nulls[10] = false;
 
+<<<<<<< HEAD
 	values[11] = Int32GetDatum(ControlFile->file_encryption_method);
+=======
+	values[11] = BoolGetDatum(ControlFile->default_char_signedness);
+>>>>>>> REL_18_BETA1_branch
 	nulls[11] = false;
 
 	htup = heap_form_tuple(tupdesc, values, nulls);

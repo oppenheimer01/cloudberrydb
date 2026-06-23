@@ -2,7 +2,7 @@
  * llvmjit.h
  *	  LLVM JIT provider.
  *
- * Copyright (c) 2016-2023, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2025, PostgreSQL Global Development Group
  *
  * src/include/jit/llvmjit.h
  *
@@ -44,6 +44,9 @@ typedef struct LLVMJitContext
 {
 	JitContext	base;
 
+	/* used to ensure cleanup of context */
+	ResourceOwner resowner;
+
 	/* number of modules created */
 	size_t		module_generation;
 
@@ -66,9 +69,6 @@ typedef struct LLVMJitContext
 	/* list of handles for code emitted via Orc */
 	List	   *handles;
 } LLVMJitContext;
-
-/* llvm module containing information about types */
-extern PGDLLIMPORT LLVMModuleRef llvm_types_module;
 
 /* type and struct definitions */
 extern PGDLLIMPORT LLVMTypeRef TypeParamBool;
@@ -138,12 +138,13 @@ extern LLVMValueRef slot_compile_deform(struct LLVMJitContext *context, TupleDes
  * Error handling related functions.
  ****************************************************************************
  */
-#if defined(HAVE_DECL_LLVMGETHOSTCPUNAME) && !HAVE_DECL_LLVMGETHOSTCPUNAME
-/** Get the host CPU as a string. The result needs to be disposed with
-  LLVMDisposeMessage. */
-extern char *LLVMGetHostCPUName(void);
+extern LLVMTypeRef LLVMGetFunctionReturnType(LLVMValueRef r);
+extern LLVMTypeRef LLVMGetFunctionType(LLVMValueRef r);
+#ifdef USE_LLVM_BACKPORT_SECTION_MEMORY_MANAGER
+extern LLVMOrcObjectLayerRef LLVMOrcCreateRTDyldObjectLinkingLayerWithSafeSectionMemoryManager(LLVMOrcExecutionSessionRef ES);
 #endif
 
+<<<<<<< HEAD
 #if defined(HAVE_DECL_LLVMGETHOSTCPUFEATURES) && !HAVE_DECL_LLVMGETHOSTCPUFEATURES
 /** Get the host CPU features as a string. The result needs to be disposed
   with LLVMDisposeMessage. */
@@ -161,6 +162,8 @@ extern LLVMOrcObjectLayerRef LLVMOrcCreateRTDyldObjectLinkingLayerWithSafeSectio
 extern LLVMTypeRef LLVMGlobalGetValueType(LLVMValueRef g);
 #endif
 
+=======
+>>>>>>> REL_18_BETA1_branch
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

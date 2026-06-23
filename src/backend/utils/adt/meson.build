@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 backend_sources += files(
   'acl.c',
@@ -66,9 +66,13 @@ backend_sources += files(
   'orderedsetaggs.c',
   'partitionfuncs.c',
   'pg_locale.c',
+  'pg_locale_builtin.c',
+  'pg_locale_icu.c',
+  'pg_locale_libc.c',
   'pg_lsn.c',
   'pg_upgrade_support.c',
   'pgstatfuncs.c',
+  'pseudorandomfuncs.c',
   'pseudotypes.c',
   'quote.c',
   'rangetypes.c',
@@ -82,6 +86,7 @@ backend_sources += files(
   'rowtypes.c',
   'ruleutils.c',
   'selfuncs.c',
+  'skipsupport.c',
   'tid.c',
   'timestamp.c',
   'trigfuncs.c',
@@ -102,6 +107,7 @@ backend_sources += files(
   'varchar.c',
   'varlena.c',
   'version.c',
+  'waitfuncs.c',
   'windowfuncs.c',
   'xid.c',
   'xid8funcs.c',

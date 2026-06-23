@@ -8,7 +8,7 @@
 # - readfuncs
 # - outfuncs
 #
-# Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+# Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/backend/nodes/gen_node_support.pl
@@ -16,7 +16,7 @@
 #----------------------------------------------------------------------
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use File::Basename;
 use Getopt::Long;
@@ -58,8 +58,12 @@ my @all_input_files = qw(
   nodes/plannodes.h
   nodes/execnodes.h
   access/amapi.h
+<<<<<<< HEAD
   access/extprotocol.h
   access/formatter.h
+=======
+  access/cmptype.h
+>>>>>>> REL_18_BETA1_branch
   access/sdir.h
   access/tableam.h
   access/tsmapi.h
@@ -165,7 +169,7 @@ my @abstract_types = qw(Node);
 # they otherwise don't participate in node support.
 my @extra_tags = qw(
   IntList OidList XidList
-  AllocSetContext GenerationContext SlabContext
+  AllocSetContext GenerationContext SlabContext BumpContext
   TIDBitmap
   WindowObjectData
 );
@@ -210,6 +214,7 @@ my $next_input_file = 0;
 foreach my $infile (@ARGV)
 {
 	my $in_struct;
+	my $in_struct_lineno;
 	my $subline;
 	my $is_node_struct;
 	my $supertype;
@@ -490,12 +495,14 @@ foreach my $infile (@ARGV)
 								&& $attr !~ /^read_as\(\w+\)$/
 								&& !elem $attr,
 								qw(copy_as_scalar
+								custom_query_jumble
 								equal_as_scalar
 								equal_ignore
 								equal_ignore_if_zero
 								copy_ignore
 								query_jumble_ignore
 								query_jumble_location
+								query_jumble_squash
 								read_write_ignore
 								write_only_relids
 								write_only_nondefault_pathtarget
@@ -561,6 +568,7 @@ foreach my $infile (@ARGV)
 			if ($line =~ /^(?:typedef )?struct (\w+)$/ && $1 ne 'Node')
 			{
 				$in_struct = $1;
+				$in_struct_lineno = $lineno;
 				$subline = 0;
 			}
 			# one node type typedef'ed directly from another
@@ -588,7 +596,8 @@ foreach my $infile (@ARGV)
 
 	if ($in_struct)
 	{
-		die "runaway \"$in_struct\" in file \"$infile\"\n";
+		die
+		  "$infile:$in_struct_lineno: could not find closing brace for struct \"$in_struct\"\n";
 	}
 
 	close $ifh;
@@ -606,7 +615,7 @@ my $header_comment =
  * %s
  *    Generated node infrastructure code
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * NOTES
@@ -802,7 +811,7 @@ _equal${n}(const $n *a, const $n *b)
 			print $eff "\tCOMPARE_BITMAPSET_FIELD($f);\n"
 			  unless $equal_ignore;
 		}
-		elsif ($t eq 'int' && $f =~ 'location$')
+		elsif ($t eq 'ParseLoc')
 		{
 			print $cff "\tCOPY_LOCATION_FIELD($f);\n" unless $copy_ignore;
 			print $eff "\tCOMPARE_LOCATION_FIELD($f);\n" unless $equal_ignore;
@@ -1108,7 +1117,7 @@ _read${n}(void)
 			print $ofaf "\tWRITE_BOOL_FIELD($f);\n";
 			print $rfaf "\tREAD_BOOL_FIELD($f);\n" unless $no_read;
 		}
-		elsif ($t eq 'int' && $f =~ 'location$')
+		elsif ($t eq 'ParseLoc')
 		{
 			print $off "\tWRITE_LOCATION_FIELD($f);\n";
 			print $rff "\tREAD_LOCATION_FIELD($f);\n" unless $no_read;
@@ -1586,11 +1595,17 @@ _jumble${n}(JumbleState *jstate, Node *node)
 		my $t = $node_type_info{$n}->{field_types}{$f};
 		my @a = @{ $node_type_info{$n}->{field_attrs}{$f} };
 		my $query_jumble_ignore = $struct_no_query_jumble;
+		my $query_jumble_custom = 0;
 		my $query_jumble_location = 0;
+		my $query_jumble_squash = 0;
 
 		# extract per-field attributes
 		foreach my $a (@a)
 		{
+			if ($a eq 'custom_query_jumble')
+			{
+				$query_jumble_custom = 1;
+			}
 			if ($a eq 'query_jumble_ignore')
 			{
 				$query_jumble_ignore = 1;
@@ -1599,16 +1614,34 @@ _jumble${n}(JumbleState *jstate, Node *node)
 			{
 				$query_jumble_location = 1;
 			}
+			elsif ($a eq 'query_jumble_squash')
+			{
+				$query_jumble_squash = 1;
+			}
 		}
 
-		# node type
-		if (($t =~ /^(\w+)\*$/ or $t =~ /^struct\s+(\w+)\*$/)
-			and elem $1, @node_types)
+		if ($query_jumble_custom)
 		{
-			print $jff "\tJUMBLE_NODE($f);\n"
+			# Custom function that applies to one field of a node.
+			print $jff "\tJUMBLE_CUSTOM($n, $f);\n"
 			  unless $query_jumble_ignore;
 		}
-		elsif ($t eq 'int' && $f =~ 'location$')
+		elsif (($t =~ /^(\w+)\*$/ or $t =~ /^struct\s+(\w+)\*$/)
+			and elem $1, @node_types)
+		{
+			# Node type.  Squash constants if requested.
+			if ($query_jumble_squash)
+			{
+				print $jff "\tJUMBLE_ELEMENTS($f);\n"
+				  unless $query_jumble_ignore;
+			}
+			else
+			{
+				print $jff "\tJUMBLE_NODE($f);\n"
+				  unless $query_jumble_ignore;
+			}
+		}
+		elsif ($t eq 'ParseLoc')
 		{
 			# Track the node's location only if directly requested.
 			if ($query_jumble_location)

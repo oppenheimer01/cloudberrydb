@@ -8,7 +8,7 @@
  * exit-time cleanup for either a postmaster or a backend.
  *
  *
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -103,7 +103,10 @@ static int	on_proc_exit_index,
 void
 proc_exit(int code)
 {
+<<<<<<< HEAD
 	pqsignal(SIGALRM, SIG_IGN);
+=======
+>>>>>>> REL_18_BETA1_branch
 	/* not safe if forked by system(), etc. */
 	if (MyProcPid != (int) getpid())
 		elog(PANIC, "proc_exit() called in child process");
@@ -137,7 +140,7 @@ proc_exit(int code)
 		 */
 		char		gprofDirName[32];
 
-		if (IsAutoVacuumWorkerProcess())
+		if (AmAutoVacuumWorkerProcess())
 			snprintf(gprofDirName, 32, "gprof/avworker");
 		else
 			snprintf(gprofDirName, 32, "gprof/%d", (int) getpid());
@@ -429,8 +432,8 @@ cancel_before_shmem_exit(pg_on_exit_callback function, Datum arg)
 		before_shmem_exit_list[before_shmem_exit_index - 1].arg == arg)
 		--before_shmem_exit_index;
 	else
-		elog(ERROR, "before_shmem_exit callback (%p,0x%llx) is not the latest entry",
-			 function, (long long) arg);
+		elog(ERROR, "before_shmem_exit callback (%p,0x%" PRIxPTR ") is not the latest entry",
+			 function, arg);
 }
 
 /* ----------------------------------------------------------------

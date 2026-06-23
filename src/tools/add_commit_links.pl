@@ -3,7 +3,11 @@
 #################################################################
 # add_commit_links.pl -- add commit links to the release notes
 #
+<<<<<<< HEAD
 # Copyright (c) 2024, PostgreSQL Global Development Group
+=======
+# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+>>>>>>> REL_18_BETA1_branch
 #
 # src/tools/add_commit_links.pl
 #################################################################
@@ -62,8 +66,14 @@ sub process_file
 
 		# skip over commit links because we will add them below
 		next
+<<<<<<< HEAD
 		  if (!$in_comment &&
 			m{^\s*<ulink url="&commit_baseurl;[[:xdigit:]]+">&sect;</ulink>\s*$});
+=======
+		  if (!$in_comment
+			&& m{^\s*<ulink url="&commit_baseurl;[[:xdigit:]]+">&sect;</ulink>\s*$}
+		  );
+>>>>>>> REL_18_BETA1_branch
 
 		if ($in_comment && m/\[([[:xdigit:]]+)\]/)
 		{
@@ -73,10 +83,17 @@ sub process_file
 			(!m/^Branch:/) && push(@hashes, $hash);
 
 			# minor release item
+<<<<<<< HEAD
 			m/^Branch:/ &&
 			  defined($major_version) &&
 			  m/_${major_version}_/ &&
 			  push(@hashes, $hash);
+=======
+			m/^Branch:/
+			  && defined($major_version)
+			  && m/_${major_version}_/
+			  && push(@hashes, $hash);
+>>>>>>> REL_18_BETA1_branch
 		}
 
 		if (!$in_comment && m{</para>})
