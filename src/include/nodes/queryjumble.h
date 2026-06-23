@@ -86,6 +86,8 @@ enum ComputeQueryIdType
 	COMPUTE_QUERY_ID_REGRESS,
 };
 
+#define JUMBLE_SIZE				1024
+
 /* GUC parameters */
 extern PGDLLIMPORT int compute_query_id;
 
