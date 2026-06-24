@@ -274,17 +274,16 @@ extern void appendBinaryStringInfoNT(StringInfo str,
 extern void enlargeStringInfo(StringInfo str, int needed);
 
 /*------------------------
-<<<<<<< HEAD
  * replaceStringInfoString
  * Replace all occurrences of a string in a StringInfo with a different string.
  */
 
 extern void replaceStringInfoString(StringInfo str, char *replace, char *replacement);
-=======
+
+/*
  * destroyStringInfo
  * Frees a StringInfo and its buffer (opposite of makeStringInfo()).
  */
 extern void destroyStringInfo(StringInfo str);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* STRINGINFO_H */

@@ -476,12 +476,8 @@ SH_CREATE(MemoryContext ctx, uint32 nelements, void *private_data)
 
 	size = SH_COMPUTE_SIZE(size);
 
-<<<<<<< HEAD
-	tb->data = (SH_ELEMENT_TYPE *) SH_ALLOCATE(tb, sizeof(SH_ELEMENT_TYPE) * tb->size);
-	tb->num_expansions = 0;
-=======
 	tb->data = (SH_ELEMENT_TYPE *) SH_ALLOCATE(tb, sizeof(SH_ELEMENT_TYPE) * size);
->>>>>>> REL_18_BETA1_branch
+	tb->num_expansions = 0;
 
 	SH_UPDATE_PARAMETERS(tb, size);
 	return tb;
