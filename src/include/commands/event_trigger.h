@@ -29,11 +29,8 @@ typedef struct EventTriggerData
 	CommandTag	tag;
 } EventTriggerData;
 
-<<<<<<< HEAD
-=======
 extern PGDLLIMPORT bool event_triggers;
 
->>>>>>> REL_18_BETA1_branch
 /*
  * Reasons for relation rewrites.
  *

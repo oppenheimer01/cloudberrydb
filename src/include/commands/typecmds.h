@@ -53,8 +53,7 @@ extern void AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId);
 
 extern ObjectAddress AlterTypeNamespace(List *names, const char *newschema,
 										ObjectType objecttype, Oid *oldschema);
-<<<<<<< HEAD
-=======
+
 extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
 								   ObjectAddresses *objsMoved);
 extern Oid	AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
@@ -62,7 +61,6 @@ extern Oid	AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
 									   bool ignoreDependent,
 									   bool errorOnTableType,
 									   ObjectAddresses *objsMoved);
->>>>>>> REL_18_BETA1_branch
 
 extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, ObjectAddresses *objsMoved);
 extern Oid AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,

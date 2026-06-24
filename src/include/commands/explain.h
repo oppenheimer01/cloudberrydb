@@ -16,65 +16,7 @@
 #include "executor/executor.h"
 #include "parser/parse_node.h"
 
-<<<<<<< HEAD
-typedef enum ExplainFormat
-{
-	EXPLAIN_FORMAT_TEXT,
-	EXPLAIN_FORMAT_XML,
-	EXPLAIN_FORMAT_JSON,
-	EXPLAIN_FORMAT_YAML
-} ExplainFormat;
-
-typedef struct ExplainWorkersState
-{
-	int			num_workers;	/* # of worker processes the plan used */
-	bool	   *worker_inited;	/* per-worker state-initialized flags */
-	StringInfoData *worker_str; /* per-worker transient output buffers */
-	int		   *worker_state_save;	/* per-worker grouping state save areas */
-	StringInfo	prev_str;		/* saved output buffer while redirecting */
-} ExplainWorkersState;
-
-typedef struct ExplainState
-{
-	StringInfo	str;			/* output buffer */
-	/* options */
-	bool		verbose;		/* be verbose */
-	bool		analyze;		/* print actual times */
-	bool		costs;			/* print estimated costs */
-	bool		locus;			/* print path locus */
-	bool		buffers;		/* print buffer usage */
-	bool		dxl;			/* CDB: print DXL */
-	bool		slicetable;		/* CDB: print slice table */
-	bool		memory_detail;	/* CDB: print per-node memory usage */
-	bool		wal;			/* print WAL usage */
-	bool		timing;			/* print detailed node timing */
-	bool		summary;		/* print total planning and execution timing */
-	bool		settings;		/* print modified settings */
-	bool		generic;		/* generate a generic plan */
-	ExplainFormat format;		/* output format */
-	/* state for output formatting --- not reset for each new plan tree */
-	int			indent;			/* current indentation level */
-	List	   *grouping_stack; /* format-specific grouping state */
-	/* state related to the current plan tree (filled by ExplainPrintPlan) */
-	PlannedStmt *pstmt;			/* top of plan */
-	List	   *rtable;			/* range table */
-	List	   *rtable_names;	/* alias names for RTEs */
-	List	   *deparse_cxt;	/* context list for deparsing expressions */
-	Bitmapset  *printed_subplans;	/* ids of SubPlans we've printed */
-
-    /* CDB */
-    struct CdbExplain_ShowStatCtx  *showstatctx;    /* EXPLAIN ANALYZE info */
-	ExecSlice  *currentSlice;	/* slice whose nodes we are visiting */
-	bool		subplanDispatchedSeparately;
-
-	PlanState  *parentPlanState;
-	bool		hide_workers;	/* set if we find an invisible Gather */
-	/* state related to the current plan node */
-	ExplainWorkersState *workers_state; /* needed if parallel plan */
-} ExplainState;
-=======
 struct ExplainState;			/* defined in explain_state.h */
->>>>>>> REL_18_BETA1_branch
 
 /* Hook for plugins to get control in ExplainOneQuery() */
 typedef void (*ExplainOneQuery_hook_type) (Query *query,
@@ -128,20 +70,14 @@ extern void ExplainOnePlan(PlannedStmt *plannedstmt, CachedPlan *cplan,
 						   ParamListInfo params, QueryEnvironment *queryEnv,
 						   const instr_time *planduration,
 						   const BufferUsage *bufusage,
-<<<<<<< HEAD
 						   int cursorOptions);
-
-extern void ExplainPrintPlan(ExplainState *es, QueryDesc *queryDesc);
-extern void ExplainPrintTriggers(ExplainState *es, QueryDesc *queryDesc);
-extern void ExplainParallelRetrieveCursor(ExplainState *es, QueryDesc* queryDesc);
-extern void ExplainPrintSliceTable(ExplainState *es, QueryDesc *queryDesc);
-=======
+extern void ExplainParallelRetrieveCursor(struct ExplainState *es, QueryDesc* queryDesc);
+extern void ExplainPrintSliceTable(struct ExplainState *es, QueryDesc *queryDesc);
 						   const MemoryContextCounters *mem_counters);
 
 extern void ExplainPrintPlan(struct ExplainState *es, QueryDesc *queryDesc);
 extern void ExplainPrintTriggers(struct ExplainState *es,
 								 QueryDesc *queryDesc);
->>>>>>> REL_18_BETA1_branch
 
 extern void ExplainPrintJITSummary(struct ExplainState *es,
 								   QueryDesc *queryDesc);
@@ -150,6 +86,6 @@ extern void ExplainQueryText(struct ExplainState *es, QueryDesc *queryDesc);
 extern void ExplainQueryParameters(struct ExplainState *es,
 								   ParamListInfo params, int maxlen);
 
-extern void ExplainPrintExecStatsEnd(ExplainState *es, QueryDesc *queryDesc);
+extern void ExplainPrintExecStatsEnd(struct ExplainState *es, QueryDesc *queryDesc);
 
 #endif							/* EXPLAIN_H */

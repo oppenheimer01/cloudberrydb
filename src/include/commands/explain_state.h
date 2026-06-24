@@ -13,6 +13,7 @@
 #ifndef EXPLAIN_STATE_H
 #define EXPLAIN_STATE_H
 
+#include "executor/executor.h"
 #include "nodes/parsenodes.h"
 #include "nodes/plannodes.h"
 #include "parser/parse_node.h"
@@ -48,7 +49,11 @@ typedef struct ExplainState
 	bool		verbose;		/* be verbose */
 	bool		analyze;		/* print actual times */
 	bool		costs;			/* print estimated costs */
+	bool		locus;			/* print path locus */
 	bool		buffers;		/* print buffer usage */
+	bool		dxl;			/* CDB: print DXL */
+	bool		slicetable;		/* CDB: print slice table */
+	bool		memory_detail;	/* CDB: print per-node memory usage */
 	bool		wal;			/* print WAL usage */
 	bool		timing;			/* print detailed node timing */
 	bool		summary;		/* print total planning and execution timing */
@@ -74,6 +79,12 @@ typedef struct ExplainState
 	/* extensions */
 	void	  **extension_state;
 	int			extension_state_allocated;
+	/* CDB */
+	struct CdbExplain_ShowStatCtx  *showstatctx;    /* EXPLAIN ANALYZE info */
+	ExecSlice  *currentSlice;	/* slice whose nodes we are visiting */
+	bool		subplanDispatchedSeparately;
+
+	PlanState  *parentPlanState;
 } ExplainState;
 
 typedef void (*ExplainOptionHandler) (ExplainState *, DefElem *, ParseState *);

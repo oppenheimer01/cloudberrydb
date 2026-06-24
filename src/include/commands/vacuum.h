@@ -190,39 +190,6 @@ typedef struct VacAttrStats
 	float4		corrval;	  /* correlation gathered from segments */
 } VacAttrStats;
 
-<<<<<<< HEAD
-typedef enum VacuumOption
-{
-	VACOPT_VACUUM = 1 << 0,		/* do VACUUM */
-	VACOPT_ANALYZE = 1 << 1,	/* do ANALYZE */
-	VACOPT_VERBOSE = 1 << 2,	/* print progress info */
-	VACOPT_FREEZE = 1 << 3,		/* FREEZE option */
-	VACOPT_FULL = 1 << 4,		/* FULL (non-concurrent) vacuum */
-	VACOPT_SKIP_LOCKED = 1 << 5,	/* skip if cannot get lock */
-	VACOPT_PROCESS_MAIN = 1 << 6,	/* skip if cannot get lock */
-	VACOPT_PROCESS_TOAST = 1 << 7,	/* process the TOAST table, if any */
-	VACOPT_DISABLE_PAGE_SKIPPING = 1 << 8,	/* don't skip any pages */
-	VACOPT_BUFFER_USAGE_LIMIT = 1 << 9,	/* vacuum buffer usage limit */
-	VACOPT_PARALLEL = 1 << 10,	/* parallel vacuum */
-
-	/* Extra GPDB options */
-	VACOPT_AO_AUX_ONLY = 1 << 11,
-	VACOPT_ROOTONLY = 1 << 12,
-	VACOPT_FULLSCAN = 1 << 13,
-	VACOPT_SKIP_DATABASE_STATS = 1 << 14,
-	VACOPT_ONLY_DATABASE_STATS = 1 << 15,
-
-	/* AO vacuum phases. Mutually exclusive */
-	VACOPT_AO_PRE_CLEANUP_PHASE = 1 << 16,
-	VACOPT_AO_COMPACT_PHASE = 1 << 17,
-	VACOPT_AO_POST_CLEANUP_PHASE = 1 << 18,
-	VACOPT_UPDATE_DATFROZENXID = 1 << 19
-} VacuumOption;
-
-#define VACUUM_AO_PHASE_MASK (VACOPT_AO_PRE_CLEANUP_PHASE | \
-							  VACOPT_AO_COMPACT_PHASE | \
-							  VACOPT_AO_POST_CLEANUP_PHASE)
-=======
 /* flag bits for VacuumParams->options */
 #define VACOPT_VACUUM 0x01		/* do VACUUM */
 #define VACOPT_ANALYZE 0x02		/* do ANALYZE */
@@ -235,8 +202,19 @@ typedef enum VacuumOption
 #define VACOPT_DISABLE_PAGE_SKIPPING 0x100	/* don't skip any pages */
 #define VACOPT_SKIP_DATABASE_STATS 0x200	/* skip vac_update_datfrozenxid() */
 #define VACOPT_ONLY_DATABASE_STATS 0x400	/* only vac_update_datfrozenxid() */
->>>>>>> REL_18_BETA1_branch
+#define VACOPT_BUFFER_USAGE_LIMIT 0x800
+#define VACOPT_PARALLEL 0x1000
+#define VACOPT_AO_AUX_ONLY 0x2000
+#define VACOPT_ROOTONLY 0x4000
+#define VACOPT_FULLSCAN 0x8000
+#define VACOPT_AO_PRE_CLEANUP_PHASE 0x10000
+#define VACOPT_AO_COMPACT_PHASE 0x20000
+#define VACOPT_AO_POST_CLEANUP_PHASE 0x40000
+#define VACOPT_UPDATE_DATFROZENXID 0x80000
 
+#define VACUUM_AO_PHASE_MASK (VACOPT_AO_PRE_CLEANUP_PHASE | \
+							  VACOPT_AO_COMPACT_PHASE | \
+							  VACOPT_AO_POST_CLEANUP_PHASE)
 /*
  * Values used by index_cleanup and truncate params.
  *
@@ -512,15 +490,9 @@ extern bool vacuum_get_cutoffs(Relation rel, const VacuumParams *params,
 							   struct VacuumCutoffs *cutoffs);
 extern bool vacuum_xid_failsafe_check(const struct VacuumCutoffs *cutoffs);
 extern void vac_update_datfrozenxid(void);
-<<<<<<< HEAD
-extern void vacuum_delay_point(void);
-extern bool vacuum_is_relation_owner(Oid relid, Form_pg_class reltuple,
-									 bits32 options);
-=======
 extern void vacuum_delay_point(bool is_analyze);
 extern bool vacuum_is_permitted_for_relation(Oid relid, Form_pg_class reltuple,
 											 bits32 options);
->>>>>>> REL_18_BETA1_branch
 extern Relation vacuum_open_relation(Oid relid, RangeVar *relation,
 									 bits32 options, bool verbose,
 									 LOCKMODE lmode);
