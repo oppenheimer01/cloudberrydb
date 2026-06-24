@@ -4,13 +4,9 @@
  *	  prototypes for nodeHash.c
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/nodeHash.h
@@ -32,13 +28,9 @@ extern Node *MultiExecHash(HashState *node);
 extern void ExecEndHash(HashState *node);
 extern void ExecReScanHash(HashState *node);
 
-<<<<<<< HEAD
 extern HashJoinTable ExecHashTableCreate(HashState *state, HashJoinState *hjstate,
-										 List *hashOperators, List *hashCollations,
-										 bool keepNulls, uint64 operatorMemKB);
-=======
-extern HashJoinTable ExecHashTableCreate(HashState *state);
->>>>>>> REL_18_BETA1_branch
+										 List *hashCollations,
+										 uint64 operatorMemKB);
 extern void ExecParallelHashTableAlloc(HashJoinTable hashtable,
 									   int batchno);
 extern void ExecHashTableDestroy(HashState *hashState, HashJoinTable hashtable);
@@ -56,16 +48,6 @@ extern void ExecParallelHashTableInsert(HashJoinTable hashtable,
 extern void ExecParallelHashTableInsertCurrentBatch(HashJoinTable hashtable,
 													TupleTableSlot *slot,
 													uint32 hashvalue);
-<<<<<<< HEAD
-extern bool ExecHashGetHashValue(HashState *hashState, HashJoinTable hashtable,
-								 ExprContext *econtext,
-								 List *hashkeys,
-								 bool outer_tuple,
-								 bool keep_nulls,
-								 uint32 *hashvalue,
-								 bool *hashkeys_null);
-=======
->>>>>>> REL_18_BETA1_branch
 extern void ExecHashGetBucketAndBatch(HashJoinTable hashtable,
 									  uint32 hashvalue,
 									  int *bucketno,

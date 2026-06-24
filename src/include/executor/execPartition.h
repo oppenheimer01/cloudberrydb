@@ -130,7 +130,6 @@ typedef struct PartitionPruneState
 	PartitionPruningData *partprunedata[FLEXIBLE_ARRAY_MEMBER];
 } PartitionPruneState;
 
-<<<<<<< HEAD
 extern PartitionTupleRouting *ExecSetupPartitionTupleRouting(EState *estate,
 															 Relation rel);
 extern ResultRelInfo *ExecFindPartition(ModifyTableState *mtstate,
@@ -142,10 +141,7 @@ extern void ExecCleanupTupleRouting(ModifyTableState *mtstate,
 									PartitionTupleRouting *proute);
 extern PartitionPruneState *ExecCreatePartitionPruneState(PlanState *planstate,
 														  PartitionPruneInfo *partitionpruneinfo);
-extern Bitmapset *ExecFindMatchingSubPlans(PartitionPruneState *prunestate,
-										   bool initial_prune,
-										   EState *estate,
-										   int nplans, List *join_prune_paramids);
+
 extern Bitmapset *ExecFindInitialMatchingSubPlans(PartitionPruneState *prunestate,
 												  int nsubplans);
 extern int get_partition_for_tuple(PartitionKey key, PartitionDesc partdesc,
@@ -153,14 +149,10 @@ extern int get_partition_for_tuple(PartitionKey key, PartitionDesc partdesc,
 
 extern Bitmapset *ExecAddMatchingSubPlans(PartitionPruneState *prunestate, Bitmapset *result);
 
-extern PartitionPruneState *ExecInitPartitionPruning(PlanState *planstate,
-													 int n_total_subplans,
-													 PartitionPruneInfo *pruneinfo,
-													 Bitmapset **initially_valid_subplans);
+
 
 extern PartitionPruneState *CreatePartitionPruneState(PlanState *planstate,
 													  PartitionPruneInfo *pruneinfo);
-=======
 extern void ExecDoInitialPruning(EState *estate);
 extern PartitionPruneState *ExecInitPartitionExecPruning(PlanState *planstate,
 														 int n_total_subplans,
@@ -169,7 +161,8 @@ extern PartitionPruneState *ExecInitPartitionExecPruning(PlanState *planstate,
 														 Bitmapset **initially_valid_subplans);
 extern Bitmapset *ExecFindMatchingSubPlans(PartitionPruneState *prunestate,
 										   bool initial_prune,
+										   EState *estate,
+										   int nplans, List *join_prune_paramids,
 										   Bitmapset **validsubplan_rtis);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* EXECPARTITION_H */

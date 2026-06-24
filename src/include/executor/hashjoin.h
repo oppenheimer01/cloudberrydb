@@ -4,13 +4,9 @@
  *	  internal structures for hash joins
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/hashjoin.h
@@ -385,24 +381,11 @@ typedef struct HashJoinTableData
 	BufFile	  **innerBatchFile; /* buffered virtual temp file per batch */
 	BufFile   **outerBatchFile; /* buffered virtual temp file per batch */
 
-<<<<<<< HEAD
 	/* Representation of all spill file names, for spill file reuse */
 	workfile_set * work_set;
 
 	BufFile	   *state_file;
 
-	/*
-	 * Info about the datatype-specific hash functions for the datatypes being
-	 * hashed. These are arrays of the same length as the number of hash join
-	 * clauses (hash keys).
-	 */
-	FmgrInfo   *outer_hashfunctions;	/* lookup data for hash functions */
-	FmgrInfo   *inner_hashfunctions;	/* lookup data for hash functions */
-	bool	   *hashStrict;		/* is each hash join operator strict? */
-	Oid		   *collations;
-
-=======
->>>>>>> REL_18_BETA1_branch
 	Size		spaceUsed;		/* memory space currently used by tuples */
 	Size		spaceAllowed;	/* upper limit for space used */
 	Size		spacePeak;		/* peak space used */
