@@ -572,20 +572,6 @@ pg_mul_u64_overflow(uint64 a, uint64 b, uint64 *result)
 #endif
 }
 
-<<<<<<< HEAD
-/*
- * size_t
- */
-static inline bool
-pg_add_size_overflow(size_t a, size_t b, size_t *result)
-{
-#if defined(HAVE__BUILTIN_OP_OVERFLOW)
-	return __builtin_add_overflow(a, b, result);
-#else
-	size_t		res = a + b;
-
-	if (res < a)
-=======
 static inline bool
 pg_neg_u64_overflow(uint64 a, int64 *result)
 {
@@ -595,75 +581,26 @@ pg_neg_u64_overflow(uint64 a, int64 *result)
 	int128		res = -((int128) a);
 
 	if (unlikely(res < PG_INT64_MIN))
->>>>>>> REL_18_BETA1_branch
 	{
 		*result = 0x5EED;		/* to avoid spurious warnings */
 		return true;
 	}
 	*result = res;
 	return false;
-<<<<<<< HEAD
-#endif
-}
-
-static inline bool
-pg_sub_size_overflow(size_t a, size_t b, size_t *result)
-{
-#if defined(HAVE__BUILTIN_OP_OVERFLOW)
-	return __builtin_sub_overflow(a, b, result);
-#else
-	if (b > a)
-=======
 #else
 	if (unlikely(a > (uint64) PG_INT64_MAX + 1))
->>>>>>> REL_18_BETA1_branch
 	{
 		*result = 0x5EED;		/* to avoid spurious warnings */
 		return true;
 	}
-<<<<<<< HEAD
-	*result = a - b;
-=======
 	if (unlikely(a == (uint64) PG_INT64_MAX + 1))
 		*result = PG_INT64_MIN;
 	else
 		*result = -((int64) a);
->>>>>>> REL_18_BETA1_branch
 	return false;
 #endif
 }
 
-<<<<<<< HEAD
-static inline bool
-pg_mul_size_overflow(size_t a, size_t b, size_t *result)
-{
-#if defined(HAVE__BUILTIN_OP_OVERFLOW)
-	return __builtin_mul_overflow(a, b, result);
-#else
-	size_t		res = a * b;
-
-	if (a != 0 && b != res / a)
-	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
-		return true;
-	}
-	*result = res;
-	return false;
-#endif
-}
-
-/*
- * pg_neg_size_overflow is currently omitted, to avoid having to reason about
- * the portability of SSIZE_MIN/_MAX before a use case exists.
- */
-/*
- * static inline bool
- * pg_neg_size_overflow(size_t a, ssize_t *result)
- * {
- *     ...
- * }
- */
-=======
 /*------------------------------------------------------------------------
  *
  * Comparison routines for integer types.
@@ -734,6 +671,60 @@ pg_cmp_size(size_t a, size_t b)
 {
 	return (a > b) - (a < b);
 }
->>>>>>> REL_18_BETA1_branch
+
+/*
+ * size_t
+ */
+static inline bool
+pg_add_size_overflow(size_t a, size_t b, size_t *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_add_overflow(a, b, result);
+#else
+	size_t		res = a + b;
+
+	if (res < a)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = res;
+	return false;
+#endif
+}
+
+static inline bool
+pg_sub_size_overflow(size_t a, size_t b, size_t *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_sub_overflow(a, b, result);
+#else
+	if (b > a)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = a - b;
+	return false;
+#endif
+}
+
+static inline bool
+pg_mul_size_overflow(size_t a, size_t b, size_t *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_mul_overflow(a, b, result);
+#else
+	size_t		res = a * b;
+
+	if (a != 0 && b != res / a)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = res;
+	return false;
+#endif
+}
 
 #endif							/* COMMON_INT_H */

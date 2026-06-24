@@ -34,10 +34,7 @@ typedef enum pg_checksum_type
 	CHECKSUM_TYPE_SHA256,
 	CHECKSUM_TYPE_SHA384,
 	CHECKSUM_TYPE_SHA512,
-<<<<<<< HEAD
-	CHECKSUM_TYPE_SM3
-=======
->>>>>>> REL_18_BETA1_branch
+	CHECKSUM_TYPE_SM3,
 } pg_checksum_type;
 
 /*

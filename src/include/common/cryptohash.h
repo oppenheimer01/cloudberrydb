@@ -24,10 +24,7 @@ typedef enum
 	PG_SHA256,
 	PG_SHA384,
 	PG_SHA512,
-<<<<<<< HEAD
-	PG_SM3
-=======
->>>>>>> REL_18_BETA1_branch
+	PG_SM3,
 } pg_cryptohash_type;
 
 /* opaque context, private to each cryptohash implementation */

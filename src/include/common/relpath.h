@@ -37,8 +37,6 @@ typedef Oid RelFileNumber;
 #define GP_TABLESPACE_VERSION_DIRECTORY	"GPDB_" GP_MAJORVERSION "_" \
 									CppAsString2(CATALOG_VERSION_NO)
 
-<<<<<<< HEAD
-=======
 /*
  * Tablespace path (relative to installation's $PGDATA).
  *
@@ -47,7 +45,6 @@ typedef Oid RelFileNumber;
 #define PG_TBLSPC_DIR "pg_tblspc"
 #define PG_TBLSPC_DIR_SLASH "pg_tblspc/"	/* required for strings
 											 * comparisons */
->>>>>>> REL_18_BETA1_branch
 
 /* Characters to allow for an OID in a relation path */
 #define OIDCHARS		10		/* max chars printed by %u */
@@ -66,18 +63,7 @@ typedef enum ForkNumber
 	MAIN_FORKNUM = 0,
 	FSM_FORKNUM,
 	VISIBILITYMAP_FORKNUM,
-<<<<<<< HEAD
-
-	/*
-	 * Init forks are used to create an initial state that can be used to
-	 * quickly revert an object back to its empty state. This is useful for
-	 * reverting unlogged tables and indexes back to their initial state during
-	 * recovery.
-	 */
-	INIT_FORKNUM
-=======
 	INIT_FORKNUM,
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * NOTE: if you add a new fork, change MAX_FORKNUM and possibly
