@@ -842,7 +842,6 @@ static inline HeapTuple heap_copytuple(HeapTuple tuple)
 
 extern void heap_copytuple_with_tuple(HeapTuple src, HeapTuple dest);
 extern Datum heap_copy_tuple_as_datum(HeapTuple tuple, TupleDesc tupleDesc);
-<<<<<<< HEAD
 
 extern HeapTuple heaptuple_form_to(TupleDesc tupdesc, Datum* values,
 								   bool *isnull, HeapTuple tup, uint32 *len);
@@ -852,10 +851,8 @@ static inline HeapTuple heap_form_tuple(TupleDesc tupleDescriptor,
 	return heaptuple_form_to(tupleDescriptor, values, isnull, NULL, NULL);
 }
 
-=======
 extern HeapTuple heap_form_tuple(TupleDesc tupleDescriptor,
 								 const Datum *values, const bool *isnull);
->>>>>>> REL_18_BETA1_branch
 extern HeapTuple heap_modify_tuple(HeapTuple tuple,
 								   TupleDesc tupleDesc,
 								   const Datum *replValues,

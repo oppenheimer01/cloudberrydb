@@ -11,18 +11,12 @@
 #ifndef SUBTRANS_H
 #define SUBTRANS_H
 
-<<<<<<< HEAD
-/* Number of SLRU buffers to use for subtrans */
-#define NUM_SUBTRANS_BUFFERS	64
-
 typedef struct SubTransData
 {
 	TransactionId parent;
 	TransactionId topMostParent;
 } SubTransData;
 
-=======
->>>>>>> REL_18_BETA1_branch
 extern void SubTransSetParent(TransactionId xid, TransactionId parent);
 extern TransactionId SubTransGetParent(TransactionId xid);
 extern TransactionId SubTransGetTopmostTransaction(TransactionId xid);

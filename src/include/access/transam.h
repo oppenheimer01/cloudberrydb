@@ -197,7 +197,6 @@ FullTransactionIdAdvance(FullTransactionId *dest)
 #define FirstNormalObjectId		16384
 
 /*
-<<<<<<< HEAD
  * For the time being, we split the OID range so that newly added objects
  * won't conflict between GPDB and GPSQL.  If two merge into one in some day,
  * this boundary will disappear.
@@ -215,10 +214,7 @@ FullTransactionIdAdvance(FullTransactionId *dest)
 #define LastBinaryUpgradeReservedObjectId 9100
 
 /*
- * VariableCache is a data structure in shared memory that is used to track
-=======
  * TransamVariables is a data structure in shared memory that is used to track
->>>>>>> REL_18_BETA1_branch
  * OID and XID assignment state.  For largely historical reasons, there is
  * just one struct with different fields that are protected by different
  * LWLocks.

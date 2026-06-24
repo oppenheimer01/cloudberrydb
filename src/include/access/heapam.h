@@ -346,10 +346,6 @@ extern void heap_inplace_update_and_unlock(Relation relation,
 										   Buffer buffer);
 extern void heap_inplace_unlock(Relation relation,
 								HeapTuple oldtup, Buffer buffer);
-<<<<<<< HEAD
-extern void heap_inplace_update(Relation relation, HeapTuple tuple);
-=======
->>>>>>> REL_18_BETA1_branch
 extern bool heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 									  const struct VacuumCutoffs *cutoffs,
 									  HeapPageFreeze *pagefrz,
@@ -383,16 +379,6 @@ extern TransactionId heap_index_delete_tuples(Relation rel,
 /* in heap/pruneheap.c */
 struct GlobalVisState;
 extern void heap_page_prune_opt(Relation relation, Buffer buffer);
-<<<<<<< HEAD
-extern int	heap_page_prune(Relation relation, Buffer buffer,
-							TransactionId oldest_xmin,
-							struct GlobalVisState *vistest,
-							TransactionId old_snap_xmin,
-							TimestampTz old_snap_ts,
-							int *nnewlpdead,
-							OffsetNumber *off_loc);
-extern void heap_page_prune_execute(Buffer buffer,
-=======
 extern void heap_page_prune_and_freeze(Relation relation, Buffer buffer,
 									   struct GlobalVisState *vistest,
 									   int options,
@@ -403,7 +389,6 @@ extern void heap_page_prune_and_freeze(Relation relation, Buffer buffer,
 									   TransactionId *new_relfrozen_xid,
 									   MultiXactId *new_relmin_mxid);
 extern void heap_page_prune_execute(Buffer buffer, bool lp_truncate_only,
->>>>>>> REL_18_BETA1_branch
 									OffsetNumber *redirected, int nredirected,
 									OffsetNumber *nowdead, int ndead,
 									OffsetNumber *nowunused, int nunused);

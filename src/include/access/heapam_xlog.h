@@ -441,14 +441,11 @@ typedef struct xl_heap_confirm
 typedef struct xl_heap_inplace
 {
 	OffsetNumber offnum;		/* updated tuple's offset on page */
-<<<<<<< HEAD
-=======
 	Oid			dbId;			/* MyDatabaseId */
 	Oid			tsId;			/* MyDatabaseTableSpace */
 	bool		relcacheInitFileInval;	/* invalidate relcache init files */
 	int			nmsgs;			/* number of shared inval msgs */
 	SharedInvalidationMessage msgs[FLEXIBLE_ARRAY_MEMBER];
->>>>>>> REL_18_BETA1_branch
 } xl_heap_inplace;
 
 #define MinSizeOfHeapInplace	(offsetof(xl_heap_inplace, nmsgs) + sizeof(int))

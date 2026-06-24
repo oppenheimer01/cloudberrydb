@@ -14,11 +14,8 @@
 
 #include "access/cmptype.h"
 #include "access/genam.h"
-<<<<<<< HEAD
-#include "catalog/pg_index.h"
-=======
 #include "access/stratnum.h"
->>>>>>> REL_18_BETA1_branch
+#include "catalog/pg_index.h"
 
 /*
  * We don't wish to include planner header files here, since most of an index
@@ -331,7 +328,6 @@ typedef struct IndexAmRoutine
 extern bool IsIndexAccessMethod(Oid relam, Oid indexAccessMethod);
 extern IndexAmRoutine *GetIndexAmRoutine(Oid amhandler);
 extern IndexAmRoutine *GetIndexAmRoutineByAmId(Oid amoid, bool noerror);
-<<<<<<< HEAD
 extern char *GetAmName(Oid amoid);
 
 /* Hook for plugins to get control in appendonly_delete() */
@@ -355,9 +351,8 @@ extern PGDLLIMPORT appendonly_compaction_delete_hook_type appendonly_compaction_
  */
 typedef void (*aocs_compaction_delete_hook_type) (Relation rel, ItemPointer tid);
 extern PGDLLIMPORT aocs_compaction_delete_hook_type aocs_compaction_delete_hook;
-=======
+
 extern CompareType IndexAmTranslateStrategy(StrategyNumber strategy, Oid amoid, Oid opfamily, bool missing_ok);
 extern StrategyNumber IndexAmTranslateCompareType(CompareType cmptype, Oid amoid, Oid opfamily, bool missing_ok);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* AMAPI_H */

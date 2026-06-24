@@ -1916,7 +1916,6 @@ table_relation_vacuum(Relation rel, struct VacuumParams *params,
 }
 
 /*
-<<<<<<< HEAD
  * GPDB: Interface to acquire sample rows from a given relation (currently
  * AO/CO).
  *
@@ -1949,14 +1948,9 @@ table_relation_acquire_sample_rows(Relation rel, int elevel, HeapTuple *rows,
 }
 
 /*
- * Prepare to analyze block `blockno` of `scan`. The scan needs to have been
- * started with table_beginscan_analyze().  Note that this routine might
- * acquire resources like locks that are held until
-=======
  * Prepare to analyze the next block in the read stream. The scan needs to
  * have been  started with table_beginscan_analyze().  Note that this routine
  * might acquire resources like locks that are held until
->>>>>>> REL_18_BETA1_branch
  * table_scan_analyze_next_tuple() returns false.
  *
  * Returns false if block is unsuitable for sampling, true otherwise.
@@ -2354,16 +2348,13 @@ extern void table_block_relation_estimate_size(Relation rel,
  */
 
 extern const TableAmRoutine *GetTableAmRoutine(Oid amhandler);
-<<<<<<< HEAD
 extern const TableAmRoutine *GetTableAmRoutineByAmId(Oid amoid);
-=======
 
 /* ----------------------------------------------------------------------------
  * Functions in heapam_handler.c
  * ----------------------------------------------------------------------------
  */
 
->>>>>>> REL_18_BETA1_branch
 extern const TableAmRoutine *GetHeapamTableAmRoutine(void);
 
 

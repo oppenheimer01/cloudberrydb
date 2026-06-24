@@ -144,7 +144,6 @@ typedef struct TupleDescData
 }			TupleDescData;
 typedef struct TupleDescData *TupleDesc;
 
-<<<<<<< HEAD
 /*
  * When dispatching a planned statement from QD to QEs, we need to be able
  * to transmit TupleDescs. TupleDesc doesn't have the Node header, so for
@@ -163,9 +162,6 @@ typedef struct TupleDescNode
 	TupleDesc	tuple;
 } TupleDescNode;
 
-/* Accessor for the i'th attribute of tupdesc. */
-#define TupleDescAttr(tupdesc, i) (&(tupdesc)->attrs[(i)])
-=======
 extern void populate_compact_attribute(TupleDesc tupdesc, int attnum);
 
 /*
@@ -206,7 +202,6 @@ TupleDescCompactAttr(TupleDesc tupdesc, int i)
 
 	return cattr;
 }
->>>>>>> REL_18_BETA1_branch
 
 extern TupleDesc CreateTemplateTupleDesc(int natts);
 
@@ -245,15 +240,10 @@ extern void DecrTupleDescRefCount(TupleDesc tupdesc);
 			DecrTupleDescRefCount(tupdesc); \
 	} while (0)
 
-<<<<<<< HEAD
 extern bool equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict);
 
-extern uint32 hashTupleDesc(TupleDesc desc);
-=======
-extern bool equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2);
 extern bool equalRowTypes(TupleDesc tupdesc1, TupleDesc tupdesc2);
 extern uint32 hashRowType(TupleDesc desc);
->>>>>>> REL_18_BETA1_branch
 
 extern void TupleDescInitEntry(TupleDesc desc,
 							   AttrNumber attributeNumber,

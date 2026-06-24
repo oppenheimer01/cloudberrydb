@@ -198,14 +198,9 @@ extern void SlruPagePrecedesUnitTests(SlruCtl ctl, int per_page);
 #else
 #define SlruPagePrecedesUnitTests(ctl, per_page) do {} while (0)
 #endif
-<<<<<<< HEAD
-extern void SimpleLruTruncate(SlruCtl ctl, int cutoffPage);
 extern void SimpleLruTruncateWithLock(SlruCtl ctl, int cutoffPage);
-extern bool SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno);
-=======
 extern void SimpleLruTruncate(SlruCtl ctl, int64 cutoffPage);
 extern bool SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int64 pageno);
->>>>>>> REL_18_BETA1_branch
 
 typedef bool (*SlruScanCallback) (SlruCtl ctl, char *filename, int64 segpage,
 								  void *data);
@@ -219,9 +214,6 @@ extern bool SlruScanDirCbReportPresence(SlruCtl ctl, char *filename,
 										int64 segpage, void *data);
 extern bool SlruScanDirCbDeleteAll(SlruCtl ctl, char *filename, int64 segpage,
 								   void *data);
-<<<<<<< HEAD
-=======
 extern bool check_slru_buffers(const char *name, int *newval);
 
->>>>>>> REL_18_BETA1_branch
 #endif							/* SLRU_H */

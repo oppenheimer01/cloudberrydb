@@ -67,7 +67,6 @@ extern PGDLLIMPORT bool wal_recycle;
 extern PGDLLIMPORT bool *wal_consistency_checking;
 extern PGDLLIMPORT char *wal_consistency_checking_string;
 extern PGDLLIMPORT bool log_checkpoints;
-<<<<<<< HEAD
 extern PGDLLIMPORT char *recoveryRestoreCommand;
 extern PGDLLIMPORT char *recoveryEndCommand;
 extern PGDLLIMPORT char *archiveCleanupCommand;
@@ -78,10 +77,8 @@ extern PGDLLIMPORT char *PrimaryConnInfo;
 extern PGDLLIMPORT char *PrimarySlotName;
 extern PGDLLIMPORT char	*PromoteTriggerFile;
 extern PGDLLIMPORT bool wal_receiver_create_temp_slot;
-=======
 extern PGDLLIMPORT int CommitDelay;
 extern PGDLLIMPORT int CommitSiblings;
->>>>>>> REL_18_BETA1_branch
 extern PGDLLIMPORT bool track_wal_io_timing;
 extern PGDLLIMPORT int wal_decode_buffer_size;
 
@@ -290,13 +287,10 @@ extern XLogRecPtr GetXLogWriteRecPtr(void);
 extern uint64 GetSystemIdentifier(void);
 extern char *GetMockAuthenticationNonce(void);
 extern bool DataChecksumsEnabled(void);
-<<<<<<< HEAD
 
 extern int GetFileEncryptionMethod(void);
 
-=======
 extern bool GetDefaultCharSignedness(void);
->>>>>>> REL_18_BETA1_branch
 extern XLogRecPtr GetFakeLSNForUnloggedRel(void);
 extern Size XLOGShmemSize(void);
 extern void XLOGShmemInit(void);
@@ -329,15 +323,12 @@ extern bool CheckPromoteSignal(void);
 extern void WakeupRecovery(void);
 extern void SetWalWriterSleeping(bool sleeping);
 
-<<<<<<< HEAD
 extern void StartupRequestWalReceiverRestart(void);
 
 extern void assign_max_wal_size(int newval, void *extra);
 extern void assign_checkpoint_completion_target(double newval, void *extra);
-=======
 extern Size WALReadFromBuffers(char *dstbuf, XLogRecPtr startptr, Size count,
 							   TimeLineID tli);
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Routines used by xlogrecovery.c to call back into xlog.c during recovery.
