@@ -144,26 +144,6 @@ extern LLVMTypeRef LLVMGetFunctionType(LLVMValueRef r);
 extern LLVMOrcObjectLayerRef LLVMOrcCreateRTDyldObjectLinkingLayerWithSafeSectionMemoryManager(LLVMOrcExecutionSessionRef ES);
 #endif
 
-<<<<<<< HEAD
-#if defined(HAVE_DECL_LLVMGETHOSTCPUFEATURES) && !HAVE_DECL_LLVMGETHOSTCPUFEATURES
-/** Get the host CPU features as a string. The result needs to be disposed
-  with LLVMDisposeMessage. */
-extern char *LLVMGetHostCPUFeatures(void);
-#endif
-
-extern unsigned LLVMGetAttributeCountAtIndexPG(LLVMValueRef F, uint32 Idx);
-extern LLVMTypeRef LLVMGetFunctionReturnType(LLVMValueRef r);
-extern LLVMTypeRef LLVMGetFunctionType(LLVMValueRef r);
-#ifdef USE_LLVM_BACKPORT_SECTION_MEMORY_MANAGER
-extern LLVMOrcObjectLayerRef LLVMOrcCreateRTDyldObjectLinkingLayerWithSafeSectionMemoryManager(LLVMOrcExecutionSessionRef ES);
-#endif
-
-#if LLVM_MAJOR_VERSION < 8
-extern LLVMTypeRef LLVMGlobalGetValueType(LLVMValueRef g);
-#endif
-
-=======
->>>>>>> REL_18_BETA1_branch
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
