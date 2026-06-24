@@ -58,12 +58,9 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_attrdef_oid_index, 2657, AttrDefaultOidIndexId, pg_
 
 DECLARE_FOREIGN_KEY((adrelid, adnum), pg_attribute, (attrelid, attnum));
 
-<<<<<<< HEAD
-=======
 
 extern Oid	StoreAttrDefault(Relation rel, AttrNumber attnum,
 							 Node *expr, bool is_internal);
->>>>>>> REL_18_BETA1_branch
 extern void RemoveAttrDefault(Oid relid, AttrNumber attnum,
 							  DropBehavior behavior,
 							  bool complain, bool internal);

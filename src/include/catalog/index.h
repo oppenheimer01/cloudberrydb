@@ -217,16 +217,12 @@ extern void reindex_index(const ReindexStmt *stmt, Oid indexId,
 #define REINDEX_REL_FORCE_INDEXES_UNLOGGED	0x08
 #define REINDEX_REL_FORCE_INDEXES_PERMANENT 0x10
 
-<<<<<<< HEAD
 /* GPDB_14_MERGE_FIXME: seems no used */
 /* GPDB: set when recursing on a partitioned table */
 #define REINDEX_REL_RECURSING_PARTITIONED_TABLE 0x80
 
-extern bool reindex_relation(Oid relid, int flags, ReindexParams *params);
-=======
 extern bool reindex_relation(const ReindexStmt *stmt, Oid relid, int flags,
 							 const ReindexParams *params);
->>>>>>> REL_18_BETA1_branch
 
 extern bool ReindexIsProcessingHeap(Oid heapOid);
 extern bool ReindexIsProcessingIndex(Oid indexOid);

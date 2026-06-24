@@ -90,20 +90,15 @@ typedef enum SharedDependencyType
 	SHARED_DEPENDENCY_INITACL = 'i',
 	SHARED_DEPENDENCY_POLICY = 'r',
 	SHARED_DEPENDENCY_TABLESPACE = 't',
-<<<<<<< HEAD
 	SHARED_DEPENDENCY_PROFILE = 'f',
 	SHARED_DEPENDENCY_STORAGE_SERVER = 's',
 	SHARED_DEPENDENCY_TAG = 'g',
-	SHARED_DEPENDENCY_INVALID = 0
-=======
 	SHARED_DEPENDENCY_INVALID = 0,
->>>>>>> REL_18_BETA1_branch
 } SharedDependencyType;
 
 /* expansible list of ObjectAddresses (private in dependency.c) */
 typedef struct ObjectAddresses ObjectAddresses;
 
-<<<<<<< HEAD
 /*
  * This enum covers all system catalogs whose OIDs can appear in
  * pg_depend.classId or pg_shdepend.classId.  Keep object_classes[] in sync.
@@ -167,8 +162,6 @@ typedef enum ObjectClass
 
 #define LAST_OCLASS		OCLASS_TASK
 
-=======
->>>>>>> REL_18_BETA1_branch
 /* flag bits for performDeletion/performMultipleDeletions: */
 #define PERFORM_DELETION_INTERNAL			0x0001	/* internal action */
 #define PERFORM_DELETION_CONCURRENTLY		0x0002	/* concurrent drop */

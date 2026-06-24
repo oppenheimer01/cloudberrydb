@@ -182,13 +182,10 @@ extern bool check_and_fetch_column_list(Publication *pub, Oid relid,
 										MemoryContext mcxt, Bitmapset **cols);
 extern ObjectAddress publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 											  bool if_not_exists);
-<<<<<<< HEAD
 extern List *GetPubPartitionOptionRelations(List *result,
 											PublicationPartOpt pub_partopt,
 											Oid relid);
-=======
 extern Bitmapset *pub_collist_validate(Relation targetrel, List *columns);
->>>>>>> REL_18_BETA1_branch
 extern ObjectAddress publication_add_schema(Oid pubid, Oid schemaid,
 											bool if_not_exists);
 

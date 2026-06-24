@@ -4,13 +4,9 @@
  *	  prototypes for functions in backend/catalog/heap.c
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/heap.h
@@ -35,10 +31,6 @@ typedef struct RawColumnDefault
 {
 	AttrNumber	attnum;			/* attribute to attach default to */
 	Node	   *raw_default;	/* default value (untransformed parse tree) */
-<<<<<<< HEAD
-	bool		missingMode;	/* obsolete, no longer used */
-=======
->>>>>>> REL_18_BETA1_branch
 	char		generated;		/* attgenerated setting */
 	bool		hasCookedMissingVal;
 	bool		missingIsNull;
@@ -47,7 +39,6 @@ typedef struct RawColumnDefault
 
 typedef struct CookedConstraint
 {
-<<<<<<< HEAD
 	/*
 	 * In PostgreSQL, this struct is only during CREATE TABLE processing, but
 	 * in GPDB, we create these in the QD and dispatch pre-built
@@ -56,22 +47,15 @@ typedef struct CookedConstraint
 	 * in GPDB.
 	 */
 	NodeTag		type;
-	ConstrType	contype;		/* CONSTR_DEFAULT or CONSTR_CHECK */
-	Oid			conoid pg_node_attr(read_as(InvalidOid), read_write_ignore);			/* constr OID if created, otherwise Invalid */
-=======
+
 	ConstrType	contype;		/* CONSTR_DEFAULT, CONSTR_CHECK,
 								 * CONSTR_NOTNULL */
-	Oid			conoid;			/* constr OID if created, otherwise Invalid */
->>>>>>> REL_18_BETA1_branch
+	Oid			conoid pg_node_attr(read_as(InvalidOid), read_write_ignore);			/* constr OID if created, otherwise Invalid */
 	char	   *name;			/* name, or NULL if none */
 	AttrNumber	attnum;			/* which attr (only for NOTNULL, DEFAULT) */
 	Node	   *expr;			/* transformed default or check expr */
-<<<<<<< HEAD
 	bool		skip_validation pg_node_attr(read_as(false), read_write_ignore);	/* skip validation? (only for CHECK) */
-=======
 	bool		is_enforced;	/* is enforced? (only for CHECK) */
-	bool		skip_validation;	/* skip validation? (only for CHECK) */
->>>>>>> REL_18_BETA1_branch
 	bool		is_local;		/* constraint has local (non-inherited) def */
 	int16		inhcount;		/* number of times constraint is inherited */
 	bool		is_no_inherit;	/* constraint has local def and cannot be
@@ -151,15 +135,12 @@ extern List *AddRelationNewConstraints(Relation rel,
 									   bool is_local,
 									   bool is_internal,
 									   const char *queryString);
-<<<<<<< HEAD
 extern List *AddRelationConstraints(Relation rel,
 						  List *rawColDefaults,
 						  List *constraints);
-=======
 extern List *AddRelationNotNullConstraints(Relation rel,
 										   List *constraints,
 										   List *old_notnulls);
->>>>>>> REL_18_BETA1_branch
 
 extern void RelationClearMissing(Relation rel);
 

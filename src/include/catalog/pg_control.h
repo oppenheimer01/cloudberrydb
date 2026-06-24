@@ -21,18 +21,13 @@
 #include "port/pg_crc32c.h"
 
 
-<<<<<<< HEAD
 /*
  * Version identifier for this pg_control format.
  *
  * The first four digits is the PostgreSQL version number. The last
  * four digits indicates the GPDB version.
  */
-#define PG_CONTROL_VERSION	13000700
-=======
-/* Version identifier for this pg_control format */
-#define PG_CONTROL_VERSION	1800
->>>>>>> REL_18_BETA1_branch
+#define PG_CONTROL_VERSION	18000700
 
 /* Nonce key length, see below */
 #define MOCK_AUTH_NONCE_LEN		32
@@ -95,13 +90,10 @@ typedef struct CheckPoint
 #define XLOG_NEXTGXID					0xD0
 /* GPDB_14_MERGE_FIXME: Compatible, Figure out whether 0xC0 already used? */
 /* 0xC0 is used in Postgres 9.5-11 */
-<<<<<<< HEAD
 #define XLOG_OVERWRITE_CONTRECORD		0xE0
-#define XLOG_ENCRYPTION_LSN				0xF0
-=======
-#define XLOG_OVERWRITE_CONTRECORD		0xD0
-#define XLOG_CHECKPOINT_REDO			0xE0
->>>>>>> REL_18_BETA1_branch
+#define XLOG_CHECKPOINT_REDO			0xF0
+/* MERGE18_FIXME: The high bit of a uint8 is full */
+//#define XLOG_ENCRYPTION_LSN				0xF0
 
 
 /*

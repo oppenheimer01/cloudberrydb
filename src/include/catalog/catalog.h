@@ -37,10 +37,7 @@ extern bool IsToastClass(Form_pg_class reltuple);
 extern bool IsSystemClassByRelid(Oid relid);
 
 extern bool IsCatalogRelationOid(Oid relid);
-<<<<<<< HEAD
-=======
 extern bool IsCatalogTextUniqueIndexOid(Oid relid);
->>>>>>> REL_18_BETA1_branch
 extern bool IsInplaceUpdateOid(Oid relid);
 
 extern bool IsCatalogNamespace(Oid namespaceId);

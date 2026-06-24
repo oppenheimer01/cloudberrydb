@@ -142,14 +142,10 @@
   aggtranstype => 'numeric', aggrepsafeexec => 't' },
 { aggfnoid => 'max(anyarray)', aggtransfn => 'array_larger',
   aggcombinefn => 'array_larger', aggsortop => '>(anyarray,anyarray)',
-<<<<<<< HEAD
   aggtranstype => 'anyarray', aggrepsafeexec => 't' },
-=======
-  aggtranstype => 'anyarray' },
 { aggfnoid => 'max(record)', aggtransfn => 'record_larger',
   aggcombinefn => 'record_larger', aggsortop => '>(record,record)',
   aggtranstype => 'record' },
->>>>>>> REL_18_BETA1_branch
 { aggfnoid => 'max(bpchar)', aggtransfn => 'bpchar_larger',
   aggcombinefn => 'bpchar_larger', aggsortop => '>(bpchar,bpchar)',
   aggtranstype => 'bpchar', aggrepsafeexec => 't' },
@@ -221,14 +217,10 @@
   aggtranstype => 'numeric', aggrepsafeexec => 't' },
 { aggfnoid => 'min(anyarray)', aggtransfn => 'array_smaller',
   aggcombinefn => 'array_smaller', aggsortop => '<(anyarray,anyarray)',
-<<<<<<< HEAD
   aggtranstype => 'anyarray', aggrepsafeexec => 't' },
-=======
-  aggtranstype => 'anyarray' },
 { aggfnoid => 'min(record)', aggtransfn => 'record_smaller',
   aggcombinefn => 'record_smaller', aggsortop => '<(record,record)',
   aggtranstype => 'record' },
->>>>>>> REL_18_BETA1_branch
 { aggfnoid => 'min(bpchar)', aggtransfn => 'bpchar_smaller',
   aggcombinefn => 'bpchar_smaller', aggsortop => '<(bpchar,bpchar)',
   aggtranstype => 'bpchar', aggrepsafeexec => 't' },

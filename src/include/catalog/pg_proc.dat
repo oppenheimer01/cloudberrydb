@@ -8663,7 +8663,6 @@
   prorettype => 'bool', proargtypes => 'int4',
   prosrc => 'pg_log_backend_memory_contexts' },
 
-<<<<<<< HEAD
 # mpp-dispatched logging memory contexts of all/indicated backends.  polymorphic.
 { oid => '7203', descr => 'log memory contexts of the backend for the specified session ID and content ID',
   proname => 'gp_log_backend_memory_contexts',
@@ -8673,7 +8672,7 @@
   proname => 'gp_log_backend_memory_contexts',
   provolatile => 'v', prorettype => 'int8',
   proargtypes => 'int8', prosrc => 'gp_log_backend_memory_contexts' },
-=======
+
 # publishing memory contexts of the specified postgres process
 { oid => '2173', descr => 'publish memory contexts of the specified backend',
   proname => 'pg_get_process_memory_contexts', provolatile => 'v',
@@ -8683,7 +8682,6 @@
   proargmodes => '{i,i,i,o,o,o,o,o,o,o,o,o,o,o,o}',
   proargnames => '{pid, summary, timeout, name, ident, type, path, level, total_bytes, total_nblocks, free_bytes, free_chunks, used_bytes, num_agg_contexts, stats_timestamp}',
   prosrc => 'pg_get_process_memory_contexts' },
->>>>>>> REL_18_BETA1_branch
 
 # non-persistent series generator
 { oid => '1066', descr => 'non-persistent series generator',
@@ -12427,15 +12425,9 @@
   descr => 'pg_controldata init state information as a function',
   proname => 'pg_control_init', provolatile => 'v', prorettype => 'record',
   proargtypes => '',
-<<<<<<< HEAD
-  proallargtypes => '{int4,int4,int4,int4,int4,int4,int4,int4,int4,bool,int4,int4}',
-  proargmodes => '{o,o,o,o,o,o,o,o,o,o,o,o}',
-  proargnames => '{max_data_alignment,database_block_size,blocks_per_segment,wal_block_size,bytes_per_wal_segment,max_identifier_length,max_index_columns,max_toast_chunk_size,large_object_chunk_size,float8_pass_by_value,data_page_checksum_version,file_encryption_method}',
-=======
-  proallargtypes => '{int4,int4,int4,int4,int4,int4,int4,int4,int4,bool,int4,bool}',
-  proargmodes => '{o,o,o,o,o,o,o,o,o,o,o,o}',
-  proargnames => '{max_data_alignment,database_block_size,blocks_per_segment,wal_block_size,bytes_per_wal_segment,max_identifier_length,max_index_columns,max_toast_chunk_size,large_object_chunk_size,float8_pass_by_value,data_page_checksum_version,default_char_signedness}',
->>>>>>> REL_18_BETA1_branch
+  proallargtypes => '{int4,int4,int4,int4,int4,int4,int4,int4,int4,bool,int4,bool,int4}',
+  proargmodes => '{o,o,o,o,o,o,o,o,o,o,o,o,o}',
+  proargnames => '{max_data_alignment,database_block_size,blocks_per_segment,wal_block_size,bytes_per_wal_segment,max_identifier_length,max_index_columns,max_toast_chunk_size,large_object_chunk_size,float8_pass_by_value,data_page_checksum_version,default_char_signedness,file_encryption_method}',
   prosrc => 'pg_control_init' },
 
 # subscripting support for built-in types
