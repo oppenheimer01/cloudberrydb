@@ -57,23 +57,6 @@ typedef struct
 #include "libpq/pqcomm.h"
 
 
-<<<<<<< HEAD
-typedef enum CAC_state
-{
-	CAC_OK,
-	CAC_STARTUP,
-	CAC_SHUTDOWN,
-	CAC_RECOVERY,
-	CAC_NOTCONSISTENT,
-	CAC_TOOMANY,
-	CAC_SUPERUSER,
-	CAC_MIRROR_READY,
-	CAC_RESET
-} CAC_state;
-
-
-=======
->>>>>>> REL_18_BETA1_branch
 /*
  * GSSAPI specific state information
  */

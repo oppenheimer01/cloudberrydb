@@ -71,14 +71,9 @@ extern int	ListenServerPort(int family, const char *hostName,
 extern int	AcceptConnection(pgsocket server_fd, ClientSocket *client_sock);
 extern void TouchSocketFiles(void);
 extern void RemoveSocketFiles(void);
-<<<<<<< HEAD
-extern void pq_init(void);
 extern void pq_comm_close_fatal(void);                                  /* GPDB only */
-extern int	pq_getbytes(char *s, size_t len);
-=======
 extern Port *pq_init(ClientSocket *client_sock);
 extern int	pq_getbytes(void *b, size_t len);
->>>>>>> REL_18_BETA1_branch
 extern void pq_startmsgread(void);
 extern void pq_endmsgread(void);
 extern bool pq_is_reading_msg(void);
@@ -86,15 +81,11 @@ extern int	pq_getmessage(StringInfo s, int maxlen);
 extern int	pq_getbyte(void);
 extern int	pq_peekbyte(void);
 extern int	pq_getbyte_if_available(unsigned char *c);
-<<<<<<< HEAD
 
 extern int	pq_putbytes(const char *s, size_t len);
 extern bool pq_waitForDataUsingSelect(void);                /* GPDB only */
 
-extern bool pq_buffer_has_data(void);
-=======
 extern ssize_t pq_buffer_remaining_data(void);
->>>>>>> REL_18_BETA1_branch
 extern int	pq_putmessage_v2(char msgtype, const char *s, size_t len);
 extern bool pq_check_connection(void);
 

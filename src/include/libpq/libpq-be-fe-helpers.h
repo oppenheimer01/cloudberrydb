@@ -367,8 +367,6 @@ libpqsrv_get_result(PGconn *conn, uint32 wait_event_info)
 	return PQgetResult(conn);
 }
 
-<<<<<<< HEAD
-=======
 /*
  * Submit a cancel request to the given connection, waiting only until
  * the given time.
@@ -456,5 +454,4 @@ exit:	;
 	return error;
 }
 
->>>>>>> REL_18_BETA1_branch
 #endif							/* LIBPQ_BE_FE_HELPERS_H */
