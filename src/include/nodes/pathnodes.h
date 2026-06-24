@@ -6,13 +6,9 @@
  * We don't support copying RelOptInfo, IndexOptInfo, or Path nodes.
  * There are some subsidiary structs that are useful to copy, though.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/pathnodes.h
@@ -703,23 +699,8 @@ struct PlannerInfo
 	/* Does this query modify any partition key columns? */
 	bool		partColsUpdated;
 
-<<<<<<< HEAD
-	int			upd_del_replicated_table;
-	bool		is_split_update;	/* true if UPDATE that modifies
-									 * distribution key columns */
-	bool		merge_need_split_update;	/* true if MERGE has UPDATE that
-											 * modifies distribution key columns */
-	bool		is_correlated_subplan; /* true for correlated subqueries nested within subplans */
-
-	int			numPureOrderedAggs; /* CDB: number that use ORDER BY/WITHIN GROUP, not counting DISTINCT */
-	bool		hasNonCombine;	/* CDB: any agg func w/o a combine func? */
-	bool		is_from_orca; /* true if this PlannerInfo was created from Orca*/
-
-	Query	   *aqumv_raw_parse;	/* Raw parse tree for AQUMV join exact-match */
-=======
 	/* PartitionPruneInfos added in this query's plan. */
 	List	   *partPruneInfos;
->>>>>>> REL_18_BETA1_branch
 };
 
 /*
@@ -1886,7 +1867,6 @@ typedef struct PathKey
 } PathKey;
 
 /*
-<<<<<<< HEAD
  * DistributionKeys
  *
  * Like PathKey, but is used to represent data distribution by hash across
@@ -1910,7 +1890,8 @@ typedef struct DistributionKey
  */
 #define CdbEquivClassIsConstant(eclass)						\
 	((eclass)->ec_has_const)
-=======
+
+/*
  * Contains an order of group-by clauses and the corresponding list of
  * pathkeys.
  *
@@ -1926,7 +1907,6 @@ typedef struct GroupByOrdering
 	List	   *pathkeys;
 	List	   *clauses;
 } GroupByOrdering;
->>>>>>> REL_18_BETA1_branch
 
 /*
  * VolatileFunctionStatus -- allows nodes to cache their
@@ -2433,24 +2413,17 @@ typedef struct ForeignPath
  *
  * We provide a set of hooks here - which the provider must take care to set
  * up correctly - to allow extensions to supply their own methods of scanning
-<<<<<<< HEAD
- * a relation or joing relations.  For example, a provider might provide GPU
-=======
  * a relation or join relations.  For example, a provider might provide GPU
->>>>>>> REL_18_BETA1_branch
  * acceleration, a cache-based scan, or some other kind of logic we haven't
  * dreamed up yet.
  *
  * CustomPaths can be injected into the planning process for a base or join
  * relation by set_rel_pathlist_hook or set_join_pathlist_hook functions,
  * respectively.
-<<<<<<< HEAD
-=======
  *
  * In the case of a table join, custom_restrictinfo stores the RestrictInfos
  * to apply to the join, which are used by createplan.c to get pseudoconstant
  * clauses evaluated as one-time quals in a gating Result plan node.
->>>>>>> REL_18_BETA1_branch
  *
  * Core code must avoid assuming that the CustomPath is only as large as
  * the structure declared here; providers are allowed to make it the first

@@ -4,13 +4,9 @@
  *	  POSTGRES memory context node definitions.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/memnodes.h
@@ -87,15 +83,11 @@ typedef struct MemoryContextMethods
 	 * optionally free() excess memory back to the OS during this time.
 	 */
 	void		(*reset) (MemoryContext context);
-<<<<<<< HEAD
-	void		(*delete_context) (MemoryContext context, MemoryContext parent);
-=======
 
 	/* Free all memory consumed by the given MemoryContext. */
-	void		(*delete_context) (MemoryContext context);
+	void		(*delete_context) (MemoryContext context, MemoryContext parent);
 
 	/* Return the MemoryContext that the given pointer belongs to. */
->>>>>>> REL_18_BETA1_branch
 	MemoryContext (*get_chunk_context) (void *pointer);
 
 	/*
@@ -143,19 +135,14 @@ typedef struct MemoryContextData
 	MemoryContext firstchild;	/* head of linked list of children */
 	MemoryContext prevchild;	/* previous child of same parent */
 	MemoryContext nextchild;	/* next child of same parent */
-<<<<<<< HEAD
-	const char *name;			/* context name (just for debugging) */
-	const char *ident;			/* context ID if any (just for debugging) */
+	const char *name;			/* context name */
+	const char *ident;			/* context ID if any */
 
 #ifdef CDB_PALLOC_CALLER_ID
     const char *callerFile;     /* __FILE__ of most recent caller */
     int         callerLine;     /* __LINE__ of most recent caller */
 #endif
 
-=======
-	const char *name;			/* context name */
-	const char *ident;			/* context ID if any */
->>>>>>> REL_18_BETA1_branch
 	MemoryContextCallback *reset_cbs;	/* list of reset/delete callbacks */
 } MemoryContextData;
 

@@ -4,13 +4,9 @@
  *	  Definitions for tagged nodes.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/nodes.h
@@ -331,13 +327,11 @@ typedef enum JoinType
 	 */
 	JOIN_SEMI,					/* 1 copy of each LHS row that has match(es) */
 	JOIN_ANTI,					/* 1 copy of each LHS row that has no match */
-<<<<<<< HEAD
+	JOIN_RIGHT_SEMI,			/* 1 copy of each RHS row that has match(es) */
+
 	JOIN_LASJ_NOTIN,			/* Left Anti Semi Join with Not-In semantics:
 									If any NULL values are produced by inner side,
 									return no join results. Otherwise, same as LASJ */
-=======
-	JOIN_RIGHT_SEMI,			/* 1 copy of each RHS row that has match(es) */
->>>>>>> REL_18_BETA1_branch
 	JOIN_RIGHT_ANTI,			/* 1 copy of each RHS row that has no match */
 
 	/*
@@ -346,7 +340,6 @@ typedef enum JoinType
 	 */
 	JOIN_UNIQUE_OUTER,			/* LHS path must be made unique */
 	JOIN_UNIQUE_INNER,			/* RHS path must be made unique */
-<<<<<<< HEAD
 
 	/*
 	 * GPDB: Like JOIN_UNIQUE_OUTER/INNER, these codes are used internally
@@ -359,8 +352,6 @@ typedef enum JoinType
 	 */
 	JOIN_DEDUP_SEMI,			/* inner join, LHS path must be made unique afterwards */
 	JOIN_DEDUP_SEMI_REVERSE		/* inner join, RHS path must be made unique afterwards */
-=======
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * We might need additional join types someday.
@@ -428,7 +419,6 @@ typedef enum AggSplit
 	AGGSPLIT_INITIAL_SERIAL = AGGSPLITOP_SKIPFINAL | AGGSPLITOP_SERIALIZE,
 	/* Final phase of partial aggregation, with deserialization: */
 	AGGSPLIT_FINAL_DESERIAL = AGGSPLITOP_COMBINE | AGGSPLITOP_DESERIALIZE,
-<<<<<<< HEAD
 
 	/*
 	 * The inputs have already been deduplicated for DISTINCT.
@@ -438,8 +428,6 @@ typedef enum AggSplit
 	AGGSPLIT_DEDUPLICATED = AGGSPLITOP_DEDUPLICATED,
 
 	AGGSPLIT_INTERMEDIATE = AGGSPLITOP_SKIPFINAL | AGGSPLITOP_SERIALIZE | AGGSPLITOP_COMBINE | AGGSPLITOP_DESERIALIZE,
-=======
->>>>>>> REL_18_BETA1_branch
 } AggSplit;
 
 /* Test whether an AggSplit value selects each primitive option: */

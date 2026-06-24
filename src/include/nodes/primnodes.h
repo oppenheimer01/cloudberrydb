@@ -7,13 +7,9 @@
  *	  and join trees.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/primnodes.h
@@ -555,14 +551,10 @@ typedef struct Aggref
 	int			aggtransno pg_node_attr(query_jumble_ignore);
 
 	/* token location, or -1 if unknown */
-<<<<<<< HEAD
-	int			location;
 
 	int         agg_expr_id;    /* gpdb private, if aggref is distinct qualified, record AggExprId value in tuple split */
 
-=======
 	ParseLoc	location;
->>>>>>> REL_18_BETA1_branch
 } Aggref;
 
 typedef struct DQAExpr
@@ -727,13 +719,9 @@ typedef struct WindowFunc
 	/* is function a simple aggregate? */
 	bool		winagg pg_node_attr(query_jumble_ignore);
 	/* token location, or -1 if unknown */
-<<<<<<< HEAD
-	int			location;
 
 	bool		windistinct;	/* TRUE if it's agg(DISTINCT ...) */
-=======
 	ParseLoc	location;
->>>>>>> REL_18_BETA1_branch
 } WindowFunc;
 
 /*
@@ -916,13 +904,9 @@ typedef struct FuncExpr
 	/* arguments to the function */
 	List	   *args;
 	/* token location, or -1 if unknown */
-<<<<<<< HEAD
-	int			location;
 	bool        is_tablefunc;   /* Is a TableFunction reference */
 
-=======
 	ParseLoc	location;
->>>>>>> REL_18_BETA1_branch
 } FuncExpr;
 
 /*
@@ -1178,11 +1162,8 @@ typedef enum SubLinkType
 	MULTIEXPR_SUBLINK,
 	ARRAY_SUBLINK,
 	CTE_SUBLINK,				/* for SubPlans only */
-<<<<<<< HEAD
 	INITPLAN_FUNC_SUBLINK,		/* for function run as initplan */
 	NOT_EXISTS_SUBLINK /* GPORCA uses NOT_EXIST_SUBLINK to implement correlated left anti semijoin. */
-=======
->>>>>>> REL_18_BETA1_branch
 } SubLinkType;
 
 

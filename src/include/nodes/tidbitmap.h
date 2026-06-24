@@ -13,13 +13,9 @@
  * fact that a particular page needs to be visited.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Copyright (c) 2003-2023, PostgreSQL Global Development Group
-=======
  * Copyright (c) 2003-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  *
  * src/include/nodes/tidbitmap.h
  *
@@ -28,15 +24,24 @@
 #ifndef TIDBITMAP_H
 #define TIDBITMAP_H
 
-<<<<<<< HEAD
 #include "c.h"
 #include "access/appendonlytid.h"
 #include "access/htup.h"
+#include "access/htup_details.h"
 #include "nodes/nodes.h"
 #include "nodes/pg_list.h"
 #include "storage/itemptr.h"
 #include "utils/dsa.h"
+#include "storage/itemptr.h"
+#include "utils/dsa.h"
 
+/*
+ * The maximum number of tuples per page is not large (typically 256 with
+ * 8K pages, or 1024 with 32K pages).  So there's not much point in making
+ * the per-page bitmaps variable size.  We just legislate that the size
+ * is this:
+ */
+#define TBM_MAX_TUPLES_PER_PAGE  MaxHeapTuplesPerPage
 struct Instrumentation;                 /* #include "executor/instrument.h" */
 
 
@@ -112,19 +117,7 @@ typedef struct PagetableEntry
 	bool		recheck;		/* should the tuples be rechecked? */
 	tbm_bitmapword	words[PagetableEntryWordNumber];
 } PagetableEntry;
-=======
-#include "access/htup_details.h"
-#include "storage/itemptr.h"
-#include "utils/dsa.h"
 
-/*
- * The maximum number of tuples per page is not large (typically 256 with
- * 8K pages, or 1024 with 32K pages).  So there's not much point in making
- * the per-page bitmaps variable size.  We just legislate that the size
- * is this:
- */
-#define TBM_MAX_TUPLES_PER_PAGE  MaxHeapTuplesPerPage
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Actual bitmap representation is private to tidbitmap.c.  Callers can
@@ -137,7 +130,6 @@ typedef struct TBMPrivateIterator TBMPrivateIterator;
 typedef struct TBMSharedIterator TBMSharedIterator;
 
 /*
-<<<<<<< HEAD
  * Stream bitmap representation.
  */
 typedef struct StreamBitmap
@@ -177,7 +169,8 @@ typedef struct StreamNode   IndexStream;
  * AND or OR'd together
  */
 typedef struct StreamNode   OpStream;
-=======
+
+/*
  * Callers with both private and shared implementations can use this unified
  * API.
  */
@@ -190,7 +183,6 @@ typedef struct TBMIterator
 		TBMSharedIterator *shared_iterator;
 	}			i;
 } TBMIterator;
->>>>>>> REL_18_BETA1_branch
 
 /* Result structure for tbm_iterate */
 typedef struct TBMIterateResult
@@ -246,14 +238,11 @@ extern void tbm_add_tuples(TIDBitmap *tbm,
 extern void tbm_add_page(TIDBitmap *tbm, BlockNumber pageno);
 extern void tbm_union(TIDBitmap *a, const TIDBitmap *b);
 extern void tbm_intersect(TIDBitmap *a, const TIDBitmap *b);
-<<<<<<< HEAD
-=======
 
 extern int	tbm_extract_page_tuple(TBMIterateResult *iteritem,
 								   OffsetNumber *offsets,
 								   uint32 max_offsets);
 
->>>>>>> REL_18_BETA1_branch
 extern bool tbm_is_empty(const TIDBitmap *tbm);
 
 extern TBMPrivateIterator *tbm_begin_private_iterate(TIDBitmap *tbm);

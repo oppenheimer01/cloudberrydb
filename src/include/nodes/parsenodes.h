@@ -12,13 +12,9 @@
  * identifying statement boundaries in multi-statement source strings.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/parsenodes.h
@@ -45,10 +41,7 @@ typedef enum QuerySource
 	QSRC_INSTEAD_RULE,			/* added by unconditional INSTEAD rule */
 	QSRC_QUAL_INSTEAD_RULE,		/* added by conditional INSTEAD rule */
 	QSRC_NON_INSTEAD_RULE,		/* added by non-INSTEAD rule */
-<<<<<<< HEAD
 	QSRC_PLANNER				/* added in planner by splicing parse tree */
-=======
->>>>>>> REL_18_BETA1_branch
 } QuerySource;
 
 /* Sort ordering options for ORDER BY and CREATE INDEX */
@@ -98,12 +91,8 @@ typedef uint64 AclMode;			/* a bitmask of privilege bits */
 #define ACL_CONNECT		(1<<11) /* for databases */
 #define ACL_SET			(1<<12) /* for configuration parameters */
 #define ACL_ALTER_SYSTEM (1<<13)	/* for configuration parameters */
-<<<<<<< HEAD
-#define N_ACL_RIGHTS	14		/* 1 plus the last 1<<x */
-=======
 #define ACL_MAINTAIN	(1<<14) /* for relations */
 #define N_ACL_RIGHTS	15		/* 1 plus the last 1<<x */
->>>>>>> REL_18_BETA1_branch
 #define ACL_NO_RIGHTS	0
 /* Currently, SELECT ... FOR [KEY] UPDATE/SHARE requires UPDATE privileges */
 #define ACL_SELECT_FOR_UPDATE	ACL_UPDATE
@@ -310,12 +299,7 @@ typedef struct Query
 	/* start location, or -1 if unknown */
 	ParseLoc	stmt_location;
 	/* length in bytes; 0 means "rest of string" */
-<<<<<<< HEAD
-	int			stmt_len pg_node_attr(query_jumble_ignore);
-=======
 	ParseLoc	stmt_len pg_node_attr(query_jumble_ignore);
-} Query;
->>>>>>> REL_18_BETA1_branch
 
 	bool		expandMatViews; /* force expansion of materialized views during rewrite to treat as views */
 } Query;
@@ -1000,14 +984,10 @@ typedef struct PartitionSpec
 	NodeTag		type;
 	PartitionStrategy strategy;
 	List	   *partParams;		/* List of PartitionElems */
-<<<<<<< HEAD
 
 	struct GpPartitionDefinition *gpPartDef pg_node_attr(read_as(NULL), read_write_ignore);
 	struct PartitionSpec         *subPartSpec pg_node_attr(read_as(NULL), read_write_ignore);     /* subpartition specification */
-	int                          location;		/* token location, or -1 if unknown */
-=======
-	ParseLoc	location;		/* token location, or -1 if unknown */
->>>>>>> REL_18_BETA1_branch
+	ParseLoc                      location;		/* token location, or -1 if unknown */
 } PartitionSpec;
 
 /*
@@ -1177,13 +1157,10 @@ typedef enum RTEKind
 	RTE_RESULT,					/* RTE represents an empty FROM clause; such
 								 * RTEs are added by the planner, they're not
 								 * present during parsing or rewriting */
-<<<<<<< HEAD
-	,
+	RTE_GROUP,					/* the grouping step */
+
 	RTE_VOID,                   /* CDB: deleted RTE */
 	RTE_TABLEFUNCTION,          /* CDB: Functions over multiset input */
-=======
-	RTE_GROUP,					/* the grouping step */
->>>>>>> REL_18_BETA1_branch
 } RTEKind;
 
 typedef struct RangeTblEntry
@@ -1247,14 +1224,6 @@ typedef struct RangeTblEntry
 	 * relation.  This allows plans referencing AFTER trigger transition
 	 * tables to be invalidated if the underlying table is altered.
 	 */
-<<<<<<< HEAD
-	Oid			relid;			/* OID of the relation */
-	char		relkind;		/* relation kind (see pg_class.relkind) */
-	int			rellockmode;	/* lock level that query requires on the rel */
-	struct TableSampleClause *tablesample;	/* sampling info, or NULL */
-	bool		relisivm;		/* ivm relation or not */
-	Index		perminfoindex;
-=======
 	/* OID of the relation */
 	Oid			relid pg_node_attr(query_jumble_ignore);
 	/* inheritance requested? */
@@ -1267,7 +1236,7 @@ typedef struct RangeTblEntry
 	Index		perminfoindex pg_node_attr(query_jumble_ignore);
 	/* sampling info, or NULL */
 	struct TableSampleClause *tablesample;
->>>>>>> REL_18_BETA1_branch
+	bool		relisivm;		/* ivm relation or not */
 
 	/*
 	 * Fields valid for a subquery RTE (else NULL):
@@ -2566,15 +2535,11 @@ typedef enum ObjectType
 	OBJECT_TSTEMPLATE,
 	OBJECT_TYPE,
 	OBJECT_USER_MAPPING,
-<<<<<<< HEAD
 	OBJECT_STORAGE_USER_MAPPING,
 	OBJECT_VIEW,
 	OBJECT_RESQUEUE,
 	OBJECT_RESGROUP,
 	OBJECT_DIRECTORY_TABLE
-=======
-	OBJECT_VIEW,
->>>>>>> REL_18_BETA1_branch
 } ObjectType;
 
 /* Event triggers and extended statistics are only stored on the QD node.*/
@@ -2752,7 +2717,6 @@ typedef enum AlterTableType
 	AT_SetIdentity,				/* SET identity column options */
 	AT_DropIdentity,			/* DROP IDENTITY */
 	AT_ReAddStatistics,			/* internal to commands/tablecmds.c */
-<<<<<<< HEAD
 
 	/* GPDB-specific commands */
 	AT_SetDistributedBy,		/* SET DISTRIBUTED BY */
@@ -2771,8 +2735,6 @@ typedef enum AlterTableType
 	AT_PartSetTemplate,			/* Set Subpartition Template */
 	AT_PartSplit,				/* Split */
 	AT_PartTruncate				/* Truncate */
-=======
->>>>>>> REL_18_BETA1_branch
 } AlterTableType;
 
 typedef struct AlterTableCmd	/* one subcommand of an ALTER TABLE */
@@ -2806,7 +2768,6 @@ typedef struct AlterTableCmd	/* one subcommand of an ALTER TABLE */
 	bool		unsettag;		/* Whether unset tag */
 } AlterTableCmd;
 
-<<<<<<< HEAD
 typedef enum GpAlterPartitionIdType
 {
 	AT_AP_IDNone,				/* no ID */
@@ -2869,7 +2830,7 @@ typedef struct GpSplitPartitionCmd
 	GpAlterPartitionCmd  *arg2;
 	int					 location;
 } GpSplitPartitionCmd;
-=======
+
 /* Ad-hoc node for AT_AlterConstraint */
 typedef struct ATAlterConstraint
 {
@@ -2892,7 +2853,6 @@ typedef struct ReplicaIdentityStmt
 	char	   *name;
 } ReplicaIdentityStmt;
 
->>>>>>> REL_18_BETA1_branch
 
 /* ----------------------
  * Alter Collation
@@ -3347,13 +3307,7 @@ typedef struct Constraint
 	Oid			old_pktable_oid;	/* pg_constraint.confrelid of my former
 									 * self */
 
-<<<<<<< HEAD
-	/* Fields used for constraints that allow a NOT VALID specification */
-	bool		skip_validation;	/* skip validation of existing rows? */
-	bool		initially_valid;	/* start the new constraint as valid */
-=======
 	ParseLoc	location;		/* token location, or -1 if unknown */
->>>>>>> REL_18_BETA1_branch
 } Constraint;
 
 /* ----------

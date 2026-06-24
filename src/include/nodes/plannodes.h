@@ -4,13 +4,9 @@
  *	  definitions for query plan nodes
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/plannodes.h
@@ -87,14 +83,10 @@ typedef struct PlannedStmt
 	/* select|insert|update|delete|merge|utility */
 	CmdType		commandType;
 
-<<<<<<< HEAD
 	PlanGenerator	planGen;		/* optimizer generation */
 
-	uint64		queryId;		/* query identifier (copied from Query) */
-=======
 	/* query identifier (copied from Query) */
 	uint64		queryId;
->>>>>>> REL_18_BETA1_branch
 
 	/* plan identifier (can be set by plugins) */
 	uint64		planId;
@@ -105,18 +97,16 @@ typedef struct PlannedStmt
 	/* has insert|update|delete|merge in WITH? */
 	bool		hasModifyingCTE;
 
-<<<<<<< HEAD
-	bool		transientPlan;	/* redo plan when TransactionXmin changes? */
+	/* redo plan when TransactionXmin changes? */
+	bool		transientPlan;
 	bool		oneoffPlan;		/* redo plan on every execution? */
 
 	Oid			simplyUpdatableRel; /* if valid, query can be used with CURRENT OF for this rel */
-=======
+
 	/* do I set the command result tag? */
 	bool		canSetTag;
->>>>>>> REL_18_BETA1_branch
 
-	/* redo plan when TransactionXmin changes? */
-	bool		transientPlan;
+
 
 	/* is plan specific to current role? */
 	bool		dependsOnRole;
@@ -127,16 +117,12 @@ typedef struct PlannedStmt
 	/* which forms of JIT should be performed */
 	int			jitFlags;
 
-<<<<<<< HEAD
 	/* Slice table */
 	int			numSlices;
 	struct PlanSlice *slices;	/* merge16_delete_temp */
 
-	List	   *rtable;			/* list of RangeTblEntry nodes */
-=======
 	/* tree of Plan nodes */
 	struct Plan *planTree;
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * List of PartitionPruneInfo contained in the plan
@@ -168,19 +154,14 @@ typedef struct PlannedStmt
 	/* integer list of RT indexes, or NIL */
 	List	   *firstResultRels;
 
-<<<<<<< HEAD
-	List	   *subplans;		/* Plan trees for SubPlan expressions; note
-								 * that some could be NULL */
-	int		   *subplan_sliceIds pg_node_attr(array_size(subplans));	/* merge16_delete_temp  */	/* slice IDs containing SubPlans; size equals 'subplans' */
-=======
 	/* list of AppendRelInfo nodes */
 	List	   *appendRelations;
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Plan trees for SubPlan expressions; note that some could be NULL
 	 */
 	List	   *subplans;
+	int		   *subplan_sliceIds pg_node_attr(array_size(subplans));	/* merge16_delete_temp  */	/* slice IDs containing SubPlans; size equals 'subplans' */
 
 	/* indices of subplans that require REWIND */
 	Bitmapset  *rewindPlanIDs;
@@ -201,9 +182,10 @@ typedef struct PlannedStmt
 	Node	   *utilityStmt;
 
 	/* statement location in source string (copied from Query) */
-<<<<<<< HEAD
-	int			stmt_location;	/* start location, or -1 if unknown */
-	int			stmt_len;		/* length in bytes; 0 means "rest of string" */
+	/* start location, or -1 if unknown */
+	ParseLoc	stmt_location;
+	/* length in bytes; 0 means "rest of string" */
+	ParseLoc	stmt_len;
 
 	/* 
 	 * Cloned from top Query node at the end of planning.
@@ -232,12 +214,6 @@ typedef struct PlannedStmt
 	 * Facilitate various extensions to pass context
 	 */
 	List 		*extensionContext;
-=======
-	/* start location, or -1 if unknown */
-	ParseLoc	stmt_location;
-	/* length in bytes; 0 means "rest of string" */
-	ParseLoc	stmt_len;
->>>>>>> REL_18_BETA1_branch
 } PlannedStmt;
 
 /*
@@ -499,33 +475,6 @@ typedef struct ProjectSet
 typedef struct ModifyTable
 {
 	Plan		plan;
-<<<<<<< HEAD
-	CmdType		operation;		/* INSERT, UPDATE, DELETE, or MERGE */
-	bool		canSetTag;		/* do we set the command tag/es_processed? */
-	Index		nominalRelation;	/* Parent RT index for use of EXPLAIN */
-	Index		rootRelation;	/* Root RT index, if partitioned/inherited */
-	bool		partColsUpdated;	/* some part key in hierarchy updated? */
-	bool		splitUpdate;		/* if it's split update */
-	List	   *resultRelations;	/* integer list of RT indexes */
-	List	   *updateColnosLists;	/* per-target-table update_colnos lists */
-	List	   *withCheckOptionLists;	/* per-target-table WCO lists */
-	List	   *returningLists; /* per-target-table RETURNING tlists */
-	List	   *fdwPrivLists;	/* per-target-table FDW private data lists */
-	Bitmapset  *fdwDirectModifyPlans;	/* indices of FDW DM plans */
-	List	   *rowMarks;		/* PlanRowMarks (non-locking only) */
-	int			epqParam;		/* ID of Param for EvalPlanQual re-eval */
-	OnConflictAction onConflictAction;	/* ON CONFLICT action */
-	List	   *arbiterIndexes; /* List of ON CONFLICT arbiter index OIDs  */
-	List	   *onConflictSet;	/* INSERT ON CONFLICT DO UPDATE targetlist */
-	List	   *onConflictCols; /* target column numbers for onConflictSet */
-	Node	   *onConflictWhere;	/* WHERE for ON CONFLICT UPDATE */
-	Index		exclRelRTI;		/* RTI of the EXCLUDED pseudo relation */
-	List	   *exclRelTlist;	/* tlist of the EXCLUDED pseudo relation */
-	/* CBDB_CHERRYPICK_FIXME: need enable it */
-	bool		forceTupleRouting; /* dynamic scans require tuple routing */
-	List	   *mergeActionLists;	/* per-target-table lists of actions for
-									 * MERGE */
-=======
 	/* INSERT, UPDATE, DELETE, or MERGE */
 	CmdType		operation;
 	/* do we set the command tag/es_processed? */
@@ -574,7 +523,10 @@ typedef struct ModifyTable
 	List	   *mergeActionLists;
 	/* per-target-table join conditions for MERGE */
 	List	   *mergeJoinConditions;
->>>>>>> REL_18_BETA1_branch
+	bool		splitUpdate;		/* if it's split update */
+
+	/* CBDB_CHERRYPICK_FIXME: need enable it */
+	bool		forceTupleRouting; /* dynamic scans require tuple routing */
 } ModifyTable;
 
 struct PartitionPruneInfo;		/* forward reference to struct below */
@@ -599,9 +551,6 @@ typedef struct Append
 	 */
 	int			first_partial_plan;
 
-<<<<<<< HEAD
-	/* Info for run-time subplan pruning; NULL if we're not doing that */
-	struct PartitionPruneInfo *part_prune_info;
 
 	/*
 	 * Info for run-time join pruning, using Partition Selector nodes.
@@ -609,14 +558,13 @@ typedef struct Append
 	 * partitions.
 	 */
 	List	   *join_prune_paramids;
-=======
+
 	/*
 	 * Index into PlannedStmt.partPruneInfos and parallel lists in EState:
 	 * es_part_prune_states and es_part_prune_results. Set to -1 if no
 	 * run-time pruning is used.
 	 */
 	int			part_prune_index;
->>>>>>> REL_18_BETA1_branch
 } Append;
 
 /* ----------------
@@ -650,9 +598,6 @@ typedef struct MergeAppend
 	/* NULLS FIRST/LAST directions */
 	bool	   *nullsFirst pg_node_attr(array_size(numCols));
 
-<<<<<<< HEAD
-	/* Info for run-time subplan pruning; NULL if we're not doing that */
-	struct PartitionPruneInfo *part_prune_info;
 
 	/*
 	 * Info for run-time join pruning, using Partition Selector nodes.
@@ -660,14 +605,13 @@ typedef struct MergeAppend
 	 * partitions.
 	 */
 	List	   *join_prune_paramids;
-=======
+
 	/*
 	 * Index into PlannedStmt.partPruneInfos and parallel lists in EState:
 	 * es_part_prune_states and es_part_prune_results. Set to -1 if no
 	 * run-time pruning is used.
 	 */
 	int			part_prune_index;
->>>>>>> REL_18_BETA1_branch
 } MergeAppend;
 
 /*
@@ -892,15 +836,6 @@ typedef struct DynamicIndexScan
 typedef struct IndexOnlyScan
 {
 	Scan		scan;
-<<<<<<< HEAD
-	Oid			indexid;		/* OID of index to scan */
-	List	   *indexqual;		/* list of index quals (usually OpExprs) */
-	List	   *indexqualorig;	/* the same in original form (GPDB keeps it) */
-	List	   *recheckqual;	/* index quals in recheckable form */
-	List	   *indexorderby;	/* list of index ORDER BY exprs */
-	List	   *indextlist;		/* TargetEntry list describing index's cols */
-	ScanDirection indexorderdir;	/* forward or backward or don't care */
-=======
 	/* OID of index to scan */
 	Oid			indexid;
 	/* list of index quals (usually OpExprs) */
@@ -913,7 +848,7 @@ typedef struct IndexOnlyScan
 	List	   *indextlist;
 	/* forward or backward or don't care */
 	ScanDirection indexorderdir;
->>>>>>> REL_18_BETA1_branch
+	List	   *indexqualorig;	/* the same in original form (GPDB keeps it) */
 } IndexOnlyScan;
 
 /*
@@ -1124,18 +1059,13 @@ typedef struct SubqueryScan
 typedef struct FunctionScan
 {
 	Scan		scan;
-<<<<<<< HEAD
-	List	   *functions;		/* list of RangeTblFunction nodes */
-	bool		funcordinality; /* WITH ORDINALITY */
-	Param      *param;			/* used when funtionscan run as initplan */
-	bool		resultInTupleStore; /* function result stored in tuplestore */
-	int			initplanId;			/* initplan id for function execute on initplan */
-=======
 	/* list of RangeTblFunction nodes */
 	List	   *functions;
 	/* WITH ORDINALITY */
 	bool		funcordinality;
->>>>>>> REL_18_BETA1_branch
+	Param      *param;			/* used when funtionscan run as initplan */
+	bool		resultInTupleStore; /* function result stored in tuplestore */
+	int			initplanId;			/* initplan id for function execute on initplan */
 } FunctionScan;
 
 /* ----------------
@@ -1402,16 +1332,11 @@ typedef struct Join
 	Plan		plan;
 	JoinType	jointype;
 	bool		inner_unique;
-<<<<<<< HEAD
-	List	   *joinqual;		/* JOIN quals (in addition to plan.qual) */
-
+	/* JOIN quals (in addition to plan.qual) */
+	List	   *joinqual;
 	bool		prefetch_inner; /* to avoid deadlock in MPP */
 	bool		prefetch_joinqual; /* to avoid deadlock in MPP */
 	bool		prefetch_qual; /* to avoid deadlock in MPP */
-=======
-	/* JOIN quals (in addition to plan.qual) */
-	List	   *joinqual;
->>>>>>> REL_18_BETA1_branch
 } Join;
 
 /* ----------------
@@ -1428,15 +1353,10 @@ typedef struct Join
 typedef struct NestLoop
 {
 	Join		join;
-<<<<<<< HEAD
-	List	   *nestParams;		/* list of NestLoopParam nodes */
-
-	bool		shared_outer;
-	bool		singleton_outer; /*CDB-OLAP true => outer is plain Agg */
-=======
 	/* list of NestLoopParam nodes */
 	List	   *nestParams;
->>>>>>> REL_18_BETA1_branch
+	bool		shared_outer;
+	bool		singleton_outer; /*CDB-OLAP true => outer is plain Agg */
 } NestLoop;
 
 typedef struct NestLoopParam
@@ -2011,14 +1931,10 @@ typedef struct Hash
 	/* is outer join rel an inheritance tree? */
 	bool		skewInherit;
 	/* all other info is in the parent HashJoin node */
-<<<<<<< HEAD
-	Cardinality rows_total;		/* estimate total rows if parallel_aware */
-	bool		rescannable;            /* CDB: true => save rows for rescan */
-	bool		sync_barrier;
-=======
 	/* estimate total rows if parallel_aware */
 	Cardinality rows_total;
->>>>>>> REL_18_BETA1_branch
+	bool		rescannable;            /* CDB: true => save rows for rescan */
+	bool		sync_barrier;
 } Hash;
 
 /* ----------------
@@ -2250,13 +2166,8 @@ typedef enum RowMarkType
 	ROW_MARK_NOKEYEXCLUSIVE,	/* obtain no-key exclusive tuple lock */
 	ROW_MARK_SHARE,				/* obtain shared tuple lock */
 	ROW_MARK_KEYSHARE,			/* obtain keyshare tuple lock */
-<<<<<<< HEAD
-	ROW_MARK_REFERENCE,			/* just fetch the TID */
-	ROW_MARK_COPY				/* physically copy the row value */
-=======
 	ROW_MARK_REFERENCE,			/* just fetch the TID, don't lock it */
 	ROW_MARK_COPY,				/* physically copy the row value */
->>>>>>> REL_18_BETA1_branch
 } RowMarkType;
 
 #define RowMarkRequiresRowShareLock(marktype)  ((marktype) <= ROW_MARK_KEYSHARE)

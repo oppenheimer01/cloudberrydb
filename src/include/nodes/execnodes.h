@@ -18,13 +18,9 @@
  * specialized fields that would require custom code, so for now it's
  * not provided.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/nodes/execnodes.h
@@ -1592,10 +1588,6 @@ typedef struct ModifyTableState
 	double		mt_merge_updated;
 	double		mt_merge_deleted;
 
-<<<<<<< HEAD
-	HTAB	*modified_leaf_relids;
-
-=======
 	/*
 	 * Lists of valid updateColnosLists, mergeActionLists, and
 	 * mergeJoinConditions.  These contain only entries for unpruned
@@ -1604,7 +1596,7 @@ typedef struct ModifyTableState
 	List	   *mt_updateColnosLists;
 	List	   *mt_mergeActionLists;
 	List	   *mt_mergeJoinConditions;
->>>>>>> REL_18_BETA1_branch
+	HTAB	   *modified_leaf_relids;
 } ModifyTableState;
 
 /* ----------------
@@ -2140,25 +2132,8 @@ typedef struct BitmapHeapScanState
 {
 	ScanState	ss;				/* its first field is NodeTag */
 	ExprState  *bitmapqualorig;
-<<<<<<< HEAD
-	Node	   *tbm;
-	GenericBMIterator *tbmiterator;
-	TBMIterateResult *tbmres;
-	bool		can_skip_fetch;
-	int			return_empty_tuples;
-	Buffer		vmbuffer;
-	Buffer		pvmbuffer;
-	long		exact_pages;
-	long		lossy_pages;
-	GenericBMIterator *prefetch_iterator;
-	int			prefetch_pages;
-	int			prefetch_target;
-	int			prefetch_maximum;
-	Size		pscan_len;
-=======
 	TIDBitmap  *tbm;
 	BitmapHeapScanInstrumentation stats;
->>>>>>> REL_18_BETA1_branch
 	bool		initialized;
 	ParallelBitmapHeapState *pstate;
 	SharedBitmapHeapInstrumentation *sinstrument;
@@ -2710,14 +2685,8 @@ typedef struct HashJoinState
 {
 	JoinState	js;				/* its first field is NodeTag */
 	ExprState  *hashclauses;
-<<<<<<< HEAD
-	ExprState  *hashqualclauses;	/* CDB: ExprState node (match) */
-	List	   *hj_OuterHashKeys;	/* list of ExprState nodes */
-	List	   *hj_HashOperators;	/* list of operator OIDs */
-	List	   *hj_Collations;
-=======
 	ExprState  *hj_OuterHash;
->>>>>>> REL_18_BETA1_branch
+	ExprState  *hashqualclauses;	/* CDB: ExprState node (match) */
 	HashJoinTable hj_HashTable;
 	uint32		hj_CurHashValue;
 	int			hj_CurBucketNo;
@@ -3108,8 +3077,6 @@ typedef struct AggState
 #define FIELDNO_AGGSTATE_ALL_PERGROUPS 54
 	AggStatePerGroup *all_pergroups;	/* array of first ->pergroups, than
 										 * ->hash_pergroup */
-<<<<<<< HEAD
-	ProjectionInfo *combinedproj;	/* projection machinery */
 
 	int			group_id;		/* GROUP_ID in current projection. This is passed
 								 * to GroupingSetId expressions, similar to the
@@ -3119,8 +3086,6 @@ typedef struct AggState
 	/* if input tuple has an AggExprId, save the Attribute Number */
 	Index       AggExprId_AttrNum;
 
-=======
->>>>>>> REL_18_BETA1_branch
 	SharedAggInfo *shared_info; /* one entry per worker */
 	Bitmapset	*aggs_used;	/* which aggs are used in this query */
 
@@ -3420,18 +3385,15 @@ typedef struct HashState
 {
 	PlanState	ps;				/* its first field is NodeTag */
 	HashJoinTable hashtable;	/* hash table for the hashjoin */
-<<<<<<< HEAD
-	List	   *hashkeys;		/* list of ExprState nodes */
 	bool		hs_keepnull;	/* Keep nulls */
 	bool		hs_quit_if_hashkeys_null;	/* quit building hash table if hashkeys are all null */
 	bool		hs_hashkeys_null;	/* found an instance wherein hashkeys are all null */
 	/* hashkeys is same as parent's hj_InnerHashKeys */
-=======
+
 	ExprState  *hash_expr;		/* ExprState to get hash value */
 
 	FmgrInfo   *skew_hashfunction;	/* lookup data for skew hash function */
 	Oid			skew_collation; /* collation to call skew_hashfunction with */
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * In a parallelized hash join, the leader retains a pointer to the
