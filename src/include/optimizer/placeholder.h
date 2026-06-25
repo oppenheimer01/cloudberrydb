@@ -4,12 +4,8 @@
  *	  prototypes for optimizer/util/placeholder.c.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2017, VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/placeholder.h

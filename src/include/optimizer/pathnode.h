@@ -4,13 +4,9 @@
  *	  prototypes for pathnode.c, relnode.c.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/pathnode.h
@@ -34,7 +30,6 @@ extern int	compare_path_costs(Path *path1, Path *path2,
 extern int	compare_fractional_path_costs(Path *path1, Path *path2,
 										  double fraction);
 extern void set_cheapest(RelOptInfo *parent_rel);
-<<<<<<< HEAD
 extern void add_path(RelOptInfo *parent_rel, Path *new_path, PlannerInfo *root);
 extern Path *create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
 					Relids required_outer, int parallel_workers);
@@ -42,11 +37,7 @@ extern AppendOnlyPath *create_appendonly_path(PlannerInfo *root, RelOptInfo *rel
 					Relids required_outer);
 extern AOCSPath *create_aocs_path(PlannerInfo *root, RelOptInfo *rel,
 					Relids required_outer);
-extern bool add_path_precheck(RelOptInfo *parent_rel,
-=======
-extern void add_path(RelOptInfo *parent_rel, Path *new_path);
 extern bool add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
->>>>>>> REL_18_BETA1_branch
 							  Cost startup_cost, Cost total_cost,
 							  List *pathkeys, Relids required_outer);
 extern void add_partial_path(RelOptInfo *parent_rel, Path *new_path);
@@ -147,13 +138,9 @@ extern Path *create_valuesscan_path(PlannerInfo *root, RelOptInfo *rel,
 extern Path *create_tablefuncscan_path(PlannerInfo *root, RelOptInfo *rel,
 									   Relids required_outer);
 extern Path *create_ctescan_path(PlannerInfo *root, RelOptInfo *rel,
-<<<<<<< HEAD
 								 Path *subpath, CdbPathLocus locus,
 								 List *pathkeys,
-								 Relids required_outer);
-=======
 								 List *pathkeys, Relids required_outer);
->>>>>>> REL_18_BETA1_branch
 extern Path *create_namedtuplestorescan_path(PlannerInfo *root, RelOptInfo *rel,
 											 Relids required_outer);
 extern Path *create_resultscan_path(PlannerInfo *root, RelOptInfo *rel,
@@ -356,14 +343,9 @@ extern ModifyTablePath *create_modifytable_path(PlannerInfo *root,
 												List *updateColnosLists,
 												List *withCheckOptionLists, List *returningLists,
 												List *rowMarks, OnConflictExpr *onconflict,
-<<<<<<< HEAD
-												List *mergeActionLists, int epqParam);
-extern Path *create_limit_path(PlannerInfo *root, RelOptInfo *rel,
-=======
 												List *mergeActionLists, List *mergeJoinConditions,
 												int epqParam);
 extern LimitPath *create_limit_path(PlannerInfo *root, RelOptInfo *rel,
->>>>>>> REL_18_BETA1_branch
 									Path *subpath,
 									Node *limitOffset, Node *limitCount,
 									LimitOption limitOption,

@@ -48,11 +48,8 @@ extern PlannedStmt *standard_planner(Query *parse, const char *query_string,
 extern PlannerInfo *subquery_planner(PlannerGlobal *glob, Query *parse,
 									 PlannerInfo *parent_root,
 									 bool hasRecursion, double tuple_fraction,
-<<<<<<< HEAD
+									 SetOperationStmt *setops,
 									 PlannerConfig *config);
-=======
-									 SetOperationStmt *setops);
->>>>>>> REL_18_BETA1_branch
 
 extern RowMarkType select_rowmark_type(RangeTblEntry *rte,
 									   LockClauseStrength strength);

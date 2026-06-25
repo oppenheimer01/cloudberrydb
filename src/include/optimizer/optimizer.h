@@ -94,11 +94,7 @@ extern PGDLLIMPORT double parallel_setup_cost;
 extern PGDLLIMPORT double recursive_worktable_factor;
 extern PGDLLIMPORT int effective_cache_size;
 
-<<<<<<< HEAD
-=======
-extern double clamp_row_est(double nrows);
 extern int32 clamp_width_est(int64 tuple_width);
->>>>>>> REL_18_BETA1_branch
 extern long clamp_cardinality_to_long(Cardinality x);
 
 /* in path/indxpath.c: */
@@ -214,11 +210,8 @@ extern void pull_varattnos(Node *node, Index varno, Bitmapset **varattnos);
 extern List *pull_vars_of_level(Node *node, int levelsup);
 extern bool contain_var_clause(Node *node);
 extern bool contain_vars_of_level(Node *node, int levelsup);
-<<<<<<< HEAD
 extern bool contain_vars_of_level_or_above(Node *node, int levelsup);
-=======
 extern bool contain_vars_returning_old_or_new(Node *node);
->>>>>>> REL_18_BETA1_branch
 extern int	locate_var_of_level(Node *node, int levelsup);
 extern List *pull_var_clause(Node *node, int flags);
 extern Node *flatten_join_alias_vars(PlannerInfo *root, Query *query, Node *node);

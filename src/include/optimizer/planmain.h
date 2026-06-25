@@ -4,13 +4,9 @@
  *	  prototypes for various files in optimizer/plan
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/planmain.h
@@ -24,14 +20,9 @@
 #include "nodes/plannodes.h"
 
 /* GUC parameters */
-<<<<<<< HEAD
 #define DEFAULT_CURSOR_TUPLE_FRACTION 1.0 /* assume all rows will be fetched */
-extern double cursor_tuple_fraction;
-=======
-#define DEFAULT_CURSOR_TUPLE_FRACTION 0.1
 extern PGDLLIMPORT double cursor_tuple_fraction;
 extern PGDLLIMPORT bool enable_self_join_elimination;
->>>>>>> REL_18_BETA1_branch
 
 /* query_planner callback to compute query_pathkeys */
 typedef void (*query_pathkeys_callback) (PlannerInfo *root, void *extra);
@@ -123,16 +114,13 @@ extern void add_other_rels_to_query(PlannerInfo *root);
 extern void build_base_rel_tlists(PlannerInfo *root, List *final_tlist);
 extern void add_vars_to_targetlist(PlannerInfo *root, List *vars,
 								   Relids where_needed);
-<<<<<<< HEAD
 extern void add_vars_to_targetlist_x(PlannerInfo *root, List *vars,
 									 Relids where_needed,
 									 bool force);
 extern void setup_aggregate_pushdown(PlannerInfo *root);
-=======
 extern void add_vars_to_attr_needed(PlannerInfo *root, List *vars,
 									Relids where_needed);
 extern void remove_useless_groupby_columns(PlannerInfo *root);
->>>>>>> REL_18_BETA1_branch
 extern void find_lateral_references(PlannerInfo *root);
 extern void rebuild_lateral_attr_needed(PlannerInfo *root);
 extern void create_lateral_join_info(PlannerInfo *root);

@@ -3,13 +3,9 @@
  * subselect.h
  *	  Planning routines for subselects.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/subselect.h
@@ -25,16 +21,14 @@
 #if 0
 /* Not used in GPDB */
 extern void SS_process_ctes(PlannerInfo *root);
-<<<<<<< HEAD
 #endif
 extern Node *convert_testexpr(PlannerInfo *root,
 				 Node *testexpr,
 				 List *subst_nodes);
-=======
+
 extern ScalarArrayOpExpr *convert_VALUES_to_ANY(PlannerInfo *root,
 												Node *testexpr,
 												Query *values);
->>>>>>> REL_18_BETA1_branch
 extern JoinExpr *convert_ANY_sublink_to_join(PlannerInfo *root,
 											 SubLink *sublink,
 											 Relids available_rels);

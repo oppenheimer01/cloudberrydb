@@ -4,13 +4,9 @@
  *	  prototypes for various files in optimizer/path
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/optimizer/paths.h
@@ -84,14 +80,8 @@ extern void create_partial_bitmap_paths(PlannerInfo *root, RelOptInfo *rel,
 										Path *bitmapqual);
 extern void generate_partitionwise_join_paths(PlannerInfo *root,
 											  RelOptInfo *rel);
-<<<<<<< HEAD
 extern void partial_bring_to_outer_query(PlannerInfo *root, RelOptInfo *rel,
 										 PathTarget *target, List *outer_quals);
-#ifdef OPTIMIZER_DEBUG
-extern void debug_print_rel(PlannerInfo *root, RelOptInfo *rel);
-#endif
-=======
->>>>>>> REL_18_BETA1_branch
 
 /*
  * indxpath.c
@@ -147,16 +137,12 @@ extern bool have_join_order_restriction(PlannerInfo *root,
 										RelOptInfo *rel1, RelOptInfo *rel2);
 extern bool have_dangerous_phv(PlannerInfo *root,
 							   Relids outer_relids, Relids inner_params);
-<<<<<<< HEAD
 extern void mark_dummy_rel(PlannerInfo *root, RelOptInfo *rel);
 extern bool have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 								   RelOptInfo *rel1, RelOptInfo *rel2,
 								   JoinType jointype, List *restrictlist);
-=======
-extern void mark_dummy_rel(RelOptInfo *rel);
 extern void init_dummy_sjinfo(SpecialJoinInfo *sjinfo, Relids left_relids,
 							  Relids right_relids);
->>>>>>> REL_18_BETA1_branch
 
 /*
  * equivclass.c
