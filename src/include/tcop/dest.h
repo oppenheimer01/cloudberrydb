@@ -94,11 +94,8 @@ typedef enum
 	DestSQLFunction,			/* results sent to SQL-language func mgr */
 	DestTransientRel,			/* results sent to transient relation */
 	DestTupleQueue,				/* results sent to tuple queue */
-<<<<<<< HEAD
-	DestPersistentstore,		/* results sent to Persistent Tuplestore */
-=======
 	DestExplainSerialize,		/* results are serialized and discarded */
->>>>>>> REL_18_BETA1_branch
+	DestPersistentstore,		/* results sent to Persistent Tuplestore */
 } CommandDest;
 
 /* ----------------

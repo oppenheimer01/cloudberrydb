@@ -244,16 +244,11 @@ PG_CMDTAG(CMDTAG_PREPARE_TRANSACTION, "PREPARE TRANSACTION", false, false, false
 PG_CMDTAG(CMDTAG_FTS_MSG_PROBE, "PROBE", false, false, false)
 PG_CMDTAG(CMDTAG_FTS_MSG_PROMOTE, "PROMOTE", false, false, false)
 PG_CMDTAG(CMDTAG_REASSIGN_OWNED, "REASSIGN OWNED", false, false, false)
-<<<<<<< HEAD
 PG_CMDTAG(CMDTAG_DTX_RECOVERY_ABORT_PREPARED,         "Recovery Abort Prepared", false, false, false)
 PG_CMDTAG(CMDTAG_DTX_RECOVERY_COMMIT_PREPARED,        "Recovery Commit Prepared", false, false, false)
 PG_CMDTAG(CMDTAG_REFRESH_DYNAMIC_TABLE, "REFRESH DYNAMIC TABLE", true, false, false)
-PG_CMDTAG(CMDTAG_REFRESH_MATERIALIZED_VIEW,           "REFRESH MATERIALIZED VIEW", true, false, false)
-PG_CMDTAG(CMDTAG_REINDEX, "REINDEX", false, false, false)
-=======
 PG_CMDTAG(CMDTAG_REFRESH_MATERIALIZED_VIEW, "REFRESH MATERIALIZED VIEW", true, false, false)
 PG_CMDTAG(CMDTAG_REINDEX, "REINDEX", true, false, false)
->>>>>>> REL_18_BETA1_branch
 PG_CMDTAG(CMDTAG_RELEASE, "RELEASE", false, false, false)
 PG_CMDTAG(CMDTAG_DTX_RELEASE_CURRENT_SUBTRANSACTION,  "Release Current Subtransaction", false, false, false)
 PG_CMDTAG(CMDTAG_RESET, "RESET", false, false, false)

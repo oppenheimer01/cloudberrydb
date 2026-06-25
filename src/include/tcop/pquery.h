@@ -36,13 +36,8 @@ extern void PortalStart(Portal portal, ParamListInfo params,
 extern void PortalSetResultFormat(Portal portal, int nFormats,
 								  int16 *formats);
 
-<<<<<<< HEAD
-extern bool PortalRun(Portal portal, int64 count, bool isTopLevel,
-					  bool run_once, DestReceiver *dest, DestReceiver *altdest,
-=======
 extern bool PortalRun(Portal portal, long count, bool isTopLevel,
 					  DestReceiver *dest, DestReceiver *altdest,
->>>>>>> REL_18_BETA1_branch
 					  QueryCompletion *qc);
 
 extern uint64 PortalRunFetch(Portal portal,
