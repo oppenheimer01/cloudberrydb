@@ -457,7 +457,6 @@ typedef struct PgStatShared_ReplSlot
 	PgStat_StatReplSlotEntry stats;
 } PgStatShared_ReplSlot;
 
-<<<<<<< HEAD
 typedef struct PgStatShared_ResQueue
 {
 	PgStatShared_Common header;
@@ -489,13 +488,11 @@ extern bool pgstat_resqueue_flush_cb(PgStat_EntryRef *entry_ref, bool nowait);
 extern void pgstat_resqueue_reset_timestamp_cb(PgStatShared_Common *header,
 											   TimestampTz ts);
 
-=======
 typedef struct PgStatShared_Backend
 {
 	PgStatShared_Common header;
 	PgStat_Backend stats;
 } PgStatShared_Backend;
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Central shared memory entry for the cumulative stats system.
@@ -804,14 +801,9 @@ extern void pgstat_subscription_reset_timestamp_cb(PgStatShared_Common *header, 
  */
 
 extern PgStat_SubXactStatus *pgstat_get_xact_stack_level(int nest_level);
-<<<<<<< HEAD
 extern PgStat_SubXactStatus *pgstat_get_current_xact_stack(void);
-extern void pgstat_drop_transactional(PgStat_Kind kind, Oid dboid, Oid objoid);
-extern void pgstat_create_transactional(PgStat_Kind kind, Oid dboid, Oid objoid);
-=======
 extern void pgstat_drop_transactional(PgStat_Kind kind, Oid dboid, uint64 objid);
 extern void pgstat_create_transactional(PgStat_Kind kind, Oid dboid, uint64 objid);
->>>>>>> REL_18_BETA1_branch
 
 
 /*

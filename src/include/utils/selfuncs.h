@@ -96,15 +96,9 @@ typedef struct VariableStatData
 	Oid			vartype;		/* exposed type of expression */
 	Oid			atttype;		/* actual type (after stripping relabel) */
 	int32		atttypmod;		/* actual typmod (after stripping relabel) */
-<<<<<<< HEAD
-	bool		isunique;		/* matches unique index or DISTINCT clause */
-	bool		acl_ok;			/* true if user has SELECT privilege on all
-								 * rows from the table or column */
-=======
 	bool		isunique;		/* matches unique index, DISTINCT or GROUP-BY
 								 * clause */
 	bool		acl_ok;			/* result of ACL check on table or column */
->>>>>>> REL_18_BETA1_branch
 } VariableStatData;
 
 #define ReleaseVariableStats(vardata)  \

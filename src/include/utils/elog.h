@@ -4,13 +4,9 @@
  *	  POSTGRES error reporting/logging definitions.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/elog.h
@@ -239,12 +235,8 @@ extern void errdetail_log_plural(const char *fmt_singular,
 extern void errdetail_plural(const char *fmt_singular, const char *fmt_plural,
 							 unsigned long n,...) pg_attribute_printf(1, 4) pg_attribute_printf(2, 4);
 
-<<<<<<< HEAD
 extern void errhint(const char *fmt,...) pg_attribute_printf(1, 2);
-=======
-extern int	errhint(const char *fmt,...) pg_attribute_printf(1, 2);
 extern int	errhint_internal(const char *fmt,...) pg_attribute_printf(1, 2);
->>>>>>> REL_18_BETA1_branch
 
 extern int	errhint_plural(const char *fmt_singular, const char *fmt_plural,
 						   unsigned long n,...) pg_attribute_printf(1, 4) pg_attribute_printf(2, 4);

@@ -156,10 +156,6 @@ typedef struct PortalData
 	/* Features/options */
 	PortalStrategy strategy;	/* see above */
 	int			cursorOptions;	/* DECLARE CURSOR option bits */
-<<<<<<< HEAD
-	bool		run_once;		/* unused */
-=======
->>>>>>> REL_18_BETA1_branch
 
 	/* Status data */
 	PortalStatus status;		/* see above */

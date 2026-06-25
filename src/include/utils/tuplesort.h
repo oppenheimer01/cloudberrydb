@@ -79,12 +79,8 @@ typedef enum
 	SORT_TYPE_TOP_N_HEAPSORT = 1 << 0,
 	SORT_TYPE_QUICKSORT = 1 << 1,
 	SORT_TYPE_EXTERNAL_SORT = 1 << 2,
-<<<<<<< HEAD
-	SORT_TYPE_EXTERNAL_MERGE = 1 << 3
-#define NUM_SORT_METHOD (SORT_TYPE_EXTERNAL_MERGE + 1)
-=======
 	SORT_TYPE_EXTERNAL_MERGE = 1 << 3,
->>>>>>> REL_18_BETA1_branch
+#define NUM_SORT_METHOD (SORT_TYPE_EXTERNAL_MERGE + 1)
 } TuplesortMethod;
 
 #define NUM_TUPLESORTMETHODS 4
@@ -92,13 +88,8 @@ typedef enum
 typedef enum
 {
 	SORT_SPACE_TYPE_DISK,
-<<<<<<< HEAD
-	SORT_SPACE_TYPE_MEMORY
-#define NUM_SORT_SPACE_TYPE (SORT_SPACE_TYPE_MEMORY + 1)
-
-=======
 	SORT_SPACE_TYPE_MEMORY,
->>>>>>> REL_18_BETA1_branch
+#define NUM_SORT_SPACE_TYPE (SORT_SPACE_TYPE_MEMORY + 1)
 } TuplesortSpaceType;
 
 /* Bitwise option flags for tuple sorts */

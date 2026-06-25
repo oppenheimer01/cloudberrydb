@@ -93,13 +93,9 @@ extern Oid	get_opfamily_member(Oid opfamily, Oid lefttype, Oid righttype,
 extern Oid	get_opfamily_member_for_cmptype(Oid opfamily, Oid lefttype, Oid righttype,
 											CompareType cmptype);
 extern bool get_ordering_op_properties(Oid opno,
-<<<<<<< HEAD
-									   Oid *opfamily, Oid *opcintype, int16 *strategy);
+									   Oid *opfamily, Oid *opcintype, CompareType *cmptype);
 extern bool get_compare_function_for_ordering_op(Oid opno,
 												 Oid *cmpfunc, bool *reverse);
-=======
-									   Oid *opfamily, Oid *opcintype, CompareType *cmptype);
->>>>>>> REL_18_BETA1_branch
 extern Oid	get_equality_op_for_ordering_op(Oid opno, bool *reverse);
 extern Oid	get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type);
 extern List *get_mergejoin_opfamilies(Oid opno);

@@ -4,13 +4,9 @@
  *	  POSTGRES relation descriptor (a/k/a relcache entry) definitions.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2009, Greenplum inc.
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/rel.h
@@ -369,13 +365,11 @@ typedef struct StdRdOptions
 	int			parallel_workers;	/* max number of parallel workers */
 	StdRdOptIndexCleanup vacuum_index_cleanup;	/* controls index vacuuming */
 	bool		vacuum_truncate;	/* enables vacuum to truncate a relation */
-<<<<<<< HEAD
 
 	int			blocksize;		/* max varblock size (AO rels only) */
 	int			compresslevel;  /* compression level (AO rels only) */
 	char		compresstype[NAMEDATALEN]; /* compression type (AO rels only) */
 	bool		checksum;		/* checksum (AO rels only) */
-=======
 	bool		vacuum_truncate_set;	/* whether vacuum_truncate is set */
 
 	/*
@@ -383,7 +377,6 @@ typedef struct StdRdOptions
 	 * to freeze. 0 if disabled, -1 if unspecified.
 	 */
 	double		vacuum_max_eager_freeze_failure_rate;
->>>>>>> REL_18_BETA1_branch
 } StdRdOptions;
 
 #define HEAP_MIN_FILLFACTOR			10
@@ -711,15 +704,11 @@ static inline SMgrRelation
 RelationGetSmgr(Relation rel)
 {
 	if (unlikely(rel->rd_smgr == NULL))
-<<<<<<< HEAD
-		smgrsetowner(&(rel->rd_smgr), smgropen(rel->rd_locator, rel->rd_backend,
-											   SMGR_MD, rel));
-=======
 	{
-		rel->rd_smgr = smgropen(rel->rd_locator, rel->rd_backend);
+	rel->rd_smgr = smgropen(rel->rd_locator, rel->rd_backend,
+										   SMGR_MD, rel);
 		smgrpin(rel->rd_smgr);
 	}
->>>>>>> REL_18_BETA1_branch
 	return rel->rd_smgr;
 }
 

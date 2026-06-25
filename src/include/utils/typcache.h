@@ -212,15 +212,12 @@ extern void SharedRecordTypmodRegistryInit(SharedRecordTypmodRegistry *,
 
 extern void SharedRecordTypmodRegistryAttach(SharedRecordTypmodRegistry *);
 
-<<<<<<< HEAD
 extern List *build_tuple_node_list(int start);
 
 /* GPDB: retrieve conn calls this function to clear record cache */
 extern void reset_record_cache(void);
-=======
 extern void AtEOXact_TypeCache(void);
 
 extern void AtEOSubXact_TypeCache(void);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* TYPCACHE_H */

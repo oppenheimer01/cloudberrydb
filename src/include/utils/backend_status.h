@@ -174,13 +174,10 @@ typedef struct PgBackendStatus
 
 	/* query identifier, optionally computed using post_parse_analyze_hook */
 	uint64		st_query_id;
-<<<<<<< HEAD
 	Oid			st_warehouse_id;
-=======
 
 	/* plan identifier, optionally computed using planner_hook */
 	uint64		st_plan_id;
->>>>>>> REL_18_BETA1_branch
 } PgBackendStatus;
 
 
@@ -349,18 +346,12 @@ extern BackendType pgstat_get_backend_type_by_proc_number(ProcNumber procNumber)
  * ----------
  */
 extern int	pgstat_fetch_stat_numbackends(void);
-<<<<<<< HEAD
-extern PgBackendStatus *pgstat_get_beentry_by_backend_id(BackendId beid);
-extern LocalPgBackendStatus *pgstat_get_local_beentry_by_backend_id(BackendId beid);
-extern LocalPgBackendStatus *pgstat_get_local_beentry_by_index(int idx);
 /* -- mdb admin patch -- */
 extern LocalPgBackendStatus *pgstat_fetch_stat_local_beentry_by_pid(int pid);
 /* -- mdb admin patch end -- */
-=======
 extern PgBackendStatus *pgstat_get_beentry_by_proc_number(ProcNumber procNumber);
 extern LocalPgBackendStatus *pgstat_get_local_beentry_by_proc_number(ProcNumber procNumber);
 extern LocalPgBackendStatus *pgstat_get_local_beentry_by_index(int idx);
->>>>>>> REL_18_BETA1_branch
 extern char *pgstat_clip_activity(const char *raw_activity);
 
 

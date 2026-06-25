@@ -3,13 +3,9 @@
  *
  * External declarations pertaining to Grand Unified Configuration.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Copyright (c) 2000-2023, PostgreSQL Global Development Group
-=======
  * Copyright (c) 2000-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Written by Peter Eisentraut <peter_e@gmx.net>.
  *
  * src/include/utils/guc.h
@@ -267,7 +263,6 @@ typedef enum
 extern List    *gp_guc_list_for_explain;
 extern List    *gp_guc_list_for_no_plan;
 
-<<<<<<< HEAD
 /* Changed GUC which need to be pass to QE from QD */
 extern List *gp_guc_restore_list;
 extern bool gp_guc_need_restore;
@@ -371,27 +366,21 @@ extern bool gp_ignore_error_table;
 extern bool	Debug_dtm_action_primary;
 extern bool Debug_shareinput_xslice;
 
-extern bool gp_log_optimization_time;
-extern bool log_parser_stats;
-extern bool log_planner_stats;
-extern bool log_executor_stats;
-extern bool log_statement_stats;
-extern bool log_dispatch_stats;
-extern bool log_btree_build_stats;
-=======
+extern PGDLLIMPORT bool gp_log_optimization_time;
+extern PGDLLIMPORT bool log_parser_stats;
+extern PGDLLIMPORT bool log_planner_stats;
+extern PGDLLIMPORT bool log_executor_stats;
+extern PGDLLIMPORT bool log_statement_stats;
+extern PGDLLIMPORT bool log_dispatch_stats;
+extern PGDLLIMPORT bool log_btree_build_stats;
 #ifdef DEBUG_NODE_TESTS_ENABLED
 extern PGDLLIMPORT bool Debug_copy_parse_plan_trees;
 extern PGDLLIMPORT bool Debug_write_read_parse_plan_trees;
 extern PGDLLIMPORT bool Debug_raw_expression_coverage_test;
 #endif
 
-extern PGDLLIMPORT bool log_parser_stats;
-extern PGDLLIMPORT bool log_planner_stats;
-extern PGDLLIMPORT bool log_executor_stats;
-extern PGDLLIMPORT bool log_statement_stats;
-extern PGDLLIMPORT bool log_btree_build_stats;
+
 extern PGDLLIMPORT char *event_source;
->>>>>>> REL_18_BETA1_branch
 
 extern PGDLLIMPORT bool check_function_bodies;
 extern PGDLLIMPORT bool current_role_is_superuser;

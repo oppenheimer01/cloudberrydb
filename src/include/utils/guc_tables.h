@@ -5,13 +5,9 @@
  *
  * See src/backend/utils/misc/README for design notes.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  *
  *	  src/include/utils/guc_tables.h
  *
@@ -76,16 +72,12 @@ enum config_group
 	RESOURCES_DISK,
 	RESOURCES_KERNEL,
 	RESOURCES_BGWRITER,
-<<<<<<< HEAD
-	RESOURCES_ASYNCHRONOUS,
 
 	RESOURCES_MGM,
 	WAL,
 
-=======
 	RESOURCES_IO,
 	RESOURCES_WORKER_PROCESSES,
->>>>>>> REL_18_BETA1_branch
 	WAL_SETTINGS,
 	WAL_CHECKPOINTS,
 	WAL_ARCHIVING,
@@ -110,15 +102,10 @@ enum config_group
 	STATS_MONITORING,
 	ENCRYPTION,
 	STATS_CUMULATIVE,
-<<<<<<< HEAD
-	AUTOVACUUM,
-
-=======
 	VACUUM_AUTOVACUUM,
 	VACUUM_COST_DELAY,
 	VACUUM_DEFAULT,
 	VACUUM_FREEZING,
->>>>>>> REL_18_BETA1_branch
 	CLIENT_CONN_STATEMENT,
 	CLIENT_CONN_LOCALE,
 	CLIENT_CONN_PRELOAD,
@@ -128,12 +115,8 @@ enum config_group
 	COMPAT_OPTIONS,
 
 	COMPAT_OPTIONS_PREVIOUS,
-<<<<<<< HEAD
-	COMPAT_OPTIONS_CLIENT,
     COMPAT_OPTIONS_IGNORED,             /*CDB*/
-=======
 	COMPAT_OPTIONS_OTHER,
->>>>>>> REL_18_BETA1_branch
 	ERROR_HANDLING_OPTIONS,
     GP_ARRAY_CONFIGURATION,            /*CDB*/
     GP_ARRAY_TUNING,                   /*CDB*/
@@ -143,7 +126,6 @@ enum config_group
 	PRESET_OPTIONS,
 	CUSTOM_OPTIONS,
 	DEVELOPER_OPTIONS,
-<<<<<<< HEAD
 
 	TASK_SCHEDULE_OPTIONS,
 
@@ -166,8 +148,6 @@ enum config_group
 
 
 	___CONFIG_GROUP_COUNT /* sentinel to indicate end of enumeration */
-=======
->>>>>>> REL_18_BETA1_branch
 };
 
 /*

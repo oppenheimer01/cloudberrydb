@@ -7,13 +7,9 @@
  *	  of the API of the memory management subsystem.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/memutils.h
@@ -58,7 +54,6 @@
 #define AllocHugeSizeIsValid(size)	((Size) (size) <= MaxAllocHugeSize)
 
 /*
-<<<<<<< HEAD
  * All chunks allocated by any memory context manager are required to be
  * preceded by a StandardChunkHeader at a spacing of STANDARDCHUNKHEADERSIZE.
  * A currently-allocated chunk must contain a backpointer to its owning
@@ -86,7 +81,7 @@ typedef struct StandardChunkHeader
 
 #define STANDARDCHUNKHEADERSIZE  MAXALIGN(sizeof(StandardChunkHeader))
 
-=======
+/*
  * Memory Context reporting size limits.
  */
 
@@ -103,7 +98,6 @@ typedef struct StandardChunkHeader
  */
 #define MAX_MEMORY_CONTEXT_STATS_SIZE (sizeof(MemoryStatsEntry) + \
 	(100 * sizeof(int)) + (2 * MEMORY_CONTEXT_IDENT_SHMEM_SIZE))
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Standard top-level memory contexts.
@@ -221,18 +215,15 @@ extern MemoryContext GenerationContextCreate(MemoryContext parent,
 											 Size initBlockSize,
 											 Size maxBlockSize);
 
-<<<<<<< HEAD
 /* this function should be only called by MemoryContextSetParent() */
 extern void AllocSetTransferAccounting(MemoryContext context,
 									   MemoryContext new_parent);
-=======
 /* bump.c */
 extern MemoryContext BumpContextCreate(MemoryContext parent,
 									   const char *name,
 									   Size minContextSize,
 									   Size initBlockSize,
 									   Size maxBlockSize);
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Recommended default alloc parameters, suitable for "ordinary" contexts

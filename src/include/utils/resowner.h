@@ -165,21 +165,16 @@ extern void UnregisterResourceReleaseCallback(ResourceReleaseCallback callback,
 extern void CreateAuxProcessResourceOwner(void);
 extern void ReleaseAuxProcessResources(bool isCommit);
 
-<<<<<<< HEAD
 /* support for buffer refcount management */
 extern void ResourceOwnerEnlargeBuffers(ResourceOwner owner);
 extern void ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer);
 extern void ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer);
 
-/* support for local lock management */
-=======
 /* special support for local lock management */
->>>>>>> REL_18_BETA1_branch
 struct LOCALLOCK;
 extern void ResourceOwnerRememberLock(ResourceOwner owner, struct LOCALLOCK *locallock);
 extern void ResourceOwnerForgetLock(ResourceOwner owner, struct LOCALLOCK *locallock);
 
-<<<<<<< HEAD
 /* support for catcache refcount management */
 extern void ResourceOwnerEnlargeCatCacheRefs(ResourceOwner owner);
 extern void ResourceOwnerRememberCatCacheRef(ResourceOwner owner,
@@ -229,11 +224,9 @@ extern void ResourceOwnerForgetFile(ResourceOwner owner,
 
 extern void CdbResourceOwnerWalker(ResourceOwner owner,
 							ResourceWalkerCallback callback);
-=======
 /* special support for AIO */
 struct dlist_node;
 extern void ResourceOwnerRememberAioHandle(ResourceOwner owner, struct dlist_node *ioh_node);
 extern void ResourceOwnerForgetAioHandle(ResourceOwner owner, struct dlist_node *ioh_node);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* RESOWNER_H */

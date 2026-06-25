@@ -18,12 +18,9 @@
 #include "access/tupdesc.h"
 #include "lib/ilist.h"
 #include "nodes/params.h"
-<<<<<<< HEAD
 #include "nodes/primnodes.h"
-=======
 #include "nodes/parsenodes.h"
 #include "nodes/plannodes.h"
->>>>>>> REL_18_BETA1_branch
 #include "tcop/cmdtag.h"
 #include "utils/queryenvironment.h"
 #include "utils/resowner.h"
@@ -116,12 +113,8 @@ typedef struct CachedPlanSource
 	struct RawStmt *raw_parse_tree; /* output of raw_parser(), or NULL */
 	struct Query *analyzed_parse_tree;	/* analyzed parse tree, or NULL */
 	const char *query_string;	/* source text of query */
-<<<<<<< HEAD
-	CommandTag	commandTag;		/* command tag (a constant!), or NULL */
 	NodeTag		sourceTag;		/* GPDB: Original statement NodeTag */
-=======
 	CommandTag	commandTag;		/* command tag for query */
->>>>>>> REL_18_BETA1_branch
 	Oid		   *param_types;	/* array of parameter type OIDs, or NULL */
 	int			num_params;		/* length of param_types array */
 	ParserSetupHook parserSetup;	/* alternative parameter spec method */
@@ -260,16 +253,12 @@ extern List *CachedPlanGetTargetList(CachedPlanSource *plansource,
 extern CachedPlan *GetCachedPlan(CachedPlanSource *plansource,
 								 ParamListInfo boundParams,
 								 ResourceOwner owner,
-<<<<<<< HEAD
 								 QueryEnvironment *queryEnv,
 								 IntoClause *intoClause);
-=======
-								 QueryEnvironment *queryEnv);
 extern PlannedStmt *UpdateCachedPlan(CachedPlanSource *plansource,
 									 int query_index,
 									 QueryEnvironment *queryEnv);
 
->>>>>>> REL_18_BETA1_branch
 extern void ReleaseCachedPlan(CachedPlan *plan, ResourceOwner owner);
 
 

@@ -231,14 +231,10 @@ extern void CatCacheInvalidate(CatCache *cache, uint32 hashValue);
 extern void PrepareToInvalidateCacheTuple(Relation relation,
 										  HeapTuple tuple,
 										  HeapTuple newtuple,
-<<<<<<< HEAD
-										  void (*function) (int, uint32, Oid));
+										  void (*function) (int, uint32, Oid, void *),
+										  void *context);
 
 extern void PrintCatCacheLeakWarning(HeapTuple tuple, const char *resOwnerName);
 extern void PrintCatCacheListLeakWarning(CatCList *list, const char *resOwnerName);
-=======
-										  void (*function) (int, uint32, Oid, void *),
-										  void *context);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* CATCACHE_H */
