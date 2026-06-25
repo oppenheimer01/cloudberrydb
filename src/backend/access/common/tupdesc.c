@@ -627,7 +627,23 @@ equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict)
 			return false;
 		if (attr1->attcompression != attr2->attcompression)
 			return false;
-<<<<<<< HEAD
+		/*
+		 * When the column has a not-null constraint, we also need to consider
+		 * its validity aspect, which only manifests in CompactAttribute->
+		 * attnullability, so verify that.
+		 */
+		if (attr1->attnotnull)
+		{
+			CompactAttribute *cattr1 = TupleDescCompactAttr(tupdesc1, i);
+			CompactAttribute *cattr2 = TupleDescCompactAttr(tupdesc2, i);
+
+			Assert(cattr1->attnullability != ATTNULLABLE_UNKNOWN);
+			Assert((cattr1->attnullability == ATTNULLABLE_UNKNOWN) ==
+				   (cattr2->attnullability == ATTNULLABLE_UNKNOWN));
+
+			if (cattr1->attnullability != cattr2->attnullability)
+				return false;
+		}
 
 		if (strict)
 		{
@@ -649,42 +665,6 @@ equalTupleDescs(TupleDesc tupdesc1, TupleDesc tupdesc2, bool strict)
 				return false;
 			/* attacl and attoptions are not even present... */
 		}
-=======
-		if (attr1->attnotnull != attr2->attnotnull)
-			return false;
-
-		/*
-		 * When the column has a not-null constraint, we also need to consider
-		 * its validity aspect, which only manifests in CompactAttribute->
-		 * attnullability, so verify that.
-		 */
-		if (attr1->attnotnull)
-		{
-			CompactAttribute *cattr1 = TupleDescCompactAttr(tupdesc1, i);
-			CompactAttribute *cattr2 = TupleDescCompactAttr(tupdesc2, i);
-
-			Assert(cattr1->attnullability != ATTNULLABLE_UNKNOWN);
-			Assert((cattr1->attnullability == ATTNULLABLE_UNKNOWN) ==
-				   (cattr2->attnullability == ATTNULLABLE_UNKNOWN));
-
-			if (cattr1->attnullability != cattr2->attnullability)
-				return false;
-		}
-		if (attr1->atthasdef != attr2->atthasdef)
-			return false;
-		if (attr1->attidentity != attr2->attidentity)
-			return false;
-		if (attr1->attgenerated != attr2->attgenerated)
-			return false;
-		if (attr1->attisdropped != attr2->attisdropped)
-			return false;
-		if (attr1->attislocal != attr2->attislocal)
-			return false;
-		if (attr1->attinhcount != attr2->attinhcount)
-			return false;
-		if (attr1->attcollation != attr2->attcollation)
-			return false;
->>>>>>> REL_18_BETA1_branch
 		/* variable-length fields are not even present... */
 	}
 

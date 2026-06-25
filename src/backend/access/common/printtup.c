@@ -360,7 +360,6 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 			char str[256];
 			int32 n32;
 
-<<<<<<< HEAD
 			switch (fatt->atttypid)
 			{
 				case INT2OID: /* int2 */
@@ -489,10 +488,6 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 					pq_sendcountedtext(buf, outputstr, strlen(outputstr), false);
 				}
 			}
-=======
-			outputstr = OutputFunctionCall(&thisState->finfo, attr);
-			pq_sendcountedtext(buf, outputstr, strlen(outputstr));
->>>>>>> REL_18_BETA1_branch
 		}
 		else
 		{

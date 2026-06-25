@@ -45,13 +45,9 @@
  * and we'd like to still refer to them via C struct offsets.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -67,11 +63,8 @@
 #include "access/sysattr.h"
 #include "access/tupdesc_details.h"
 #include "common/hashfn.h"
-<<<<<<< HEAD
 #include "executor/tuptable.h"
 #include "foreign/foreign.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "utils/datum.h"
 #include "utils/expandeddatum.h"
 #include "utils/hsearch.h"
@@ -96,17 +89,12 @@
 #define VARLENA_ATT_IS_PACKABLE(att) \
 	((att)->attstorage != TYPSTORAGE_PLAIN)
 
-<<<<<<< HEAD
-/*
- * Setup for cacheing pass-by-ref missing attributes in a way that survives
-=======
 /* FormData_pg_attribute.attstorage != TYPSTORAGE_PLAIN and an attlen of -1 */
 #define COMPACT_ATTR_IS_PACKABLE(att) \
 	((att)->attlen == -1 && (att)->attispackable)
 
 /*
  * Setup for caching pass-by-ref missing attributes in a way that survives
->>>>>>> REL_18_BETA1_branch
  * tupleDesc destruction.
  */
 
@@ -1159,13 +1147,10 @@ heap_copy_tuple_as_datum(HeapTuple tuple, TupleDesc tupleDesc)
  * The result is allocated in the current memory context.
  */
 HeapTuple
-<<<<<<< HEAD
-heaptuple_form_to(TupleDesc tupleDescriptor, Datum *values, bool *isnull, HeapTuple dst, uint32 *dstlen)
-=======
-heap_form_tuple(TupleDesc tupleDescriptor,
+heaptuple_form_to(TupleDesc tupleDescriptor,
 				const Datum *values,
-				const bool *isnull)
->>>>>>> REL_18_BETA1_branch
+				const bool *isnull,
+				HeapTuple dst, uint32 *dstlen)
 {
 	HeapTuple	tuple;			/* return tuple */
 	HeapTupleHeader td;			/* tuple data */
