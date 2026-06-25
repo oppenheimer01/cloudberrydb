@@ -70,11 +70,7 @@ extern Node *coerce_to_specific_type_typmod(ParseState *pstate, Node *node,
 extern Node *coerce_null_to_domain(Oid typid, int32 typmod, Oid collation,
 								   int typlen, bool typbyval);
 
-<<<<<<< HEAD
 extern void parser_coercion_errposition(ParseState *pstate,
-=======
-extern int	parser_coercion_errposition(ParseState *pstate,
->>>>>>> REL_18_BETA1_branch
 										int coerce_location,
 										Node *input_expr);
 extern Node *coerce_null_to_domain(Oid typid, int32 typmod, Oid collation,
