@@ -45,7 +45,6 @@ ts_copychar_with_len(void *dest, const void *src, int length)
 	return length;
 }
 
-<<<<<<< HEAD
 /* Copy multibyte character from null-terminated string,  return byte length. */
 static inline int
 ts_copychar_cstr(void *dest, const void *src)
@@ -70,12 +69,8 @@ GENERATE_T_ISCLASS_DECL(digit);
 GENERATE_T_ISCLASS_DECL(print);
 GENERATE_T_ISCLASS_DECL(space);
 
-extern char *lowerstr(const char *str);
-extern char *lowerstr_with_len(const char *str, int len);
-=======
 extern int	t_isalpha(const char *ptr);
 extern int	t_isalnum(const char *ptr);
->>>>>>> REL_18_BETA1_branch
 
 extern bool tsearch_readline_begin(tsearch_readline_state *stp,
 								   const char *filename);
