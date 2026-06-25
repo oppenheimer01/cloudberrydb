@@ -143,7 +143,6 @@ typedef struct
 	ConditionVariable wal_replay_cv;
 
 	/*
-<<<<<<< HEAD
 	 * Indicate error state of WalSender, for example, missing XLOG for mirror
 	 * to stream.
 	 *
@@ -169,13 +168,13 @@ typedef struct
 	 * Note:- Valid only when atleast one walsender is alive
 	 */
 	XLogRecPtr	walsnd_xlogCleanUpTo;
-=======
+
+	/*
 	 * Used by physical walsenders holding slots specified in
 	 * synchronized_standby_slots to wake up logical walsenders holding
 	 * logical failover slots when a walreceiver confirms the receipt of LSN.
 	 */
 	ConditionVariable wal_confirm_rcv_cv;
->>>>>>> REL_18_BETA1_branch
 
 	WalSnd		walsnds[FLEXIBLE_ARRAY_MEMBER];
 } WalSndCtlData;

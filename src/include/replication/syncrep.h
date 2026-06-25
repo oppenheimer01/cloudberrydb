@@ -74,18 +74,11 @@ typedef struct SyncRepConfigData
 
 extern PGDLLIMPORT SyncRepConfigData *SyncRepConfig;
 
-<<<<<<< HEAD
 #ifndef USE_INTERNAL_FTS
 extern Size ShmemStandbyPromoteReadySize(void);
 extern void ShmemStandbyPromoteReadyAllocation(void);
 #endif
 
-/* communication variables for parsing synchronous_standby_names GUC */
-extern PGDLLIMPORT SyncRepConfigData *syncrep_parse_result;
-extern PGDLLIMPORT char *syncrep_parse_error_msg;
-
-=======
->>>>>>> REL_18_BETA1_branch
 /* user-settable parameters for synchronous replication */
 extern PGDLLIMPORT char *SyncRepStandbyNames;
 
@@ -117,13 +110,6 @@ extern void assign_synchronous_commit(int newval, void *extra);
  * Internal functions for parsing synchronous_standby_names grammar,
  * in syncrep_gram.y and syncrep_scanner.l
  */
-<<<<<<< HEAD
-extern int	syncrep_yyparse(void);
-extern int	syncrep_yylex(void);
-extern void syncrep_yyerror(const char *str);
-extern void syncrep_scanner_init(const char *str);
-extern void syncrep_scanner_finish(void);
-=======
 union YYSTYPE;
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
@@ -135,5 +121,4 @@ extern void syncrep_yyerror(SyncRepConfigData **syncrep_parse_result_p, char **s
 extern void syncrep_scanner_init(const char *str, yyscan_t *yyscannerp);
 extern void syncrep_scanner_finish(yyscan_t yyscanner);
 
->>>>>>> REL_18_BETA1_branch
 #endif							/* _SYNCREP_H */

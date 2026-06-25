@@ -110,20 +110,11 @@ typedef struct LogicalDecodingContext
 	bool		prepared_write;
 	XLogRecPtr	write_location;
 	TransactionId write_xid;
-<<<<<<< HEAD
-
-	/*
-	 * True if the logical decoding context being used for the creation
-	 * of a logical replication slot.
-	 */
-	bool		in_create;
-=======
 	/* Are we processing the end LSN of a transaction? */
 	bool		end_xact;
 
 	/* Do we need to process any change in fast_forward mode? */
 	bool		processing_required;
->>>>>>> REL_18_BETA1_branch
 } LogicalDecodingContext;
 
 
