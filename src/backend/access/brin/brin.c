@@ -45,11 +45,9 @@
 #include "utils/rel.h"
 #include "utils/tuplesort.h"
 
-<<<<<<< HEAD
 /* GPDB includes */
 #include "storage/procarray.h"
 #include "utils/faultinjector.h"
-=======
 /* Magic numbers for parallel state sharing */
 #define PARALLEL_KEY_BRIN_SHARED		UINT64CONST(0xB000000000000001)
 #define PARALLEL_KEY_TUPLESORT			UINT64CONST(0xB000000000000002)
@@ -154,7 +152,6 @@ typedef struct BrinLeader
 	WalUsage   *walusage;
 	BufferUsage *bufferusage;
 } BrinLeader;
->>>>>>> REL_18_BETA1_branch
 
 /*
  * We use a BrinBuildState during initial construction of a BRIN index.
@@ -173,13 +170,11 @@ typedef struct BrinBuildState
 	BrinDesc   *bs_bdesc;
 	BrinMemTuple *bs_dtuple;
 
-<<<<<<< HEAD
 	/* GPDB specific state for AO/CO tables */
 
 	bool         bs_isAO;
 	/* Have we incorporated even one data tuple into the build state? */
 	bool         bs_aoHasDataTuple;
-=======
 	BrinTuple  *bs_emptyTuple;
 	Size		bs_emptyTupleLen;
 	MemoryContext bs_context;
@@ -198,7 +193,6 @@ typedef struct BrinBuildState
 	 * build callback etc.
 	 */
 	Tuplesortstate *bs_sortstate;
->>>>>>> REL_18_BETA1_branch
 } BrinBuildState;
 
 /*
@@ -224,19 +218,12 @@ typedef struct BrinOpaque
 
 #define BRIN_ALL_BLOCKRANGES	InvalidBlockNumber
 
-<<<<<<< HEAD
-static BrinBuildState *
-initialize_brin_buildstate(Relation idxRel,
-						   BrinRevmap *revmap,
-						   BlockNumber pagesPerRange,
-						   bool isAO);
-=======
 static BrinBuildState *initialize_brin_buildstate(Relation idxRel,
 												  BrinRevmap *revmap,
 												  BlockNumber pagesPerRange,
-												  BlockNumber tablePages);
+												  BlockNumber tablePages,
+												  bool isAO);
 static BrinInsertState *initialize_brin_insertstate(Relation idxRel, IndexInfo *indexInfo);
->>>>>>> REL_18_BETA1_branch
 static void terminate_brin_buildstate(BrinBuildState *state);
 static void brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 						  bool include_partial, double *numSummarized, double *numExisting);
@@ -383,7 +370,6 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 	bool		autosummarize = BrinGetAutoSummarize(idxRel);
 
 	/*
-<<<<<<< HEAD
 	 * GPDB: XXX: We initialize the revmap per-tuple. This routine has
 	 * non-trivial CPU overhead (including a snapshot test and meta-page lock)
 	 * Also, there is definitely memory overhead (even more so for GPDB, due to
@@ -392,9 +378,7 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 	 * Can we cache the access struct somehow, maybe in BrinDesc (as
 	 * part of IndexInfo->ii_AmCache)? Both heap tables and AO/CO tables can
 	 * definitely benefit from it. There might be concurrency concerns, however.
-	 */
-	revmap = brinRevmapInitialize(idxRel, &pagesPerRange, NULL);
-=======
+	 *
 	 * If first time through in this statement, initialize the insert state
 	 * that we keep for all the inserts in the command.
 	 */
@@ -404,7 +388,6 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 	revmap = bistate->bis_rmAccess;
 	bdesc = bistate->bis_desc;
 	pagesPerRange = bistate->bis_pages_per_range;
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * origHeapBlk is the block number where the insertion occurred.  heapBlk
@@ -1294,18 +1277,11 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	/*
 	 * Initialize our state, including the deformed tuple state.
 	 */
-<<<<<<< HEAD
-	revmap = brinRevmapInitialize(index, &pagesPerRange, NULL);
-	state = initialize_brin_buildstate(index, revmap, pagesPerRange, isAO);
-
-	/* GPDB: AO/CO tables: position iterator to start of sequence 0's chain. */
-	brinRevmapAOPositionAtStart(revmap, 0);
-=======
 	revmap = brinRevmapInitialize(index, &pagesPerRange);
 	state = initialize_brin_buildstate(index, revmap, pagesPerRange,
-									   RelationGetNumberOfBlocks(heap));
->>>>>>> REL_18_BETA1_branch
-
+									   RelationGetNumberOfBlocks(heap), isAO);
+	/* GPDB: AO/CO tables: position iterator to start of sequence 0's chain. */
+	brinRevmapAOPositionAtStart(revmap, 0);
 	/*
 	 * Attempt to launch parallel worker scan when required
 	 *
@@ -1318,7 +1294,6 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		_brin_begin_parallel(state, heap, index, indexInfo->ii_Concurrent,
 							 indexInfo->ii_ParallelWorkers);
 
-<<<<<<< HEAD
 	/* process the final batch */
 	/*
 	 * GPDB: Avoid this for AO/CO tables with no rows. We opt to not create a
@@ -1328,7 +1303,6 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	 */
 	if (!isAO || state->bs_aoHasDataTuple)
 		form_and_insert_tuple(state);
-=======
 	/*
 	 * If parallel build requested and at least one worker process was
 	 * successfully launched, set up coordination state, wait for workers to
@@ -1410,7 +1384,6 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 							   state->bs_currRangeStart,
 							   state->bs_maxRangeStart);
 	}
->>>>>>> REL_18_BETA1_branch
 
 	/* release resources */
 	idxtuples = state->bs_numtuples;
@@ -1629,15 +1602,12 @@ brin_summarize_range_internal(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("index \"%s\" is not valid",
 						RelationGetRelationName(indexRel))));
-<<<<<<< HEAD
 
 	/* Roll back any GUC changes executed by index functions */
 	AtEOXact_GUC(false, save_nestlevel);
 
 	/* Restore userid and security context */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
-=======
->>>>>>> REL_18_BETA1_branch
 
 	/* Roll back any GUC changes executed by index functions */
 	AtEOXact_GUC(false, save_nestlevel);
@@ -1853,11 +1823,8 @@ brinGetStats(Relation index, BrinStatsData *stats)
  */
 static BrinBuildState *
 initialize_brin_buildstate(Relation idxRel, BrinRevmap *revmap,
-<<<<<<< HEAD
-						   BlockNumber pagesPerRange, bool isAO)
-=======
-						   BlockNumber pagesPerRange, BlockNumber tablePages)
->>>>>>> REL_18_BETA1_branch
+						   BlockNumber pagesPerRange, BlockNumber tablePages,
+						   bool isAO)
 {
 	BrinBuildState *state;
 	BlockNumber lastRange = 0;
@@ -2217,11 +2184,8 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 				Assert(!indexInfo);
 				state = initialize_brin_buildstate(index, revmap,
 												   pagesPerRange,
-<<<<<<< HEAD
+												   InvalidBlockNumber,
 												   RelationIsAppendOptimized(heapRel));
-=======
-												   InvalidBlockNumber);
->>>>>>> REL_18_BETA1_branch
 				indexInfo = BuildIndexInfo(index);
 			}
 			summarize_range(indexInfo, state, heapRel, startBlk, endBlk);
