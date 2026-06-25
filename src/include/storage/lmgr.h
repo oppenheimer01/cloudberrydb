@@ -4,13 +4,9 @@
  *	  POSTGRES lock manager definitions.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/lmgr.h
@@ -113,11 +109,7 @@ extern void UnlockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 extern void LockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 							 LOCKMODE lockmode);
 extern bool ConditionalLockSharedObject(Oid classid, Oid objid, uint16 objsubid,
-<<<<<<< HEAD
-							 LOCKMODE lockmode);
-=======
 										LOCKMODE lockmode);
->>>>>>> REL_18_BETA1_branch
 extern void UnlockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 							   LOCKMODE lockmode);
 

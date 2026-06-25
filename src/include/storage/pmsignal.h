@@ -41,7 +41,6 @@ typedef enum
 	PMSIGNAL_BACKGROUND_WORKER_CHANGE,	/* background worker state change */
 	PMSIGNAL_START_WALRECEIVER, /* start a walreceiver */
 	PMSIGNAL_ADVANCE_STATE_MACHINE, /* advance postmaster's state machine */
-<<<<<<< HEAD
 
 	PMSIGNAL_WAKEN_FTS,         /* wake up FTS to probe segments */
 	PMSIGNAL_WAKEN_DTX_RECOVERY,         /* wake up dtx recovery to abort dtx xacts */
@@ -50,10 +49,7 @@ typedef enum
 	PMSIGNAL_FAILED_LOGIN,		/* send signal SIGUSR1 to login monitor launcher */
 	PMSIGNAL_START_LOGIN_MONITOR_WORKER,	/* start a login monitor worker */
 
-	NUM_PMSIGNALS				/* Must be last value of enum! */
-=======
 	PMSIGNAL_XLOG_IS_SHUTDOWN,	/* ShutdownXLOG() completed */
->>>>>>> REL_18_BETA1_branch
 } PMSignalReason;
 
 #define NUM_PMSIGNALS (PMSIGNAL_XLOG_IS_SHUTDOWN+1)

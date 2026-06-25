@@ -29,13 +29,9 @@
 typedef struct PGPROC PGPROC;
 
 /* GUC variables */
-<<<<<<< HEAD
 extern int	max_locks_per_xact;
 extern int	find_writer_proc_retry_time;
-=======
-extern PGDLLIMPORT int max_locks_per_xact;
 extern PGDLLIMPORT bool log_lock_failure;
->>>>>>> REL_18_BETA1_branch
 
 #ifdef LOCK_DEBUG
 extern PGDLLIMPORT int Trace_lock_oidmin;
@@ -673,13 +669,8 @@ extern void LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks);
 extern void LockReleaseSession(LOCKMETHODID lockmethodid);
 extern void LockReleaseCurrentOwner(LOCALLOCK **locallocks, int nlocks);
 extern void LockReassignCurrentOwner(LOCALLOCK **locallocks, int nlocks);
-<<<<<<< HEAD
-extern bool LockHeldByMe(const LOCKTAG *locktag, LOCKMODE lockmode);
-extern bool LockOrStrongerHeldByMe(const LOCKTAG *locktag, LOCKMODE lockmode);
-=======
 extern bool LockHeldByMe(const LOCKTAG *locktag,
 						 LOCKMODE lockmode, bool orstronger);
->>>>>>> REL_18_BETA1_branch
 #ifdef USE_ASSERT_CHECKING
 extern HTAB *GetLockMethodLocalHash(void);
 #endif
@@ -699,11 +690,7 @@ extern LOCALLOCK *GetAwaitedLock(void);
 extern void ResetAwaitedLock(void);
 
 extern void RemoveFromWaitQueue(PGPROC *proc, uint32 hashcode);
-<<<<<<< HEAD
 extern void RemoveLocalLock(LOCALLOCK *locallock);
-extern Size LockShmemSize(void);
-=======
->>>>>>> REL_18_BETA1_branch
 extern LockData *GetLockStatusData(void);
 extern BlockedProcsData *GetBlockerStatusData(int blocked_pid);
 

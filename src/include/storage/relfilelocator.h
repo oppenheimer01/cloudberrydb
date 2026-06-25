@@ -63,7 +63,6 @@ typedef struct RelFileLocator
 } RelFileLocator;
 
 /*
-<<<<<<< HEAD
  * Augmenting a relfilenode with a SMGR implementation identifier provides a
  * way to make optimal decisions in smgr and md layer. This is purposefully
  * kept out of RelFileLocator for performance concerns where RelFileLocator used in
@@ -79,20 +78,12 @@ typedef struct RelFileNodePendingDelete
 } RelFileNodePendingDelete;
 
 /*
- * Augmenting a relfilelocator with the backend ID provides all the information
- * we need to locate the physical storage.  The backend ID is InvalidBackendId
- * for regular relations (those accessible to more than one backend), or the
- * owning backend's ID for backend-local relations.  Backend-local relations
- * are always transient and removed in case of a database crash; they are
- * never WAL-logged or fsync'd.
-=======
  * Augmenting a relfilelocator with the backend's proc number provides all the
  * information we need to locate the physical storage.  'backend' is
  * INVALID_PROC_NUMBER for regular relations (those accessible to more than
  * one backend), or the owning backend's proc number for backend-local
  * relations.  Backend-local relations are always transient and removed in
  * case of a database crash; they are never WAL-logged or fsync'd.
->>>>>>> REL_18_BETA1_branch
  */
 typedef struct RelFileLocatorBackend
 {

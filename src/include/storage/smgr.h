@@ -4,13 +4,9 @@
  *	  storage manager switch public interface declarations.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/smgr.h
@@ -123,7 +119,6 @@ typedef SMgrRelationData *SMgrRelation;
 #define SmgrIsTemp(smgr) \
 	RelFileLocatorBackendIsTemp((smgr)->smgr_rlocator)
 
-<<<<<<< HEAD
 /*
  *	Redefinition of storage manager here to make it accessible by other plugins(Union Store),
  * 	and we can introduce more storage managers by smgr_hook.
@@ -188,15 +183,11 @@ extern const f_smgr *smgr_get(SMgrImpl smgr_impl);
 
 extern SMgrImpl smgr_get_impl(const Relation rel);
 
-extern void smgrinit(void);
-extern SMgrRelation smgropen(RelFileLocator rlocator, BackendId backend,
+extern SMgrRelation smgropen(RelFileLocator rlocator, ProcNumber backend,
 							 SMgrImpl smgr_which, Relation rel);
-=======
 extern PGDLLIMPORT const PgAioTargetInfo aio_smgr_target_info;
 
 extern void smgrinit(void);
-extern SMgrRelation smgropen(RelFileLocator rlocator, ProcNumber backend);
->>>>>>> REL_18_BETA1_branch
 extern bool smgrexists(SMgrRelation reln, ForkNumber forknum);
 extern void smgrpin(SMgrRelation reln);
 extern void smgrunpin(SMgrRelation reln);
@@ -235,21 +226,13 @@ extern void smgrwriteback(SMgrRelation reln, ForkNumber forknum,
 extern BlockNumber smgrnblocks(SMgrRelation reln, ForkNumber forknum);
 extern BlockNumber smgrnblocks_cached(SMgrRelation reln, ForkNumber forknum);
 extern void smgrtruncate(SMgrRelation reln, ForkNumber *forknum, int nforks,
-<<<<<<< HEAD
-						 BlockNumber *nblocks);
-extern void smgrtruncate2(SMgrRelation reln, ForkNumber *forknum, int nforks,
-						  BlockNumber *old_nblocks,
-						  BlockNumber *nblocks);
-=======
 						 BlockNumber *old_nblocks,
 						 BlockNumber *nblocks);
->>>>>>> REL_18_BETA1_branch
 extern void smgrimmedsync(SMgrRelation reln, ForkNumber forknum);
 extern void smgrregistersync(SMgrRelation reln, ForkNumber forknum);
 extern void AtEOXact_SMgr(void);
 extern bool ProcessBarrierSmgrRelease(void);
 
-<<<<<<< HEAD
 extern const struct f_smgr_ao * smgrAOGetDefault(void);
 
 extern const char* smgr_get_name(SMgrImpl impl);
@@ -281,7 +264,7 @@ extern PGDLLIMPORT file_unlink_hook_type file_unlink_hook;
  */
 typedef void (*smgr_get_impl_hook_type)(const Relation rel, SMgrImpl* smgr_impl);
 extern PGDLLIMPORT smgr_get_impl_hook_type smgr_get_impl_hook;
-=======
+
 static inline void
 smgrread(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
 		 void *buffer)
@@ -302,6 +285,5 @@ extern void pgaio_io_set_target_smgr(PgAioHandle *ioh,
 									 BlockNumber blocknum,
 									 int nblocks,
 									 bool skip_fsync);
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* SMGR_H */

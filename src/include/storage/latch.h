@@ -136,13 +136,8 @@ extern int	WaitLatch(Latch *latch, int wakeEvents, long timeout,
 extern int	WaitLatchOrSocket(Latch *latch, int wakeEvents,
 							  pgsocket sock, long timeout, uint32 wait_event_info);
 extern void InitializeLatchWaitSet(void);
-<<<<<<< HEAD
-extern int	GetNumRegisteredWaitEvents(WaitEventSet *set);
 /* specifial function for gpdb */
 extern void ResetWaitEventSet(WaitEventSet **pset, MemoryContext context, int nevents);
 
-extern bool WaitEventSetCanReportClosed(void);
-=======
->>>>>>> REL_18_BETA1_branch
 
 #endif							/* LATCH_H */

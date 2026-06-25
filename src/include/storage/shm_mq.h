@@ -38,10 +38,7 @@ typedef enum
 	SHM_MQ_SUCCESS,				/* Sent or received a message. */
 	SHM_MQ_WOULD_BLOCK,			/* Not completed; retry later. */
 	SHM_MQ_DETACHED,			/* Other process has detached queue. */
-<<<<<<< HEAD
-	SHM_MQ_QUERY_FINISH			/* Receive query finish signal */
-=======
->>>>>>> REL_18_BETA1_branch
+	SHM_MQ_QUERY_FINISH,		/* Receive query finish signal */
 } shm_mq_result;
 
 /*

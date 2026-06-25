@@ -4,13 +4,9 @@
  *	  Virtual file descriptor definitions.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2007-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/fd.h
@@ -205,13 +201,8 @@ extern void SyncAllXLogFiles(void);
 extern void SyncDataDirectory(void);
 extern int	data_sync_elevel(int elevel);
 
-<<<<<<< HEAD
 extern int gp_retry_close(int fd);
 
-/* Filename components */
-#define PG_TEMP_FILES_DIR "pgsql_tmp"
-#define PG_TEMP_FILE_PREFIX "pgsql_tmp"
-=======
 static inline ssize_t
 FileRead(File file, void *buffer, size_t amount, off_t offset,
 		 uint32 wait_event_info)
@@ -235,7 +226,6 @@ FileWrite(File file, const void *buffer, size_t amount, off_t offset,
 
 	return FileWriteV(file, &iov, 1, offset, wait_event_info);
 }
->>>>>>> REL_18_BETA1_branch
 
 extern const char *FileGetFilename(File file);
 

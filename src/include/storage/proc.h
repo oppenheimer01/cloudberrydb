@@ -4,13 +4,9 @@
  *	  per-process shared memory data structures
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/proc.h
@@ -211,11 +207,6 @@ struct PGPROC
 								 * vacuum must not remove tuples deleted by
 								 * xid >= xmin ! */
 
-<<<<<<< HEAD
-	LocalTransactionId lxid;	/* local id of top-level transaction currently
-								 * being executed by this proc, if running;
-								 * else InvalidLocalTransactionId */
-
 	/*
 	 * Distributed transaction information. This is only maintained on QE's
 	 * and accessed by the backend itself, so this doesn't need to be
@@ -226,8 +217,6 @@ struct PGPROC
 	 */
 	LocalDistribXactData localDistribXactData;
 
-=======
->>>>>>> REL_18_BETA1_branch
 	int			pid;			/* Backend's process ID; 0 if prepared xact */
 
 	int			pgxactoff;		/* offset into various ProcGlobal->arrays with
@@ -262,11 +251,7 @@ struct PGPROC
 	Oid			tempNamespaceId;	/* OID of temp schema this backend is
 									 * using */
 
-<<<<<<< HEAD
-	bool		isBackgroundWorker; /* true if not a regular backend. */
-=======
 	bool		isRegularBackend;	/* true if it's a regular backend. */
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * While in hot standby mode, shows that a conflict signal has been sent
@@ -390,14 +375,9 @@ struct PGPROC
 
 	/* Lock manager data, recording fast-path locks taken by this backend. */
 	LWLock		fpInfoLock;		/* protects per-backend fast-path state */
-<<<<<<< HEAD
-	uint64		fpLockBits;		/* lock modes held for each fast-path slot */
 	uint64		fpHoldTillEndXactBits;	/* HoldTillEndXactBits for each slot */
-	Oid			fpRelId[FP_LOCK_SLOTS_PER_BACKEND]; /* slots for rel oids */
-=======
 	uint64	   *fpLockBits;		/* lock modes held for each fast-path slot */
 	Oid		   *fpRelId;		/* slots for rel oids */
->>>>>>> REL_18_BETA1_branch
 	bool		fpVXIDLock;		/* are we holding a fast-path VXID lock? */
 	LocalTransactionId fpLocalTransactionId;	/* lxid for fast-path VXID
 												 * lock */

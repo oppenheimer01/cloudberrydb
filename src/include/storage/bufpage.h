@@ -411,14 +411,10 @@ extern bool BufferLockHeldByMe(Page page);
 static inline XLogRecPtr
 PageGetLSN(const PageData *page)
 {
-<<<<<<< HEAD
 #if defined (USE_ASSERT_CHECKING) && !defined(FRONTEND)
 	Assert(BufferLockHeldByMe(page));
 #endif
-	return PageXLogRecPtrGet(((PageHeader) (page))->pd_lsn);
-=======
 	return PageXLogRecPtrGet(((const PageHeaderData *) page)->pd_lsn);
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -519,13 +515,6 @@ do { \
 						((overwrite) ? PAI_OVERWRITE : 0) | \
 						((is_heap) ? PAI_IS_HEAP : 0))
 
-<<<<<<< HEAD
-#define PageIsVerified(page, blkno) \
-	PageIsVerifiedExtended(page, MAIN_FORKNUM, blkno, \
-						   PIV_LOG_WARNING | PIV_REPORT_STAT)
-
-=======
->>>>>>> REL_18_BETA1_branch
 /*
  * Check that BLCKSZ is a multiple of sizeof(size_t).  In PageIsVerified(), it
  * is much faster to check if a page is full of zeroes using the native word
@@ -537,14 +526,11 @@ StaticAssertDecl(BLCKSZ == ((BLCKSZ / sizeof(size_t)) * sizeof(size_t)),
 				 "BLCKSZ has to be a multiple of sizeof(size_t)");
 
 extern void PageInit(Page page, Size pageSize, Size specialSize);
-<<<<<<< HEAD
 extern bool PageIsVerifiedExtended(Page page, ForkNumber forknum,
 								   BlockNumber blkno,
 								   int flags);
-=======
 extern bool PageIsVerified(PageData *page, BlockNumber blkno, int flags,
 						   bool *checksum_failure_p);
->>>>>>> REL_18_BETA1_branch
 extern OffsetNumber PageAddItemExtended(Page page, Item item, Size size,
 										OffsetNumber offsetNumber, int flags);
 extern Page PageGetTempPage(const PageData *page);

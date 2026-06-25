@@ -781,7 +781,6 @@ tas(volatile slock_t *lock)
 
 #if !defined(HAS_TEST_AND_SET)	/* We didn't trigger above, let's try here */
 
-<<<<<<< HEAD
 
 #if defined(__hppa) || defined(__hppa__)	/* HP PA-RISC, GCC and HP compilers */
 /*
@@ -877,23 +876,6 @@ typedef unsigned int slock_t;
 
 #endif	/* HPUX on IA64, non gcc/icc */
 
-#if defined(_AIX)	/* AIX */
-/*
- * AIX (POWER)
- */
-#define HAS_TEST_AND_SET
-
-#include <sys/atomic_op.h>
-
-typedef int slock_t;
-
-#define TAS(lock)			_check_lock((slock_t *) (lock), 0, 1)
-#define S_UNLOCK(lock)		_clear_lock((slock_t *) (lock), 0)
-#endif	 /* _AIX */
-
-
-=======
->>>>>>> REL_18_BETA1_branch
 /* These are in sunstudio_(sparc|x86).s */
 
 #if defined(__SUNPRO_C) && (defined(__i386) || defined(__x86_64__) || defined(__sparc__) || defined(__sparc))
@@ -952,11 +934,7 @@ spin_delay(void)
 
 /* Blow up if we didn't have any way to do spinlocks */
 #ifndef HAS_TEST_AND_SET
-<<<<<<< HEAD
 #error Cloudberry does not have native spinlock support on this platform.  To continue the compilation, rerun configure using --disable-spinlocks.  However, performance will be poor.  Please report this to dev@cloudberry.apache.org.
-=======
-#error PostgreSQL does not have spinlock support on this platform.  Please report this to pgsql-bugs@lists.postgresql.org.
->>>>>>> REL_18_BETA1_branch
 #endif
 
 
