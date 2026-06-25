@@ -1091,11 +1091,7 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 		{
 			/*
 			 * End of chain and still didn't find parent. It's a very-very
-<<<<<<< HEAD
-			 * rare situation when root splitted.
-=======
 			 * rare situation when the root was split.
->>>>>>> REL_18_BETA1_branch
 			 */
 			break;
 		}

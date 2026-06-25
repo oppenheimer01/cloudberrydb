@@ -446,20 +446,11 @@ gist_indexsortbuild(GISTBuildState *state)
 
 	/* Write out the root */
 	PageSetLSN(levelstate->pages[0], GistBuildLSN);
-<<<<<<< HEAD
 	PageEncryptInplace(levelstate->pages[0], MAIN_FORKNUM,
 					   GIST_ROOT_BLKNO);
-	PageSetChecksumInplace(levelstate->pages[0], GIST_ROOT_BLKNO);
-	smgrwrite(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
-			  levelstate->pages[0], true);
-	if (RelationNeedsWAL(state->indexrel))
-		log_newpage(&state->indexrel->rd_locator, MAIN_FORKNUM, GIST_ROOT_BLKNO,
-					levelstate->pages[0], true);
-=======
 	rootbuf = smgr_bulk_get_buf(state->bulkstate);
 	memcpy(rootbuf, levelstate->pages[0], BLCKSZ);
 	smgr_bulk_write(state->bulkstate, GIST_ROOT_BLKNO, rootbuf, true);
->>>>>>> REL_18_BETA1_branch
 
 	pfree(levelstate);
 
@@ -620,50 +611,6 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 		gist_indexsortbuild_levelstate_add(state, parent, union_tuple);
 	}
 }
-
-<<<<<<< HEAD
-static void
-gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
-{
-	if (state->ready_num_pages == 0)
-		return;
-
-	for (int i = 0; i < state->ready_num_pages; i++)
-	{
-		Page		page = state->ready_pages[i];
-		BlockNumber blkno = state->ready_blknos[i];
-
-		/* Currently, the blocks must be buffered in order. */
-		if (blkno != state->pages_written)
-			elog(ERROR, "unexpected block number to flush GiST sorting build");
-
-		PageSetLSN(page, !FileEncryptionEnabled ? GistBuildLSN :
-				   LSNForEncryption(RelationIsPermanent(state->indexrel)));
-		/* Make sure LSNs are vaild, and if encryption, are not constant. */
-		Assert(!XLogRecPtrIsInvalid(PageGetLSN(page)) &&
-			   (!FileEncryptionEnabled ||
-				PageGetLSN(page) != GistBuildLSN));
-		PageEncryptInplace(page, MAIN_FORKNUM,
-				   blkno);
-		PageSetChecksumInplace(page, blkno);
-		smgrextend(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, blkno, page,
-				   true);
-
-		state->pages_written++;
-	}
-
-	if (RelationNeedsWAL(state->indexrel))
-		log_newpages(&state->indexrel->rd_locator, MAIN_FORKNUM, state->ready_num_pages,
-					 state->ready_blknos, state->ready_pages, true);
-
-	for (int i = 0; i < state->ready_num_pages; i++)
-		pfree(state->ready_pages[i]);
-
-	state->ready_num_pages = 0;
-}
-
-=======
->>>>>>> REL_18_BETA1_branch
 
 /*-------------------------------------------------------------------------
  * Routines for non-sorted build
