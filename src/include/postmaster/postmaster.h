@@ -110,16 +110,7 @@ extern int	MaxLivePostmasterChildren(void);
 
 extern bool PostmasterMarkPIDForWorkerNotify(int);
 
-<<<<<<< HEAD
 extern void ResetMirrorReadyFlag(void);
-
-#ifdef EXEC_BACKEND
-extern pid_t postmaster_forkexec(int argc, char *argv[]);
-extern void SubPostmasterMain(int argc, char *argv[]) pg_attribute_noreturn();
-
-extern Size ShmemBackendArraySize(void);
-extern void ShmemBackendArrayAllocation(void);
-#endif
 
 extern void load_auxiliary_libraries(void);
 extern bool amAuxiliaryBgWorker(void);
@@ -136,7 +127,6 @@ extern bool amAuxiliaryBgWorker(void);
 # define FTS_NUM_BGWORKER 0
 #endif
 
-=======
 #ifdef WIN32
 extern void pgwin32_register_deadchild_callback(HANDLE procHandle, DWORD procId);
 #endif
@@ -164,7 +154,6 @@ extern PMChild *AllocDeadEndChild(void);
 extern bool ReleasePostmasterChildSlot(PMChild *pmchild);
 extern PMChild *FindPostmasterChildByPid(int pid);
 
->>>>>>> REL_18_BETA1_branch
 /*
  * These values correspond to the special must-be-first options for dispatching
  * to various subprograms.  parse_dispatch_option() can be used to convert an
