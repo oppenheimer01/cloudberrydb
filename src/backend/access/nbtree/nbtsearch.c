@@ -1481,28 +1481,6 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		if (IsolationIsSerializable())
 		{
 			PredicateLockRelation(rel, scan->xs_snapshot);
-<<<<<<< HEAD
-			stack = _bt_search(rel, NULL, &inskey, &buf, BT_READ,
-							   scan->xs_snapshot);
-			_bt_freestack(stack);
-		}
-
-		if (!BufferIsValid(buf))
-		{
-			/*
-			 * Mark parallel scan as done, so that all the workers can finish
-			 * their scan.
-			 */
-			_bt_parallel_done(scan);
-			BTScanPosInvalidate(so->currPos);
-			return false;
-		}
-	}
-
-	PredicateLockPage(rel, BufferGetBlockNumber(buf), scan->xs_snapshot);
-
-	_bt_initialize_more_data(so, dir);
-=======
 			stack = _bt_search(rel, NULL, &inskey, &so->currPos.buf, BT_READ);
 			_bt_freestack(stack);
 		}
@@ -1514,7 +1492,6 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 			return false;
 		}
 	}
->>>>>>> REL_18_BETA1_branch
 
 	/* position to the precise item on the page */
 	offnum = _bt_binsrch(rel, &inskey, so->currPos.buf);

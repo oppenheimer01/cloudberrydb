@@ -182,37 +182,21 @@ void
 btbuildempty(Relation index)
 {
 	bool		allequalimage = _bt_allequalimage(index, false);
-<<<<<<< HEAD
-	Buffer		metabuf;
+	BulkWriteState *bulkstate;
+	BulkWriteBuffer metabuf;
 	Page		metapage;
 
-	/*
-	 * Initalize the metapage.
-	 *
-	 * Regular index build bypasses the buffer manager and uses smgr functions
-	 * directly, with an smgrimmedsync() call at the end.  That makes sense
-	 * when the index is large, but for an empty index, it's better to use the
-	 * buffer cache to avoid the smgrimmedsync().
-	 */
+	bulkstate = smgr_bulk_start_rel(index, INIT_FORKNUM);
 
-	metabuf = ReadBufferExtended(index, INIT_FORKNUM, P_NEW, RBM_NORMAL, NULL);
+	/* Construct metapage. */
+	metabuf = smgr_bulk_get_buf(bulkstate);
 	metapage = BufferGetPage(metabuf);
 	PageEncryptInplace(metapage, INIT_FORKNUM,
 					   BTREE_METAPAGE);
-	Assert(BufferGetBlockNumber(metabuf) == BTREE_METAPAGE);
-	_bt_lockbuf(index, metabuf, BT_WRITE);
+	_bt_initmetapage((Page) metabuf, P_NONE, 0, allequalimage);
+	smgr_bulk_write(bulkstate, BTREE_METAPAGE, metabuf, true);
 
-	START_CRIT_SECTION();
-
-	metapage = BufferGetPage(metabuf);
-	_bt_initmetapage(metapage, P_NONE, 0, allequalimage);
-	MarkBufferDirty(metabuf);
-	log_newpage_buffer(metabuf, true);
-
-	END_CRIT_SECTION();
-
-	_bt_unlockbuf(index, metabuf);
-	ReleaseBuffer(metabuf);
+	smgr_bulk_finish(bulkstate);
 }
 
 /*
@@ -281,19 +265,6 @@ _bt_validate_tid(Relation irel, ItemPointer h_tid)
 		}
 		ReleaseBuffer(buf);
 	}
-=======
-	BulkWriteState *bulkstate;
-	BulkWriteBuffer metabuf;
-
-	bulkstate = smgr_bulk_start_rel(index, INIT_FORKNUM);
-
-	/* Construct metapage. */
-	metabuf = smgr_bulk_get_buf(bulkstate);
-	_bt_initmetapage((Page) metabuf, P_NONE, 0, allequalimage);
-	smgr_bulk_write(bulkstate, BTREE_METAPAGE, metabuf, true);
-
-	smgr_bulk_finish(bulkstate);
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -406,7 +377,6 @@ btgetbitmap(IndexScanDesc scan, Node **bmNodeP)
 	int64		ntids = 0;
 	ItemPointer heapTid;
 
-<<<<<<< HEAD
 	/*
 	 * GPDB specific code. Since GPDB also support StreamBitmap
 	 * in bitmap index. So normally we need to create specific bitmap
@@ -424,22 +394,7 @@ btgetbitmap(IndexScanDesc scan, Node **bmNodeP)
 	else
 		tbm = (TIDBitmap *)*bmNodeP;
 
-	/*
-	 * If we have any array keys, initialize them.
-	 */
-	if (so->numArrayKeys)
-	{
-		/* punt if we have any unsatisfiable array keys */
-		if (so->numArrayKeys < 0)
-			return ntids;
-
-		_bt_start_array_keys(scan, ForwardScanDirection);
-	}
-
-	/* This loop handles advancing to the next array elements, if any */
-=======
 	/* Each loop iteration performs another primitive index scan */
->>>>>>> REL_18_BETA1_branch
 	do
 	{
 		/* Fetch the first page & tuple */
@@ -499,16 +454,10 @@ btbeginscan(Relation rel, int nkeys, int norderbys)
 	else
 		so->keyData = NULL;
 
-<<<<<<< HEAD
-	so->arrayKeyData = NULL;	/* assume no array keys for now */
-	so->arraysStarted = false;
-	so->numArrayKeys = 0;
-=======
 	so->skipScan = false;
 	so->needPrimScan = false;
 	so->scanBehind = false;
 	so->oppositeDirCheck = false;
->>>>>>> REL_18_BETA1_branch
 	so->arrayKeys = NULL;
 	so->orderProcs = NULL;
 	so->arrayContext = NULL;

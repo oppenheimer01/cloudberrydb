@@ -636,61 +636,8 @@ _bt_blnewpage(BTWriteState *wstate, uint32 level)
 static void
 _bt_blwritepage(BTWriteState *wstate, BulkWriteBuffer buf, BlockNumber blkno)
 {
-<<<<<<< HEAD
-	/* XLOG stuff */
-	if (wstate->btws_use_wal)
-	{
-		/* We use the XLOG_FPI record type for this */
-		log_newpage(&wstate->index->rd_locator, MAIN_FORKNUM, blkno, page, true);
-	}
-
-	/*
-	 * If we have to write pages nonsequentially, fill in the space with
-	 * zeroes until we come back and overwrite.  This is not logically
-	 * necessary on standard Unix filesystems (unwritten space will read as
-	 * zeroes anyway), but it should help to avoid fragmentation. The dummy
-	 * pages aren't WAL-logged though.
-	 */
-	while (blkno > wstate->btws_pages_written)
-	{
-		if (!wstate->btws_zeropage)
-			wstate->btws_zeropage = (Page) palloc_aligned(BLCKSZ,
-														  PG_IO_ALIGN_SIZE,
-														  MCXT_ALLOC_ZERO);
-		/* don't set checksum for all-zero page */
-		smgrextend(RelationGetSmgr(wstate->index), MAIN_FORKNUM,
-				   wstate->btws_pages_written++,
-				   wstate->btws_zeropage,
-				   true);
-	}
-
-	PageEncryptInplace(page, MAIN_FORKNUM,
-					   blkno);
-	PageSetChecksumInplace(page, blkno);
-
-	/*
-	 * Now write the page.  There's no need for smgr to schedule an fsync for
-	 * this write; we'll do it ourselves before ending the build.
-	 */
-	if (blkno == wstate->btws_pages_written)
-	{
-		/* extending the file... */
-		smgrextend(RelationGetSmgr(wstate->index), MAIN_FORKNUM, blkno,
-				   page, true);
-		wstate->btws_pages_written++;
-	}
-	else
-	{
-		/* overwriting a block we zero-filled before */
-		smgrwrite(RelationGetSmgr(wstate->index), MAIN_FORKNUM, blkno,
-				  page, true);
-	}
-
-	pfree(page);
-=======
 	smgr_bulk_write(wstate->bulkstate, blkno, buf, true);
 	/* smgr_bulk_write took ownership of 'buf' */
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
