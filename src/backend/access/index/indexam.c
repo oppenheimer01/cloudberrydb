@@ -49,12 +49,9 @@
 #include "access/reloptions.h"
 #include "access/relscan.h"
 #include "access/tableam.h"
-<<<<<<< HEAD
 #include "access/transam.h"
 #include "access/xlog.h"
 #include "access/bitmap_private.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "catalog/index.h"
 #include "catalog/pg_type.h"
 #include "nodes/execnodes.h"
@@ -149,11 +146,7 @@ index_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
-<<<<<<< HEAD
- *		try_index_open - open a index relation by relation OID
-=======
  *		try_index_open - open an index relation by relation OID
->>>>>>> REL_18_BETA1_branch
  *
  *		Same as index_open, except return NULL instead of failing
  *		if the relation does not exist.
@@ -164,11 +157,7 @@ try_index_open(Oid relationId, LOCKMODE lockmode)
 {
 	Relation	r;
 
-<<<<<<< HEAD
 	r = try_relation_open(relationId, lockmode, false);
-=======
-	r = try_relation_open(relationId, lockmode);
->>>>>>> REL_18_BETA1_branch
 
 	/* leave if index does not exist */
 	if (!r)

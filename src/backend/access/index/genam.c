@@ -713,11 +713,8 @@ systable_beginscan_ordered(Relation heapRelation,
 	index_rescan(sysscan->iscan, idxkey, nkeys, NULL, 0);
 	sysscan->scan = NULL;
 
-<<<<<<< HEAD
-=======
 	pfree(idxkey);
 
->>>>>>> REL_18_BETA1_branch
 	/*
 	 * If CheckXidAlive is set then set a flag to indicate that system table
 	 * scan is in-progress.  See detailed comments in xact.c where these
@@ -816,10 +813,6 @@ systable_inplace_update_begin(Relation relation,
 							  HeapTuple *oldtupcopy,
 							  void **state)
 {
-<<<<<<< HEAD
-	ScanKey		mutable_key = palloc(sizeof(ScanKeyData) * nkeys);
-=======
->>>>>>> REL_18_BETA1_branch
 	int			retries = 0;
 	SysScanDesc scan;
 	HeapTuple	oldtup;
@@ -859,15 +852,9 @@ systable_inplace_update_begin(Relation relation,
 		if (retries++ > 10000)
 			elog(ERROR, "giving up after too many tries to overwrite row");
 
-<<<<<<< HEAD
-		memcpy(mutable_key, key, sizeof(ScanKeyData) * nkeys);
-		scan = systable_beginscan(relation, indexId, indexOK, snapshot,
-								  nkeys, mutable_key);
-=======
 		INJECTION_POINT("inplace-before-pin");
 		scan = systable_beginscan(relation, indexId, indexOK, snapshot,
 								  nkeys, unconstify(ScanKeyData *, key));
->>>>>>> REL_18_BETA1_branch
 		oldtup = systable_getnext(scan);
 		if (!HeapTupleIsValid(oldtup))
 		{
