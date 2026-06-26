@@ -318,19 +318,8 @@ xact_desc_relations(StringInfo buf, char *label, int nrels,
 		appendStringInfo(buf, "; %s:", label);
 		for (i = 0; i < nrels; i++)
 		{
-<<<<<<< HEAD
-			BackendId  backendId = xlocators[i].isTempRelation ?
-								  TempRelBackendId : InvalidBackendId;
-			char	   *path = relpathbackend(xlocators[i].node,
-											  backendId,
-											  MAIN_FORKNUM);
-
-			appendStringInfo(buf, " %s", path);
-			pfree(path);
-=======
 			appendStringInfo(buf, " %s",
 							 relpathperm(xlocators[i], MAIN_FORKNUM).str);
->>>>>>> REL_18_BETA1_branch
 		}
 	}
 }

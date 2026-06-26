@@ -36,7 +36,6 @@ const struct config_enum_entry wal_level_options[] = {
 	{NULL, 0, false}
 };
 
-<<<<<<< HEAD
 
 /*
  * This is used also in the redo function, but must be defined here so that it
@@ -68,7 +67,8 @@ UnpackCheckPointRecord(XLogReaderState *record, CheckpointExtendedRecord *ckptEx
 		TMGXACT_CHECKPOINT_BYTES((ckptExtended->dtxCheckpoint)->committedCount);
 
 	Assert(remainderLen == ckptExtended->dtxCheckpointLen);
-=======
+}
+
 /*
  * Find a string representation for wal_level
  */
@@ -88,7 +88,6 @@ get_wal_level_string(int wal_level)
 	}
 
 	return wal_level_str;
->>>>>>> REL_18_BETA1_branch
 }
 
 void
@@ -105,11 +104,7 @@ xlog_desc(StringInfo buf, XLogReaderState *record)
 		CheckpointExtendedRecord ckptExtended;
 
 		appendStringInfo(buf, "redo %X/%X; "
-<<<<<<< HEAD
-						 "tli %u; prev tli %u; fpw %s; xid %u:%u; gxid "UINT64_FORMAT"; oid %u; relfilenode %u; multi %u; offset %u; "
-=======
-						 "tli %u; prev tli %u; fpw %s; wal_level %s; xid %u:%u; oid %u; multi %u; offset %u; "
->>>>>>> REL_18_BETA1_branch
+						 "tli %u; prev tli %u; fpw %s; wal_level %s; xid %u:%u; gxid "UINT64_FORMAT"; oid %u; relfilenode %u; multi %u; offset %u; "
 						 "oldest xid %u in DB %u; oldest multi %u in DB %u; "
 						 "oldest/newest commit timestamp xid: %u/%u; "
 						 "oldest running xid %u; %s",
@@ -292,13 +287,11 @@ xlog_identify(uint8 info)
 		case XLOG_FPI_FOR_HINT:
 			id = "FPI_FOR_HINT";
 			break;
-<<<<<<< HEAD
 		case XLOG_ENCRYPTION_LSN:
 			id = "ENCRYPTION_LSN";
-=======
+			break;
 		case XLOG_CHECKPOINT_REDO:
 			id = "CHECKPOINT_REDO";
->>>>>>> REL_18_BETA1_branch
 			break;
 	}
 

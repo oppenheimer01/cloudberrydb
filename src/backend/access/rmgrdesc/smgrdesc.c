@@ -26,19 +26,9 @@ smgr_desc(StringInfo buf, XLogReaderState *record)
 	if (info == XLOG_SMGR_CREATE)
 	{
 		xl_smgr_create *xlrec = (xl_smgr_create *) rec;
-<<<<<<< HEAD
-		char	   *path = relpathperm(xlrec->rlocator, xlrec->forkNum);
-#ifndef FRONTEND
-		appendStringInfo(buf, "%s; smgr: %s", path, smgr_get_name(xlrec->impl));
-#else
-		appendStringInfo(buf, "%s; smgr: %s", path, xlrec->impl == SMGR_MD ? "heap" : (xlrec->impl == SMGR_AO ? "ao" : "unknown"));
-#endif
-		pfree(path);
-=======
 
 		appendStringInfoString(buf,
 							   relpathperm(xlrec->rlocator, xlrec->forkNum).str);
->>>>>>> REL_18_BETA1_branch
 	}
 	else if (info == XLOG_SMGR_TRUNCATE)
 	{
