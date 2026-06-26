@@ -279,12 +279,6 @@ spgGetCache(Relation index)
 					 RelationGetRelationName(index));
 
 			cache->lastUsedPages = metadata->lastUsedPages;
-<<<<<<< HEAD
-
-			UnlockReleaseBuffer(metabuffer);
-		}
-=======
->>>>>>> REL_18_BETA1_branch
 
 			UnlockReleaseBuffer(metabuffer);
 		}
@@ -383,11 +377,7 @@ initSpGistState(SpGistState *state, Relation index)
 	 * for VACUUM to immediately expire a redirection tuple that contains an
 	 * invalid xid.
 	 */
-<<<<<<< HEAD
-	state->myXid = GetTopTransactionIdIfAny();
-=======
 	state->redirectXid = GetTopTransactionIdIfAny();
->>>>>>> REL_18_BETA1_branch
 
 	/* Assume we're not in an index build (spgbuild will override) */
 	state->isBuild = false;
@@ -1103,11 +1093,7 @@ spgFormDeadTuple(SpGistState *state, int tupstate,
 	if (tupstate == SPGIST_REDIRECT)
 	{
 		ItemPointerSet(&tuple->pointer, blkno, offnum);
-<<<<<<< HEAD
-		tuple->xid = state->myXid;
-=======
 		tuple->xid = state->redirectXid;
->>>>>>> REL_18_BETA1_branch
 	}
 	else
 	{
