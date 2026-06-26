@@ -1403,13 +1403,8 @@ SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
  * when the SLRU is quite full, SimpleLruTruncate() might delete that segment
  * after it has accrued freshly-written data.
  */
-<<<<<<< HEAD
 static void
-SimpleLruTruncate_internal(SlruCtl ctl, int cutoffPage, bool lockHeld)
-=======
-void
-SimpleLruTruncate(SlruCtl ctl, int64 cutoffPage)
->>>>>>> REL_18_BETA1_branch
+SimpleLruTruncate_internal(SlruCtl ctl, int64 cutoffPage, bool lockHeld)
 {
 	SlruShared	shared = ctl->shared;
 	int			prevbank;
@@ -1423,12 +1418,6 @@ SimpleLruTruncate(SlruCtl ctl, int64 cutoffPage)
 	 * or just after a checkpoint, any dirty pages should have been flushed
 	 * already ... we're just being extra careful here.)
 	 */
-<<<<<<< HEAD
-	if (!lockHeld)
-		LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
-
-=======
->>>>>>> REL_18_BETA1_branch
 restart:
 
 	/*
@@ -1440,12 +1429,6 @@ restart:
 	if (ctl->PagePrecedes(pg_atomic_read_u64(&shared->latest_page_number),
 						  cutoffPage))
 	{
-<<<<<<< HEAD
-		if (!lockHeld)
-			LWLockRelease(shared->ControlLock);
-
-=======
->>>>>>> REL_18_BETA1_branch
 		ereport(LOG,
 				(errmsg("could not truncate directory \"%s\": apparent wraparound",
 						ctl->Dir)));
@@ -1503,12 +1486,7 @@ restart:
 		goto restart;
 	}
 
-<<<<<<< HEAD
-	if (!lockHeld)
-		LWLockRelease(shared->ControlLock);
-=======
 	LWLockRelease(&shared->bank_locks[prevbank].lock);
->>>>>>> REL_18_BETA1_branch
 
 	/* Now we can remove the old segment(s) */
 	(void) SlruScanDirectory(ctl, SlruScanDirCbDeleteCutoff, &cutoffPage);

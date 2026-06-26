@@ -53,10 +53,6 @@
 /* We need eight bytes per xact */
 #define SUBTRANS_XACTS_PER_PAGE (BLCKSZ / sizeof(SubTransData))
 
-<<<<<<< HEAD
-#define TransactionIdToPage(xid) ((xid) / (uint32) SUBTRANS_XACTS_PER_PAGE)
-#define TransactionIdToEntry(xid) ((xid) % (uint32) SUBTRANS_XACTS_PER_PAGE)
-=======
 /*
  * Although we return an int64 the actual value can't currently exceed
  * 0xFFFFFFFF/SUBTRANS_XACTS_PER_PAGE.
@@ -68,7 +64,6 @@ TransactionIdToPage(TransactionId xid)
 }
 
 #define TransactionIdToEntry(xid) ((xid) % (TransactionId) SUBTRANS_XACTS_PER_PAGE)
->>>>>>> REL_18_BETA1_branch
 
 
 /*
@@ -129,9 +124,9 @@ SubTransSetParent(TransactionId xid, TransactionId parent)
 	int64		pageno = TransactionIdToPage(xid);
 	int			entryno = TransactionIdToEntry(xid);
 	int			slotno;
-<<<<<<< HEAD
 	SubTransData *ptr;
 	SubTransData subData;
+	LWLock	   *lock;
 
 	/*
 	 * Main Xact has parent and topMostParent as InvalidTransactionId
@@ -145,10 +140,6 @@ SubTransSetParent(TransactionId xid, TransactionId parent)
 	{
 		subData.topMostParent = InvalidTransactionId;
 	}
-=======
-	LWLock	   *lock;
-	TransactionId *ptr;
->>>>>>> REL_18_BETA1_branch
 
 	Assert(TransactionIdIsValid(parent));
 	Assert(TransactionIdFollows(xid, parent));
@@ -182,37 +173,10 @@ SubTransSetParent(TransactionId xid, TransactionId parent)
 TransactionId
 SubTransGetParent(TransactionId xid)
 {
-<<<<<<< HEAD
 	SubTransData subData;
 	SubTransGetData(xid, &subData);
 
 	return subData.parent;
-=======
-	int64		pageno = TransactionIdToPage(xid);
-	int			entryno = TransactionIdToEntry(xid);
-	int			slotno;
-	TransactionId *ptr;
-	TransactionId parent;
-
-	/* Can't ask about stuff that might not be around anymore */
-	Assert(TransactionIdFollowsOrEquals(xid, TransactionXmin));
-
-	/* Bootstrap and frozen XIDs have no parent */
-	if (!TransactionIdIsNormal(xid))
-		return InvalidTransactionId;
-
-	/* lock is acquired by SimpleLruReadPage_ReadOnly */
-
-	slotno = SimpleLruReadPage_ReadOnly(SubTransCtl, pageno, xid);
-	ptr = (TransactionId *) SubTransCtl->shared->page_buffer[slotno];
-	ptr += entryno;
-
-	parent = *ptr;
-
-	LWLockRelease(SimpleLruGetBankLock(SubTransCtl, pageno));
-
-	return parent;
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -231,8 +195,6 @@ SubTransGetTopmostTransaction(TransactionId xid)
 	return subData.topMostParent;
 }
 
-<<<<<<< HEAD
-=======
 /*
  * Number of shared SUBTRANS buffers.
  *
@@ -250,7 +212,6 @@ SUBTRANSShmemBuffers(void)
 	return Min(Max(16, subtransaction_buffers), SLRU_MAX_ALLOWED_BUFFERS);
 }
 
->>>>>>> REL_18_BETA1_branch
 /*
  * Initialization of shared memory for SUBTRANS
  */

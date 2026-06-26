@@ -85,7 +85,7 @@
 #include "utils/snapmgr.h"
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
-<<<<<<< HEAD
+#include "utils/typcache.h"
 #include "pg_trace.h"
 
 #include "access/distributedlog.h"
@@ -102,9 +102,6 @@
 #include "postmaster/autovacuum.h"
 
 #include "cdb/cdbdisp_query.h" /* Extend Protocol Data */
-=======
-#include "utils/typcache.h"
->>>>>>> REL_18_BETA1_branch
 
 /*
  *	User-tweakable parameters
@@ -2615,7 +2612,6 @@ StartTransaction(void)
 	AtStart_ResourceOwner();
 
 	/*
-<<<<<<< HEAD
 	 * Transactions may be started while recovery is in progress, if
 	 * hot standby is enabled.
 	 */
@@ -2805,10 +2801,7 @@ StartTransaction(void)
 					  DtxContextToString(DistributedTransactionContext))));
 
 	/*
-	 * Assign a new LocalTransactionId, and combine it with the backendId to
-=======
 	 * Assign a new LocalTransactionId, and combine it with the proc number to
->>>>>>> REL_18_BETA1_branch
 	 * form a virtual transaction id.
 	 */
 	vxid.procNumber = MyProcNumber;
@@ -2864,7 +2857,6 @@ StartTransaction(void)
 	 */
 	s->state = TRANS_INPROGRESS;
 
-<<<<<<< HEAD
 	/*
 	 * Update the snapshot of gp_segment_configuration, it's not changed
 	 * until the end of transaction, do this update inside a transaction
@@ -2877,14 +2869,12 @@ StartTransaction(void)
 	 */
 	if (Gp_role == GP_ROLE_DISPATCH && OidIsValid(MyDatabaseId))
 		cdbcomponent_updateCdbComponents();
-=======
+
 	/* Schedule transaction timeout */
 	if (TransactionTimeout > 0)
 		enable_timeout_after(TRANSACTION_TIMEOUT, TransactionTimeout);
 
 	ShowTransactionState("StartTransaction");
-}
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Acquire a resource group slot.
@@ -2982,13 +2972,8 @@ CommitTransaction(void)
 	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
 					  : XACT_EVENT_PRE_COMMIT);
 
-<<<<<<< HEAD
 	AtEOXact_ExtendProtocolData();
 
-	/* If we might have parallel workers, clean them up now. */
-	if (IsInParallelMode())
-		AtEOXact_Parallel(true);
-=======
 	/*
 	 * If this xact has started any unfinished parallel operation, clean up
 	 * its workers, warning about leaked resources.  (But we don't actually
@@ -3009,7 +2994,6 @@ CommitTransaction(void)
 			elog(WARNING, "parallelModeLevel is %d not 0 at end of transaction",
 				 s->parallelModeLevel);
 	}
->>>>>>> REL_18_BETA1_branch
 
 	/* Clean up CBDB style parallel workers which we might have. */
 	AtEOXact_CBDB_Parallel();
@@ -3176,12 +3160,9 @@ CommitTransaction(void)
 						 RESOURCE_RELEASE_BEFORE_LOCKS,
 						 true, true);
 
-<<<<<<< HEAD
 	/* detach combocid dsm */
 	AtEOXact_ComboCid_Dsm_Detach();
-=======
 	AtEOXact_Aio(true);
->>>>>>> REL_18_BETA1_branch
 
 	/* Check we've released all buffer pins */
 	AtEOXact_Buffers(true);
@@ -3552,13 +3533,10 @@ PrepareTransaction(void)
 						 RESOURCE_RELEASE_BEFORE_LOCKS,
 						 true, true);
 
-<<<<<<< HEAD
 	/* detach combocid dsm */
 	AtEOXact_ComboCid_Dsm_Detach();
-=======
 	AtEOXact_Aio(true);
 
->>>>>>> REL_18_BETA1_branch
 	/* Check we've released all buffer pins */
 	AtEOXact_Buffers(true);
 
@@ -3851,10 +3829,11 @@ AbortTransaction(void)
 		ResourceOwnerRelease(TopTransactionResourceOwner,
 							 RESOURCE_RELEASE_BEFORE_LOCKS,
 							 false, true);
-<<<<<<< HEAD
 		AtEOXact_ComboCid_Dsm_Detach();
+		AtEOXact_Aio(false);
 		AtEOXact_Buffers(false);
 		AtEOXact_RelationCache(false);
+		AtEOXact_TypeCache();
 		/*
 		 * Greenplum specific behavior:
 		 *   We pass is_commit to true even we are here Aborting Transaction.
@@ -3869,13 +3848,6 @@ AbortTransaction(void)
 		bool need_inval_even_for_abort = ((Gp_role == GP_ROLE_EXECUTE && Gp_is_writer) ||
 										  Gp_role == GP_ROLE_DISPATCH); /* test QD to invalidate entryDB's catcache */
 		AtEOXact_Inval(need_inval_even_for_abort);
-=======
-		AtEOXact_Aio(false);
-		AtEOXact_Buffers(false);
-		AtEOXact_RelationCache(false);
-		AtEOXact_TypeCache();
-		AtEOXact_Inval(false);
->>>>>>> REL_18_BETA1_branch
 		AtEOXact_MultiXact();
 
 		ResourceOwnerRelease(TopTransactionResourceOwner,
@@ -3989,11 +3961,8 @@ CleanupTransaction(void)
 	s->nChildXids = 0;
 	s->maxChildXids = 0;
 	s->parallelModeLevel = 0;
-<<<<<<< HEAD
 	s->executorSaysXactDoesWrites = false;
-=======
 	s->parallelChildXact = false;
->>>>>>> REL_18_BETA1_branch
 
 	XactTopFullTransactionId = InvalidFullTransactionId;
 	nParallelCurrentXids = 0;
@@ -4186,13 +4155,10 @@ CommitTransactionCommandInternal(void)
 	TransactionState s = CurrentTransactionState;
 	SavedTransactionCharacteristics savetc;
 
-<<<<<<< HEAD
 	if (Gp_role == GP_ROLE_EXECUTE && !Gp_is_writer)
 		elog(DEBUG1,"CommitTransactionCommand: called as segment Reader in state %s",
 		     BlockStateAsString(s->blockState));
 
-=======
->>>>>>> REL_18_BETA1_branch
 	/* Must save in case we need to restore below */
 	SaveTransactionCharacteristics(&savetc);
 
@@ -5880,7 +5846,6 @@ void
 BeginInternalSubTransaction(const char *name)
 {
 	TransactionState s = CurrentTransactionState;
-<<<<<<< HEAD
 	SIMPLE_FAULT_INJECTOR("begin_internal_sub_transaction");
 
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -5892,9 +5857,7 @@ BeginInternalSubTransaction(const char *name)
 				"Could not BeginInternalSubTransaction dispatch failed");
 		}
 	}
-=======
 	bool		save_ExitOnAnyError = ExitOnAnyError;
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Errors within this function are improbable, but if one does happen we
@@ -6055,10 +6018,10 @@ RollbackAndReleaseCurrentSubTransaction(void)
 	CleanupSubTransaction();
 
 	s = CurrentTransactionState;	/* changed by pop */
-<<<<<<< HEAD
 	AssertState(s->blockState == TBLOCK_SUBINPROGRESS ||
 				s->blockState == TBLOCK_INPROGRESS ||
 				s->blockState == TBLOCK_IMPLICIT_INPROGRESS ||
+				s->blockState == TBLOCK_PARALLEL_INPROGRESS ||
 				s->blockState == TBLOCK_STARTED);
 
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -6070,13 +6033,6 @@ RollbackAndReleaseCurrentSubTransaction(void)
 							errmsg("DTX RollbackAndReleaseCurrentSubTransaction dispatch failed")));
 		}
 	}
-=======
-	Assert(s->blockState == TBLOCK_SUBINPROGRESS ||
-		   s->blockState == TBLOCK_INPROGRESS ||
-		   s->blockState == TBLOCK_IMPLICIT_INPROGRESS ||
-		   s->blockState == TBLOCK_PARALLEL_INPROGRESS ||
-		   s->blockState == TBLOCK_STARTED);
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -7320,12 +7276,8 @@ XactLogCommitRecord(TimestampTz commit_time,
 
 	XLogRegisterData(&xlrec, sizeof(xl_xact_commit));
 
-<<<<<<< HEAD
-	XLogRegisterData((char *) (&xl_xinfo.xinfo), sizeof(xl_xinfo.xinfo));
-=======
 	if (xl_xinfo.xinfo != 0)
 		XLogRegisterData(&xl_xinfo.xinfo, sizeof(xl_xinfo.xinfo));
->>>>>>> REL_18_BETA1_branch
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DBINFO)
 		XLogRegisterData(&xl_dbinfo, sizeof(xl_dbinfo));
@@ -7342,13 +7294,8 @@ XactLogCommitRecord(TimestampTz commit_time,
 	{
 		XLogRegisterData(&xl_relfilelocators,
 						 MinSizeOfXactRelfileLocators);
-<<<<<<< HEAD
-		XLogRegisterData((char *) rels,
-						 nrels * sizeof(RelFileNodePendingDelete));
-=======
 		XLogRegisterData(rels,
 						 nrels * sizeof(RelFileLocator));
->>>>>>> REL_18_BETA1_branch
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DROPPED_STATS)
@@ -7510,12 +7457,8 @@ XactLogAbortRecord(TimestampTz abort_time,
 
 	XLogRegisterData(&xlrec, MinSizeOfXactAbort);
 
-<<<<<<< HEAD
-	XLogRegisterData((char *) (&xl_xinfo), sizeof(xl_xinfo));
-=======
 	if (xl_xinfo.xinfo != 0)
 		XLogRegisterData(&xl_xinfo, sizeof(xl_xinfo));
->>>>>>> REL_18_BETA1_branch
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DBINFO)
 		XLogRegisterData(&xl_dbinfo, sizeof(xl_dbinfo));
@@ -7532,13 +7475,8 @@ XactLogAbortRecord(TimestampTz abort_time,
 	{
 		XLogRegisterData(&xl_relfilelocators,
 						 MinSizeOfXactRelfileLocators);
-<<<<<<< HEAD
-		XLogRegisterData((char *) rels,
-						 nrels * sizeof(RelFileNodePendingDelete));
-=======
 		XLogRegisterData(rels,
-						 nrels * sizeof(RelFileLocator));
->>>>>>> REL_18_BETA1_branch
+						 nrels * sizeof(RelFileNodePendingDelete));
 	}
 
 	if (xl_xinfo.xinfo & XACT_XINFO_HAS_DROPPED_STATS)

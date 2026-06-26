@@ -95,11 +95,6 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "storage/reinit.h"
-<<<<<<< HEAD
-#include "storage/sinvaladt.h"
-#include "storage/smgr.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "storage/spin.h"
 #include "storage/sync.h"
 #include "utils/builtins.h"
@@ -112,8 +107,9 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 #include "utils/varlena.h"
-
-<<<<<<< HEAD
+#ifdef WAL_DEBUG
+#include "utils/memutils.h"
+#endif
 #include "access/distributedlog.h"
 #include "catalog/catalog.h"
 #include "catalog/pg_tablespace.h"
@@ -129,11 +125,6 @@
 
 extern uint32 bootstrap_data_checksum_version;
 extern int bootstrap_file_encryption_method;
-=======
-#ifdef WAL_DEBUG
-#include "utils/memutils.h"
-#endif
->>>>>>> REL_18_BETA1_branch
 
 /* timeline ID to be used when bootstrapping */
 #define BootstrapTimeLineID		1
@@ -1017,15 +1008,10 @@ XLogInsertRecord(XLogRecData *rdata,
 		 * All the record data, including the header, is now ready to be
 		 * inserted. Copy the record in the space reserved.
 		 */
-<<<<<<< HEAD
-		CopyXLogRecordToWAL(rechdr->xl_tot_len, isLogSwitch, rdata,
-							StartPos, EndPos, insertTLI);;
-		wal_bytes_written += rechdr->xl_tot_len;
-=======
 		CopyXLogRecordToWAL(rechdr->xl_tot_len,
 							class == WALINSERT_SPECIAL_SWITCH, rdata,
 							StartPos, EndPos, insertTLI);
->>>>>>> REL_18_BETA1_branch
+		wal_bytes_written += rechdr->xl_tot_len;
 
 		/*
 		 * Unless record is flagged as not important, update LSN of last
@@ -4483,12 +4469,8 @@ InitControlFile(uint64 sysidentifier, uint32 data_checksum_version)
 	ControlFile->wal_level = wal_level;
 	ControlFile->wal_log_hints = wal_log_hints;
 	ControlFile->track_commit_timestamp = track_commit_timestamp;
-<<<<<<< HEAD
-	ControlFile->data_checksum_version = bootstrap_data_checksum_version;
-	ControlFile->file_encryption_method = bootstrap_file_encryption_method;
-=======
 	ControlFile->data_checksum_version = data_checksum_version;
->>>>>>> REL_18_BETA1_branch
+	ControlFile->file_encryption_method = bootstrap_file_encryption_method;
 }
 
 static void
@@ -4891,7 +4873,6 @@ DataChecksumsEnabled(void)
 }
 
 /*
-<<<<<<< HEAD
  * Is cluster file encryption enabled?
  */
 int
@@ -4904,7 +4885,9 @@ GetFileEncryptionMethod(void)
 		Assert(ControlFile != NULL);
 		return ControlFile->file_encryption_method;
 	}
-=======
+}
+
+/*
  * Return true if the cluster was initialized on a platform where the
  * default signedness of char is "signed". This function exists for code
  * that deals with pre-v18 data files that store data sorted by the 'char'
@@ -4915,7 +4898,6 @@ bool
 GetDefaultCharSignedness(void)
 {
 	return ControlFile->default_char_signedness;
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -5428,19 +5410,13 @@ BootStrapXLOG(uint32 data_checksum_version)
 	checkPoint.time = (pg_time_t) time(NULL);
 	checkPoint.oldestActiveXid = InvalidTransactionId;
 
-<<<<<<< HEAD
-	ShmemVariableCache->nextXid = checkPoint.nextXid;
-	ShmemVariableCache->nextGxid = checkPoint.nextGxid;
-	ShmemVariableCache->GxidCount = 0;
-	ShmemVariableCache->nextOid = checkPoint.nextOid;
-	ShmemVariableCache->oidCount = 0;
-	ShmemVariableCache->nextRelfilenode = checkPoint.nextRelfilenode;
-	ShmemVariableCache->relfilenodeCount = 0;
-=======
 	TransamVariables->nextXid = checkPoint.nextXid;
+	TransamVariables->nextGxid = checkPoint.nextGxid;
+	TransamVariables->GxidCount = 0;
 	TransamVariables->nextOid = checkPoint.nextOid;
 	TransamVariables->oidCount = 0;
->>>>>>> REL_18_BETA1_branch
+	TransamVariables->nextRelfilenode = checkPoint.nextRelfilenode;
+	TransamVariables->relfilenodeCount = 0;
 	MultiXactSetNextMXact(checkPoint.nextMulti, checkPoint.nextMultiOffset);
 	AdvanceOldestClogXid(checkPoint.oldestXid);
 	SetTransactionIdLimit(checkPoint.oldestXid, checkPoint.oldestXidDB);
@@ -5883,18 +5859,11 @@ CheckRequiredParameterValues(void)
 	 */
 	if (ArchiveRecoveryRequested && ControlFile->wal_level == WAL_LEVEL_MINIMAL)
 	{
-<<<<<<< HEAD
-		ereport(WARNING,
-				(errmsg("WAL was generated with wal_level=minimal, cannot continue recovering"),
-				 errdetail("This happens if you temporarily set wal_level=minimal on the server."),
-				 errhint("Use a backup taken after setting wal_level to higher than minimal.")));
-=======
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("WAL was generated with \"wal_level=minimal\", cannot continue recovering"),
 				 errdetail("This happens if you temporarily set \"wal_level=minimal\" on the server."),
 				 errhint("Use a backup taken after setting \"wal_level\" to higher than \"minimal\".")));
->>>>>>> REL_18_BETA1_branch
 	}
 
 	/*
@@ -6094,19 +6063,13 @@ StartupXLOG(void)
 	checkPoint = ControlFile->checkPointCopy;
 
 	/* initialize shared memory variables from the checkpoint record */
-<<<<<<< HEAD
-	ShmemVariableCache->nextXid = checkPoint.nextXid;
-	ShmemVariableCache->nextGxid = checkPoint.nextGxid;
-	ShmemVariableCache->GxidCount = 0;
-	ShmemVariableCache->nextOid = checkPoint.nextOid;
-	ShmemVariableCache->oidCount = 0;
-	ShmemVariableCache->nextRelfilenode = checkPoint.nextRelfilenode;
-	ShmemVariableCache->relfilenodeCount = 0;
-=======
 	TransamVariables->nextXid = checkPoint.nextXid;
+	TransamVariables->nextGxid = checkPoint.nextGxid;
+	TransamVariables->GxidCount = 0;
 	TransamVariables->nextOid = checkPoint.nextOid;
 	TransamVariables->oidCount = 0;
->>>>>>> REL_18_BETA1_branch
+	TransamVariables->nextRelfilenode = checkPoint.nextRelfilenode;
+	TransamVariables->relfilenodeCount = 0;
 	MultiXactSetNextMXact(checkPoint.nextMulti, checkPoint.nextMultiOffset);
 	AdvanceOldestClogXid(checkPoint.oldestXid);
 	SetTransactionIdLimit(checkPoint.oldestXid, checkPoint.oldestXidDB);
@@ -6683,18 +6646,13 @@ StartupXLOG(void)
 
 	/* also initialize latestCompletedXid, to nextXid - 1 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
-<<<<<<< HEAD
-	ShmemVariableCache->latestCompletedXid = ShmemVariableCache->nextXid;
-	ShmemVariableCache->latestCompletedGxid = ShmemVariableCache->nextGxid;
-	FullTransactionIdRetreat(&ShmemVariableCache->latestCompletedXid);
+	TransamVariables->latestCompletedXid = TransamVariables->nextXid;
+	TransamVariables->latestCompletedGxid = TransamVariables->nextGxid;
+	FullTransactionIdRetreat(&TransamVariables->latestCompletedXid);
 	if (IsNormalProcessingMode())
 		elog(LOG, "latest completed transaction id is %u and next transaction id is %u",
 			 XidFromFullTransactionId(ShmemVariableCache->latestCompletedXid),
 			 XidFromFullTransactionId(ShmemVariableCache->nextXid));
-=======
-	TransamVariables->latestCompletedXid = TransamVariables->nextXid;
-	FullTransactionIdRetreat(&TransamVariables->latestCompletedXid);
->>>>>>> REL_18_BETA1_branch
 	LWLockRelease(ProcArrayLock);
 
 	/*
@@ -7923,17 +7881,10 @@ CreateCheckPoint(int flags)
 			 * checkpoint is trying to add a request to the queue.
 			 */
 			AbsorbSyncRequests();
-<<<<<<< HEAD
-			pg_usleep(10000L);	/* wait for 10 msec */
-		} while (HaveVirtualXIDsDelayingChkpt(vxids, nvxids));
-=======
-
 			pgstat_report_wait_start(WAIT_EVENT_CHECKPOINT_DELAY_START);
 			pg_usleep(10000L);	/* wait for 10 msec */
 			pgstat_report_wait_end();
-		} while (HaveVirtualXIDsDelayingChkpt(vxids, nvxids,
-											  DELAY_CHKPT_START));
->>>>>>> REL_18_BETA1_branch
+		} while (HaveVirtualXIDsDelayingChkpt(vxids, nvxids));
 	}
 	pfree(vxids);
 
@@ -7978,17 +7929,10 @@ CreateCheckPoint(int flags)
 		do
 		{
 			AbsorbSyncRequests();
-<<<<<<< HEAD
-			pg_usleep(10000L);	/* wait for 10 msec */
-		} while (HaveVirtualXIDsDelayingChkptEnd(vxids, nvxids));
-=======
-
 			pgstat_report_wait_start(WAIT_EVENT_CHECKPOINT_DELAY_COMPLETE);
 			pg_usleep(10000L);	/* wait for 10 msec */
 			pgstat_report_wait_end();
-		} while (HaveVirtualXIDsDelayingChkpt(vxids, nvxids,
-											  DELAY_CHKPT_COMPLETE));
->>>>>>> REL_18_BETA1_branch
+		} while (HaveVirtualXIDsDelayingChkptEnd(vxids, nvxids));
 	}
 	pfree(vxids);
 
@@ -8014,15 +7958,11 @@ CreateCheckPoint(int flags)
 	 * Now insert the checkpoint record into XLOG.
 	 */
 	XLogBeginInsert();
-<<<<<<< HEAD
-	XLogRegisterData((char *) (&checkPoint), sizeof(checkPoint));
+	XLogRegisterData(&checkPoint, sizeof(checkPoint));
 
 	/* Cloudberry checkpoints have extra info */
 	XLogRegisterData((char *) dtxCheckPointInfo, dtxCheckPointInfoSize);
 
-=======
-	XLogRegisterData(&checkPoint, sizeof(checkPoint));
->>>>>>> REL_18_BETA1_branch
 	recptr = XLogInsert(RM_XLOG_ID,
 						shutdown ? XLOG_CHECKPOINT_SHUTDOWN :
 						XLOG_CHECKPOINT_ONLINE);

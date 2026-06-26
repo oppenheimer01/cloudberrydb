@@ -171,25 +171,15 @@ GetNewTransactionId(bool isSubXact)
 						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 						 errmsg("database is not accepting commands that assign new transaction IDs to avoid wraparound data loss in database \"%s\"",
 								oldest_datname),
-<<<<<<< HEAD
 						 errhint("Shutdown Apache Cloudberry. Lower the xid_stop_limit GUC. Execute a database-wide VACUUM in that database. Reset the xid_stop_limit GUC."
 								 )));
-=======
-						 errhint("Execute a database-wide VACUUM in that database.\n"
-								 "You might also need to commit or roll back old prepared transactions, or drop stale replication slots.")));
->>>>>>> REL_18_BETA1_branch
 			else
 				ereport(ERROR,
 						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 						 errmsg("database is not accepting commands that assign new transaction IDs to avoid wraparound data loss in database with OID %u",
 								oldest_datoid),
-<<<<<<< HEAD
 						 errhint("Shutdown Apache Cloudberry. Lower the xid_stop_limit GUC. Execute a database-wide VACUUM in that database. Reset the xid_stop_limit GUC."
 								 )));
-=======
-						 errhint("Execute a database-wide VACUUM in that database.\n"
-								 "You might also need to commit or roll back old prepared transactions, or drop stale replication slots.")));
->>>>>>> REL_18_BETA1_branch
 		}
 		else if (TransactionIdFollowsOrEquals(xid, xidWarnLimit))
 		{
@@ -403,11 +393,7 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
 	 * concurrent readers.
 	 */
 	LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
-<<<<<<< HEAD
-	ShmemVariableCache->nextXid = newNextXid;
-=======
-	TransamVariables->nextXid = newNextFullXid;
->>>>>>> REL_18_BETA1_branch
+	TransamVariables->nextXid = newNextXid;
 	LWLockRelease(XidGenLock);
 }
 

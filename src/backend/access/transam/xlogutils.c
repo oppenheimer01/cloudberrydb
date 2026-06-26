@@ -8,13 +8,9 @@
  * None of this code is used during normal system operation.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2008, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/xlogutils.c
@@ -505,11 +501,7 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 	}
 
 	/* Open the relation at smgr level */
-<<<<<<< HEAD
-	smgr = smgropen(rlocator, InvalidBackendId, SMGR_MD, NULL);
-=======
-	smgr = smgropen(rlocator, INVALID_PROC_NUMBER);
->>>>>>> REL_18_BETA1_branch
+	smgr = smgropen(rlocator, INVALID_PROC_NUMBER, SMGR_MD, NULL);
 
 	/*
 	 * Create the target file if it doesn't already exist.  This lets us cope

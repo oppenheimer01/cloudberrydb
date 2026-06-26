@@ -881,11 +881,7 @@ restart:
 
 	/*
 	 * If we got here without a DecodedXLogRecord, it means we needed to
-<<<<<<< HEAD
-	 * validate total_len before trusting it, but by now now we've done that.
-=======
 	 * validate total_len before trusting it, but by now we've done that.
->>>>>>> REL_18_BETA1_branch
 	 */
 	if (decoded == NULL)
 	{

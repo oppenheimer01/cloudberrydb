@@ -485,12 +485,8 @@ MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
 	proc->databaseId = databaseid;
 	proc->roleId = owner;
 	proc->tempNamespaceId = InvalidOid;
-<<<<<<< HEAD
-	proc->isBackgroundWorker = false;
 	proc->mppSessionId = gp_session_id;
-=======
 	proc->isRegularBackend = false;
->>>>>>> REL_18_BETA1_branch
 	proc->lwWaiting = LW_WS_NOT_WAITING;
 	proc->lwWaitMode = 0;
 	proc->waitLock = NULL;
@@ -633,13 +629,9 @@ LockGXact(const char *gid, Oid user, bool raiseErrorIfNotFound)
 					 errhint("Connect to the database where the transaction was prepared to finish it.")));
 
 		/* OK for me to lock it */
-<<<<<<< HEAD
 		/* we *must* have it locked with a valid xid here! */
 		Assert(MyBackendId != InvalidBackendId);
-		gxact->locking_backend = MyBackendId;
-=======
 		gxact->locking_backend = MyProcNumber;
->>>>>>> REL_18_BETA1_branch
 		MyLockedGxact = gxact;
 
 		LWLockRelease(TwoPhaseStateLock);
@@ -1599,7 +1591,6 @@ FinishPreparedTransaction(const char *gid, bool isCommit, bool raiseErrorIfNotFo
 	 * Validate the GID, and lock the GXACT to ensure that two backends do not
 	 * try to commit the same GID at once.
 	 */
-<<<<<<< HEAD
 	gxact = LockGXact(gid, GetUserId(), raiseErrorIfNotFound);
 	if (gxact == NULL)
 	{
@@ -1625,11 +1616,7 @@ FinishPreparedTransaction(const char *gid, bool isCommit, bool raiseErrorIfNotFo
 		return false;
 	}
 
-	proc = &ProcGlobal->allProcs[gxact->pgprocno];
-=======
-	gxact = LockGXact(gid, GetUserId());
 	proc = GetPGProcByNumber(gxact->pgprocno);
->>>>>>> REL_18_BETA1_branch
 	xid = gxact->xid;
 
 	elog((Debug_print_full_dtm ? LOG : DEBUG5),

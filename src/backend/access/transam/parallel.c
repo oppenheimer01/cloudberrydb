@@ -120,10 +120,6 @@ typedef struct FixedParallelState
 	Oid			temp_namespace_id;
 	Oid			temp_toast_namespace_id;
 	int			sec_context;
-<<<<<<< HEAD
-	bool		authenticated_user_is_superuser;
-=======
->>>>>>> REL_18_BETA1_branch
 	bool		session_user_is_superuser;
 	bool		role_is_superuser;
 	PGPROC	   *parallel_leader_pgproc;
@@ -390,14 +386,8 @@ InitializeParallelDSM(ParallelContext *pcxt)
 	fps->session_user_id = GetSessionUserId();
 	fps->outer_user_id = GetCurrentRoleId();
 	GetUserIdAndSecContext(&fps->current_user_id, &fps->sec_context);
-<<<<<<< HEAD
-	fps->authenticated_user_is_superuser = GetAuthenticatedUserIsSuperuser();
-	fps->session_user_is_superuser = GetSessionUserIsSuperuser();
-	fps->role_is_superuser = session_auth_is_superuser;
-=======
 	fps->session_user_is_superuser = GetSessionUserIsSuperuser();
 	fps->role_is_superuser = current_role_is_superuser;
->>>>>>> REL_18_BETA1_branch
 	GetTempNamespaceState(&fps->temp_namespace_id,
 						  &fps->temp_toast_namespace_id);
 	fps->parallel_leader_pgproc = MyProc;
@@ -1434,8 +1424,7 @@ ParallelWorkerMain(Datum main_arg)
 	mqh = shm_mq_attach(mq, seg, NULL);
 	pq_redirect_to_shm_mq(seg, mqh);
 	pq_set_parallel_leader(fps->parallel_leader_pid,
-<<<<<<< HEAD
-						   fps->parallel_leader_backend_id);
+						   fps->parallel_leader_proc_number);
 
 	/* CDB: should sync some global states from leader */
 	Gp_role = GP_ROLE_EXECUTE;
@@ -1446,21 +1435,6 @@ ParallelWorkerMain(Datum main_arg)
 	ic_htab_size = fps->cdb_aux_state.ic_htab_size;
 	MyProc->mppSessionId = gp_session_id;
 	MyProc->mppIsWriter = Gp_is_writer;
-
-	/*
-	 * Send a BackendKeyData message to the process that initiated parallelism
-	 * so that it has access to our PID before it receives any other messages
-	 * from us.  Our cancel key is sent, too, since that's the way the
-	 * protocol message is defined, but it won't actually be used for anything
-	 * in this case.
-	 */
-	pq_beginmessage(&msgbuf, 'K');
-	pq_sendint32(&msgbuf, (int32) MyProcPid);
-	pq_sendint32(&msgbuf, (int32) MyCancelKey);
-	pq_endmessage(&msgbuf);
-=======
-						   fps->parallel_leader_proc_number);
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Hooray! Primary initialization is complete.  Now, we need to set up our
@@ -1504,12 +1478,7 @@ ParallelWorkerMain(Datum main_arg)
 	 * has to happen before InitPostgres, since InitializeSessionUserId will
 	 * not set these variables.
 	 */
-<<<<<<< HEAD
-	SetAuthenticatedUserId(fps->authenticated_user_id,
-						   fps->authenticated_user_is_superuser);
-=======
 	SetAuthenticatedUserId(fps->authenticated_user_id);
->>>>>>> REL_18_BETA1_branch
 	SetSessionAuthorization(fps->session_user_id,
 							fps->session_user_is_superuser);
 	SetCurrentRoleId(fps->outer_user_id, fps->role_is_superuser);
@@ -1522,12 +1491,8 @@ ParallelWorkerMain(Datum main_arg)
 	 */
 	BackgroundWorkerInitializeConnectionByOid(fps->database_id,
 											  fps->authenticated_user_id,
-<<<<<<< HEAD
-											  BGWORKER_BYPASS_ALLOWCONN);
-=======
 											  BGWORKER_BYPASS_ALLOWCONN |
 											  BGWORKER_BYPASS_ROLELOGINCHECK);
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Set the client encoding to the database encoding, since that is what
@@ -1547,15 +1512,6 @@ ParallelWorkerMain(Datum main_arg)
 	libraryspace = shm_toc_lookup(toc, PARALLEL_KEY_LIBRARY, false);
 	StartTransactionCommand();
 	RestoreLibraryState(libraryspace);
-<<<<<<< HEAD
-
-	/* Restore GUC values from launching backend. */
-	gucspace = shm_toc_lookup(toc, PARALLEL_KEY_GUC, false);
-	RestoreGUCState(gucspace);
-	/* make sure GUC functions doesn't set the sanpshot */
-	Assert(!FirstSnapshotSet);
-=======
->>>>>>> REL_18_BETA1_branch
 	CommitTransactionCommand();
 
 	/* CDB: we skip restore Gp_role and Gp_is_writer, please see can_skip_gucvar().
@@ -1616,15 +1572,6 @@ ParallelWorkerMain(Datum main_arg)
 	InvalidateSystemCaches();
 
 	/*
-<<<<<<< HEAD
-	 * Restore current user ID and security context.  No verification happens
-	 * here, we just blindly adopt the leader's state.  We can't do this till
-	 * after restoring GUCs, else we'll get complaints about restoring
-	 * session_authorization and role.  (In effect, we're assuming that all
-	 * the restored values are okay to set, even if we are now inside a
-	 * restricted context.)
-	 */
-=======
 	 * Restore GUC values from launching backend.  We can't do this earlier,
 	 * because GUC check hooks that do catalog lookups need to see the same
 	 * database state as the leader.  Also, the check hooks for
@@ -1634,15 +1581,6 @@ ParallelWorkerMain(Datum main_arg)
 	gucspace = shm_toc_lookup(toc, PARALLEL_KEY_GUC, false);
 	RestoreGUCState(gucspace);
 
-	/*
-	 * Restore current user ID and security context.  No verification happens
-	 * here, we just blindly adopt the leader's state.  We can't do this till
-	 * after restoring GUCs, else we'll get complaints about restoring
-	 * session_authorization and role.  (In effect, we're assuming that all
-	 * the restored values are okay to set, even if we are now inside a
-	 * restricted context.)
-	 */
->>>>>>> REL_18_BETA1_branch
 	SetUserIdAndSecContext(fps->current_user_id, fps->sec_context);
 
 	/* Restore temp-namespace state to ensure search path matches leader's. */

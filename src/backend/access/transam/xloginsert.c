@@ -141,15 +141,8 @@ static XLogRecData *XLogRecordAssemble(RmgrId rmid, uint8 info,
 									   XLogRecPtr RedoRecPtr, bool doPageWrites,
 									   XLogRecPtr *fpw_lsn, TransactionId overrideXid, int *num_fpi,
 									   bool *topxid_included);
-<<<<<<< HEAD
-static bool XLogCompressBackupBlock(char *page, uint16 hole_offset,
-									uint16 hole_length, char *dest, uint16 *dlen);
-static XLogRecPtr XLogInsert_Internal(RmgrId rmid, uint8 info, TransactionId
-									  headerXid);
-=======
 static bool XLogCompressBackupBlock(const PageData *page, uint16 hole_offset,
 									uint16 hole_length, void *dest, uint16 *dlen);
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Begin constructing a WAL record. This must be called before the
