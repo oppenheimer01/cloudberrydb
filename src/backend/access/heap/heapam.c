@@ -40,11 +40,8 @@
 #include "access/valid.h"
 #include "access/visibilitymap.h"
 #include "access/xloginsert.h"
-<<<<<<< HEAD
 #include "access/xlogutils.h"
 #include "catalog/catalog.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "catalog/pg_database.h"
 #include "catalog/pg_database_d.h"
 #include "commands/vacuum.h"
@@ -54,22 +51,16 @@
 #include "storage/predicate.h"
 #include "storage/procarray.h"
 #include "utils/datum.h"
-<<<<<<< HEAD
 #include "utils/gpexpand.h"
-=======
 #include "utils/injection_point.h"
->>>>>>> REL_18_BETA1_branch
 #include "utils/inval.h"
 #include "utils/spccache.h"
 #include "utils/syscache.h"
-<<<<<<< HEAD
 
 #include "catalog/oid_dispatch.h"
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
 #include "utils/faultinjector.h"
-=======
->>>>>>> REL_18_BETA1_branch
 
 
 static HeapTuple heap_prepare_insert(Relation relation, HeapTuple tup,
@@ -78,10 +69,6 @@ static XLogRecPtr log_heap_update(Relation reln, Buffer oldbuf,
 								  Buffer newbuf, HeapTuple oldtup,
 								  HeapTuple newtup, HeapTuple old_key_tuple,
 								  bool all_visible_cleared, bool new_all_visible_cleared);
-<<<<<<< HEAD
-
-=======
->>>>>>> REL_18_BETA1_branch
 #ifdef USE_ASSERT_CHECKING
 static void check_lock_if_inplace_updateable_rel(Relation relation,
 												 ItemPointer otid,
@@ -558,12 +545,9 @@ heap_prepare_pagescan(TableScanDesc sscan)
 	Page		page;
 	int			lines;
 	bool		all_visible;
-<<<<<<< HEAD
 	TransactionId t_xmin;
 	CommandId	t_cid;
-=======
 	bool		check_serializable;
->>>>>>> REL_18_BETA1_branch
 
 	Assert(BufferGetBlockNumber(buffer) == block);
 
@@ -621,67 +605,6 @@ heap_prepare_pagescan(TableScanDesc sscan)
 	 */
 	if (likely(all_visible))
 	{
-<<<<<<< HEAD
-		ItemId		lpp = PageGetItemId(page, lineoff);
-		HeapTupleData loctup;
-		bool		valid;
-
-		if (!ItemIdIsNormal(lpp))
-			continue;
-
-		HeapTupleHeader theader = (HeapTupleHeader) PageGetItem((Page) page, lpp);
-
-		loctup.t_tableOid = RelationGetRelid(scan->rs_base.rs_rd);
-		loctup.t_data = (HeapTupleHeader) PageGetItem(page, lpp);
-		loctup.t_len = ItemIdGetLength(lpp);
-		ItemPointerSet(&(loctup.t_self), block, lineoff);
-
-		if (all_visible)
-			valid = true;
-		else
-		{
-			/*
-				 * GPDB: We have a one-item cache for the common case that a
-				 * lot of tuples have the same visibility info. Don't use the
-				 * cache, if the tuple was ever deleted, though (i.e. if xmax
-				 * is valid, and not just for tuple-locking). We could cache
-				 * the xmax too, but the visibility rules get more complicated
-				 * with locked-only tuples and multi-XIDs, so it seems better
-				 * to just give up early.
-				 */
-			bool		use_cache;
-
-			if ((theader->t_infomask & HEAP_XMAX_INVALID) != 0 ||
-				HEAP_XMAX_IS_LOCKED_ONLY(theader->t_infomask))
-				use_cache = true;
-			else
-				use_cache = false;
-
-			if (use_cache &&
-				t_xmin == HeapTupleHeaderGetXmin(theader) &&
-				t_cid == HeapTupleHeaderGetRawCommandId(theader))
-			{
-				valid = true;
-			}
-			else
-			{
-				valid = HeapTupleSatisfiesVisibility(scan->rs_base.rs_rd,
-													 &loctup, snapshot, buffer);
-
-				if (valid && use_cache)
-				{
-					t_xmin = HeapTupleHeaderGetXmin(loctup.t_data);
-					t_cid = HeapTupleHeaderGetRawCommandId(loctup.t_data);
-				}
-			}
-		}
-
-		HeapCheckForSerializableConflictOut(valid, scan->rs_base.rs_rd,
-											&loctup, buffer, snapshot);
-
-		if (valid)
-			scan->rs_vistuples[ntup++] = lineoff;
-=======
 		if (likely(!check_serializable))
 			scan->rs_ntuples = page_collect_tuples(scan, snapshot, page, buffer,
 												   block, lines, true, false);
@@ -697,24 +620,12 @@ heap_prepare_pagescan(TableScanDesc sscan)
 		else
 			scan->rs_ntuples = page_collect_tuples(scan, snapshot, page, buffer,
 												   block, lines, false, true);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 }
 
-<<<<<<< HEAD
-#ifdef FAULT_INJECTOR
-	FaultInjector_InjectFaultIfSet(
-								   "heapgetpage_after_unlock_buffer",
-								   DDLNotSpecified,
-								   "",	/* databaseName */
-								   RelationGetRelationName(scan->rs_base.rs_rd));	/* tableName */
-#endif
 
-	Assert(ntup <= MaxHeapTuplesPerPage);
-	scan->rs_ntuples = ntup;
-=======
 /*
  * heap_fetch_next_buffer - read and pin the next block from MAIN_FORKNUM.
  *
@@ -757,7 +668,6 @@ heap_fetch_next_buffer(HeapScanDesc scan, ScanDirection dir)
 	scan->rs_cbuf = read_stream_next_buffer(scan->rs_read_stream, NULL);
 	if (BufferIsValid(scan->rs_cbuf))
 		scan->rs_cblock = BufferGetBlockNumber(scan->rs_cbuf);
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -926,50 +836,8 @@ heapgettup_advance_block(HeapScanDesc scan, BlockNumber block, ScanDirection dir
 		/* check if the limit imposed by heap_setscanlimits() is met */
 		if (scan->rs_numblocks != InvalidBlockNumber)
 		{
-<<<<<<< HEAD
-			block++;
-
-			/* wrap back to the start of the heap */
-			if (block >= scan->rs_nblocks)
-				block = 0;
-
-			/*
-			 * Report our new scan position for synchronization purposes. We
-			 * don't do that when moving backwards, however. That would just
-			 * mess up any other forward-moving scanners.
-			 *
-			 * Note: we do this before checking for end of scan so that the
-			 * final state of the position hint is back at the start of the
-			 * rel.  That's not strictly necessary, but otherwise when you run
-			 * the same query multiple times the starting position would shift
-			 * a little bit backwards on every invocation, which is confusing.
-			 * We don't guarantee any specific ordering in general, though.
-			 */
-			if (scan->rs_base.rs_flags & SO_ALLOW_SYNC)
-				ss_report_location(scan->rs_base.rs_rd, block);
-
-			/* we're done if we're back at where we started */
-			if (block == scan->rs_startblock)
-				return InvalidBlockNumber;
-
-			/* check if the limit imposed by heap_setscanlimits() is met */
-			if (scan->rs_numblocks != InvalidBlockNumber)
-			{
-				if (--scan->rs_numblocks == 0)
-					return InvalidBlockNumber;
-			}
-
-			return block;
-		}
-		else
-		{
-			return table_block_parallelscan_nextpage(scan->rs_base.rs_rd,
-													 scan->rs_parallelworkerdata, (ParallelBlockTableScanDesc)
-													 scan->rs_base.rs_parallel);
-=======
 			if (--scan->rs_numblocks == 0)
 				return InvalidBlockNumber;
->>>>>>> REL_18_BETA1_branch
 		}
 
 		return block;
@@ -1042,11 +910,8 @@ heapgettup(HeapScanDesc scan,
 	 */
 	while (true)
 	{
-<<<<<<< HEAD
         CHECK_FOR_INTERRUPTS();
 
-		heapgetpage((TableScanDesc) scan, block);
-=======
 		heap_fetch_next_buffer(scan, dir);
 
 		/* did we run out of blocks to scan? */
@@ -1055,7 +920,6 @@ heapgettup(HeapScanDesc scan,
 
 		Assert(BufferGetBlockNumber(scan->rs_cbuf) == scan->rs_cblock);
 
->>>>>>> REL_18_BETA1_branch
 		LockBuffer(scan->rs_cbuf, BUFFER_LOCK_SHARE);
 		page = heapgettup_start_page(scan, dir, &linesleft, &lineoff);
 continue_page:
@@ -1166,12 +1030,9 @@ heapgettup_pagemode(HeapScanDesc scan,
 	 */
 	while (true)
 	{
-<<<<<<< HEAD
         CHECK_FOR_INTERRUPTS();
 
 
-		heapgetpage((TableScanDesc) scan, block);
-=======
 		heap_fetch_next_buffer(scan, dir);
 
 		/* did we run out of blocks to scan? */
@@ -1182,7 +1043,6 @@ heapgettup_pagemode(HeapScanDesc scan,
 
 		/* prune the page and determine visible tuple offsets */
 		heap_prepare_pagescan((TableScanDesc) scan);
->>>>>>> REL_18_BETA1_branch
 		page = BufferGetPage(scan->rs_cbuf);
 		linesleft = scan->rs_ntuples;
 		lineindex = ScanDirectionIsForward(dir) ? 0 : linesleft - 1;
@@ -3148,7 +3008,6 @@ l1:
 			result = TM_Deleted;
 	}
 
-<<<<<<< HEAD
 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
 	{
 		/* Perform additional check for transaction-snapshot mode RI updates */
@@ -3156,8 +3015,6 @@ l1:
 			result = TM_Updated;
 	}
 
-=======
->>>>>>> REL_18_BETA1_branch
 	/* sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
 	if (result != TM_Ok)
 	{
@@ -3173,11 +3030,7 @@ l1:
 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
 	{
 		/* Perform additional check for transaction-snapshot mode RI updates */
-<<<<<<< HEAD
 		if (!HeapTupleSatisfiesVisibility(relation, &tp, crosscheck, buffer))
-=======
-		if (!HeapTupleSatisfiesVisibility(&tp, crosscheck, buffer))
->>>>>>> REL_18_BETA1_branch
 			result = TM_Updated;
 	}
 
@@ -3862,10 +3715,6 @@ l2:
 			result = TM_Deleted;
 	}
 
-<<<<<<< HEAD
-=======
-	/* Sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
->>>>>>> REL_18_BETA1_branch
 	if (result != TM_Ok)
 	{
 		Assert(result == TM_SelfModified ||
@@ -3880,11 +3729,7 @@ l2:
 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
 	{
 		/* Perform additional check for transaction-snapshot mode RI updates */
-<<<<<<< HEAD
 		if (!HeapTupleSatisfiesVisibility(relation, &oldtup, crosscheck, buffer))
-=======
-		if (!HeapTupleSatisfiesVisibility(&oldtup, crosscheck, buffer))
->>>>>>> REL_18_BETA1_branch
 			result = TM_Updated;
 	}
 
@@ -4105,15 +3950,11 @@ l2:
 												  oldtup.t_data->t_infomask2);
 			xlrec.flags =
 				cleared_all_frozen ? XLH_LOCK_ALL_FROZEN_CLEARED : 0;
-<<<<<<< HEAD
 #ifdef SERVERLESS
 			xlrec.t_cid = HeapTupleHeaderGetRawCommandId(oldtup.t_data);
 #endif
 
-			XLogRegisterData((char *) &xlrec, SizeOfHeapLock);
-=======
 			XLogRegisterData(&xlrec, SizeOfHeapLock);
->>>>>>> REL_18_BETA1_branch
 			recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_LOCK);
 			PageSetLSN(page, recptr);
 		}
@@ -4465,11 +4306,7 @@ check_lock_if_inplace_updateable_rel(Relation relation,
 								  relation->rd_lockInfo.lockRelId.relId,
 								  ItemPointerGetBlockNumber(otid),
 								  ItemPointerGetOffsetNumber(otid));
-<<<<<<< HEAD
-				if (LockHeldByMe(&tuptag, InplaceUpdateTupleLock))
-=======
 				if (LockHeldByMe(&tuptag, InplaceUpdateTupleLock, false))
->>>>>>> REL_18_BETA1_branch
 					return;
 			}
 			break;
@@ -4503,13 +4340,8 @@ check_lock_if_inplace_updateable_rel(Relation relation,
 				else
 					SET_LOCKTAG_RELATION(tag, dbid, relid);
 
-<<<<<<< HEAD
-				if (!LockHeldByMe(&tag, ShareUpdateExclusiveLock) &&
-					!LockOrStrongerHeldByMe(&tag, ShareRowExclusiveLock))
-=======
 				if (!LockHeldByMe(&tag, ShareUpdateExclusiveLock, false) &&
 					!LockHeldByMe(&tag, ShareRowExclusiveLock, true))
->>>>>>> REL_18_BETA1_branch
 					elog(WARNING,
 						 "missing lock for relation \"%s\" (OID %u, relkind %c) @ TID (%u,%u)",
 						 NameStr(classForm->relname),
@@ -4562,11 +4394,7 @@ check_inplace_rel_lock(HeapTuple oldtup)
 	else
 		SET_LOCKTAG_RELATION(tag, dbid, relid);
 
-<<<<<<< HEAD
-	if (!LockOrStrongerHeldByMe(&tag, ShareUpdateExclusiveLock))
-=======
 	if (!LockHeldByMe(&tag, ShareUpdateExclusiveLock, true))
->>>>>>> REL_18_BETA1_branch
 		elog(WARNING,
 			 "missing lock for relation \"%s\" (OID %u, relkind %c) @ TID (%u,%u)",
 			 NameStr(classForm->relname),
@@ -5465,15 +5293,11 @@ failed:
 		xlrec.infobits_set = compute_infobits(new_infomask,
 											  tuple->t_data->t_infomask2);
 		xlrec.flags = cleared_all_frozen ? XLH_LOCK_ALL_FROZEN_CLEARED : 0;
-<<<<<<< HEAD
 #ifdef SERVERLESS
 		xlrec.t_cid = HeapTupleHeaderGetRawCommandId(tuple->t_data);
 #endif
 
-		XLogRegisterData((char *) &xlrec, SizeOfHeapLock);
-=======
 		XLogRegisterData(&xlrec, SizeOfHeapLock);
->>>>>>> REL_18_BETA1_branch
 
 		/* we don't decode row locks atm, so no need to log the origin */
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_LOCK);
@@ -6594,224 +6418,6 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
  * Partial completion of a relfrozenxid update would have the weird
  * consequence that the table's next VACUUM could see the table's relfrozenxid
  * move forward between vacuum_get_cutoffs() and finishing.
-<<<<<<< HEAD
- */
-bool
-heap_inplace_lock(Relation relation,
-				  HeapTuple oldtup_ptr, Buffer buffer,
-				  void (*release_callback) (void *), void *arg)
-{
-	HeapTupleData oldtup = *oldtup_ptr; /* minimize diff vs. heap_update() */
-	TM_Result	result;
-	bool		ret;
-
-#ifdef USE_ASSERT_CHECKING
-	if (RelationGetRelid(relation) == RelationRelationId)
-		check_inplace_rel_lock(oldtup_ptr);
-#endif
-
-	Assert(BufferIsValid(buffer));
-
-	LockTuple(relation, &oldtup.t_self, InplaceUpdateTupleLock);
-	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
-
-	/*----------
-	 * Interpret HeapTupleSatisfiesUpdate() like heap_update() does, except:
-	 *
-	 * - wait unconditionally
-	 * - already locked tuple above, since inplace needs that unconditionally
-	 * - don't recheck header after wait: simpler to defer to next iteration
-	 * - don't try to continue even if the updater aborts: likewise
-	 * - no crosscheck
-	 */
-	result = HeapTupleSatisfiesUpdate(relation, &oldtup, GetCurrentCommandId(false),
-									  buffer);
-
-	if (result == TM_Invisible)
-	{
-		/* no known way this can happen */
-		ereport(ERROR,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg_internal("attempted to overwrite invisible tuple")));
-	}
-	else if (result == TM_SelfModified)
-	{
-		/*
-		 * CREATE INDEX might reach this if an expression is silly enough to
-		 * call e.g. SELECT ... FROM pg_class FOR SHARE.  C code of other SQL
-		 * statements might get here after a heap_update() of the same row, in
-		 * the absence of an intervening CommandCounterIncrement().
-		 */
-		ereport(ERROR,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("tuple to be updated was already modified by an operation triggered by the current command")));
-	}
-	else if (result == TM_BeingModified)
-	{
-		TransactionId xwait;
-		uint16		infomask;
-
-		xwait = HeapTupleHeaderGetRawXmax(oldtup.t_data);
-		infomask = oldtup.t_data->t_infomask;
-
-		if (infomask & HEAP_XMAX_IS_MULTI)
-		{
-			LockTupleMode lockmode = LockTupleNoKeyExclusive;
-			MultiXactStatus mxact_status = MultiXactStatusNoKeyUpdate;
-			int			remain;
-
-			if (DoesMultiXactIdConflict((MultiXactId) xwait, infomask,
-										lockmode, NULL))
-			{
-				LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
-				release_callback(arg);
-				ret = false;
-				MultiXactIdWait((MultiXactId) xwait, mxact_status, infomask,
-								relation, &oldtup.t_self, XLTW_Update,
-								&remain);
-			}
-			else
-				ret = true;
-		}
-		else if (TransactionIdIsCurrentTransactionId(xwait))
-			ret = true;
-		else if (HEAP_XMAX_IS_KEYSHR_LOCKED(infomask))
-			ret = true;
-		else
-		{
-			LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
-			release_callback(arg);
-			ret = false;
-			XactLockTableWait(xwait, relation, &oldtup.t_self,
-							  XLTW_Update);
-		}
-	}
-	else
-	{
-		ret = (result == TM_Ok);
-		if (!ret)
-		{
-			LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
-			release_callback(arg);
-		}
-	}
-
-	/*
-	 * GetCatalogSnapshot() relies on invalidation messages to know when to
-	 * take a new snapshot.  COMMIT of xwait is responsible for sending the
-	 * invalidation.  We're not acquiring heavyweight locks sufficient to
-	 * block if not yet sent, so we must take a new snapshot to ensure a later
-	 * attempt has a fair chance.  While we don't need this if xwait aborted,
-	 * don't bother optimizing that.
-	 */
-	if (!ret)
-	{
-		UnlockTuple(relation, &oldtup.t_self, InplaceUpdateTupleLock);
-		InvalidateCatalogSnapshot();
-	}
-	return ret;
-}
-
-/*
- * heap_inplace_update_and_unlock - core of systable_inplace_update_finish
- *
- * The tuple cannot change size, and therefore its header fields and null
- * bitmap (if any) don't change either.
- *
- * Since we hold LOCKTAG_TUPLE, no updater has a local copy of this tuple.
- */
-void
-heap_inplace_update_and_unlock(Relation relation,
-							   HeapTuple oldtup, HeapTuple tuple,
-							   Buffer buffer)
-{
-	HeapTupleHeader htup = oldtup->t_data;
-	uint32		oldlen;
-	uint32		newlen;
-
-	Assert(ItemPointerEquals(&oldtup->t_self, &tuple->t_self));
-	oldlen = oldtup->t_len - htup->t_hoff;
-	newlen = tuple->t_len - tuple->t_data->t_hoff;
-	if (oldlen != newlen || htup->t_hoff != tuple->t_data->t_hoff)
-		elog(ERROR, "wrong tuple length");
-
-	/* NO EREPORT(ERROR) from here till changes are logged */
-	START_CRIT_SECTION();
-
-	memcpy((char *) htup + htup->t_hoff,
-		   (char *) tuple->t_data + tuple->t_data->t_hoff,
-		   newlen);
-
-	/*----------
-	 * XXX A crash here can allow datfrozenxid() to get ahead of relfrozenxid:
-	 *
-	 * ["D" is a VACUUM (ONLY_DATABASE_STATS)]
-	 * ["R" is a VACUUM tbl]
-	 * D: vac_update_datfrozenid() -> systable_beginscan(pg_class)
-	 * D: systable_getnext() returns pg_class tuple of tbl
-	 * R: memcpy() into pg_class tuple of tbl
-	 * D: raise pg_database.datfrozenxid, XLogInsert(), finish
-	 * [crash]
-	 * [recovery restores datfrozenxid w/o relfrozenxid]
-	 */
-
-	MarkBufferDirty(buffer);
-
-	/* XLOG stuff */
-	if (RelationNeedsWAL(relation))
-	{
-		xl_heap_inplace xlrec;
-		XLogRecPtr	recptr;
-
-		xlrec.offnum = ItemPointerGetOffsetNumber(&tuple->t_self);
-
-		XLogBeginInsert();
-		XLogRegisterData((char *) &xlrec, SizeOfHeapInplace);
-
-		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
-		XLogRegisterBufData(0, (char *) htup + htup->t_hoff, newlen);
-
-		/* inplace updates aren't decoded atm, don't log the origin */
-
-		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_INPLACE);
-
-		PageSetLSN(BufferGetPage(buffer), recptr);
-	}
-
-	END_CRIT_SECTION();
-
-	heap_inplace_unlock(relation, oldtup, buffer);
-
-	/*
-	 * Send out shared cache inval if necessary.  Note that because we only
-	 * pass the new version of the tuple, this mustn't be used for any
-	 * operations that could change catcache lookup keys.  But we aren't
-	 * bothering with index updates either, so that's true a fortiori.
-	 *
-	 * XXX ROLLBACK discards the invalidation.  See test inplace-inval.spec.
-	 */
-	if (!IsBootstrapProcessingMode())
-		CacheInvalidateHeapTuple(relation, tuple, NULL);
-}
-
-/*
- * heap_inplace_unlock - reverse of heap_inplace_lock
- */
-void
-heap_inplace_unlock(Relation relation,
-					HeapTuple oldtup, Buffer buffer)
-{
-	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
-	UnlockTuple(relation, &oldtup->t_self, InplaceUpdateTupleLock);
-}
-
-/*
- * heap_inplace_update - deprecated
- *
- * This exists only to keep modules working in back branches.  Affected
- * modules should migrate to systable_inplace_update_begin().
-=======
->>>>>>> REL_18_BETA1_branch
  */
 bool
 heap_inplace_lock(Relation relation,
@@ -9791,1426 +9397,6 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 }
 
 /*
-<<<<<<< HEAD
- * Handles XLOG_HEAP2_PRUNE record type.
- *
- * Acquires a full cleanup lock.
- */
-static void
-heap_xlog_prune(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_prune *xlrec = (xl_heap_prune *) XLogRecGetData(record);
-	Buffer		buffer;
-	RelFileLocator rlocator;
-	BlockNumber blkno;
-	XLogRedoAction action;
-
-	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &blkno);
-
-	/*
-	 * We're about to remove tuples. In Hot Standby mode, ensure that there's
-	 * no queries running for which the removed tuples are still visible.
-	 */
-	if (InHotStandby)
-		ResolveRecoveryConflictWithSnapshot(xlrec->snapshotConflictHorizon,
-											xlrec->isCatalogRel,
-											rlocator);
-
-	/*
-	 * If we have a full-page image, restore it (using a cleanup lock) and
-	 * we're done.
-	 */
-	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true,
-										   &buffer);
-	if (action == BLK_NEEDS_REDO)
-	{
-		Page		page = (Page) BufferGetPage(buffer);
-		OffsetNumber *end;
-		OffsetNumber *redirected;
-		OffsetNumber *nowdead;
-		OffsetNumber *nowunused;
-		int			nredirected;
-		int			ndead;
-		int			nunused;
-		Size		datalen;
-
-		redirected = (OffsetNumber *) XLogRecGetBlockData(record, 0, &datalen);
-
-		nredirected = xlrec->nredirected;
-		ndead = xlrec->ndead;
-		end = (OffsetNumber *) ((char *) redirected + datalen);
-		nowdead = redirected + (nredirected * 2);
-		nowunused = nowdead + ndead;
-		nunused = (end - nowunused);
-		Assert(nunused >= 0);
-
-		/* Update all line pointers per the record, and repair fragmentation */
-		heap_page_prune_execute(buffer,
-								redirected, nredirected,
-								nowdead, ndead,
-								nowunused, nunused);
-
-		/*
-		 * Note: we don't worry about updating the page's prunability hints.
-		 * At worst this will cause an extra prune cycle to occur soon.
-		 */
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-
-	if (BufferIsValid(buffer))
-	{
-		Size		freespace = PageGetHeapFreeSpace(BufferGetPage(buffer));
-
-		UnlockReleaseBuffer(buffer);
-
-		/*
-		 * After pruning records from a page, it's useful to update the FSM
-		 * about it, as it may cause the page become target for insertions
-		 * later even if vacuum decides not to visit it (which is possible if
-		 * gets marked all-visible.)
-		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
-		 */
-		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
-	}
-}
-
-/*
- * Handles XLOG_HEAP2_VACUUM record type.
- *
- * Acquires an ordinary exclusive lock only.
- */
-static void
-heap_xlog_vacuum(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_vacuum *xlrec = (xl_heap_vacuum *) XLogRecGetData(record);
-	Buffer		buffer;
-	BlockNumber blkno;
-	XLogRedoAction action;
-
-	/*
-	 * If we have a full-page image, restore it	(without using a cleanup lock)
-	 * and we're done.
-	 */
-	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, false,
-										   &buffer);
-	if (action == BLK_NEEDS_REDO)
-	{
-		Page		page = (Page) BufferGetPage(buffer);
-		OffsetNumber *nowunused;
-		Size		datalen;
-		OffsetNumber *offnum;
-
-		nowunused = (OffsetNumber *) XLogRecGetBlockData(record, 0, &datalen);
-
-		/* Shouldn't be a record unless there's something to do */
-		Assert(xlrec->nunused > 0);
-
-		/* Update all now-unused line pointers */
-		offnum = nowunused;
-		for (int i = 0; i < xlrec->nunused; i++)
-		{
-			OffsetNumber off = *offnum++;
-			ItemId		lp = PageGetItemId(page, off);
-
-			Assert(ItemIdIsDead(lp) && !ItemIdHasStorage(lp));
-			ItemIdSetUnused(lp);
-		}
-
-		/* Attempt to truncate line pointer array now */
-		PageTruncateLinePointerArray(page);
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-
-	if (BufferIsValid(buffer))
-	{
-		Size		freespace = PageGetHeapFreeSpace(BufferGetPage(buffer));
-		RelFileLocator rlocator;
-
-		XLogRecGetBlockTag(record, 0, &rlocator, NULL, &blkno);
-
-		UnlockReleaseBuffer(buffer);
-
-		/*
-		 * After vacuuming LP_DEAD items from a page, it's useful to update
-		 * the FSM about it, as it may cause the page become target for
-		 * insertions later even if vacuum decides not to visit it (which is
-		 * possible if gets marked all-visible.)
-		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
-		 */
-		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
-	}
-}
-
-/*
- * Replay XLOG_HEAP2_VISIBLE record.
- *
- * The critical integrity requirement here is that we must never end up with
- * a situation where the visibility map bit is set, and the page-level
- * PD_ALL_VISIBLE bit is clear.  If that were to occur, then a subsequent
- * page modification would fail to clear the visibility map bit.
- */
-static void
-heap_xlog_visible(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_visible *xlrec = (xl_heap_visible *) XLogRecGetData(record);
-	Buffer		vmbuffer = InvalidBuffer;
-	Buffer		buffer;
-	Page		page;
-	RelFileLocator rlocator;
-	BlockNumber blkno;
-	XLogRedoAction action;
-
-	Assert((xlrec->flags & VISIBILITYMAP_XLOG_VALID_BITS) == xlrec->flags);
-
-	XLogRecGetBlockTag(record, 1, &rlocator, NULL, &blkno);
-
-	/*
-	 * If there are any Hot Standby transactions running that have an xmin
-	 * horizon old enough that this page isn't all-visible for them, they
-	 * might incorrectly decide that an index-only scan can skip a heap fetch.
-	 *
-	 * NB: It might be better to throw some kind of "soft" conflict here that
-	 * forces any index-only scan that is in flight to perform heap fetches,
-	 * rather than killing the transaction outright.
-	 */
-	if (InHotStandby)
-		ResolveRecoveryConflictWithSnapshot(xlrec->snapshotConflictHorizon,
-											xlrec->flags & VISIBILITYMAP_XLOG_CATALOG_REL,
-											rlocator);
-
-	/*
-	 * Read the heap page, if it still exists. If the heap file has dropped or
-	 * truncated later in recovery, we don't need to update the page, but we'd
-	 * better still update the visibility map.
-	 */
-	action = XLogReadBufferForRedo(record, 1, &buffer);
-	if (action == BLK_NEEDS_REDO)
-	{
-		/*
-		 * We don't bump the LSN of the heap page when setting the visibility
-		 * map bit (unless checksums or wal_hint_bits is enabled, in which
-		 * case we must). This exposes us to torn page hazards, but since
-		 * we're not inspecting the existing page contents in any way, we
-		 * don't care.
-		 */
-		page = BufferGetPage(buffer);
-
-		PageSetAllVisible(page);
-
-		if (XLogHintBitIsNeeded())
-			PageSetLSN(page, lsn);
-
-		MarkBufferDirty(buffer);
-	}
-	else if (action == BLK_RESTORED)
-	{
-		/*
-		 * If heap block was backed up, we already restored it and there's
-		 * nothing more to do. (This can only happen with checksums or
-		 * wal_log_hints enabled.)
-		 */
-	}
-
-	if (BufferIsValid(buffer))
-	{
-		Size		space = PageGetFreeSpace(BufferGetPage(buffer));
-
-		UnlockReleaseBuffer(buffer);
-
-		/*
-		 * Since FSM is not WAL-logged and only updated heuristically, it
-		 * easily becomes stale in standbys.  If the standby is later promoted
-		 * and runs VACUUM, it will skip updating individual free space
-		 * figures for pages that became all-visible (or all-frozen, depending
-		 * on the vacuum mode,) which is troublesome when FreeSpaceMapVacuum
-		 * propagates too optimistic free space values to upper FSM layers;
-		 * later inserters try to use such pages only to find out that they
-		 * are unusable.  This can cause long stalls when there are many such
-		 * pages.
-		 *
-		 * Forestall those problems by updating FSM's idea about a page that
-		 * is becoming all-visible or all-frozen.
-		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
-		 */
-		if (xlrec->flags & VISIBILITYMAP_VALID_BITS)
-			XLogRecordPageWithFreeSpace(rlocator, blkno, space);
-	}
-
-	/*
-	 * Even if we skipped the heap page update due to the LSN interlock, it's
-	 * still safe to update the visibility map.  Any WAL record that clears
-	 * the visibility map bit does so before checking the page LSN, so any
-	 * bits that need to be cleared will still be cleared.
-	 */
-	if (XLogReadBufferForRedoExtended(record, 0, RBM_ZERO_ON_ERROR, false,
-									  &vmbuffer) == BLK_NEEDS_REDO)
-	{
-		Page		vmpage = BufferGetPage(vmbuffer);
-		Relation	reln;
-		uint8		vmbits;
-
-		/* initialize the page if it was read as zeros */
-		if (PageIsNew(vmpage))
-			PageInit(vmpage, BLCKSZ, 0);
-
-		/* remove VISIBILITYMAP_XLOG_* */
-		vmbits = xlrec->flags & VISIBILITYMAP_VALID_BITS;
-
-		/*
-		 * XLogReadBufferForRedoExtended locked the buffer. But
-		 * visibilitymap_set will handle locking itself.
-		 */
-		LockBuffer(vmbuffer, BUFFER_LOCK_UNLOCK);
-
-		reln = CreateFakeRelcacheEntry(rlocator);
-		visibilitymap_pin(reln, blkno, &vmbuffer);
-
-		visibilitymap_set(reln, blkno, InvalidBuffer, lsn, vmbuffer,
-						  xlrec->snapshotConflictHorizon, vmbits);
-
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-	else if (BufferIsValid(vmbuffer))
-		UnlockReleaseBuffer(vmbuffer);
-}
-
-/*
- * Replay XLOG_HEAP2_FREEZE_PAGE records
- */
-static void
-heap_xlog_freeze_page(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_freeze_page *xlrec = (xl_heap_freeze_page *) XLogRecGetData(record);
-	TransactionId cutoff_xid = xlrec->snapshotConflictHorizon;
-	Buffer		buffer;
-
-	/*
-	 * In Hot Standby mode, ensure that there's no queries running which still
-	 * consider the frozen xids as running.
-	 * GPDB: but do nothing if there is no valid cutoff xid, which means the
-	 * record is not generated by vacuum but by specifically freezing a tuple
-	 * (see heap_freeze_tuple_no_cutoff).
-	 */
-	if (InHotStandby && TransactionIdIsValid(cutoff_xid))
-	{
-		RelFileLocator rlocator;
-
-		XLogRecGetBlockTag(record, 0, &rlocator, NULL, NULL);
-		ResolveRecoveryConflictWithSnapshot(xlrec->snapshotConflictHorizon,
-											xlrec->isCatalogRel,
-											rlocator);
-	}
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		Page		page = BufferGetPage(buffer);
-		xl_heap_freeze_plan *plans;
-		OffsetNumber *offsets;
-		int			curoff = 0;
-
-		plans = (xl_heap_freeze_plan *) XLogRecGetBlockData(record, 0, NULL);
-		offsets = (OffsetNumber *) ((char *) plans +
-									(xlrec->nplans *
-									 sizeof(xl_heap_freeze_plan)));
-		for (int p = 0; p < xlrec->nplans; p++)
-		{
-			HeapTupleFreeze frz;
-
-			/*
-			 * Convert freeze plan representation from WAL record into
-			 * per-tuple format used by heap_execute_freeze_tuple
-			 */
-			frz.xmax = plans[p].xmax;
-			frz.t_infomask2 = plans[p].t_infomask2;
-			frz.t_infomask = plans[p].t_infomask;
-			frz.frzflags = plans[p].frzflags;
-			frz.offset = InvalidOffsetNumber;	/* unused, but be tidy */
-
-			for (int i = 0; i < plans[p].ntuples; i++)
-			{
-				OffsetNumber offset = offsets[curoff++];
-				ItemId		lp;
-				HeapTupleHeader tuple;
-
-				lp = PageGetItemId(page, offset);
-				tuple = (HeapTupleHeader) PageGetItem(page, lp);
-				heap_execute_freeze_tuple(tuple, &frz);
-			}
-		}
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-/*
- * Given an "infobits" field from an XLog record, set the correct bits in the
- * given infomask and infomask2 for the tuple touched by the record.
- *
- * (This is the reverse of compute_infobits).
- */
-static void
-fix_infomask_from_infobits(uint8 infobits, uint16 *infomask, uint16 *infomask2)
-{
-	*infomask &= ~(HEAP_XMAX_IS_MULTI | HEAP_XMAX_LOCK_ONLY |
-				   HEAP_XMAX_KEYSHR_LOCK | HEAP_XMAX_EXCL_LOCK);
-	*infomask2 &= ~HEAP_KEYS_UPDATED;
-
-	if (infobits & XLHL_XMAX_IS_MULTI)
-		*infomask |= HEAP_XMAX_IS_MULTI;
-	if (infobits & XLHL_XMAX_LOCK_ONLY)
-		*infomask |= HEAP_XMAX_LOCK_ONLY;
-	if (infobits & XLHL_XMAX_EXCL_LOCK)
-		*infomask |= HEAP_XMAX_EXCL_LOCK;
-	/* note HEAP_XMAX_SHR_LOCK isn't considered here */
-	if (infobits & XLHL_XMAX_KEYSHR_LOCK)
-		*infomask |= HEAP_XMAX_KEYSHR_LOCK;
-
-	if (infobits & XLHL_KEYS_UPDATED)
-		*infomask2 |= HEAP_KEYS_UPDATED;
-}
-
-static void
-heap_xlog_delete(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_delete *xlrec = (xl_heap_delete *) XLogRecGetData(record);
-	Buffer		buffer;
-	Page		page;
-	ItemId		lp = NULL;
-	HeapTupleHeader htup;
-	BlockNumber blkno;
-	RelFileLocator target_locator;
-	ItemPointerData target_tid;
-
-	XLogRecGetBlockTag(record, 0, &target_locator, NULL, &blkno);
-	ItemPointerSetBlockNumber(&target_tid, blkno);
-	ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_DELETE_ALL_VISIBLE_CLEARED)
-	{
-		Relation	reln = CreateFakeRelcacheEntry(target_locator);
-		Buffer		vmbuffer = InvalidBuffer;
-
-		visibilitymap_pin(reln, blkno, &vmbuffer);
-		visibilitymap_clear(reln, blkno, vmbuffer, VISIBILITYMAP_VALID_BITS);
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		page = BufferGetPage(buffer);
-
-		if (PageGetMaxOffsetNumber(page) >= xlrec->offnum)
-			lp = PageGetItemId(page, xlrec->offnum);
-
-		if (PageGetMaxOffsetNumber(page) < xlrec->offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		htup->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
-		htup->t_infomask2 &= ~HEAP_KEYS_UPDATED;
-		HeapTupleHeaderClearHotUpdated(htup);
-		fix_infomask_from_infobits(xlrec->infobits_set,
-								   &htup->t_infomask, &htup->t_infomask2);
-		if (!(xlrec->flags & XLH_DELETE_IS_SUPER))
-			HeapTupleHeaderSetXmax(htup, xlrec->xmax);
-		else
-			HeapTupleHeaderSetXmin(htup, InvalidTransactionId);
-
-#ifdef SERVERLESS
-		HeapTupleHeaderSetCmax(htup, xlrec->t_cid, false);
-#else
-		HeapTupleHeaderSetCmax(htup, FirstCommandId, false);
-#endif
-
-		/* Mark the page as a candidate for pruning */
-		PageSetPrunable(page, XLogRecGetXid(record));
-
-		if (xlrec->flags & XLH_DELETE_ALL_VISIBLE_CLEARED)
-			PageClearAllVisible(page);
-
-		/* Make sure t_ctid is set correctly */
-		if (xlrec->flags & XLH_DELETE_IS_PARTITION_MOVE)
-			HeapTupleHeaderSetMovedPartitions(htup);
-		else
-			htup->t_ctid = target_tid;
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-static void
-heap_xlog_insert(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_insert *xlrec = (xl_heap_insert *) XLogRecGetData(record);
-	Buffer		buffer;
-	Page		page;
-	union
-	{
-		HeapTupleHeaderData hdr;
-		char		data[MaxHeapTupleSize];
-	}			tbuf;
-	HeapTupleHeader htup;
-	xl_heap_header xlhdr;
-	uint32		newlen;
-	Size		freespace = 0;
-	RelFileLocator target_locator;
-	BlockNumber blkno;
-	ItemPointerData target_tid;
-	XLogRedoAction action;
-
-	XLogRecGetBlockTag(record, 0, &target_locator, NULL, &blkno);
-	ItemPointerSetBlockNumber(&target_tid, blkno);
-	ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
-	{
-		Relation	reln = CreateFakeRelcacheEntry(target_locator);
-		Buffer		vmbuffer = InvalidBuffer;
-
-		visibilitymap_pin(reln, blkno, &vmbuffer);
-		visibilitymap_clear(reln, blkno, vmbuffer, VISIBILITYMAP_VALID_BITS);
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	/*
-	 * If we inserted the first and only tuple on the page, re-initialize the
-	 * page from scratch.
-	 */
-	if (XLogRecGetInfo(record) & XLOG_HEAP_INIT_PAGE)
-	{
-		buffer = XLogInitBufferForRedo(record, 0);
-		page = BufferGetPage(buffer);
-		PageInit(page, BufferGetPageSize(buffer), 0);
-		action = BLK_NEEDS_REDO;
-	}
-	else
-		action = XLogReadBufferForRedo(record, 0, &buffer);
-	if (action == BLK_NEEDS_REDO)
-	{
-		Size		datalen;
-		char	   *data;
-
-		page = BufferGetPage(buffer);
-
-		if (PageGetMaxOffsetNumber(page) + 1 < xlrec->offnum)
-			elog(PANIC, "invalid max offset number");
-
-		data = XLogRecGetBlockData(record, 0, &datalen);
-
-		newlen = datalen - SizeOfHeapHeader;
-		Assert(datalen > SizeOfHeapHeader && newlen <= MaxHeapTupleSize);
-		memcpy((char *) &xlhdr, data, SizeOfHeapHeader);
-		data += SizeOfHeapHeader;
-
-		htup = &tbuf.hdr;
-		MemSet((char *) htup, 0, SizeofHeapTupleHeader);
-		/* PG73FORMAT: get bitmap [+ padding] [+ oid] + data */
-		memcpy((char *) htup + SizeofHeapTupleHeader,
-			   data,
-			   newlen);
-		newlen += SizeofHeapTupleHeader;
-		htup->t_infomask2 = xlhdr.t_infomask2;
-		htup->t_infomask = xlhdr.t_infomask;
-		htup->t_hoff = xlhdr.t_hoff;
-		HeapTupleHeaderSetXmin(htup, XLogRecGetXid(record));
-#ifdef SERVERLESS
-		HeapTupleHeaderSetCmin(htup, xlhdr.t_cid);
-#else
-		HeapTupleHeaderSetCmin(htup, FirstCommandId);
-#endif
-		htup->t_ctid = target_tid;
-
-		if (PageAddItem(page, (Item) htup, newlen, xlrec->offnum,
-						true, true) == InvalidOffsetNumber)
-			elog(PANIC, "failed to add tuple");
-
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
-
-		PageSetLSN(page, lsn);
-
-		if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
-			PageClearAllVisible(page);
-
-		/* XLH_INSERT_ALL_FROZEN_SET implies that all tuples are visible */
-		if (xlrec->flags & XLH_INSERT_ALL_FROZEN_SET)
-			PageSetAllVisible(page);
-
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-
-	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(target_locator, blkno, freespace);
-}
-
-/*
- * Handles MULTI_INSERT record type.
- */
-static void
-heap_xlog_multi_insert(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_multi_insert *xlrec;
-	RelFileLocator rlocator;
-	BlockNumber blkno;
-	Buffer		buffer;
-	Page		page;
-	union
-	{
-		HeapTupleHeaderData hdr;
-		char		data[MaxHeapTupleSize];
-	}			tbuf;
-	HeapTupleHeader htup;
-	uint32		newlen;
-	Size		freespace = 0;
-	int			i;
-	bool		isinit = (XLogRecGetInfo(record) & XLOG_HEAP_INIT_PAGE) != 0;
-	XLogRedoAction action;
-
-	/*
-	 * Insertion doesn't overwrite MVCC data, so no conflict processing is
-	 * required.
-	 */
-	xlrec = (xl_heap_multi_insert *) XLogRecGetData(record);
-
-	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &blkno);
-
-	/* check that the mutually exclusive flags are not both set */
-	Assert(!((xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED) &&
-			 (xlrec->flags & XLH_INSERT_ALL_FROZEN_SET)));
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
-	{
-		Relation	reln = CreateFakeRelcacheEntry(rlocator);
-		Buffer		vmbuffer = InvalidBuffer;
-
-		visibilitymap_pin(reln, blkno, &vmbuffer);
-		visibilitymap_clear(reln, blkno, vmbuffer, VISIBILITYMAP_VALID_BITS);
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	if (isinit)
-	{
-		buffer = XLogInitBufferForRedo(record, 0);
-		page = BufferGetPage(buffer);
-		PageInit(page, BufferGetPageSize(buffer), 0);
-		action = BLK_NEEDS_REDO;
-	}
-	else
-		action = XLogReadBufferForRedo(record, 0, &buffer);
-	if (action == BLK_NEEDS_REDO)
-	{
-		char	   *tupdata;
-		char	   *endptr;
-		Size		len;
-
-		/* Tuples are stored as block data */
-		tupdata = XLogRecGetBlockData(record, 0, &len);
-		endptr = tupdata + len;
-
-		page = (Page) BufferGetPage(buffer);
-
-		for (i = 0; i < xlrec->ntuples; i++)
-		{
-			OffsetNumber offnum;
-			xl_multi_insert_tuple *xlhdr;
-
-			/*
-			 * If we're reinitializing the page, the tuples are stored in
-			 * order from FirstOffsetNumber. Otherwise there's an array of
-			 * offsets in the WAL record, and the tuples come after that.
-			 */
-			if (isinit)
-				offnum = FirstOffsetNumber + i;
-			else
-				offnum = xlrec->offsets[i];
-			if (PageGetMaxOffsetNumber(page) + 1 < offnum)
-				elog(PANIC, "invalid max offset number");
-
-			xlhdr = (xl_multi_insert_tuple *) SHORTALIGN(tupdata);
-			tupdata = ((char *) xlhdr) + SizeOfMultiInsertTuple;
-
-			newlen = xlhdr->datalen;
-			Assert(newlen <= MaxHeapTupleSize);
-			htup = &tbuf.hdr;
-			MemSet((char *) htup, 0, SizeofHeapTupleHeader);
-			/* PG73FORMAT: get bitmap [+ padding] [+ oid] + data */
-			memcpy((char *) htup + SizeofHeapTupleHeader,
-				   (char *) tupdata,
-				   newlen);
-			tupdata += newlen;
-
-			newlen += SizeofHeapTupleHeader;
-			htup->t_infomask2 = xlhdr->t_infomask2;
-			htup->t_infomask = xlhdr->t_infomask;
-			htup->t_hoff = xlhdr->t_hoff;
-			HeapTupleHeaderSetXmin(htup, XLogRecGetXid(record));
-#ifdef SERVERLESS
-			HeapTupleHeaderSetCmin(htup, xlhdr->t_cid);
-#else
-			HeapTupleHeaderSetCmin(htup, FirstCommandId);
-#endif
-			ItemPointerSetBlockNumber(&htup->t_ctid, blkno);
-			ItemPointerSetOffsetNumber(&htup->t_ctid, offnum);
-
-			offnum = PageAddItem(page, (Item) htup, newlen, offnum, true, true);
-			if (offnum == InvalidOffsetNumber)
-				elog(PANIC, "failed to add tuple");
-		}
-		if (tupdata != endptr)
-			elog(PANIC, "total tuple length mismatch");
-
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
-
-		PageSetLSN(page, lsn);
-
-		if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
-			PageClearAllVisible(page);
-
-		/* XLH_INSERT_ALL_FROZEN_SET implies that all tuples are visible */
-		if (xlrec->flags & XLH_INSERT_ALL_FROZEN_SET)
-			PageSetAllVisible(page);
-
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-
-	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
-}
-
-/*
- * Handles UPDATE and HOT_UPDATE
- */
-static void
-heap_xlog_update(XLogReaderState *record, bool hot_update)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_update *xlrec = (xl_heap_update *) XLogRecGetData(record);
-	RelFileLocator rlocator;
-	BlockNumber oldblk;
-	BlockNumber newblk;
-	ItemPointerData newtid;
-	Buffer		obuffer,
-				nbuffer;
-	Page		page;
-	OffsetNumber offnum;
-	ItemId		lp = NULL;
-	HeapTupleData oldtup;
-	HeapTupleHeader htup;
-	uint16		prefixlen = 0,
-				suffixlen = 0;
-	char	   *newp;
-	union
-	{
-		HeapTupleHeaderData hdr;
-		char		data[MaxHeapTupleSize];
-	}			tbuf;
-	xl_heap_header xlhdr;
-	uint32		newlen;
-	Size		freespace = 0;
-	XLogRedoAction oldaction;
-	XLogRedoAction newaction;
-
-	/* initialize to keep the compiler quiet */
-	oldtup.t_data = NULL;
-	oldtup.t_len = 0;
-
-	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &newblk);
-	if (XLogRecGetBlockTagExtended(record, 1, NULL, NULL, &oldblk, NULL))
-	{
-		/* HOT updates are never done across pages */
-		Assert(!hot_update);
-	}
-	else
-		oldblk = newblk;
-
-	ItemPointerSet(&newtid, newblk, xlrec->new_offnum);
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED)
-	{
-		Relation	reln = CreateFakeRelcacheEntry(rlocator);
-		Buffer		vmbuffer = InvalidBuffer;
-
-		visibilitymap_pin(reln, oldblk, &vmbuffer);
-		visibilitymap_clear(reln, oldblk, vmbuffer, VISIBILITYMAP_VALID_BITS);
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	/*
-	 * In normal operation, it is important to lock the two pages in
-	 * page-number order, to avoid possible deadlocks against other update
-	 * operations going the other way.  However, during WAL replay there can
-	 * be no other update happening, so we don't need to worry about that. But
-	 * we *do* need to worry that we don't expose an inconsistent state to Hot
-	 * Standby queries --- so the original page can't be unlocked before we've
-	 * added the new tuple to the new page.
-	 */
-
-	/* Deal with old tuple version */
-	oldaction = XLogReadBufferForRedo(record, (oldblk == newblk) ? 0 : 1,
-									  &obuffer);
-	if (oldaction == BLK_NEEDS_REDO)
-	{
-		page = BufferGetPage(obuffer);
-		offnum = xlrec->old_offnum;
-		if (PageGetMaxOffsetNumber(page) >= offnum)
-			lp = PageGetItemId(page, offnum);
-
-		if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		oldtup.t_data = htup;
-		oldtup.t_len = ItemIdGetLength(lp);
-
-		htup->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
-		htup->t_infomask2 &= ~HEAP_KEYS_UPDATED;
-		if (hot_update)
-			HeapTupleHeaderSetHotUpdated(htup);
-		else
-			HeapTupleHeaderClearHotUpdated(htup);
-		fix_infomask_from_infobits(xlrec->old_infobits_set, &htup->t_infomask,
-								   &htup->t_infomask2);
-		HeapTupleHeaderSetXmax(htup, xlrec->old_xmax);
-#ifdef SERVERLESS
-		HeapTupleHeaderSetCmax(htup, xlrec->t_cid, false);
-#else
-		HeapTupleHeaderSetCmax(htup, FirstCommandId, false);
-#endif
-
-		/* Set forward chain link in t_ctid */
-		htup->t_ctid = newtid;
-
-		/* Mark the page as a candidate for pruning */
-		PageSetPrunable(page, XLogRecGetXid(record));
-
-		if (xlrec->flags & XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED)
-			PageClearAllVisible(page);
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(obuffer);
-	}
-
-	/*
-	 * Read the page the new tuple goes into, if different from old.
-	 */
-	if (oldblk == newblk)
-	{
-		nbuffer = obuffer;
-		newaction = oldaction;
-	}
-	else if (XLogRecGetInfo(record) & XLOG_HEAP_INIT_PAGE)
-	{
-		nbuffer = XLogInitBufferForRedo(record, 0);
-		page = (Page) BufferGetPage(nbuffer);
-		PageInit(page, BufferGetPageSize(nbuffer), 0);
-		newaction = BLK_NEEDS_REDO;
-	}
-	else
-		newaction = XLogReadBufferForRedo(record, 0, &nbuffer);
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED)
-	{
-		Relation	reln = CreateFakeRelcacheEntry(rlocator);
-		Buffer		vmbuffer = InvalidBuffer;
-
-		visibilitymap_pin(reln, newblk, &vmbuffer);
-		visibilitymap_clear(reln, newblk, vmbuffer, VISIBILITYMAP_VALID_BITS);
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	/* Deal with new tuple */
-	if (newaction == BLK_NEEDS_REDO)
-	{
-		char	   *recdata;
-		char	   *recdata_end;
-		Size		datalen;
-		Size		tuplen;
-
-		recdata = XLogRecGetBlockData(record, 0, &datalen);
-		recdata_end = recdata + datalen;
-
-		page = BufferGetPage(nbuffer);
-
-		offnum = xlrec->new_offnum;
-		if (PageGetMaxOffsetNumber(page) + 1 < offnum)
-			elog(PANIC, "invalid max offset number");
-
-		if (xlrec->flags & XLH_UPDATE_PREFIX_FROM_OLD)
-		{
-			Assert(newblk == oldblk);
-			memcpy(&prefixlen, recdata, sizeof(uint16));
-			recdata += sizeof(uint16);
-		}
-		if (xlrec->flags & XLH_UPDATE_SUFFIX_FROM_OLD)
-		{
-			Assert(newblk == oldblk);
-			memcpy(&suffixlen, recdata, sizeof(uint16));
-			recdata += sizeof(uint16);
-		}
-
-		memcpy((char *) &xlhdr, recdata, SizeOfHeapHeader);
-		recdata += SizeOfHeapHeader;
-
-		tuplen = recdata_end - recdata;
-		Assert(tuplen <= MaxHeapTupleSize);
-
-		htup = &tbuf.hdr;
-		MemSet((char *) htup, 0, SizeofHeapTupleHeader);
-
-		/*
-		 * Reconstruct the new tuple using the prefix and/or suffix from the
-		 * old tuple, and the data stored in the WAL record.
-		 */
-		newp = (char *) htup + SizeofHeapTupleHeader;
-		if (prefixlen > 0)
-		{
-			int			len;
-
-			/* copy bitmap [+ padding] [+ oid] from WAL record */
-			len = xlhdr.t_hoff - SizeofHeapTupleHeader;
-			memcpy(newp, recdata, len);
-			recdata += len;
-			newp += len;
-
-			/* copy prefix from old tuple */
-			memcpy(newp, (char *) oldtup.t_data + oldtup.t_data->t_hoff, prefixlen);
-			newp += prefixlen;
-
-			/* copy new tuple data from WAL record */
-			len = tuplen - (xlhdr.t_hoff - SizeofHeapTupleHeader);
-			memcpy(newp, recdata, len);
-			recdata += len;
-			newp += len;
-		}
-		else
-		{
-			/*
-			 * copy bitmap [+ padding] [+ oid] + data from record, all in one
-			 * go
-			 */
-			memcpy(newp, recdata, tuplen);
-			recdata += tuplen;
-			newp += tuplen;
-		}
-		Assert(recdata == recdata_end);
-
-		/* copy suffix from old tuple */
-		if (suffixlen > 0)
-			memcpy(newp, (char *) oldtup.t_data + oldtup.t_len - suffixlen, suffixlen);
-
-		newlen = SizeofHeapTupleHeader + tuplen + prefixlen + suffixlen;
-		htup->t_infomask2 = xlhdr.t_infomask2;
-		htup->t_infomask = xlhdr.t_infomask;
-		htup->t_hoff = xlhdr.t_hoff;
-
-		HeapTupleHeaderSetXmin(htup, XLogRecGetXid(record));
-#ifdef SERVERLESS
-		HeapTupleHeaderSetCmin(htup, xlhdr.t_cid);
-#else
-		HeapTupleHeaderSetCmin(htup, FirstCommandId);
-#endif
-		HeapTupleHeaderSetXmax(htup, xlrec->new_xmax);
-		/* Make sure there is no forward chain link in t_ctid */
-		htup->t_ctid = newtid;
-
-		offnum = PageAddItem(page, (Item) htup, newlen, offnum, true, true);
-		if (offnum == InvalidOffsetNumber)
-			elog(PANIC, "failed to add tuple");
-
-		if (xlrec->flags & XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED)
-			PageClearAllVisible(page);
-
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(nbuffer);
-	}
-
-	if (BufferIsValid(nbuffer) && nbuffer != obuffer)
-		UnlockReleaseBuffer(nbuffer);
-	if (BufferIsValid(obuffer))
-		UnlockReleaseBuffer(obuffer);
-
-	/*
-	 * If the new page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * However, don't update the FSM on HOT updates, because after crash
-	 * recovery, either the old or the new tuple will certainly be dead and
-	 * prunable. After pruning, the page will have roughly as much free space
-	 * as it did before the update, assuming the new tuple is about the same
-	 * size as the old one.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (newaction == BLK_NEEDS_REDO && !hot_update && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(rlocator, newblk, freespace);
-}
-
-static void
-heap_xlog_confirm(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_confirm *xlrec = (xl_heap_confirm *) XLogRecGetData(record);
-	Buffer		buffer;
-	Page		page;
-	OffsetNumber offnum;
-	ItemId		lp = NULL;
-	HeapTupleHeader htup;
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		page = BufferGetPage(buffer);
-
-		offnum = xlrec->offnum;
-		if (PageGetMaxOffsetNumber(page) >= offnum)
-			lp = PageGetItemId(page, offnum);
-
-		if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		/*
-		 * Confirm tuple as actually inserted
-		 */
-		ItemPointerSet(&htup->t_ctid, BufferGetBlockNumber(buffer), offnum);
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-static void
-heap_xlog_lock(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_lock *xlrec = (xl_heap_lock *) XLogRecGetData(record);
-	Buffer		buffer;
-	Page		page;
-	OffsetNumber offnum;
-	ItemId		lp = NULL;
-	HeapTupleHeader htup;
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_LOCK_ALL_FROZEN_CLEARED)
-	{
-		RelFileLocator rlocator;
-		Buffer		vmbuffer = InvalidBuffer;
-		BlockNumber block;
-		Relation	reln;
-
-		XLogRecGetBlockTag(record, 0, &rlocator, NULL, &block);
-		reln = CreateFakeRelcacheEntry(rlocator);
-
-		visibilitymap_pin(reln, block, &vmbuffer);
-		visibilitymap_clear(reln, block, vmbuffer, VISIBILITYMAP_ALL_FROZEN);
-
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		page = (Page) BufferGetPage(buffer);
-
-		offnum = xlrec->offnum;
-		if (PageGetMaxOffsetNumber(page) >= offnum)
-			lp = PageGetItemId(page, offnum);
-
-		if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		htup->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
-		htup->t_infomask2 &= ~HEAP_KEYS_UPDATED;
-		fix_infomask_from_infobits(xlrec->infobits_set, &htup->t_infomask,
-								   &htup->t_infomask2);
-
-		/*
-		 * Clear relevant update flags, but only if the modified infomask says
-		 * there's no update.
-		 */
-		if (HEAP_XMAX_IS_LOCKED_ONLY(htup->t_infomask))
-		{
-			HeapTupleHeaderClearHotUpdated(htup);
-			/* Make sure there is no forward chain link in t_ctid */
-			ItemPointerSet(&htup->t_ctid,
-						   BufferGetBlockNumber(buffer),
-						   offnum);
-		}
-		HeapTupleHeaderSetXmax(htup, xlrec->xmax);
-#ifdef SERVERLESS
-		HeapTupleHeaderSetCmax(htup, xlrec->t_cid, false);
-#else
-		HeapTupleHeaderSetCmax(htup, FirstCommandId, false);
-#endif
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-static void
-heap_xlog_lock_updated(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_lock_updated *xlrec;
-	Buffer		buffer;
-	Page		page;
-	OffsetNumber offnum;
-	ItemId		lp = NULL;
-	HeapTupleHeader htup;
-
-	xlrec = (xl_heap_lock_updated *) XLogRecGetData(record);
-
-	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
-	 */
-	if (xlrec->flags & XLH_LOCK_ALL_FROZEN_CLEARED)
-	{
-		RelFileLocator rlocator;
-		Buffer		vmbuffer = InvalidBuffer;
-		BlockNumber block;
-		Relation	reln;
-
-		XLogRecGetBlockTag(record, 0, &rlocator, NULL, &block);
-		reln = CreateFakeRelcacheEntry(rlocator);
-
-		visibilitymap_pin(reln, block, &vmbuffer);
-		visibilitymap_clear(reln, block, vmbuffer, VISIBILITYMAP_ALL_FROZEN);
-
-		ReleaseBuffer(vmbuffer);
-		FreeFakeRelcacheEntry(reln);
-	}
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		page = BufferGetPage(buffer);
-
-		offnum = xlrec->offnum;
-		if (PageGetMaxOffsetNumber(page) >= offnum)
-			lp = PageGetItemId(page, offnum);
-
-		if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		htup->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
-		htup->t_infomask2 &= ~HEAP_KEYS_UPDATED;
-		fix_infomask_from_infobits(xlrec->infobits_set, &htup->t_infomask,
-								   &htup->t_infomask2);
-		HeapTupleHeaderSetXmax(htup, xlrec->xmax);
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-static void
-heap_xlog_inplace(XLogReaderState *record)
-{
-	XLogRecPtr	lsn = record->EndRecPtr;
-	xl_heap_inplace *xlrec = (xl_heap_inplace *) XLogRecGetData(record);
-	Buffer		buffer;
-	Page		page;
-	OffsetNumber offnum;
-	ItemId		lp = NULL;
-	HeapTupleHeader htup;
-	uint32		oldlen;
-	Size		newlen;
-
-	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
-	{
-		char	   *newtup = XLogRecGetBlockData(record, 0, &newlen);
-
-		page = BufferGetPage(buffer);
-
-		offnum = xlrec->offnum;
-		if (PageGetMaxOffsetNumber(page) >= offnum)
-			lp = PageGetItemId(page, offnum);
-
-		if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
-			elog(PANIC, "invalid lp");
-
-		htup = (HeapTupleHeader) PageGetItem(page, lp);
-
-		oldlen = ItemIdGetLength(lp) - htup->t_hoff;
-		if (oldlen != newlen)
-			elog(PANIC, "wrong tuple length");
-
-		memcpy((char *) htup + htup->t_hoff, newtup, newlen);
-
-		PageSetLSN(page, lsn);
-		MarkBufferDirty(buffer);
-	}
-	if (BufferIsValid(buffer))
-		UnlockReleaseBuffer(buffer);
-}
-
-void
-heap_redo(XLogReaderState *record)
-{
-	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
-
-	/*
-	 * These operations don't overwrite MVCC data so no conflict processing is
-	 * required. The ones in heap2 rmgr do.
-	 */
-
-	switch (info & XLOG_HEAP_OPMASK)
-	{
-		case XLOG_HEAP_INSERT:
-			heap_xlog_insert(record);
-			break;
-		case XLOG_HEAP_DELETE:
-			heap_xlog_delete(record);
-			break;
-		case XLOG_HEAP_UPDATE:
-			heap_xlog_update(record, false);
-			break;
-		case XLOG_HEAP_TRUNCATE:
-
-			/*
-			 * TRUNCATE is a no-op because the actions are already logged as
-			 * SMGR WAL records.  TRUNCATE WAL record only exists for logical
-			 * decoding.
-			 */
-			break;
-		case XLOG_HEAP_HOT_UPDATE:
-			heap_xlog_update(record, true);
-			break;
-		case XLOG_HEAP_CONFIRM:
-			heap_xlog_confirm(record);
-			break;
-		case XLOG_HEAP_LOCK:
-			heap_xlog_lock(record);
-			break;
-		case XLOG_HEAP_INPLACE:
-			heap_xlog_inplace(record);
-			break;
-		default:
-			elog(PANIC, "heap_redo: unknown op code %u", info);
-	}
-}
-
-void
-heap2_redo(XLogReaderState *record)
-{
-	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
-
-	switch (info & XLOG_HEAP_OPMASK)
-	{
-		case XLOG_HEAP2_PRUNE:
-			heap_xlog_prune(record);
-			break;
-		case XLOG_HEAP2_VACUUM:
-			heap_xlog_vacuum(record);
-			break;
-		case XLOG_HEAP2_FREEZE_PAGE:
-			heap_xlog_freeze_page(record);
-			break;
-		case XLOG_HEAP2_VISIBLE:
-			heap_xlog_visible(record);
-			break;
-		case XLOG_HEAP2_MULTI_INSERT:
-			heap_xlog_multi_insert(record);
-			break;
-		case XLOG_HEAP2_LOCK_UPDATED:
-			heap_xlog_lock_updated(record);
-			break;
-		case XLOG_HEAP2_NEW_CID:
-
-			/*
-			 * Nothing to do on a real replay, only used during logical
-			 * decoding.
-			 */
-			break;
-		case XLOG_HEAP2_REWRITE:
-			heap_xlog_logical_rewrite(record);
-			break;
-		default:
-			elog(PANIC, "heap2_redo: unknown op code %u", info);
-	}
-}
-
-/*
- * Mask a heap page before performing consistency checks on it.
- */
-void
-heap_mask(char *pagedata, BlockNumber blkno)
-{
-	Page		page = (Page) pagedata;
-	OffsetNumber off;
-
-	mask_page_lsn_and_checksum(page);
-
-	mask_page_hint_bits(page);
-	mask_unused_space(page);
-
-	for (off = 1; off <= PageGetMaxOffsetNumber(page); off++)
-	{
-		ItemId		iid = PageGetItemId(page, off);
-		char	   *page_item;
-
-		page_item = (char *) (page + ItemIdGetOffset(iid));
-
-		if (ItemIdIsNormal(iid))
-		{
-			HeapTupleHeader page_htup = (HeapTupleHeader) page_item;
-
-			/*
-			 * If xmin of a tuple is not yet frozen, we should ignore
-			 * differences in hint bits, since they can be set without
-			 * emitting WAL.
-			 */
-			if (!HeapTupleHeaderXminFrozen(page_htup))
-				page_htup->t_infomask &= ~HEAP_XACT_MASK;
-			else
-			{
-				/* Still we need to mask xmax hint bits. */
-				page_htup->t_infomask &= ~HEAP_XMAX_INVALID;
-				page_htup->t_infomask &= ~HEAP_XMAX_COMMITTED;
-			}
-
-			/* mask out GPDB specific hint-bits */
-			page_htup->t_infomask2 &= ~HEAP_XMIN_DISTRIBUTED_SNAPSHOT_IGNORE;
-			page_htup->t_infomask2 &= ~HEAP_XMAX_DISTRIBUTED_SNAPSHOT_IGNORE;
-
-			/*
-			 * During replay, we set Command Id to FirstCommandId. Hence, mask
-			 * it. See heap_xlog_insert() for details.
-			 */
-			page_htup->t_choice.t_heap.t_field3.t_cid = MASK_MARKER;
-
-			/*
-			 * For a speculative tuple, heap_insert() does not set ctid in the
-			 * caller-passed heap tuple itself, leaving the ctid field to
-			 * contain a speculative token value - a per-backend monotonically
-			 * increasing identifier. Besides, it does not WAL-log ctid under
-			 * any circumstances.
-			 *
-			 * During redo, heap_xlog_insert() sets t_ctid to current block
-			 * number and self offset number. It doesn't care about any
-			 * speculative insertions on the primary. Hence, we set t_ctid to
-			 * current block number and self offset number to ignore any
-			 * inconsistency.
-			 */
-			if (HeapTupleHeaderIsSpeculative(page_htup))
-				ItemPointerSet(&page_htup->t_ctid, blkno, off);
-
-			/*
-			 * NB: Not ignoring ctid changes due to the tuple having moved
-			 * (i.e. HeapTupleHeaderIndicatesMovedPartitions), because that's
-			 * important information that needs to be in-sync between primary
-			 * and standby, and thus is WAL logged.
-			 */
-		}
-
-		/*
-		 * Ignore any padding bytes after the tuple, when the length of the
-		 * item is not MAXALIGNed.
-		 */
-		if (ItemIdHasStorage(iid))
-		{
-			int			len = ItemIdGetLength(iid);
-			int			padlen = MAXALIGN(len) - len;
-
-			if (padlen > 0)
-				memset(page_item + len, MASK_MARKER, padlen);
-		}
-	}
-}
-
-/*
-=======
->>>>>>> REL_18_BETA1_branch
  * HeapCheckForSerializableConflictOut
  *		We are reading a tuple.  If it's not visible, there may be a
  *		rw-conflict out with the inserter.  Otherwise, if it is visible to us

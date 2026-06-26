@@ -255,12 +255,7 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 	state->rs_new_rel = new_heap;
 	state->rs_buffer = NULL;
 	/* new_heap needn't be empty, just locked */
-<<<<<<< HEAD
 	state->rs_blockno = AcquireNumberOfBlocks(new_heap);
-	state->rs_buffer_valid = false;
-=======
-	state->rs_blockno = RelationGetNumberOfBlocks(new_heap);
->>>>>>> REL_18_BETA1_branch
 	state->rs_oldest_xmin = oldest_xmin;
 	state->rs_freeze_xid = freeze_xid;
 	state->rs_cutoff_multi = cutoff_multi;
@@ -319,24 +314,10 @@ end_heap_rewrite(RewriteState state)
 	/* Write the last page, if any */
 	if (state->rs_buffer)
 	{
-<<<<<<< HEAD
-		if (RelationNeedsWAL(state->rs_new_rel))
-			log_newpage(&state->rs_new_rel->rd_locator,
-						MAIN_FORKNUM,
-						state->rs_blockno,
-						state->rs_buffer,
-						true);
-
 		PageEncryptInplace(state->rs_buffer, MAIN_FORKNUM,
 						   state->rs_blockno);
-		PageSetChecksumInplace(state->rs_buffer, state->rs_blockno);
-
-		smgrextend(RelationGetSmgr(state->rs_new_rel), MAIN_FORKNUM,
-				   state->rs_blockno, state->rs_buffer, true);
-=======
 		smgr_bulk_write(state->rs_bulkstate, state->rs_blockno, state->rs_buffer, true);
 		state->rs_buffer = NULL;
->>>>>>> REL_18_BETA1_branch
 	}
 
 	smgr_bulk_finish(state->rs_bulkstate);
@@ -678,39 +659,14 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 			 * contains a tuple.  Hence, unlike RelationGetBufferForTuple(),
 			 * enforce saveFreeSpace unconditionally.
 			 */
-<<<<<<< HEAD
-
-			/* XLOG stuff */
-			if (RelationNeedsWAL(state->rs_new_rel))
-				log_newpage(&state->rs_new_rel->rd_locator,
-							MAIN_FORKNUM,
-							state->rs_blockno,
-							page,
-							true);
-
-			/*
-			 * Now write the page. We say skipFsync = true because there's no
-			 * need for smgr to schedule an fsync for this write; we'll do it
-			 * ourselves in end_heap_rewrite.
-			 */
 			PageEncryptInplace(page, MAIN_FORKNUM,
 							   state->rs_blockno);
-			PageSetChecksumInplace(page, state->rs_blockno);
-
-			smgrextend(RelationGetSmgr(state->rs_new_rel), MAIN_FORKNUM,
-					   state->rs_blockno, page, true);
-
-			state->rs_blockno++;
-			state->rs_buffer_valid = false;
-
-			if (RelationNeedsWAL(state->rs_new_rel))
-				wait_to_avoid_large_repl_lag();
-=======
 			smgr_bulk_write(state->rs_bulkstate, state->rs_blockno, state->rs_buffer, true);
 			state->rs_buffer = NULL;
 			page = NULL;
 			state->rs_blockno++;
->>>>>>> REL_18_BETA1_branch
+			if (RelationNeedsWAL(state->rs_new_rel))
+				wait_to_avoid_large_repl_lag();
 		}
 	}
 

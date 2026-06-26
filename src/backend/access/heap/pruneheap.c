@@ -256,11 +256,6 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 			OffsetNumber dummy_off_loc;
 			PruneFreezeResult presult;
 
-<<<<<<< HEAD
-			ndeleted = heap_page_prune(relation, buffer, InvalidTransactionId,
-									   vistest, limited_xmin,
-									   limited_ts, &nnewlpdead, NULL);
-=======
 			/*
 			 * For now, pass mark_unused_now as false regardless of whether or
 			 * not the relation has indexes, since we cannot safely determine
@@ -268,7 +263,6 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 			 */
 			heap_page_prune_and_freeze(relation, buffer, vistest, 0,
 									   NULL, &presult, PRUNE_ON_ACCESS, &dummy_off_loc, NULL, NULL);
->>>>>>> REL_18_BETA1_branch
 
 			/*
 			 * Report the number of tuples reclaimed to pgstats.  This is
@@ -310,16 +304,6 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
  * also need to account for a reduction in the length of the line pointer
  * array following array truncation by us.
  *
-<<<<<<< HEAD
- * vistest and oldest_xmin are used to distinguish whether tuples are DEAD or
- * RECENTLY_DEAD (see heap_prune_satisfies_vacuum and
- * HeapTupleSatisfiesVacuum). If oldest_xmin is provided by the caller, it is
- * used before consulting GlobalVisState.
- *
- * old_snap_xmin / old_snap_ts need to either have been set by
- * TransactionIdLimitedForOldSnapshots, or InvalidTransactionId/0
- * respectively.
-=======
  * If the HEAP_PRUNE_FREEZE option is set, we will also freeze tuples if it's
  * required in order to advance relfrozenxid / relminmxid, or if it's
  * considered advantageous for overall system performance to do so now.  The
@@ -329,7 +313,6 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
  * the VM bits can be set.  They are always set to false when the
  * HEAP_PRUNE_FREEZE option is not set, because at the moment only callers
  * that also freeze need that information.
->>>>>>> REL_18_BETA1_branch
  *
  * vistest is used to distinguish whether tuples are DEAD or RECENTLY_DEAD
  * (see heap_prune_satisfies_vacuum).
@@ -364,16 +347,6 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
  * relation, VACUUM can use these values as the new relfrozenxid/relminmxid
  * for the relation.
  */
-<<<<<<< HEAD
-int
-heap_page_prune(Relation relation, Buffer buffer,
-				TransactionId oldest_xmin,
-				GlobalVisState *vistest,
-				TransactionId old_snap_xmin,
-				TimestampTz old_snap_ts,
-				int *nnewlpdead,
-				OffsetNumber *off_loc)
-=======
 void
 heap_page_prune_and_freeze(Relation relation, Buffer buffer,
 						   GlobalVisState *vistest,
@@ -384,7 +357,6 @@ heap_page_prune_and_freeze(Relation relation, Buffer buffer,
 						   OffsetNumber *off_loc,
 						   TransactionId *new_relfrozen_xid,
 						   MultiXactId *new_relmin_mxid)
->>>>>>> REL_18_BETA1_branch
 {
 	Page		page = BufferGetPage(buffer);
 	BlockNumber blockno = BufferGetBlockNumber(buffer);
@@ -416,22 +388,10 @@ heap_page_prune_and_freeze(Relation relation, Buffer buffer,
 	 * initialize the rest of our working state.
 	 */
 	prstate.new_prune_xid = InvalidTransactionId;
-<<<<<<< HEAD
-	prstate.rel = relation;
-	prstate.oldest_xmin = oldest_xmin;
-	prstate.vistest = vistest;
-	prstate.old_snap_xmin = old_snap_xmin;
-	prstate.old_snap_ts = old_snap_ts;
-	prstate.old_snap_used = false;
-	prstate.snapshotConflictHorizon = InvalidTransactionId;
-	prstate.nredirected = prstate.ndead = prstate.nunused = 0;
-	memset(prstate.marked, 0, sizeof(prstate.marked));
-=======
 	prstate.latest_xid_removed = InvalidTransactionId;
 	prstate.nredirected = prstate.ndead = prstate.nunused = prstate.nfrozen = 0;
 	prstate.nroot_items = 0;
 	prstate.nheaponly_items = 0;
->>>>>>> REL_18_BETA1_branch
 
 	/* initialize page freezing working state */
 	prstate.pagefrz.freeze_required = false;
@@ -977,68 +937,15 @@ heap_prune_satisfies_vacuum(Relation relation,PruneState *prstate, HeapTuple tup
 		return HEAPTUPLE_DEAD;
 
 	/*
-<<<<<<< HEAD
-	 * For VACUUM, we must be sure to prune tuples with xmax older than
-	 * oldest_xmin -- a visibility cutoff determined at the beginning of
-	 * vacuuming the relation. oldest_xmin is used for freezing determination
-	 * and we cannot freeze dead tuples' xmaxes.
-	 */
-	if (TransactionIdIsValid(prstate->oldest_xmin) &&
-		NormalTransactionIdPrecedes(dead_after, prstate->oldest_xmin))
-		return HEAPTUPLE_DEAD;
-
-	/*
-	 * Determine whether or not the tuple is considered dead when compared
-	 * with the provided GlobalVisState. On-access pruning does not provide
-	 * oldest_xmin. And for vacuum, even if the tuple's xmax is not older than
-	 * oldest_xmin, GlobalVisTestIsRemovableXid() could find the row dead if
-	 * the GlobalVisState has been updated since the beginning of vacuuming
-=======
 	 * Determine whether or not the tuple is considered dead when compared
 	 * with the provided GlobalVisState. On-access pruning does not provide
 	 * VacuumCutoffs. And for vacuum, even if the tuple's xmax is not older
 	 * than OldestXmin, GlobalVisTestIsRemovableXid() could find the row dead
 	 * if the GlobalVisState has been updated since the beginning of vacuuming
->>>>>>> REL_18_BETA1_branch
 	 * the relation.
 	 */
 	if (GlobalVisTestIsRemovableXid(prstate->vistest, dead_after))
 		return HEAPTUPLE_DEAD;
-<<<<<<< HEAD
-
-	/*
-	 * If GlobalVisTestIsRemovableXid() is not sufficient to find the row dead
-	 * and old_snapshot_threshold is enabled, try to use the lowered horizon.
-	 */
-	if (OldSnapshotThresholdActive())
-	{
-		/* haven't determined limited horizon yet, requests */
-		if (!TransactionIdIsValid(prstate->old_snap_xmin))
-		{
-			TransactionId horizon =
-				GlobalVisTestNonRemovableHorizon(prstate->vistest);
-
-			TransactionIdLimitedForOldSnapshots(horizon, prstate->rel,
-												&prstate->old_snap_xmin,
-												&prstate->old_snap_ts);
-		}
-
-		if (TransactionIdIsValid(prstate->old_snap_xmin) &&
-			TransactionIdPrecedes(dead_after, prstate->old_snap_xmin))
-		{
-			/*
-			 * About to remove row based on snapshot_too_old. Need to raise
-			 * the threshold so problematic accesses would error.
-			 */
-			Assert(!prstate->old_snap_used);
-			SetOldSnapshotThresholdTimestamp(prstate->old_snap_ts,
-											 prstate->old_snap_xmin);
-			prstate->old_snap_used = true;
-			res = HEAPTUPLE_DEAD;
-		}
-	}
-=======
->>>>>>> REL_18_BETA1_branch
 
 	return res;
 }

@@ -628,7 +628,6 @@ heapam_relation_set_new_filelocator(Relation rel,
 	if (persistence == RELPERSISTENCE_UNLOGGED)
 	{
 		Assert(rel->rd_rel->relkind == RELKIND_RELATION ||
-<<<<<<< HEAD
 			   rel->rd_rel->relkind == RELKIND_MATVIEW ||
 			   rel->rd_rel->relkind == RELKIND_DIRECTORY_TABLE ||
 			   rel->rd_rel->relkind == RELKIND_TOASTVALUE ||
@@ -638,11 +637,6 @@ heapam_relation_set_new_filelocator(Relation rel,
 		smgrcreate(srel, INIT_FORKNUM, false);
 		log_smgrcreate(newrlocator, INIT_FORKNUM, SMGR_MD);
 		smgrimmedsync(srel, INIT_FORKNUM);
-=======
-			   rel->rd_rel->relkind == RELKIND_TOASTVALUE);
-		smgrcreate(srel, INIT_FORKNUM, false);
-		log_smgrcreate(newrlocator, INIT_FORKNUM);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	smgrclose(srel);
@@ -659,11 +653,6 @@ heapam_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 {
 	SMgrRelation dstrel;
 
-<<<<<<< HEAD
-	dstrel = smgropen(*newrlocator, rel->rd_backend, SMGR_MD, rel);
-
-=======
->>>>>>> REL_18_BETA1_branch
 	/*
 	 * Since we copy the file directly without looking at the shared buffers,
 	 * we'd better first flush out any pages of the source relation that are
@@ -679,11 +668,7 @@ heapam_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 	 * NOTE: any conflict in relfilenumber value will be caught in
 	 * RelationCreateStorage().
 	 */
-<<<<<<< HEAD
-	RelationCreateStorage(*newrlocator, rel->rd_rel->relpersistence, true, SMGR_MD, rel);
-=======
-	dstrel = RelationCreateStorage(*newrlocator, rel->rd_rel->relpersistence, true);
->>>>>>> REL_18_BETA1_branch
+	dstrel = RelationCreateStorage(*newrlocator, rel->rd_rel->relpersistence, true, SMGR_MD, rel);
 
 	/* copy main fork */
 	RelationCopyStorage(RelationGetSmgr(rel), dstrel, MAIN_FORKNUM,
@@ -2196,124 +2181,6 @@ heapam_estimate_rel_size(Relation rel, int32 *attr_widths,
  */
 
 static bool
-<<<<<<< HEAD
-heapam_scan_bitmap_next_block(TableScanDesc scan,
-							  TBMIterateResult *tbmres)
-{
-	HeapScanDesc hscan = (HeapScanDesc) scan;
-	BlockNumber block = tbmres->blockno;
-	Buffer		buffer;
-	Snapshot	snapshot;
-	int			ntup;
-
-	hscan->rs_cindex = 0;
-	hscan->rs_ntuples = 0;
-
-	/*
-	 * Ignore any claimed entries past what we think is the end of the
-	 * relation. It may have been extended after the start of our scan (we
-	 * only hold an AccessShareLock, and it could be inserts from this
-	 * backend).  We don't take this optimization in SERIALIZABLE isolation
-	 * though, as we need to examine all invisible tuples reachable by the
-	 * index.
-	 */
-	if (!IsolationIsSerializable() && block >= hscan->rs_nblocks)
-		return false;
-
-	/*
-	 * Acquire pin on the target heap page, trading in any pin we held before.
-	 */
-	hscan->rs_cbuf = ReleaseAndReadBuffer(hscan->rs_cbuf,
-										  scan->rs_rd,
-										  block);
-	hscan->rs_cblock = block;
-	buffer = hscan->rs_cbuf;
-	snapshot = scan->rs_snapshot;
-
-	ntup = 0;
-
-	/*
-	 * Prune and repair fragmentation for the whole page, if possible.
-	 */
-	heap_page_prune_opt(scan->rs_rd, buffer);
-
-	/*
-	 * We must hold share lock on the buffer content while examining tuple
-	 * visibility.  Afterwards, however, the tuples we have found to be
-	 * visible are guaranteed good as long as we hold the buffer pin.
-	 */
-	LockBuffer(buffer, BUFFER_LOCK_SHARE);
-
-	/*
-	 * We need two separate strategies for lossy and non-lossy cases.
-	 */
-	if (tbmres->ntuples >= 0)
-	{
-		/*
-		 * Bitmap is non-lossy, so we just look through the offsets listed in
-		 * tbmres; but we have to follow any HOT chain starting at each such
-		 * offset.
-		 */
-		int			curslot;
-
-		for (curslot = 0; curslot < tbmres->ntuples; curslot++)
-		{
-			OffsetNumber offnum = tbmres->offsets[curslot];
-			ItemPointerData tid;
-			HeapTupleData heapTuple;
-
-			ItemPointerSet(&tid, block, offnum);
-			if (heap_hot_search_buffer(&tid, scan->rs_rd, buffer, snapshot,
-									   &heapTuple, NULL, true))
-				hscan->rs_vistuples[ntup++] = ItemPointerGetOffsetNumber(&tid);
-		}
-	}
-	else
-	{
-		/*
-		 * Bitmap is lossy, so we must examine each line pointer on the page.
-		 * But we can ignore HOT chains, since we'll check each tuple anyway.
-		 */
-		Page		page = BufferGetPage(buffer);
-		OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
-		OffsetNumber offnum;
-
-		for (offnum = FirstOffsetNumber; offnum <= maxoff; offnum = OffsetNumberNext(offnum))
-		{
-			ItemId		lp;
-			HeapTupleData loctup;
-			bool		valid;
-
-			lp = PageGetItemId(page, offnum);
-			if (!ItemIdIsNormal(lp))
-				continue;
-			loctup.t_data = (HeapTupleHeader) PageGetItem(page, lp);
-			loctup.t_len = ItemIdGetLength(lp);
-			loctup.t_tableOid = scan->rs_rd->rd_id;
-			ItemPointerSet(&loctup.t_self, block, offnum);
-			valid = HeapTupleSatisfiesVisibility(scan->rs_rd, &loctup, snapshot, buffer);
-			if (valid)
-			{
-				hscan->rs_vistuples[ntup++] = offnum;
-				PredicateLockTID(scan->rs_rd, &loctup.t_self, snapshot,
-								 HeapTupleHeaderGetXmin(loctup.t_data));
-			}
-			HeapCheckForSerializableConflictOut(valid, scan->rs_rd, &loctup,
-												buffer, snapshot);
-		}
-	}
-
-	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
-
-	Assert(ntup <= MaxHeapTuplesPerPage);
-	hscan->rs_ntuples = ntup;
-
-	return ntup > 0;
-}
-
-static bool
-=======
->>>>>>> REL_18_BETA1_branch
 heapam_scan_bitmap_next_tuple(TableScanDesc scan,
 							  TupleTableSlot *slot,
 							  bool *recheck,
@@ -2647,7 +2514,6 @@ SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
 }
 
 /*
-<<<<<<< HEAD
  * Parse options for heaps, views and toast tables.
  */
 static bytea *
@@ -2677,7 +2543,7 @@ heapam_amoptions(Datum reloptions, char relkind, bool validate)
 	}
 }
 
-=======
+/*
  * Helper function get the next block of a bitmap heap scan. Returns true when
  * it got the next block and saved it in the scan descriptor and false when
  * the bitmap and or relation are exhausted.
@@ -2833,7 +2699,6 @@ BitmapHeapScanNextBlock(TableScanDesc scan,
 	 */
 	return true;
 }
->>>>>>> REL_18_BETA1_branch
 
 /* ------------------------------------------------------------------------
  * Definition of the heap table access method.
