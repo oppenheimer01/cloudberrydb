@@ -23,11 +23,8 @@
 #include "catalog/pg_constraint.h"
 #include "catalog/pg_depend.h"
 #include "catalog/pg_extension.h"
-<<<<<<< HEAD
-#include "catalog/pg_type.h"
-=======
 #include "catalog/partition.h"
->>>>>>> REL_18_BETA1_branch
+#include "catalog/pg_type.h"
 #include "commands/extension.h"
 #include "miscadmin.h"
 #include "utils/fmgroids.h"

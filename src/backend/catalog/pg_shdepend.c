@@ -1667,77 +1667,6 @@ shdepReassignOwned(List *roleids, Oid newrole)
 				case SHARED_DEPENDENCY_TABLESPACE:
 					/* Nothing to do for these entry types */
 					break;
-<<<<<<< HEAD
-
-				case DefaultAclRelationId:
-
-					/*
-					 * Ignore default ACLs; they should be handled by DROP
-					 * OWNED, not REASSIGN OWNED.
-					 */
-					break;
-
-				case UserMappingRelationId:
-					/* ditto */
-					break;
-
-				case ForeignServerRelationId:
-					AlterForeignServerOwner_oid(sdepForm->objid, newrole);
-					break;
-
-				case ForeignDataWrapperRelationId:
-					AlterForeignDataWrapperOwner_oid(sdepForm->objid, newrole);
-					break;
-
-				case EventTriggerRelationId:
-					AlterEventTriggerOwner_oid(sdepForm->objid, newrole);
-					break;
-
-				case PublicationRelationId:
-					AlterPublicationOwner_oid(sdepForm->objid, newrole);
-					break;
-
-				case SubscriptionRelationId:
-					AlterSubscriptionOwner_oid(sdepForm->objid, newrole);
-					break;
-
-					/* Generic alter owner cases */
-				case CollationRelationId:
-				case ConversionRelationId:
-				case OperatorRelationId:
-				case ProcedureRelationId:
-				case LanguageRelationId:
-				case LargeObjectRelationId:
-				case OperatorFamilyRelationId:
-				case OperatorClassRelationId:
-				case ExtensionRelationId:
-				case StatisticExtRelationId:
-				case TableSpaceRelationId:
-				case DatabaseRelationId:
-				case TSConfigRelationId:
-				case TSDictionaryRelationId:
-					{
-						Oid			classId = sdepForm->classid;
-						Relation	catalog;
-
-						/*
-						 * For large objects, the catalog to modify is
-						 * pg_largeobject_metadata
-						 */
-						if (classId == LargeObjectRelationId)
-							classId = LargeObjectMetadataRelationId;
-
-						catalog = table_open(classId, RowExclusiveLock);
-
-						AlterObjectOwner_internal(catalog, sdepForm->objid,
-												  newrole);
-
-						table_close(catalog, NoLock);
-					}
-					break;
-
-=======
->>>>>>> REL_18_BETA1_branch
 				default:
 					elog(ERROR, "unrecognized dependency type: %d",
 						 (int) sdepForm->deptype);
@@ -1759,7 +1688,6 @@ shdepReassignOwned(List *roleids, Oid newrole)
 }
 
 /*
-<<<<<<< HEAD
  * recordProfileDependency
  *
  * A convenient wrapper of recordSharedDependencyOn -- register the specified
@@ -1841,7 +1769,8 @@ recordTagDependency(Oid classId, Oid objectId, Oid tagId)
 	
 	recordSharedDependencyOn(&myself, &referenced, SHARED_DEPENDENCY_TAG);
 }
-=======
+
+/*
  * shdepReassignOwned_Owner
  *
  * shdepReassignOwned's processing of SHARED_DEPENDENCY_OWNER entries
@@ -1960,4 +1889,3 @@ shdepReassignOwned_InitAcl(Form_pg_shdepend sdepForm, Oid oldrole, Oid newrole)
 						  sdepForm->objid,
 						  sdepForm->objsubid);
 }
->>>>>>> REL_18_BETA1_branch

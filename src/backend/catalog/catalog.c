@@ -247,8 +247,6 @@ IsCatalogRelationOid(Oid relid)
 }
 
 /*
-<<<<<<< HEAD
-=======
  * IsCatalogTextUniqueIndexOid
  *		True iff the relation identified by this OID is a catalog UNIQUE index
  *		having a column of type "text".
@@ -279,7 +277,6 @@ IsCatalogTextUniqueIndexOid(Oid relid)
 }
 
 /*
->>>>>>> REL_18_BETA1_branch
  * IsInplaceUpdateRelation
  *		True iff core code performs inplace updates on the relation.
  *
@@ -954,10 +951,7 @@ RelFileNumber
 GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 {
 	RelFileLocatorBackend rlocator;
-<<<<<<< HEAD
-=======
 	RelPathStr	rpath;
->>>>>>> REL_18_BETA1_branch
 	bool		collides;
 	ProcNumber	procNumber;
 
@@ -1007,16 +1001,7 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 
 		collides = GpCheckRelFileCollision(rlocator);
 
-<<<<<<< HEAD
 		if (!collides && rlocator.locator.spcOid != GLOBALTABLESPACE_OID)
-=======
-		if (access(rpath.str, F_OK) == 0)
-		{
-			/* definite collision */
-			collides = true;
-		}
-		else
->>>>>>> REL_18_BETA1_branch
 		{
 			/*
 			 * GPDB_91_MERGE_FIXME: check again for a collision with a temp

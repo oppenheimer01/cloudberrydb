@@ -3,13 +3,9 @@
  * index.c
  *	  code to create and destroy POSTGRES index relations
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -2831,12 +2827,6 @@ BuildSpeculativeIndexInfo(Relation index, IndexInfo *ii)
 	 */
 	Assert(ii->ii_Unique);
 
-<<<<<<< HEAD
-	if (!IsIndexAccessMethod(index->rd_rel->relam, BTREE_AM_OID))
-		elog(ERROR, "unexpected non-btree speculative unique index");
-
-=======
->>>>>>> REL_18_BETA1_branch
 	ii->ii_UniqueOps = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
 	ii->ii_UniqueProcs = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
 	ii->ii_UniqueStrats = (uint16 *) palloc(sizeof(uint16) * indnkeyatts);
@@ -2972,10 +2962,7 @@ index_update_stats(Relation rel,
 	bool		update_stats;
 	BlockNumber relpages = 0;	/* keep compiler quiet */
 	BlockNumber relallvisible = 0;
-<<<<<<< HEAD
-=======
 	BlockNumber relallfrozen = 0;
->>>>>>> REL_18_BETA1_branch
 	Oid			relid = RelationGetRelid(rel);
 	Relation	pg_class;
 	ScanKeyData key[1];
@@ -2997,9 +2984,6 @@ index_update_stats(Relation rel,
 	if (reltuples == 0 && rel->rd_rel->reltuples < 0)
 		reltuples = -1;
 
-<<<<<<< HEAD
-	update_stats = reltuples >= 0;
-=======
 	/*
 	 * Don't update statistics during binary upgrade, because the indexes are
 	 * created before the data is moved into place.
@@ -3026,7 +3010,6 @@ index_update_stats(Relation rel,
 		else
 			update_stats = false;
 	}
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * Finish I/O and visibility map buffer locks before
@@ -3040,11 +3023,7 @@ index_update_stats(Relation rel,
 		relpages = RelationGetNumberOfBlocks(rel);
 
 		if (rel->rd_rel->relkind != RELKIND_INDEX)
-<<<<<<< HEAD
-			visibilitymap_count(rel, &relallvisible, NULL);
-=======
 			visibilitymap_count(rel, &relallvisible, &relallfrozen);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	/*
@@ -3100,7 +3079,6 @@ index_update_stats(Relation rel,
 		dirty = true;
 	}
 
-<<<<<<< HEAD
 	if (reltuples >= 0 && Gp_role != GP_ROLE_DISPATCH)
 	{
 		/*
@@ -3111,10 +3089,6 @@ index_update_stats(Relation rel,
 		else					/* don't bother for indexes */
 			relallvisible = 0;
 
-=======
-	if (update_stats)
-	{
->>>>>>> REL_18_BETA1_branch
 		if (rd_rel->relpages != (int32) relpages)
 		{
 			rd_rel->relpages = (int32) relpages;
@@ -3143,18 +3117,11 @@ index_update_stats(Relation rel,
 	if (dirty)
 	{
 		systable_inplace_update_finish(state, tuple);
-<<<<<<< HEAD
-		/* the above sends a cache inval message */
-=======
 		/* the above sends transactional and immediate cache inval messages */
->>>>>>> REL_18_BETA1_branch
 	}
 	else
 	{
 		systable_inplace_update_cancel(state);
-<<<<<<< HEAD
-		/* no need to change tuple, but force relcache inval anyway */
-=======
 
 		/*
 		 * While we didn't change relhasindex, CREATE INDEX needs a
@@ -3163,7 +3130,6 @@ index_update_stats(Relation rel,
 		 * this inval, but keep this in case rare callers rely on this part of
 		 * our API contract.
 		 */
->>>>>>> REL_18_BETA1_branch
 		CacheInvalidateRelcacheByTuple(tuple);
 	}
 
@@ -3220,13 +3186,8 @@ index_build(Relation heapRelation,
 	 * parallel index while creating table. In the future, it should be considered
 	 * to introduce parallelism to singlenode mode.
 	 */
-<<<<<<< HEAD
 	if (parallel && !IS_SINGLENODE() && IsNormalProcessingMode() &&
 		IsIndexAccessMethod(indexRelation->rd_rel->relam, BTREE_AM_OID))
-=======
-	if (parallel && IsNormalProcessingMode() &&
-		indexRelation->rd_indam->amcanbuildparallel)
->>>>>>> REL_18_BETA1_branch
 		indexInfo->ii_ParallelWorkers =
 			plan_create_index_workers(RelationGetRelid(heapRelation),
 									  RelationGetRelid(indexRelation));
@@ -3302,11 +3263,7 @@ index_build(Relation heapRelation,
 		!smgrexists(RelationGetSmgr(indexRelation), INIT_FORKNUM))
 	{
 		smgrcreate(RelationGetSmgr(indexRelation), INIT_FORKNUM, false);
-<<<<<<< HEAD
 		log_smgrcreate(&indexRelation->rd_locator, INIT_FORKNUM, SMGR_MD);
-=======
-		log_smgrcreate(&indexRelation->rd_locator, INIT_FORKNUM);
->>>>>>> REL_18_BETA1_branch
 		indexRelation->rd_indam->ambuildempty(indexRelation);
 	}
 
@@ -4230,12 +4187,8 @@ reindex_relation(const ReindexStmt *stmt, Oid relid, int flags,
 	Oid         aovisimap_relid = InvalidOid;
 	List	   *indexIds;
 	char		persistence;
-<<<<<<< HEAD
-	bool		result;
-	bool		relIsAO = false;
-=======
 	bool		result = false;
->>>>>>> REL_18_BETA1_branch
+	bool		relIsAO = false;
 	ListCell   *indexId;
 	int			i;
 
@@ -4384,32 +4337,7 @@ reindex_relation(const ReindexStmt *stmt, Oid relid, int flags,
 	 */
 	table_close(rel, NoLock);
 
-<<<<<<< HEAD
-	result = (indexIds != NIL);
-
-	SIMPLE_FAULT_INJECTOR("reindex_relation");
-
-	/*
-	 * If the relation has a secondary toast rel, reindex that too while we
-	 * still hold the lock on the main table.
-	 */
-	if ((flags & REINDEX_REL_PROCESS_TOAST) && OidIsValid(toast_relid))
-	{
-		/*
-		 * Note that this should fail if the toast relation is missing, so
-		 * reset REINDEXOPT_MISSING_OK.  Even if a new tablespace is set for
-		 * the parent relation, the indexes on its toast table are not moved.
-		 * This rule is enforced by setting tablespaceOid to InvalidOid.
-		 */
-		ReindexParams newparams = *params;
-
-		newparams.options &= ~(REINDEXOPT_MISSING_OK);
-		newparams.tablespaceOid = InvalidOid;
-		result |= reindex_relation(toast_relid, flags, &newparams);
-	}
-=======
 	result |= (indexIds != NIL);
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * If an AO rel has a secondary segment list rel, reindex that too while we

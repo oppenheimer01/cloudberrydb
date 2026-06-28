@@ -23,11 +23,7 @@ standard_targets = all install installdirs uninstall clean distclean coverage ch
 # these targets should recurse even into subdirectories not being built:
 standard_always_targets = clean distclean
 
-<<<<<<< HEAD
-.PHONY: $(standard_targets) install-strip html man installcheck-parallel maintainer-check installcheck-good update-unicode
-=======
-.PHONY: $(standard_targets) maintainer-clean install-strip html man installcheck-parallel update-unicode
->>>>>>> REL_18_BETA1_branch
+.PHONY: $(standard_targets) maintainer-clean install-strip html man installcheck-parallel maintainer-check installcheck-good update-unicode
 
 # make `all' the default target
 all:
@@ -231,7 +227,6 @@ enable_dtrace	= @enable_dtrace@
 enable_coverage	= @enable_coverage@
 enable_injection_points = @enable_injection_points@
 enable_tap_tests	= @enable_tap_tests@
-<<<<<<< HEAD
 enable_thread_safety	= @enable_thread_safety@
 enable_strong_random	= @enable_strong_random@
 enable_largefile	= @enable_largefile@
@@ -250,8 +245,6 @@ enable_ic_proxy     = @enable_ic_proxy@
 enable_ic_udp2      = @enable_ic_udp2@
 enable_pax          = @enable_pax@
 enable_tap_tests = @enable_tap_tests@
-=======
->>>>>>> REL_18_BETA1_branch
 
 python_includespec	= @python_includespec@
 python_libdir		= @python_libdir@
@@ -304,11 +297,7 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 PG_SYSROOT = @PG_SYSROOT@
 
-<<<<<<< HEAD
-override CPPFLAGS := $(ICU_CFLAGS) $(ZSTD_CFLAGS) $(CPPFLAGS)
-=======
-override CPPFLAGS := $(ICU_CFLAGS) $(LIBNUMA_CFLAGS) $(LIBURING_CFLAGS) $(CPPFLAGS)
->>>>>>> REL_18_BETA1_branch
+override CPPFLAGS := $(ICU_CFLAGS) $(LIBNUMA_CFLAGS) $(LIBURING_CFLAGS) $(ZSTD_CFLAGS) $(CPPFLAGS)
 
 ifdef PGXS
 override CPPFLAGS := -I$(includedir_server) -I$(includedir_internal) $(CPPFLAGS)
@@ -701,34 +690,6 @@ endif
 libpq = -L$(libpq_builddir) -lpq
 
 # libpq_pgport is for use by client executables (not libraries) that use libpq.
-<<<<<<< HEAD
-# We want clients to pull symbols from the non-shared libraries libpgport
-# and libpgcommon rather than pulling some libpgport symbols from libpq just
-# because libpq uses those functions too.  This makes applications less
-# dependent on changes in libpq's usage of pgport.  To do this we link to
-# pgport before libpq.  This does cause duplicate -lpgport's to appear
-# on client link lines, since that also appears in $(LIBS).  On platforms
-# where we have symbol export control for libpq, the whole exercise is
-# unnecessary because libpq won't expose any of these symbols.  Currently,
-# only macOS warns about duplicate library references, so we only suppress
-# the duplicates on macOS.
-ifeq ($(PORTNAME),darwin)
-libpq_pgport = $(libpq)
-else ifdef PGXS
-libpq_pgport = -L$(libdir) -lpgcommon -lpgport $(libpq)
-else
-libpq_pgport = -L$(top_builddir)/src/common -lpgcommon -L$(top_builddir)/src/port -lpgport $(libpq)
-endif
-
-# libpq_pgport_shlib is the same idea, but for use in client shared libraries.
-# We need those clients to use the shlib variants.  (Ideally, users of this
-# macro would strip libpgport and libpgcommon from $(LIBS), but no harm is
-# done if they don't, since they will have satisfied all their references
-# from these libraries.)
-ifdef PGXS
-libpq_pgport_shlib = -L$(libdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
-else
-=======
 # We used to use this to force libpgport and libpgcommon to be linked before
 # libpq, ensuring that clients would pull symbols from those libraries rather
 # than possibly getting them from libpq (and thereby having an unwanted
@@ -750,7 +711,6 @@ libpq_pgport = $(libpq)
 ifdef PGXS
 libpq_pgport_shlib = -L$(libdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
 else
->>>>>>> REL_18_BETA1_branch
 libpq_pgport_shlib = -L$(top_builddir)/src/common -lpgcommon_shlib -L$(top_builddir)/src/port -lpgport_shlib $(libpq)
 endif
 
@@ -941,20 +901,10 @@ TAS         = @TAS@
 #
 # Global targets and rules
 
-<<<<<<< HEAD
-#%.c: %.l
-#ifdef FLEX
+
+# %.c: %.l
 #	$(FLEX) $(if $(FLEX_NO_BACKUP),-b) $(FLEXFLAGS) -o'$@' $<
 #	@$(if $(FLEX_NO_BACKUP),if [ `wc -l <lex.backup` -eq 1 ]; then rm lex.backup; else echo "Scanner requires backup; see lex.backup." 1>&2; exit 1; fi)
-#	$(if $(FLEX_FIX_WARNING),$(PERL) $(top_srcdir)/src/tools/fix-old-flex-code.pl '$@')
-#else
-#	@$(missing) flex $< '$@'
-#endif
-=======
-%.c: %.l
-	$(FLEX) $(if $(FLEX_NO_BACKUP),-b) $(FLEXFLAGS) -o'$@' $<
-	@$(if $(FLEX_NO_BACKUP),if [ `wc -l <lex.backup` -eq 1 ]; then rm lex.backup; else echo "Scanner requires backup; see lex.backup." 1>&2; exit 1; fi)
->>>>>>> REL_18_BETA1_branch
 
 %.c: %.y
 	$(if $(BISON_CHECK_CMD),$(BISON_CHECK_CMD))

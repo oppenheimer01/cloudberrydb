@@ -645,7 +645,6 @@ LANGUAGE internal
 STRICT IMMUTABLE PARALLEL SAFE
 AS 'unicode_is_normalized';
 
-<<<<<<< HEAD
 
 create or replace function brin_summarize_new_values(t regclass) returns setof bigint as
 $$
@@ -661,7 +660,6 @@ $$
 $$
 LANGUAGE SQL READS SQL DATA EXECUTE ON COORDINATOR;
 
-=======
 CREATE OR REPLACE FUNCTION
   pg_stat_reset_shared(target text DEFAULT NULL)
 RETURNS void
@@ -675,7 +673,6 @@ RETURNS void
 LANGUAGE INTERNAL
 CALLED ON NULL INPUT VOLATILE PARALLEL SAFE
 AS 'pg_stat_reset_slru';
->>>>>>> REL_18_BETA1_branch
 
 --
 -- The default permissions for functions mean that anyone can execute them.

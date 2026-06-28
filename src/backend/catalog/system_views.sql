@@ -1,13 +1,9 @@
 /*
  * PostgreSQL System Views
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2010, Greenplum inc.
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  *
  * src/backend/catalog/system_views.sql
  *
@@ -1546,29 +1542,15 @@ RETURNS TABLE (
 AS
 $$
     SELECT
-<<<<<<< HEAD
-        pg_stat_get_bgwriter_timed_checkpoints(),
-        pg_stat_get_bgwriter_requested_checkpoints(),
-        pg_stat_get_checkpoint_write_time(),
-        pg_stat_get_checkpoint_sync_time(),
-        pg_stat_get_bgwriter_buf_written_checkpoints(),
-        pg_stat_get_bgwriter_buf_written_clean(),
-        pg_stat_get_bgwriter_maxwritten_clean(),
-        pg_stat_get_buf_written_backend(),
-        pg_stat_get_buf_fsync_backend(),
-        pg_stat_get_buf_alloc(),
-        pg_stat_get_bgwriter_stat_reset_time();
+        pg_stat_get_bgwriter_buf_written_clean() AS buffers_clean,
+        pg_stat_get_bgwriter_maxwritten_clean() AS maxwritten_clean,
+        pg_stat_get_buf_alloc() AS buffers_alloc,
+        pg_stat_get_bgwriter_stat_reset_time() AS stats_reset;
 $$
 LANGUAGE SQL;
 
 CREATE VIEW pg_stat_bgwriter AS
     SELECT * FROM pg_stat_bgwriter_func();
-=======
-        pg_stat_get_bgwriter_buf_written_clean() AS buffers_clean,
-        pg_stat_get_bgwriter_maxwritten_clean() AS maxwritten_clean,
-        pg_stat_get_buf_alloc() AS buffers_alloc,
-        pg_stat_get_bgwriter_stat_reset_time() AS stats_reset;
->>>>>>> REL_18_BETA1_branch
 
 CREATE VIEW pg_stat_checkpointer AS
     SELECT
@@ -1824,6 +1806,13 @@ SELECT
     s.subname,
     ss.apply_error_count,
     ss.sync_error_count,
+    ss.confl_insert_exists,
+    ss.confl_update_origin_differs,
+    ss.confl_update_exists,
+    ss.confl_update_missing,
+    ss.confl_delete_origin_differs,
+    ss.confl_delete_missing,
+    ss.confl_multiple_unique_conflicts,
     ss.stats_reset
 FROM pg_subscription as s,
      pg_stat_get_subscription_stats(s.oid) as ss;
@@ -1860,7 +1849,6 @@ CREATE VIEW pg_catalog.gp_session_endpoints AS
 -- CBDB: views for tag
 CREATE VIEW database_tag_descriptions AS
     SELECT
-<<<<<<< HEAD
         tddatabaseid,
         datname,
         tagname,
@@ -2010,21 +1998,6 @@ $$
     )
     from gp_dist_random('gp_id');
 $$ LANGUAGE SQL;
-=======
-        ss.subid,
-        s.subname,
-        ss.apply_error_count,
-        ss.sync_error_count,
-        ss.confl_insert_exists,
-        ss.confl_update_origin_differs,
-        ss.confl_update_exists,
-        ss.confl_update_missing,
-        ss.confl_delete_origin_differs,
-        ss.confl_delete_missing,
-        ss.confl_multiple_unique_conflicts,
-        ss.stats_reset
-    FROM pg_subscription as s,
-         pg_stat_get_subscription_stats(s.oid) as ss;
 
 CREATE VIEW pg_wait_events AS
     SELECT * FROM pg_get_wait_events();

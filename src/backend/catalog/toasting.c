@@ -32,12 +32,6 @@
 #include "catalog/toasting.h"
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
-<<<<<<< HEAD
-#include "storage/lmgr.h"
-#include "storage/lock.h"
-#include "utils/builtins.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "utils/fmgroids.h"
 #include "utils/rel.h"
 #include "utils/syscache.h"

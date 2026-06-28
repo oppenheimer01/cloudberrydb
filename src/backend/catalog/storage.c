@@ -62,18 +62,6 @@ int			wal_skip_threshold = 2048;	/* in kilobytes */
  * but I'm being paranoid.
  */
 
-<<<<<<< HEAD
-=======
-typedef struct PendingRelDelete
-{
-	RelFileLocator rlocator;	/* relation that may need to be deleted */
-	ProcNumber	procNumber;		/* INVALID_PROC_NUMBER if not a temp rel */
-	bool		atCommit;		/* T=delete at commit; F=delete at abort */
-	int			nestLevel;		/* xact nesting level of request */
-	struct PendingRelDelete *next;	/* linked-list link */
-} PendingRelDelete;
-
->>>>>>> REL_18_BETA1_branch
 typedef struct PendingRelSync
 {
 	RelFileLocator rlocator;
@@ -184,11 +172,7 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 			return NULL;		/* placate compiler */
 	}
 
-<<<<<<< HEAD
-	srel = smgropen(rlocator, backend, smgr_which, rel);
-=======
-	srel = smgropen(rlocator, procNumber);
->>>>>>> REL_18_BETA1_branch
+	srel = smgropen(rlocator, procNumber, smgr_which, rel);
 	smgrcreate(srel, MAIN_FORKNUM, false);
 
 	if (needs_wal)
@@ -204,14 +188,9 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 
 		pending = (PendingRelDelete *)
 			MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
-<<<<<<< HEAD
 		pending->rlocator.node = rlocator;
-		pending->rlocator.isTempRelation = backend == TempRelBackendId;
-		pending->backend = backend;
-=======
-		pending->rlocator = rlocator;
+		pending->rlocator.isTempRelation = procNumber == TempRelBackendId;
 		pending->procNumber = procNumber;
->>>>>>> REL_18_BETA1_branch
 		pending->atCommit = false;	/* delete if abort */
 		pending->nestLevel = GetCurrentTransactionNestLevel();
 		pending->rlocator.smgr_which = smgr_which;
@@ -260,14 +239,9 @@ RelationDropStorage(Relation rel)
 	/* Add the relation to the list of stuff to delete at commit */
 	pending = (PendingRelDelete *)
 		MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
-<<<<<<< HEAD
 	pending->rlocator.node = rel->rd_locator;
-	pending->backend = rel->rd_backend;
 	pending->rlocator.isTempRelation = rel->rd_backend == TempRelBackendId;
-=======
-	pending->rlocator = rel->rd_locator;
 	pending->procNumber = rel->rd_backend;
->>>>>>> REL_18_BETA1_branch
 	pending->atCommit = true;	/* delete if commit */
 	pending->nestLevel = GetCurrentTransactionNestLevel();
 	pending->rlocator.smgr_which = smgr_get_impl(rel);
@@ -443,11 +417,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * replay or visibility invariants downstream.  The critical section also
 	 * suppresses interrupts.
 	 *
-<<<<<<< HEAD
-	 * (See also pg_visibilitymap.c if changing this code.)
-=======
 	 * (See also visibilitymap.c if changing this code.)
->>>>>>> REL_18_BETA1_branch
 	 */
 	START_CRIT_SECTION();
 
@@ -485,11 +455,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * longer exist after truncation is complete, and then truncate the
 	 * corresponding files on disk.
 	 */
-<<<<<<< HEAD
-	smgrtruncate2(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
-=======
 	smgrtruncate(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
->>>>>>> REL_18_BETA1_branch
 
 	END_CRIT_SECTION();
 
@@ -588,17 +554,6 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 		buf = smgr_bulk_get_buf(bulkstate);
 		smgrread(src, forkNum, blkno, (Page) buf);
 
-<<<<<<< HEAD
-		if (!PageIsVerifiedExtended(page, forkNum,
-									blkno, PIV_LOG_WARNING | PIV_REPORT_STAT))
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_CORRUPTED),
-					 errmsg("invalid page in block %u of relation %s",
-							blkno,
-							relpathbackend(src->smgr_rlocator.locator,
-										   src->smgr_rlocator.backend,
-										   forkNum))));
-=======
 		piv_flags = PIV_LOG_WARNING;
 		if (ignore_checksum_failure)
 			piv_flags |= PIV_IGNORE_CHECKSUM_FAILURE;
@@ -631,29 +586,14 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 							blkno, relpath.str)));
 		}
 
->>>>>>> REL_18_BETA1_branch
 		/*
 		 * Queue the page for WAL-logging and writing out.  Unfortunately we
 		 * don't know what kind of a page this is, so we have to log the full
 		 * page including any unused space.
 		 */
-<<<<<<< HEAD
-		if (use_wal)
-			log_newpage(&dst->smgr_rlocator.locator, forkNum, blkno, page, false);
-
-		PageEncryptInplace(page, forkNum,
-						   blkno);
-		PageSetChecksumInplace(page, blkno);
-
-		/*
-		 * Now write the page.  We say skipFsync = true because there's no
-		 * need for smgr to schedule an fsync for this write; we'll do it
-		 * ourselves below.
-		 */
-		smgrextend(dst, forkNum, blkno, buf.data, true);
-=======
+		PageEncryptInplace(buf->data, forkNum,
+			blkno);
 		smgr_bulk_write(bulkstate, blkno, buf, false);
->>>>>>> REL_18_BETA1_branch
 	}
 	smgr_bulk_finish(bulkstate);
 }
@@ -805,29 +745,9 @@ smgrDoPendingDeletes(bool isCommit)
 			/* do deletion if called for */
 			if (pending->atCommit == isCommit)
 			{
-<<<<<<< HEAD
 				Assert(pending->action);
 				Assert(pending->action->do_pending_rel_delete);
 				pending->action->do_pending_rel_delete(pending);
-=======
-				SMgrRelation srel;
-
-				srel = smgropen(pending->rlocator, pending->procNumber);
-
-				/* allocate the initial array, or extend it, if needed */
-				if (maxrels == 0)
-				{
-					maxrels = 8;
-					srels = palloc(sizeof(SMgrRelation) * maxrels);
-				}
-				else if (maxrels <= nrels)
-				{
-					maxrels *= 2;
-					srels = repalloc(srels, sizeof(SMgrRelation) * maxrels);
-				}
-
-				srels[nrels++] = srel;
->>>>>>> REL_18_BETA1_branch
 			}
 
 			/* must explicitly free the list entry */
@@ -892,11 +812,7 @@ smgrDoPendingSyncs(bool isCommit, bool isParallelWorker)
 		uint64		total_blocks = 0;
 		SMgrRelation srel;
 
-<<<<<<< HEAD
-		srel = smgropen(pendingsync->rlocator, InvalidBackendId, SMGR_MD, NULL);
-=======
-		srel = smgropen(pendingsync->rlocator, INVALID_PROC_NUMBER);
->>>>>>> REL_18_BETA1_branch
+		srel = smgropen(pendingsync->rlocator, INVALID_PROC_NUMBER, SMGR_MD, NULL);
 
 		/*
 		 * We emit newpage WAL records for smaller relations.
@@ -1029,16 +945,12 @@ smgrGetPendingDeletes(bool forCommit, RelFileNodePendingDelete **ptr)
 		}
 
 		if (pending->nestLevel >= nestLevel && pending->atCommit == forCommit
-<<<<<<< HEAD
 			/*
 			 * Cloudberry allows transactions that access temporary tables to be
 			 * prepared.
 			 */
-			/* && pending->relnode.backend == InvalidBackendId) */
+			/* && pending->relnode.procNumber == INVALID_PROC_NUMBER) */
 				)
-=======
-			&& pending->procNumber == INVALID_PROC_NUMBER)
->>>>>>> REL_18_BETA1_branch
 			nrels++;
 	}
 	if (nrels == 0)
@@ -1057,15 +969,11 @@ smgrGetPendingDeletes(bool forCommit, RelFileNodePendingDelete **ptr)
 		}
 
 		if (pending->nestLevel >= nestLevel && pending->atCommit == forCommit
-<<<<<<< HEAD
 			/*
 			 * Keep this loop condition identical to above
 			 */
-			/* && pending->relnode.backend == InvalidBackendId) */
+			/* && pending->relnode.procNumber == INVALID_PROC_NUMBER) */
 				)
-=======
-			&& pending->procNumber == INVALID_PROC_NUMBER)
->>>>>>> REL_18_BETA1_branch
 		{
 			*rptr = pending->rlocator;
 			rptr++;
@@ -1159,11 +1067,7 @@ smgr_redo(XLogReaderState *record)
 		xl_smgr_create *xlrec = (xl_smgr_create *) XLogRecGetData(record);
 		SMgrRelation reln;
 
-<<<<<<< HEAD
-		reln = smgropen(xlrec->rlocator, InvalidBackendId, xlrec->impl, NULL);
-=======
-		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER);
->>>>>>> REL_18_BETA1_branch
+		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER, xlrec->impl, NULL);
 		smgrcreate(reln, xlrec->forkNum, true);
 	}
 	else if (info == XLOG_SMGR_TRUNCATE)
@@ -1177,16 +1081,12 @@ smgr_redo(XLogReaderState *record)
 		int			nforks = 0;
 		bool		need_fsm_vacuum = false;
 
-<<<<<<< HEAD
 		/*
 		 * AO-specific implementation of SMGR is not needed because truncate
 		 * for AO takes a different code path, it does not involve emitting
 		 * SMGR_TRUNCATE WAL record.
 		 */
-		reln = smgropen(xlrec->rlocator, InvalidBackendId, SMGR_MD, NULL);
-=======
-		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER);
->>>>>>> REL_18_BETA1_branch
+		reln = smgropen(xlrec->rlocator, INVALID_PROC_NUMBER, SMGR_MD, NULL);
 
 		/*
 		 * Forcibly create relation if it doesn't exist (which suggests that
@@ -1256,11 +1156,7 @@ smgr_redo(XLogReaderState *record)
 		if (nforks > 0)
 		{
 			START_CRIT_SECTION();
-<<<<<<< HEAD
-			smgrtruncate2(reln, forks, nforks, old_blocks, blocks);
-=======
 			smgrtruncate(reln, forks, nforks, old_blocks, blocks);
->>>>>>> REL_18_BETA1_branch
 			END_CRIT_SECTION();
 		}
 

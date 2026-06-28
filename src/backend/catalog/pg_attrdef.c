@@ -34,15 +34,7 @@
  */
 Oid
 StoreAttrDefault(Relation rel, AttrNumber attnum,
-<<<<<<< HEAD
-				 Node *expr,
-				 bool *cookedMissingVal,
-				 Datum *missingval_p,
-				 bool *missingIsNull_p,
-				 bool is_internal, bool add_column_mode)
-=======
 				 Node *expr, bool is_internal)
->>>>>>> REL_18_BETA1_branch
 {
 	char	   *adbin;
 	Relation	adrel;
@@ -113,77 +105,8 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 	atttup = heap_modify_tuple(atttup, RelationGetDescr(attrrel),
 							   valuesAtt, nullsAtt, replacesAtt);
 
-<<<<<<< HEAD
-		/*
-		 * Note: this code is dead so far as core Postgres is concerned,
-		 * because no caller passes add_column_mode = true anymore.  We keep
-		 * it in back branches on the slight chance that some extension is
-		 * depending on it.
-		 */
-		if ((rel->rd_rel->relkind == RELKIND_RELATION || rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE) &&
-			add_column_mode && !attgenerated && cookedMissingVal && *cookedMissingVal)
-		{
-			missingval = *missingval_p;
-			missingIsNull = *missingIsNull_p;
-		}
-		else if ((rel->rd_rel->relkind == RELKIND_RELATION || rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE) &&
-			add_column_mode && !attgenerated)
-		{
-			expr2 = expression_planner(expr2);
-			estate = CreateExecutorState();
-			exprState = ExecPrepareExpr(expr2, estate);
-			econtext = GetPerTupleExprContext(estate);
-
-			missingval = ExecEvalExpr(exprState, econtext,
-									  &missingIsNull);
-
-			FreeExecutorState(estate);
-
-			defAttStruct = TupleDescAttr(rel->rd_att, attnum - 1);
-
-			if (missingIsNull)
-			{
-				/* if the default evaluates to NULL, just store a NULL array */
-				missingval = (Datum) 0;
-			}
-			else
-			{
-				/* otherwise make a one-element array of the value */
-				missingval = PointerGetDatum(construct_array(&missingval,
-															 1,
-															 defAttStruct->atttypid,
-															 defAttStruct->attlen,
-															 defAttStruct->attbyval,
-															 defAttStruct->attalign));
-			}
-
-
-		}
-		if (add_column_mode && !attgenerated)
-		{
-			valuesAtt[Anum_pg_attribute_atthasmissing - 1] = !missingIsNull;
-			replacesAtt[Anum_pg_attribute_atthasmissing - 1] = true;
-			valuesAtt[Anum_pg_attribute_attmissingval - 1] = missingval;
-			replacesAtt[Anum_pg_attribute_attmissingval - 1] = true;
-			nullsAtt[Anum_pg_attribute_attmissingval - 1] = missingIsNull;
-
-			*cookedMissingVal = true;
-			*missingval_p = missingval;
-			*missingIsNull_p = missingIsNull;
-		}
-		atttup = heap_modify_tuple(atttup, RelationGetDescr(attrrel),
-								   valuesAtt, nullsAtt, replacesAtt);
-
-		CatalogTupleUpdate(attrrel, &atttup->t_self, atttup);
-
-		/* GPDB: don't free it, it's returned to the caller */
-//		if (!missingIsNull)
-//			pfree(DatumGetPointer(missingval));
-	}
-=======
 	CatalogTupleUpdate(attrrel, &atttup->t_self, atttup);
 
->>>>>>> REL_18_BETA1_branch
 	table_close(attrrel, RowExclusiveLock);
 	heap_freetuple(atttup);
 

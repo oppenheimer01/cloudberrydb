@@ -166,75 +166,6 @@ typedef struct
 	List	   *rtables;		/* list of rangetables to resolve Vars */
 } find_expr_references_context;
 
-<<<<<<< HEAD
-/*
- * This constant table maps ObjectClasses to the corresponding catalog OIDs.
- * See also getObjectClass().
- */
-static const Oid object_classes[] = {
-	RelationRelationId,			/* OCLASS_CLASS */
-	ProcedureRelationId,		/* OCLASS_PROC */
-	TypeRelationId,				/* OCLASS_TYPE */
-	CastRelationId,				/* OCLASS_CAST */
-	CollationRelationId,		/* OCLASS_COLLATION */
-	ConstraintRelationId,		/* OCLASS_CONSTRAINT */
-	ConversionRelationId,		/* OCLASS_CONVERSION */
-	AttrDefaultRelationId,		/* OCLASS_DEFAULT */
-	LanguageRelationId,			/* OCLASS_LANGUAGE */
-	LargeObjectRelationId,		/* OCLASS_LARGEOBJECT */
-	OperatorRelationId,			/* OCLASS_OPERATOR */
-	OperatorClassRelationId,	/* OCLASS_OPCLASS */
-	OperatorFamilyRelationId,	/* OCLASS_OPFAMILY */
-	AccessMethodRelationId,		/* OCLASS_AM */
-	AccessMethodOperatorRelationId, /* OCLASS_AMOP */
-	AccessMethodProcedureRelationId,	/* OCLASS_AMPROC */
-	RewriteRelationId,			/* OCLASS_REWRITE */
-	TriggerRelationId,			/* OCLASS_TRIGGER */
-	NamespaceRelationId,		/* OCLASS_SCHEMA */
-	StatisticExtRelationId,		/* OCLASS_STATISTIC_EXT */
-	TSParserRelationId,			/* OCLASS_TSPARSER */
-	TSDictionaryRelationId,		/* OCLASS_TSDICT */
-	TSTemplateRelationId,		/* OCLASS_TSTEMPLATE */
-	TSConfigRelationId,			/* OCLASS_TSCONFIG */
-	AuthIdRelationId,			/* OCLASS_ROLE */
-	AuthMemRelationId,			/* OCLASS_ROLE_MEMBERSHIP */
-	DatabaseRelationId,			/* OCLASS_DATABASE */
-	TableSpaceRelationId,		/* OCLASS_TBLSPACE */
-	ForeignDataWrapperRelationId,	/* OCLASS_FDW */
-	ForeignServerRelationId,	/* OCLASS_FOREIGN_SERVER */
-	UserMappingRelationId,		/* OCLASS_USER_MAPPING */
-	DefaultAclRelationId,		/* OCLASS_DEFACL */
-	ExtensionRelationId,		/* OCLASS_EXTENSION */
-	EventTriggerRelationId,		/* OCLASS_EVENT_TRIGGER */
-	ParameterAclRelationId,		/* OCLASS_PARAMETER_ACL */
-	PolicyRelationId,			/* OCLASS_POLICY */
-	PublicationNamespaceRelationId, /* OCLASS_PUBLICATION_NAMESPACE */
-	PublicationRelationId,		/* OCLASS_PUBLICATION */
-	PublicationRelRelationId,	/* OCLASS_PUBLICATION_REL */
-	SubscriptionRelationId,		/* OCLASS_SUBSCRIPTION */
-	TransformRelationId,		/* OCLASS_TRANSFORM */
-
-	/* GPDB additions */
-	ProfileRelationId,		/* OCLASS_PROFILE */
-	PasswordHistoryRelationId,	/* OCLASS_PASSWORDHISTORY */
-	DirectoryTableRelationId,	/* OCLASS_DIRECTORY_TABLE */
-	StorageServerRelationId,	/* OCLASS_STORAGE_SERVER */
-	StorageUserMappingRelationId,	/* OCLASS_STORAGE_USER_MAPPING */
-	TagRelationId,				/* OCLASS_TAG */
-	TagDescriptionRelationId,	/* OCLASS_TAG_DESCRIPTION */
-	ExtprotocolRelationId,		/* OCLASS_EXTPROTOCOL */
-	GpMatviewAuxId,				/* OCLASS_MATVIEW_AUX */
-	TaskRelationId,				/* OCLASS_TASK */
-};
-
-/*
- * Make sure object_classes is kept up to date with the ObjectClass enum.
- */
-StaticAssertDecl(lengthof(object_classes) == LAST_OCLASS + 1,
-				 "object_classes[] must cover all ObjectClasses");
-
-=======
->>>>>>> REL_18_BETA1_branch
 
 static void findDependentObjects(const ObjectAddress *object,
 								 int objflags,
@@ -1598,46 +1529,6 @@ doDeletion(const ObjectAddress *object, int flags)
 		case PublicationRelationId:
 			RemovePublicationById(object->objectId);
 			break;
-
-<<<<<<< HEAD
-		case OCLASS_SCHEMA:
-			RemoveSchemaById(object->objectId);
-			/*
-			 * Delete tag description.
-			 */
-			DeleteTagDescriptions(MyDatabaseId,
-								  object->classId,
-								  object->objectId);
-			break;
-		case OCLASS_TASK:
-			RemoveTaskById(object->objectId);
-			break;
-
-		case OCLASS_MATVIEW_AUX:
-			RemoveMatviewAuxEntry(object->objectId);
-			break;
-
-		case OCLASS_CAST:
-		case OCLASS_COLLATION:
-		case OCLASS_CONVERSION:
-		case OCLASS_LANGUAGE:
-		case OCLASS_OPCLASS:
-		case OCLASS_OPFAMILY:
-		case OCLASS_AM:
-		case OCLASS_AMOP:
-		case OCLASS_AMPROC:
-		case OCLASS_TSPARSER:
-		case OCLASS_TSDICT:
-		case OCLASS_TSTEMPLATE:
-		case OCLASS_FDW:
-		case OCLASS_FOREIGN_SERVER:
-		case OCLASS_USER_MAPPING:
-		case OCLASS_DEFACL:
-		case OCLASS_EVENT_TRIGGER:
-		case OCLASS_EXTPROTOCOL:
-		case OCLASS_TRANSFORM:
-		case OCLASS_ROLE_MEMBERSHIP:
-=======
 		case CastRelationId:
 		case CollationRelationId:
 		case ConversionRelationId:
@@ -1658,37 +1549,29 @@ doDeletion(const ObjectAddress *object, int flags)
 		case EventTriggerRelationId:
 		case TransformRelationId:
 		case AuthMemRelationId:
->>>>>>> REL_18_BETA1_branch
+		case TaskRelationId:
+		case GpMatviewAuxId:
 			DropObjectById(object);
 			break;
 
 			/*
 			 * These global object types are not supported here.
 			 */
-<<<<<<< HEAD
-		case OCLASS_ROLE:
-		case OCLASS_DATABASE:
-		case OCLASS_TBLSPACE:
-		case OCLASS_SUBSCRIPTION:
-		case OCLASS_PROFILE:
-		case OCLASS_PASSWORDHISTORY:
-		case OCLASS_STORAGE_SERVER:
-		case OCLASS_STORAGE_USER_MAPPING:
-		case OCLASS_TAG:
-		case OCLASS_TAG_DESCRIPTION:
-		case OCLASS_PARAMETER_ACL:
-=======
 		case AuthIdRelationId:
 		case DatabaseRelationId:
 		case TableSpaceRelationId:
 		case SubscriptionRelationId:
 		case ParameterAclRelationId:
->>>>>>> REL_18_BETA1_branch
+		case ProfileRelationId:
+		case PasswordHistoryRelationId:
+		case StorageServerRelationId:
+		case StorageUserMappingRelationId:
+		case TagRelationId:
+		case TagDescriptionRelationId:
 			elog(ERROR, "global objects cannot be deleted by doDeletion");
 			break;
 
 		default:
-<<<<<<< HEAD
 		{
 			struct CustomObjectClass *coc;
 
@@ -1701,9 +1584,6 @@ doDeletion(const ObjectAddress *object, int flags)
 			 */
 			break;
 		}
-=======
-			elog(ERROR, "unsupported object class: %u", object->classId);
->>>>>>> REL_18_BETA1_branch
 	}
 }
 
@@ -3017,194 +2897,6 @@ free_object_addresses(ObjectAddresses *addrs)
 	pfree(addrs);
 }
 
-/*
-<<<<<<< HEAD
- * Determine the class of a given object identified by objectAddress.
- *
- * This function is essentially the reverse mapping for the object_classes[]
- * table.  We implement it as a function because the OIDs aren't consecutive.
- */
-ObjectClass
-getObjectClass(const ObjectAddress *object)
-{
-	/* only pg_class entries can have nonzero objectSubId */
-	if (object->classId != RelationRelationId &&
-		object->objectSubId != 0)
-		elog(ERROR, "invalid non-zero objectSubId for object class %u",
-			 object->classId);
-
-	switch (object->classId)
-	{
-		case RelationRelationId:
-			/* caller must check objectSubId */
-			return OCLASS_CLASS;
-
-		case ProcedureRelationId:
-			return OCLASS_PROC;
-
-		case TypeRelationId:
-			return OCLASS_TYPE;
-
-		case CastRelationId:
-			return OCLASS_CAST;
-
-		case CollationRelationId:
-			return OCLASS_COLLATION;
-
-		case ConstraintRelationId:
-			return OCLASS_CONSTRAINT;
-
-		case ConversionRelationId:
-			return OCLASS_CONVERSION;
-
-		case AttrDefaultRelationId:
-			return OCLASS_DEFAULT;
-
-		case LanguageRelationId:
-			return OCLASS_LANGUAGE;
-
-		case LargeObjectRelationId:
-			return OCLASS_LARGEOBJECT;
-
-		case OperatorRelationId:
-			return OCLASS_OPERATOR;
-
-		case OperatorClassRelationId:
-			return OCLASS_OPCLASS;
-
-		case OperatorFamilyRelationId:
-			return OCLASS_OPFAMILY;
-
-		case AccessMethodRelationId:
-			return OCLASS_AM;
-
-		case AccessMethodOperatorRelationId:
-			return OCLASS_AMOP;
-
-		case AccessMethodProcedureRelationId:
-			return OCLASS_AMPROC;
-
-		case RewriteRelationId:
-			return OCLASS_REWRITE;
-
-		case TriggerRelationId:
-			return OCLASS_TRIGGER;
-
-		case NamespaceRelationId:
-			return OCLASS_SCHEMA;
-
-		case StatisticExtRelationId:
-			return OCLASS_STATISTIC_EXT;
-
-		case TSParserRelationId:
-			return OCLASS_TSPARSER;
-
-		case TSDictionaryRelationId:
-			return OCLASS_TSDICT;
-
-		case TSTemplateRelationId:
-			return OCLASS_TSTEMPLATE;
-
-		case TSConfigRelationId:
-			return OCLASS_TSCONFIG;
-
-		case AuthIdRelationId:
-			return OCLASS_ROLE;
-
-		case AuthMemRelationId:
-			return OCLASS_ROLE_MEMBERSHIP;
-
-		case DatabaseRelationId:
-			return OCLASS_DATABASE;
-
-		case TableSpaceRelationId:
-			return OCLASS_TBLSPACE;
-
-		case ForeignDataWrapperRelationId:
-			return OCLASS_FDW;
-
-		case ForeignServerRelationId:
-			return OCLASS_FOREIGN_SERVER;
-
-		case UserMappingRelationId:
-			return OCLASS_USER_MAPPING;
-
-		case DefaultAclRelationId:
-			return OCLASS_DEFACL;
-
-		case ExtensionRelationId:
-			return OCLASS_EXTENSION;
-
-		case EventTriggerRelationId:
-			return OCLASS_EVENT_TRIGGER;
-
-		case ExtprotocolRelationId:
-			Assert(object->objectSubId == 0);
-			return OCLASS_EXTPROTOCOL;
-
-		case ProfileRelationId:
-			return OCLASS_PROFILE;
-
-		case PasswordHistoryRelationId:
-			return OCLASS_PASSWORDHISTORY;
-
-		case ParameterAclRelationId:
-			return OCLASS_PARAMETER_ACL;
-
-		case PolicyRelationId:
-			return OCLASS_POLICY;
-
-		case PublicationNamespaceRelationId:
-			return OCLASS_PUBLICATION_NAMESPACE;
-
-		case PublicationRelationId:
-			return OCLASS_PUBLICATION;
-
-		case PublicationRelRelationId:
-			return OCLASS_PUBLICATION_REL;
-
-		case SubscriptionRelationId:
-			return OCLASS_SUBSCRIPTION;
-
-		case TransformRelationId:
-			return OCLASS_TRANSFORM;
-
-		case TaskRelationId:
-			return OCLASS_TASK;
-
-		case GpMatviewAuxId:
-			return OCLASS_MATVIEW_AUX;
-
-		case DirectoryTableRelationId:
-			return OCLASS_DIRTABLE;
-
-		case StorageServerRelationId:
-			return OCLASS_STORAGE_SERVER;
-
-		case StorageUserMappingRelationId:
-			return OCLASS_STORAGE_USER_MAPPING;
-
-		case TagRelationId:
-			return OCLASS_TAG;
-
-		case TagDescriptionRelationId:
-			return OCLASS_TAG_DESCRIPTION;
-
-		default:
-		{
-			struct CustomObjectClass *coc;
-			coc = find_custom_object_class_by_classid(object->classId, true);
-			if (coc)
-				return coc->oclass;
-			break;
-		}
-	}
-
-	/* shouldn't get here */
-	elog(ERROR, "unrecognized object class: %u", object->classId);
-	return OCLASS_CLASS;		/* keep compiler quiet */
-}
-
 /* check if there are dependencies on the objects provides, error out if exists*/
 void
 checkDependencies(const ObjectAddresses *objects,
@@ -3300,8 +2992,6 @@ checkDependencies(const ObjectAddresses *objects,
 }
 
 /*
-=======
->>>>>>> REL_18_BETA1_branch
  * delete initial ACL for extension objects
  */
 static void

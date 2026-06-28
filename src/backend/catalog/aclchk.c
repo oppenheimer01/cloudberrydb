@@ -51,22 +51,16 @@
 #include "catalog/heap.h"
 #include "catalog/indexing.h"
 #include "catalog/objectaccess.h"
-<<<<<<< HEAD
 #include "catalog/oid_dispatch.h"
 #include "catalog/pg_aggregate.h"
 #include "catalog/pg_am.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "catalog/pg_authid.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_database.h"
 #include "catalog/pg_default_acl.h"
-<<<<<<< HEAD
 #include "catalog/pg_event_trigger.h"
 #include "catalog/pg_extension.h"
 #include "catalog/pg_extprotocol.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "catalog/pg_foreign_data_wrapper.h"
 #include "catalog/pg_foreign_server.h"
 #include "catalog/pg_inherits.h"
@@ -78,15 +72,12 @@
 #include "catalog/pg_parameter_acl.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_tablespace.h"
-<<<<<<< HEAD
 #include "catalog/pg_tag.h"
 #include "catalog/pg_transform.h"
 #include "catalog/pg_ts_config.h"
 #include "catalog/pg_ts_dict.h"
 #include "catalog/pg_ts_parser.h"
 #include "catalog/pg_ts_template.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
 #include "commands/defrem.h"
@@ -197,17 +188,12 @@ static AclMode pg_parameter_acl_aclmask(Oid acl_oid, Oid roleid,
 										AclMode mask, AclMaskHow how);
 static AclMode pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
 											   AclMode mask, AclMaskHow how, Snapshot snapshot);
-<<<<<<< HEAD
-static AclMode pg_type_aclmask(Oid type_oid, Oid roleid,
-							   AclMode mask, AclMaskHow how);
-=======
 static AclMode pg_namespace_aclmask_ext(Oid nsp_oid, Oid roleid,
 										AclMode mask, AclMaskHow how,
 										bool *is_missing);
 static AclMode pg_type_aclmask_ext(Oid type_oid, Oid roleid,
 								   AclMode mask, AclMaskHow how,
 								   bool *is_missing);
->>>>>>> REL_18_BETA1_branch
 static void recordExtensionInitPriv(Oid objoid, Oid classoid, int objsubid,
 									Acl *new_acl);
 static void recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid,
@@ -814,8 +800,7 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 				Oid			relOid;
 				bool		relOidAddedToObjects = false;
 
-<<<<<<< HEAD
-				relOid = RangeVarGetRelid(relvar, NoLock, false);
+				relOid = RangeVarGetRelid(relvar, lockmode, false);
 				/*
 				 * GPDB: If we the object is a partitioned relation, also
 				 * recurse to the child partitions. It is different from
@@ -843,10 +828,6 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 				}
 				if (!relOidAddedToObjects)
 					objects = lappend_oid(objects, relOid);
-=======
-				relOid = RangeVarGetRelid(relvar, lockmode, false);
-				objects = lappend_oid(objects, relOid);
->>>>>>> REL_18_BETA1_branch
 			}
 			break;
 
@@ -872,97 +853,6 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 			}
 			break;
 
-<<<<<<< HEAD
-				funcid = LookupFuncWithArgs(OBJECT_FUNCTION, func, false);
-				objects = lappend_oid(objects, funcid);
-			}
-			break;
-		case OBJECT_LANGUAGE:
-			foreach(cell, objnames)
-			{
-				char	   *langname = strVal(lfirst(cell));
-				Oid			oid;
-
-				oid = get_language_oid(langname, false);
-				objects = lappend_oid(objects, oid);
-			}
-			break;
-		case OBJECT_LARGEOBJECT:
-			ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("large objects are not supported")));
-
-			foreach(cell, objnames)
-			{
-				Oid			lobjOid = oidparse(lfirst(cell));
-
-				if (!LargeObjectExists(lobjOid))
-					ereport(ERROR,
-							(errcode(ERRCODE_UNDEFINED_OBJECT),
-							 errmsg("large object %u does not exist",
-									lobjOid)));
-
-				objects = lappend_oid(objects, lobjOid);
-			}
-			break;
-		case OBJECT_SCHEMA:
-			foreach(cell, objnames)
-			{
-				char	   *nspname = strVal(lfirst(cell));
-				Oid			oid;
-
-				oid = get_namespace_oid(nspname, false);
-				objects = lappend_oid(objects, oid);
-			}
-			break;
-		case OBJECT_PROCEDURE:
-			foreach(cell, objnames)
-			{
-				ObjectWithArgs *func = (ObjectWithArgs *) lfirst(cell);
-				Oid			procid;
-
-				procid = LookupFuncWithArgs(OBJECT_PROCEDURE, func, false);
-				objects = lappend_oid(objects, procid);
-			}
-			break;
-		case OBJECT_ROUTINE:
-			foreach(cell, objnames)
-			{
-				ObjectWithArgs *func = (ObjectWithArgs *) lfirst(cell);
-				Oid			routid;
-
-				routid = LookupFuncWithArgs(OBJECT_ROUTINE, func, false);
-				objects = lappend_oid(objects, routid);
-			}
-			break;
-		case OBJECT_TABLESPACE:
-			foreach(cell, objnames)
-			{
-				char	   *spcname = strVal(lfirst(cell));
-				Oid			spcoid;
-
-				spcoid = get_tablespace_oid(spcname, false);
-				objects = lappend_oid(objects, spcoid);
-			}
-			break;
-		case OBJECT_FDW:
-			foreach(cell, objnames)
-			{
-				char	   *fdwname = strVal(lfirst(cell));
-				Oid			fdwid = get_foreign_data_wrapper_oid(fdwname, false);
-
-				objects = lappend_oid(objects, fdwid);
-			}
-			break;
-		case OBJECT_FOREIGN_SERVER:
-			foreach(cell, objnames)
-			{
-				char	   *srvname = strVal(lfirst(cell));
-				Oid			srvid = get_foreign_server_oid(srvname, false);
-
-				objects = lappend_oid(objects, srvid);
-			}
-			break;
 		case OBJECT_EXTPROTOCOL:
 			foreach(cell, objnames)
 			{
@@ -972,8 +862,6 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 				objects = lappend_oid(objects, ptcid);
 			}
 			break;
-=======
->>>>>>> REL_18_BETA1_branch
 		case OBJECT_PARAMETER_ACL:
 
 			/*
@@ -3031,13 +2919,8 @@ string_to_privilege(const char *privname)
 		return ACL_SET;
 	if (strcmp(privname, "alter system") == 0)
 		return ACL_ALTER_SYSTEM;
-<<<<<<< HEAD
-	if (strcmp(privname, "rule") == 0)
-		return 0;				/* ignore old RULE privileges */
-=======
 	if (strcmp(privname, "maintain") == 0)
 		return ACL_MAINTAIN;
->>>>>>> REL_18_BETA1_branch
 	ereport(ERROR,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("unrecognized privilege type \"%s\"", privname)));
@@ -3861,8 +3744,6 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 		has_privs_of_role(roleid, ROLE_PG_WRITE_ALL_DATA))
 		result |= (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE));
 
-<<<<<<< HEAD
-=======
 	/*
 	 * Check if ACL_MAINTAIN is being checked and, if so, and not already set
 	 * as part of the result, then check if the user is a member of the
@@ -3874,7 +3755,6 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 		has_privs_of_role(roleid, ROLE_PG_MAINTAIN))
 		result |= ACL_MAINTAIN;
 
->>>>>>> REL_18_BETA1_branch
 	return result;
 }
 
@@ -4078,16 +3958,10 @@ pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
 /*
  * Routine for examining a user's privileges for a namespace, with is_missing
  */
-<<<<<<< HEAD
-AclMode
-pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
-					 AclMode mask, AclMaskHow how)
-=======
 static AclMode
 pg_namespace_aclmask_ext(Oid nsp_oid, Oid roleid,
 						 AclMode mask, AclMaskHow how,
 						 bool *is_missing)
->>>>>>> REL_18_BETA1_branch
 {
 	AclMode		result;
 	HeapTuple	tuple;
@@ -4184,18 +4058,11 @@ pg_namespace_aclmask_ext(Oid nsp_oid, Oid roleid,
 }
 
 /*
-<<<<<<< HEAD
- * Exported routine for examining a user's privileges for a type.
- */
-AclMode
-pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
-=======
  * Routine for examining a user's privileges for a type, with is_missing
  */
 static AclMode
 pg_type_aclmask_ext(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how,
 					bool *is_missing)
->>>>>>> REL_18_BETA1_branch
 {
 	AclMode		result;
 	HeapTuple	tuple;
@@ -5422,7 +5289,6 @@ recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid,
 }
 
 /*
-<<<<<<< HEAD
  * Copy ACL info from one relation to another.
  *
  * This is currently used by ADD PARTITION, to copy the ACLs of the parent
@@ -5583,7 +5449,9 @@ CopyRelationAcls(Oid srcId, Oid destId)
 
 	/* Make these updates visible */
 	CommandCounterIncrement();
-=======
+}
+
+/*
  * ReplaceRoleInInitPriv
  *
  * Used by shdepReassignOwned to replace mentions of a role in pg_init_privs.
@@ -5825,5 +5693,4 @@ RemoveRoleFromInitPriv(Oid roleid, Oid classid, Oid objid, int32 objsubid)
 	CommandCounterIncrement();
 
 	table_close(rel, RowExclusiveLock);
->>>>>>> REL_18_BETA1_branch
 }

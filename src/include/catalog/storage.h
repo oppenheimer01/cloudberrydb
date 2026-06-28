@@ -48,7 +48,7 @@ typedef struct PendingRelDelete
 											 * delete */
 	RelFileNodePendingDelete rlocator;	/* relation that may need to be
 										 * deleted */
-	BackendId	backend;                /* InvalidBackendId if not a temp rel */
+	ProcNumber	procNumber;	               /* InvalidBackendId if not a temp rel */
 	bool		atCommit;		/* T=delete at commit; F=delete at abort */
 	int			nestLevel;		/* xact nesting level of request */
 

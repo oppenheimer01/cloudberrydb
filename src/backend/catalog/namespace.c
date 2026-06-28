@@ -49,11 +49,8 @@
 #include "catalog/pg_ts_template.h"
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
-<<<<<<< HEAD
 #include "commands/schemacmds.h"
-=======
 #include "common/hashfn_unstable.h"
->>>>>>> REL_18_BETA1_branch
 #include "funcapi.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
@@ -948,18 +945,6 @@ RelationIsVisibleExt(Oid relid, bool *is_missing)
 	reltup = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 	if (!HeapTupleIsValid(reltup))
 	{
-<<<<<<< HEAD
-		/* 
-		 * MPP-6982:
-		 * Note that the caller may not have gotten a lock on the relation.
-		 * Therefore, it is possible that the relation may have been dropped
-		 * by the time this method is called. Therefore, we simply return false
-		 * when we cannot find the relation in syscache instead of erroring out.
-		 */
-		return false;
-	}
-
-=======
 		if (is_missing != NULL)
 		{
 			*is_missing = true;
@@ -967,7 +952,6 @@ RelationIsVisibleExt(Oid relid, bool *is_missing)
 		}
 		elog(ERROR, "cache lookup failed for relation %u", relid);
 	}
->>>>>>> REL_18_BETA1_branch
 	relform = (Form_pg_class) GETSTRUCT(reltup);
 
 	recomputeNamespacePath();
@@ -3864,8 +3848,6 @@ checkTempNamespaceStatus(Oid namespaceId)
  * GetTempNamespaceProcNumber - if the given namespace is a temporary-table
  * namespace (either my own, or another backend's), return the proc number
  * that owns it.  Temporary-toast-table namespaces are included, too.
-<<<<<<< HEAD
- * If it isn't a temp namespace, return InvalidBackendId.
  *
  * FIXME: This function doesn't work or useful in GPDB (only useful for
  * utility mode temp tables which are none or rare). Since the temp namespace
@@ -3873,9 +3855,7 @@ checkTempNamespaceStatus(Oid namespaceId)
  * Function needs to be modified to work for GPDB. Maybe checking if
  * gp_session_id is active in system or not currently. Only user of this
  * function is autovacuum process so far so the impact is low.
-=======
  * If it isn't a temp namespace, return INVALID_PROC_NUMBER.
->>>>>>> REL_18_BETA1_branch
  */
 ProcNumber
 GetTempNamespaceProcNumber(Oid namespaceId)
@@ -4299,17 +4279,8 @@ preprocessNamespacePath(const char *searchPath, Oid roleid,
 		else if (strcmp(curname, "pg_temp") == 0)
 		{
 			/* pg_temp --- substitute temp namespace, if any */
-<<<<<<< HEAD
-			if (TempNamespaceValid(true))
-			{
-				if (!list_member_oid(oidlist, myTempNamespace) &&
-					InvokeNamespaceSearchHook(myTempNamespace, false))
-					oidlist = lappend_oid(oidlist, myTempNamespace);
-			}
-=======
 			if (OidIsValid(myTempNamespace))
 				oidlist = lappend_oid(oidlist, myTempNamespace);
->>>>>>> REL_18_BETA1_branch
 			else
 			{
 				/* If it ought to be the creation namespace, set flag */
@@ -4379,11 +4350,6 @@ finalNamespacePath(List *oidlist, Oid *firstNS)
 	if (!list_member_oid(finalPath, PG_CATALOG_NAMESPACE))
 		finalPath = lcons_oid(PG_CATALOG_NAMESPACE, finalPath);
 
-<<<<<<< HEAD
-	if (TempNamespaceValid(false) &&
-		!list_member_oid(oidlist, myTempNamespace))
-		oidlist = lcons_oid(myTempNamespace, oidlist);
-=======
 	if (OidIsValid(myTempNamespace) &&
 		!list_member_oid(finalPath, myTempNamespace))
 		finalPath = lcons_oid(myTempNamespace, finalPath);
@@ -4404,7 +4370,6 @@ cachedNamespacePath(const char *searchPath, Oid roleid)
 	spcache_init();
 
 	entry = spcache_insert(searchPath, roleid);
->>>>>>> REL_18_BETA1_branch
 
 	/*
 	 * An OOM may have resulted in a cache entry with missing 'oidlist' or
@@ -4599,7 +4564,7 @@ InitTempTableNamespace(void)
 			break;
 
 		case GP_ROLE_UTILITY:
-			session_suffix = MyBackendId;
+			session_suffix = MyProcNumber;
 
 			/*
 			 * Backend id is used as the suffix of schema name in utility mode
@@ -4647,12 +4612,8 @@ InitTempTableNamespace(void)
 				(errcode(ERRCODE_READ_ONLY_SQL_TRANSACTION),
 				 errmsg("cannot create temporary tables during a parallel operation")));
 
-<<<<<<< HEAD
 	snprintf(namespaceName, sizeof(namespaceName),
 			 "pg_temp_%s%d", session_infix, session_suffix);
-=======
-	snprintf(namespaceName, sizeof(namespaceName), "pg_temp_%d", MyProcNumber);
->>>>>>> REL_18_BETA1_branch
 
 	namespaceId = get_namespace_oid(namespaceName, true);
 
@@ -4706,13 +4667,8 @@ InitTempTableNamespace(void)
 	 * (in GPDB, though, we drop and recreate it anyway, to make sure it has
 	 * the same OID on master and segments.)
 	 */
-<<<<<<< HEAD
 	snprintf(namespaceName, sizeof(namespaceName),
 			 "pg_toast_temp_%s%d", session_infix, session_suffix);
-=======
-	snprintf(namespaceName, sizeof(namespaceName), "pg_toast_temp_%d",
-			 MyProcNumber);
->>>>>>> REL_18_BETA1_branch
 
 	toastspaceId = get_namespace_oid(namespaceName, true);
 	if (OidIsValid(toastspaceId))
@@ -4758,7 +4714,6 @@ InitTempTableNamespace(void)
 	myTempNamespaceSubID = GetCurrentSubTransactionId();
 
 	baseSearchPathValid = false;	/* need to rebuild list */
-<<<<<<< HEAD
 
 	/*
 	 * GPDB: Dispatch a special CREATE SCHEMA command, to also create the
@@ -4880,9 +4835,6 @@ ResetTempNamespace(void)
 	baseSearchPathValid = false;	/* need to rebuild list */
 
 	return result;
-=======
-	searchPathCacheValid = false;
->>>>>>> REL_18_BETA1_branch
 }
 
 /*
@@ -5174,23 +5126,13 @@ InitializeSearchPath(void)
 	{
 		/*
 		 * In normal mode, arrange for a callback on any syscache invalidation
-<<<<<<< HEAD
-		 * of pg_namespace or pg_authid rows. (Changing a role name may affect
-		 * the meaning of the special string $user.)
-=======
 		 * that will affect the search_path cache.
->>>>>>> REL_18_BETA1_branch
 		 */
 
 		/* namespace name or ACLs may have changed */
 		CacheRegisterSyscacheCallback(NAMESPACEOID,
 									  InvalidationCallback,
 									  (Datum) 0);
-<<<<<<< HEAD
-		CacheRegisterSyscacheCallback(AUTHOID,
-									  NamespaceCallback,
-									  (Datum) 0);
-=======
 
 		/* role name may affect the meaning of "$user" */
 		CacheRegisterSyscacheCallback(AUTHOID,
@@ -5207,7 +5149,6 @@ InitializeSearchPath(void)
 									  InvalidationCallback,
 									  (Datum) 0);
 
->>>>>>> REL_18_BETA1_branch
 		/* Force search path to be recomputed on next use */
 		baseSearchPathValid = false;
 		searchPathCacheValid = false;

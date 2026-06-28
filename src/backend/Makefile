@@ -54,20 +54,14 @@ OBJS = \
 	$(top_builddir)/src/common/libpgcommon_srv.a \
 	$(top_builddir)/src/port/libpgport_srv.a
 
-<<<<<<< HEAD
 ifeq ($(PORTNAME), darwin)
 LDOPTS = -Z
 endif
 
-# We put libpgport and libpgcommon into OBJS, so remove it from LIBS; also add
-# libldap and ICU
-LIBS := $(filter-out -lpgport -lpgcommon, $(LIBS)) $(LDAP_LIBS_BE) $(ICU_LIBS)
-=======
 # We put libpgport and libpgcommon into OBJS, so remove it from LIBS.
 LIBS := $(filter-out -lpgport -lpgcommon, $(LIBS))
 # The backend conditionally needs libraries that most executables don't need.
 LIBS += $(LDAP_LIBS_BE) $(ICU_LIBS) $(LIBURING_LIBS)
->>>>>>> REL_18_BETA1_branch
 
 # The backend doesn't need everything that's in LIBS, however
 LIBS := $(filter-out -lreadline -ledit -ltermcap -lncurses -lcurses, $(LIBS))
@@ -173,27 +167,6 @@ libpostgres.a: postgres
 
 endif # win32
 
-<<<<<<< HEAD
-ifeq ($(PORTNAME), aix)
-
-postgres: $(POSTGRES_IMP)
-	$(CXX) $(CXXFLAGS) $(call expand_subsys,$(OBJS)) $(LDFLAGS) -Wl,-bE:$(top_builddir)/src/backend/$(POSTGRES_IMP) $(LIBS) -Wl,-brtllib -o $@
-
-# Linking to a single .o with -r is a lot faster than building a .a or passing
-# all objects to MKLDEXPORT.
-#
-# It looks alluring to use $(CC) -r instead of ld -r, but that doesn't
-# trivially work with gcc, due to gcc specific static libraries linked in with
-# -r.
-$(POSTGRES_IMP): $(OBJS)
-	ld -r -o SUBSYS.o $(call expand_subsys,$^)
-	$(MKLDEXPORT) SUBSYS.o . > $@
-	@rm -f SUBSYS.o
-
-endif # aix
-
-=======
->>>>>>> REL_18_BETA1_branch
 $(top_builddir)/src/port/libpgport_srv.a: | submake-libpgport
 
 
@@ -240,11 +213,7 @@ submake-utils-headers:
 
 .PHONY: generated-headers
 
-<<<<<<< HEAD
-generated-headers: $(top_builddir)/src/include/storage/lwlocknames.h submake-catalog-headers submake-nodes-headers submake-utils-headers parser/gram.h
-=======
 generated-headers: $(top_builddir)/src/include/storage/lwlocknames.h $(top_builddir)/src/include/utils/wait_event_types.h submake-catalog-headers submake-nodes-headers submake-utils-headers parser/gram.h
->>>>>>> REL_18_BETA1_branch
 
 $(top_builddir)/src/include/storage/lwlocknames.h: storage/lmgr/lwlocknames.h
 	prereqdir=`cd '$(dir $<)' >/dev/null && pwd` && \

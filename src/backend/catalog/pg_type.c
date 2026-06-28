@@ -34,11 +34,8 @@
 #include "commands/typecmds.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
-<<<<<<< HEAD
 #include "parser/scansup.h"
 #include "parser/parse_type.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"

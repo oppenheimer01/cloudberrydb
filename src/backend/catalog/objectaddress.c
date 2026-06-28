@@ -4270,7 +4270,6 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-<<<<<<< HEAD
 		case OCLASS_EXTPROTOCOL:
 			{
 				appendStringInfo(&buffer, _("protocol %s"),
@@ -4416,10 +4415,6 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				if (coc && coc->object_desc)
 					coc->object_desc(coc, object, missing_ok, &buffer);
 			}
-=======
-		default:
-			elog(ERROR, "unsupported object class: %u", object->classId);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	/* an empty buffer is equivalent to no object found */
@@ -5044,7 +5039,6 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			appendStringInfoString(&buffer, "transform");
 			break;
 
-<<<<<<< HEAD
 		case OCLASS_EXTPROTOCOL:
 			appendStringInfoString(&buffer, "external protocol");
 			break;
@@ -5098,10 +5092,6 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			 */
 			break;
 		}
-=======
-		default:
-			elog(ERROR, "unsupported object class: %u", object->classId);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	/* the result can never be empty */
@@ -6100,7 +6090,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-<<<<<<< HEAD
 		case OCLASS_STORAGE_SERVER:
 			{
 				StorageServer *srv;
@@ -6118,11 +6107,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 				}
 				break;
 			}
-
-		case OCLASS_USER_MAPPING:
-=======
 		case UserMappingRelationId:
->>>>>>> REL_18_BETA1_branch
 			{
 				HeapTuple	tup;
 				Oid			useid;
@@ -6162,7 +6147,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-<<<<<<< HEAD
 		case OCLASS_STORAGE_USER_MAPPING:
 			{
 				HeapTuple 	tup;
@@ -6202,11 +6186,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 					 			 srv->servername);
 				break;
 			}
-
-		case OCLASS_DEFACL:
-=======
 		case DefaultAclRelationId:
->>>>>>> REL_18_BETA1_branch
 			{
 				Relation	defaclrel;
 				ScanKeyData skey[1];
@@ -6522,7 +6502,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 			}
 			break;
 
-<<<<<<< HEAD
 		case OCLASS_EXTPROTOCOL:
 			{
 				char	   *extprotname;
@@ -6648,10 +6627,6 @@ getObjectIdentityParts(const ObjectAddress *object,
 			 */
 			break;
 		}
-=======
-		default:
-			elog(ERROR, "unsupported object class: %u", object->classId);
->>>>>>> REL_18_BETA1_branch
 	}
 
 	if (!missing_ok)

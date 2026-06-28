@@ -28,11 +28,7 @@
 #include "storage/lmgr.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
-<<<<<<< HEAD
 #include "utils/lsyscache.h"
-#include "utils/memutils.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 

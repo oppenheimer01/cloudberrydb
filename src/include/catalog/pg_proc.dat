@@ -12545,7 +12545,7 @@
   proname => 'pg_partition_root', prorettype => 'regclass',
   proargtypes => 'regclass', prosrc => 'pg_partition_root' },
 
-{ oid => '4549', descr => 'Unicode version used by Postgres',
+{ oid => '4551', descr => 'Unicode version used by Postgres',
   proname => 'unicode_version', prorettype => 'text', proargtypes => '',
   prosrc => 'unicode_version' },
 
@@ -13535,7 +13535,7 @@
   proname => 'pg_get_dynamic_table_schedule', provolatile => 's', prorettype => 'text',
   proargtypes => 'oid', prosrc => 'pg_get_dynamic_table_schedule' },
 
-{ oid => '9200', descr => 'statistics: cumulative statistics for a resource queue',
+{ oid => '9201', descr => 'statistics: cumulative statistics for a resource queue',
   proname => 'pg_stat_get_resqueue_stats', provolatile => 's',
   proparallel => 'r', prorettype => 'record', proargtypes => 'oid',
   proallargtypes => '{oid,oid,int8,int8,int8,int8,int8,int8,int8,int8,int8,int8,timestamptz,bool}',

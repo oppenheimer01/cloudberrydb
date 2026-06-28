@@ -3,13 +3,9 @@
  * heap.c
  *	  code to create and destroy POSTGRES heap relations
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -270,7 +266,6 @@ static const FormData_pg_attribute a6 = {
 	.attislocal = true,
 };
 
-<<<<<<< HEAD
 /*CDB*/
 static FormData_pg_attribute a7 = {
 	.attname = {"gp_segment_id"},
@@ -300,10 +295,7 @@ static FormData_pg_attribute a8 = {
 	.attislocal = true,
 };
 
-static const FormData_pg_attribute *SysAtt[] = {&a1, &a2, &a3, &a4, &a5, &a6, &a7, &a8};
-=======
-static const FormData_pg_attribute *const SysAtt[] = {&a1, &a2, &a3, &a4, &a5, &a6};
->>>>>>> REL_18_BETA1_branch
+static const FormData_pg_attribute *const SysAtt[] = {&a1, &a2, &a3, &a4, &a5, &a6, &a7, &a8};
 
 /*
  * This function returns a Form_pg_attribute pointer for a system attribute.
@@ -638,7 +630,6 @@ CheckAttributeType(const char *attname,
 	char		att_typtype = get_typtype(atttypid);
 	Oid			att_typelem;
 
-<<<<<<< HEAD
 	if (Gp_role == GP_ROLE_EXECUTE)
 	{
 		/*
@@ -648,8 +639,6 @@ CheckAttributeType(const char *attname,
 		return;
 	}
 
-=======
->>>>>>> REL_18_BETA1_branch
 	/* since this function recurses, it could be driven to stack overflow */
 	check_stack_depth();
 
@@ -2181,6 +2170,41 @@ RemoveAttributeById(Oid relid, AttrNumber attnum)
 	/* Unset this so no one tries to look up the generation expression */
 	attStruct->attgenerated = '\0';
 
+	/* Update distribution policy for dropped distribution column */
+	if (GpPolicyIsHashPartitioned(rel->rd_cdbpolicy))
+	{
+		int            ia = 0;
+
+		for (ia = 0; ia < rel->rd_cdbpolicy->nattrs; ia++)
+		{
+			if (attnum == rel->rd_cdbpolicy->attrs[ia])
+			{
+				MemoryContext oldcontext;
+				GpPolicy *policy;
+
+				/* force a random distribution */
+				rel->rd_cdbpolicy->nattrs = 0;
+
+				oldcontext = MemoryContextSwitchTo(GetMemoryChunkContext(rel));
+				policy = GpPolicyCopy(rel->rd_cdbpolicy);
+				MemoryContextSwitchTo(oldcontext);
+
+				/*
+				 * replace policy first in catalog and then assign to
+				 * rd_cdbpolicy to make sure we have intended policy in relcache
+				 * even with relcache invalidation. Otherwise rd_cdbpolicy can
+				 * become invalid soon after assignment.
+				 */
+				GpPolicyReplace(RelationGetRelid(rel), policy);
+				rel->rd_cdbpolicy = policy;
+				if (Gp_role != GP_ROLE_EXECUTE)
+					ereport(NOTICE,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+								errmsg("dropping a column that is part of the distribution policy forces a random distribution policy")));
+			}
+		}
+	}
+
 	/*
 	 * Change the column name to something that isn't likely to conflict
 	 */
@@ -2206,52 +2230,8 @@ RemoveAttributeById(Oid relid, AttrNumber attnum)
 	nullsAtt[Anum_pg_attribute_attfdwoptions - 1] = true;
 	replacesAtt[Anum_pg_attribute_attfdwoptions - 1] = true;
 
-<<<<<<< HEAD
-		/* Update distribution policy for dropped distribution column */
-		if (GpPolicyIsHashPartitioned(rel->rd_cdbpolicy))
-		{
-			int            ia = 0;
-
-			for (ia = 0; ia < rel->rd_cdbpolicy->nattrs; ia++)
-			{
-				if (attnum == rel->rd_cdbpolicy->attrs[ia])
-				{
-					MemoryContext oldcontext;
-					GpPolicy *policy;
-
-					/* force a random distribution */
-					rel->rd_cdbpolicy->nattrs = 0;
-
-					oldcontext = MemoryContextSwitchTo(GetMemoryChunkContext(rel));
-					policy = GpPolicyCopy(rel->rd_cdbpolicy);
-					MemoryContextSwitchTo(oldcontext);
-
-					/*
-					 * replace policy first in catalog and then assign to
-					 * rd_cdbpolicy to make sure we have intended policy in relcache
-					 * even with relcache invalidation. Otherwise rd_cdbpolicy can
-					 * become invalid soon after assignment.
-					 */
-					GpPolicyReplace(RelationGetRelid(rel), policy);
-					rel->rd_cdbpolicy = policy;
-					if (Gp_role != GP_ROLE_EXECUTE)
-						ereport(NOTICE,
-								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-									errmsg("dropping a column that is part of the distribution policy forces a random distribution policy")));
-				}
-			}
-		}
-
-		/*
-		 * Change the column name to something that isn't likely to conflict
-		 */
-		snprintf(newattname, sizeof(newattname),
-				 "........pg.dropped.%d........", attnum);
-		namestrcpy(&(attStruct->attname), newattname);
-=======
 	tuple = heap_modify_tuple(tuple, RelationGetDescr(attr_rel),
 							  valuesAtt, nullsAtt, replacesAtt);
->>>>>>> REL_18_BETA1_branch
 
 	CatalogTupleUpdate(attr_rel, &tuple->t_self, tuple);
 
@@ -2910,12 +2890,7 @@ StoreConstraints(Relation rel, List *cooked_constraints, bool is_internal)
 		{
 			case CONSTR_DEFAULT:
 				con->conoid = StoreAttrDefault(rel, con->attnum, con->expr,
-<<<<<<< HEAD
-											   false, NULL, NULL,
-											   is_internal, false);
-=======
 											   is_internal);
->>>>>>> REL_18_BETA1_branch
 				break;
 			case CONSTR_CHECK:
 				con->conoid =
@@ -3042,20 +3017,7 @@ AddRelationNewConstraints(Relation rel,
 			 castNode(Const, expr)->constisnull))
 			continue;
 
-<<<<<<< HEAD
-		/* If the DEFAULT is volatile we cannot use a missing value */
-		if (colDef->missingMode && contain_volatile_functions((Node *) expr))
-			colDef->missingMode = false;
-
-		defOid = StoreAttrDefault(rel, colDef->attnum, expr,
-								  &colDef->hasCookedMissingVal,
-								  &colDef->missingVal,
-								  &colDef->missingIsNull,
-								  is_internal,
-								  colDef->missingMode);
-=======
 		defOid = StoreAttrDefault(rel, colDef->attnum, expr, is_internal);
->>>>>>> REL_18_BETA1_branch
 
 		cooked = (CookedConstraint *) palloc(sizeof(CookedConstraint));
 		cooked->contype = CONSTR_DEFAULT;

@@ -31,11 +31,7 @@
 #include "catalog/pg_proc_callback.h"
 #include "catalog/pg_transform.h"
 #include "catalog/pg_type.h"
-<<<<<<< HEAD
 #include "catalog/pg_rewrite.h"
-#include "commands/defrem.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "executor/functions.h"
 #include "funcapi.h"
 #include "mb/pg_wchar.h"
@@ -483,11 +479,7 @@ ProcedureCreate(const char *procedureName,
 			if (olddesc == NULL && newdesc == NULL)
 				 /* ok, both are runtime-defined RECORDs */ ;
 			else if (olddesc == NULL || newdesc == NULL ||
-<<<<<<< HEAD
-					 !equalTupleDescs(olddesc, newdesc, true))
-=======
 					 !equalRowTypes(olddesc, newdesc))
->>>>>>> REL_18_BETA1_branch
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 						 errmsg("cannot change return type of existing function"),
@@ -710,7 +702,6 @@ ProcedureCreate(const char *procedureName,
 	ObjectAddressSet(referenced, TypeRelationId, returnType);
 	add_exact_object_address(&referenced, addrs);
 
-<<<<<<< HEAD
 	/* dependency on describe function */
 	if (OidIsValid(describeFuncOid))
 	{
@@ -721,15 +712,6 @@ ProcedureCreate(const char *procedureName,
 		addProcCallback(retval, describeFuncOid, PROMETHOD_DESCRIBE);
 	}
 
-	/* dependency on transform used by return type, if any */
-	if ((trfid = get_transform_oid(returnType, languageObjectId, true)))
-	{
-		ObjectAddressSet(referenced, TransformRelationId, trfid);
-		add_exact_object_address(&referenced, addrs);
-	}
-
-=======
->>>>>>> REL_18_BETA1_branch
 	/* dependency on parameter types */
 	for (i = 0; i < allParamCount; i++)
 	{
@@ -1071,17 +1053,10 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 
 			(void) get_func_result_type(funcoid, &rettype, &rettupdesc);
 
-<<<<<<< HEAD
-			(void) check_sql_fn_retval_ext(querytree_list,
-										   rettype, rettupdesc,
-										   proc->prokind,
-										   false, NULL);
-=======
 			(void) check_sql_fn_retval(querytree_list,
 									   rettype, rettupdesc,
 									   proc->prokind,
 									   false);
->>>>>>> REL_18_BETA1_branch
 		}
 
 		error_context_stack = sqlerrcontext.previous;
