@@ -47,12 +47,9 @@ node_headers = \
 	nodes/plannodes.h \
 	nodes/execnodes.h \
 	access/amapi.h \
-<<<<<<< HEAD
 	access/extprotocol.h \
 	access/formatter.h \
-=======
 	access/cmptype.h \
->>>>>>> REL_18_BETA1_branch
 	access/sdir.h \
 	access/tableam.h \
 	access/tsmapi.h \
@@ -112,10 +109,5 @@ queryjumblefuncs.o: queryjumblefuncs.c queryjumblefuncs.funcs.c queryjumblefuncs
 readfuncs.o:  readfuncs.c readfuncs.funcs.c readfuncs.switch.c | node-support-stamp
 readfast.o:  readfast.c readfast.funcs.c readfast.switch.c | node-support-stamp
 
-<<<<<<< HEAD
 maintainer-clean: clean
 	rm -f node-support-stamp $(addsuffix funcs.funcs.c,copy equal out queryjumble read) $(addsuffix funcs.switch.c,copy equal out queryjumble read) $(addsuffix fast.funcs.c, out read) $(addsuffix fast.switch.c, out read) nodetags.h
-=======
-clean:
-	rm -f node-support-stamp $(addsuffix funcs.funcs.c,copy equal out queryjumble read) $(addsuffix funcs.switch.c,copy equal out queryjumble read) nodetags.h
->>>>>>> REL_18_BETA1_branch

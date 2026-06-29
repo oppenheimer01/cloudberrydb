@@ -124,7 +124,7 @@ my @nodetag_only_files = qw(
 # ABI stability during development.
 
 my $last_nodetag = 'WindowObjectData';
-my $last_nodetag_no = 584;
+my $last_nodetag_no = 609;
 
 # output file names
 my @output_files;
@@ -1038,7 +1038,7 @@ _read${n}(void)
 ";
 		
 		# for read fast
-		my $macro =
+		$macro =
 			(@{ $node_type_info{$n}->{fields} } > 0)
 				? 'READ_LOCALS'
 				: 'READ_LOCALS_NO_FIELDS';
