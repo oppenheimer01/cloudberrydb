@@ -2188,13 +2188,10 @@ expression_tree_walker_impl(Node *node,
 		case T_AggExprId:
 		case T_RowIdExpr:
 		case T_CTESearchClause:
-<<<<<<< HEAD
 		case T_A_Const:
 		case T_Gather:
 		case T_GatherMerge:
-=======
 		case T_MergeSupportFunc:
->>>>>>> REL_18_BETA1_branch
 			/* primitive node types with no expression subnodes */
 			break;
 		case T_WithCheckOption:
@@ -4212,6 +4209,15 @@ range_table_entry_mutator(RangeTblEntry *rte, Node *(*mutator)(), void *context,
 		case RTE_VOID:
 			/* nothing to do */
 			break;
+		case RTE_GROUP:
+			if (!(flags & QTW_IGNORE_GROUPEXPRS))
+				MUTATE(newrte->groupexprs, rte->groupexprs, List *);
+			else
+			{
+				/* else, copy grouping exprs as-is */
+				newrte->groupexprs = copyObject(rte->groupexprs);
+			}
+			break;
 		default:
 			ereport(ERROR, (errmsg("unexpected rtekind=%d", (int)rte->rtekind)));
 			break;
@@ -4237,63 +4243,7 @@ range_table_mutator_impl(List *rtable,
 	foreach(rt, rtable)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(rt);
-<<<<<<< HEAD
 		Node *newrte = range_table_entry_mutator(rte, mutator, context, flags);
-=======
-		RangeTblEntry *newrte;
-
-		FLATCOPY(newrte, rte, RangeTblEntry);
-		switch (rte->rtekind)
-		{
-			case RTE_RELATION:
-				MUTATE(newrte->tablesample, rte->tablesample,
-					   TableSampleClause *);
-				/* we don't bother to copy eref, aliases, etc; OK? */
-				break;
-			case RTE_SUBQUERY:
-				if (!(flags & QTW_IGNORE_RT_SUBQUERIES))
-					MUTATE(newrte->subquery, rte->subquery, Query *);
-				else
-				{
-					/* else, copy RT subqueries as-is */
-					newrte->subquery = copyObject(rte->subquery);
-				}
-				break;
-			case RTE_JOIN:
-				if (!(flags & QTW_IGNORE_JOINALIASES))
-					MUTATE(newrte->joinaliasvars, rte->joinaliasvars, List *);
-				else
-				{
-					/* else, copy join aliases as-is */
-					newrte->joinaliasvars = copyObject(rte->joinaliasvars);
-				}
-				break;
-			case RTE_FUNCTION:
-				MUTATE(newrte->functions, rte->functions, List *);
-				break;
-			case RTE_TABLEFUNC:
-				MUTATE(newrte->tablefunc, rte->tablefunc, TableFunc *);
-				break;
-			case RTE_VALUES:
-				MUTATE(newrte->values_lists, rte->values_lists, List *);
-				break;
-			case RTE_CTE:
-			case RTE_NAMEDTUPLESTORE:
-			case RTE_RESULT:
-				/* nothing to do */
-				break;
-			case RTE_GROUP:
-				if (!(flags & QTW_IGNORE_GROUPEXPRS))
-					MUTATE(newrte->groupexprs, rte->groupexprs, List *);
-				else
-				{
-					/* else, copy grouping exprs as-is */
-					newrte->groupexprs = copyObject(rte->groupexprs);
-				}
-				break;
-		}
-		MUTATE(newrte->securityQuals, rte->securityQuals, List *);
->>>>>>> REL_18_BETA1_branch
 		newrt = lappend(newrt, newrte);
 	}
 	return newrt;

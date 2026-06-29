@@ -31,79 +31,22 @@
 
 #include <limits.h>
 
-<<<<<<< HEAD
 #include "access/htup.h"
 #include "access/htup_details.h"
 #include "access/bitmap.h"		/* XXX: remove once pull_stream is generic */
 #include "common/hashfn.h"
-#include "executor/instrument.h"	/* Instrumentation */
-=======
-#include "common/hashfn.h"
 #include "common/int.h"
-#include "nodes/bitmapset.h"
->>>>>>> REL_18_BETA1_branch
+#include "executor/instrument.h"	/* Instrumentation */
 #include "nodes/tidbitmap.h"
 #include "storage/lwlock.h"
 #include "utils/dsa.h"
 
-<<<<<<< HEAD
 #define WORDNUM(x)	((x) / TBM_BITS_PER_BITMAPWORD)
 #define BITNUM(x)	((x) % TBM_BITS_PER_BITMAPWORD)
 
 static bool tbm_iterate_page(PagetableEntry *page, TBMIterateResult *output);
 static PagetableEntry *tbm_next_page(TBMIterator *iterator, bool *more);
 static void tbm_upd_instrument(TIDBitmap *tbm);
-=======
-/*
- * When we have to switch over to lossy storage, we use a data structure
- * with one bit per page, where all pages having the same number DIV
- * PAGES_PER_CHUNK are aggregated into one chunk.  When a chunk is present
- * and has the bit set for a given page, there must not be a per-page entry
- * for that page in the page table.
- *
- * We actually store both exact pages and lossy chunks in the same hash
- * table, using identical data structures.  (This is because the memory
- * management for hashtables doesn't easily/efficiently allow space to be
- * transferred easily from one hashtable to another.)  Therefore it's best
- * if PAGES_PER_CHUNK is the same as TBM_MAX_TUPLES_PER_PAGE, or at least not
- * too different.  But we also want PAGES_PER_CHUNK to be a power of 2 to
- * avoid expensive integer remainder operations.  So, define it like this:
- */
-#define PAGES_PER_CHUNK  (BLCKSZ / 32)
-
-/* We use BITS_PER_BITMAPWORD and typedef bitmapword from nodes/bitmapset.h */
-
-#define WORDNUM(x)	((x) / BITS_PER_BITMAPWORD)
-#define BITNUM(x)	((x) % BITS_PER_BITMAPWORD)
-
-/* number of active words for an exact page: */
-#define WORDS_PER_PAGE	((TBM_MAX_TUPLES_PER_PAGE - 1) / BITS_PER_BITMAPWORD + 1)
-/* number of active words for a lossy chunk: */
-#define WORDS_PER_CHUNK  ((PAGES_PER_CHUNK - 1) / BITS_PER_BITMAPWORD + 1)
-
-/*
- * The hashtable entries are represented by this data structure.  For
- * an exact page, blockno is the page number and bit k of the bitmap
- * represents tuple offset k+1.  For a lossy chunk, blockno is the first
- * page in the chunk (this must be a multiple of PAGES_PER_CHUNK) and
- * bit k represents page blockno+k.  Note that it is not possible to
- * have exact storage for the first page of a chunk if we are using
- * lossy storage for any page in the chunk's range, since the same
- * hashtable entry has to serve both purposes.
- *
- * recheck is used only on exact pages --- it indicates that although
- * only the stated tuples need be checked, the full index qual condition
- * must be checked for each (ie, these are candidate matches).
- */
-typedef struct PagetableEntry
-{
-	BlockNumber blockno;		/* page number (hashtable key) */
-	char		status;			/* hash entry status */
-	bool		ischunk;		/* T = lossy storage, F = exact */
-	bool		recheck;		/* should the tuples be rechecked? */
-	bitmapword	words[Max(WORDS_PER_PAGE, WORDS_PER_CHUNK)];
-} PagetableEntry;
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Holds array of pagetable entries.
@@ -466,14 +409,10 @@ tbm_add_tuples(TIDBitmap *tbm, const ItemPointer tids, int ntids,
 					bitnum;
 
 		/* safety check to ensure we don't overrun bit array bounds */
-<<<<<<< HEAD
 
 		/* UNDONE: Turn this off until we convert this module to AO TIDs. */
 #if 0
-		if (off < 1 || off > MAX_TUPLES_PER_PAGE)
-=======
 		if (off < 1 || off > TBM_MAX_TUPLES_PER_PAGE)
->>>>>>> REL_18_BETA1_branch
 			elog(ERROR, "tuple offset out of range: %u", off);
 #endif
 
@@ -1188,14 +1127,6 @@ tbm_advance_schunkbit(PagetableEntry *chunk, int *schunkbitp)
 /*
  * tbm_private_iterate - scan through next page of a TIDBitmap
  *
-<<<<<<< HEAD
- * Gets a TBMIterateResult representing one page, or NULL if there are
- * no more pages to scan.  Pages are guaranteed to be delivered in numerical
- * order.  If result->ntuples < 0, then the bitmap is "lossy" and failed to
- * remember the exact tuples to look at on this page --- the caller must
- * examine all tuples on the page and check if they meet the intended
- * condition.
-=======
  * Caller must pass in a TBMIterateResult to be filled.
  *
  * Pages are guaranteed to be delivered in numerical order.
@@ -1213,41 +1144,13 @@ tbm_advance_schunkbit(PagetableEntry *chunk, int *schunkbitp)
  * If tbmres->recheck is true, only the indicated tuples need be examined, but
  * the condition must be rechecked anyway.  (For ease of testing, recheck is
  * always set true when lossy is true.)
->>>>>>> REL_18_BETA1_branch
  */
 bool
 tbm_private_iterate(TBMPrivateIterator *iterator, TBMIterateResult *tbmres)
 {
-<<<<<<< HEAD
-	PagetableEntry *e;
-	bool		more;
-	TBMIterateResult *output = &(iterator->output);
-=======
 	TIDBitmap  *tbm = iterator->tbm;
->>>>>>> REL_18_BETA1_branch
 
-	e = tbm_next_page(iterator, &more);
-	if (more && e)
-	{
-		tbm_iterate_page(e, output);
-		return output;
-	}
-	return NULL;
-}
-
-/*
- * tbm_next_page - actually traverse the TIDBitmap
- *
- * Store the next block of matches in nextpage.
- */
-
-static PagetableEntry *
-tbm_next_page(TBMIterator *iterator, bool *more)
-{
-	TIDBitmap  *tbm = iterator->tbm;
 	Assert(tbm->iterating == TBM_ITERATING_PRIVATE);
-
-	*more = true;
 
 	/*
 	 * If lossy chunk pages remain, make sure we've advanced schunkptr/
@@ -1276,7 +1179,6 @@ tbm_next_page(TBMIterator *iterator, bool *more)
 	if (iterator->schunkptr < tbm->nchunks)
 	{
 		PagetableEntry *chunk = tbm->schunks[iterator->schunkptr];
-		PagetableEntry *nextpage;
 		BlockNumber chunk_blockno;
 
 		chunk_blockno = chunk->blockno + iterator->schunkbit;
@@ -1284,46 +1186,25 @@ tbm_next_page(TBMIterator *iterator, bool *more)
 			chunk_blockno < tbm->spages[iterator->spageptr]->blockno)
 		{
 			/* Return a lossy page indicator from the chunk */
-<<<<<<< HEAD
-			nextpage = (PagetableEntry *) palloc(sizeof(PagetableEntry));
-			nextpage->ischunk = true;
-			nextpage->blockno = chunk_blockno;
-			iterator->schunkbit++;
-			return nextpage;
-=======
 			tbmres->blockno = chunk_blockno;
 			tbmres->lossy = true;
 			tbmres->recheck = true;
 			tbmres->internal_page = NULL;
 			iterator->schunkbit++;
 			return true;
->>>>>>> REL_18_BETA1_branch
 		}
 	}
 
 	if (iterator->spageptr < tbm->npages)
 	{
-<<<<<<< HEAD
-		PagetableEntry *e;
-=======
 		PagetableEntry *page;
->>>>>>> REL_18_BETA1_branch
 
 		/* In TBM_ONE_PAGE state, we don't allocate an spages[] array */
 		if (tbm->status == TBM_ONE_PAGE)
-			e = &tbm->entry1;
+			page = &tbm->entry1;
 		else
-			e = tbm->spages[iterator->spageptr];
+			page = tbm->spages[iterator->spageptr];
 
-<<<<<<< HEAD
-		iterator->spageptr++;
-		return e;
-	}
-
-	/* Nothing more in the bitmap */
-	*more = false;
-	return NULL;
-=======
 		tbmres->internal_page = page;
 		tbmres->blockno = page->blockno;
 		tbmres->lossy = false;
@@ -1335,7 +1216,6 @@ tbm_next_page(TBMIterator *iterator, bool *more)
 	/* Nothing more in the bitmap */
 	tbmres->blockno = InvalidBlockNumber;
 	return false;
->>>>>>> REL_18_BETA1_branch
 }
 
 /*

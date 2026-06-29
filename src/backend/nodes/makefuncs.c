@@ -210,10 +210,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 							 varlevelsup);
 			break;
 
-<<<<<<< HEAD
 		case RTE_TABLEFUNCTION:
-=======
->>>>>>> REL_18_BETA1_branch
 		case RTE_FUNCTION:
 
 			/*

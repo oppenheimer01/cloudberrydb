@@ -3,13 +3,9 @@
  * outfuncs.c
  *	  Output functions for Postgres tree nodes.
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2021, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -50,12 +46,9 @@
 #include "nodes/pg_list.h"
 #include "utils/datum.h"
 
-<<<<<<< HEAD
 #include "cdb/cdbpathlocus.h"
-=======
 /* State flag that determines how nodeToStringInternal() should treat location fields */
 static bool write_location_fields = false;
->>>>>>> REL_18_BETA1_branch
 
 static void outChar(StringInfo str, char c);
 static void outDouble(StringInfo str, double d);
@@ -618,14 +611,11 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 		case RTE_RESULT:
 			/* no extra fields */
 			break;
-<<<<<<< HEAD
         case RTE_VOID:                                                  /*CDB*/
             break;
-=======
 		case RTE_GROUP:
 			WRITE_NODE_FIELD(groupexprs);
 			break;
->>>>>>> REL_18_BETA1_branch
 		default:
 			elog(ERROR, "unrecognized RTE kind: %d", (int) node->rtekind);
 			break;
