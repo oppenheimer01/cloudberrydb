@@ -27,15 +27,8 @@ all: probes.h generated-header-symlinks
 
 .PHONY: generated-header-symlinks submake-adt-headers
 
-<<<<<<< HEAD
-.PHONY: generated-header-symlinks submake-adt-headers
-
-generated-header-symlinks: $(top_builddir)/src/include/utils/header-stamp $(top_builddir)/src/include/utils/probes.h submake-adt-headers
-
-=======
 generated-header-symlinks: $(top_builddir)/src/include/utils/header-stamp submake-adt-headers
 
->>>>>>> REL_18_BETA1_branch
 submake-adt-headers:
 	$(MAKE) -C adt jsonpath_gram.h
 
@@ -89,13 +82,9 @@ installdirs:
 uninstall-data:
 	rm -f $(addprefix '$(DESTDIR)$(datadir)'/, errcodes.txt)
 
-<<<<<<< HEAD
 # fmgroids.h, fmgrprotos.h, fmgrtab.c, fmgr-stamp, and errcodes.h are in the
 # distribution tarball, so they are not cleaned here.
 clean-local: clean-utils-local
 clean-utils-local:
-=======
-clean:
->>>>>>> REL_18_BETA1_branch
 	rm -f probes.h probes.h.tmp
 	rm -f fmgroids.h fmgrprotos.h fmgrtab.c fmgr-stamp errcodes.h

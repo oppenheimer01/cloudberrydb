@@ -239,14 +239,13 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 			result = transformGroupingFunc(pstate, (GroupingFunc *) expr);
 			break;
 
-<<<<<<< HEAD
 		case T_GroupId:
 			result = transformGroupId(pstate, (GroupId *) expr);
-=======
+			break;
+
 		case T_MergeSupportFunc:
 			result = transformMergeSupportFunc(pstate,
 											   (MergeSupportFunc *) expr);
->>>>>>> REL_18_BETA1_branch
 			break;
 
 		case T_NamedArgExpr:
@@ -3442,17 +3441,6 @@ makeJsonByteaToTextConversion(Node *expr, JsonFormat *format, int location)
 
 /*
  * Transform JSON value expression using specified input JSON format or
-<<<<<<< HEAD
- * default format otherwise.
- *
- * Returned expression is either ve->raw_expr coerced to text (if needed) or
- * a JsonValueExpr with formatted_expr set to the coerced copy of raw_expr
- * if the specified format requires it.
- */
-static Node *
-transformJsonValueExpr(ParseState *pstate, const char *constructName,
-					   JsonValueExpr *ve, JsonFormatType default_format)
-=======
  * default format otherwise, coercing to the targettype if needed.
  *
  * Returned expression is either ve->raw_expr coerced to text (if needed) or
@@ -3463,7 +3451,6 @@ static Node *
 transformJsonValueExpr(ParseState *pstate, const char *constructName,
 					   JsonValueExpr *ve, JsonFormatType default_format,
 					   Oid targettype, bool isarg)
->>>>>>> REL_18_BETA1_branch
 {
 	Node	   *expr = transformExprRecurse(pstate, (Node *) ve->raw_expr);
 	Node	   *rawexpr;
@@ -3538,16 +3525,9 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 	if (format != JS_FORMAT_DEFAULT ||
 		(OidIsValid(targettype) && exprtype != targettype))
 	{
-<<<<<<< HEAD
-		Oid			targettype = format == JS_FORMAT_JSONB ? JSONBOID : JSONOID;
-=======
->>>>>>> REL_18_BETA1_branch
 		Node	   *coerced;
 		bool		only_allow_cast = OidIsValid(targettype);
 
-<<<<<<< HEAD
-		if (exprtype != BYTEAOID && typcategory != TYPCATEGORY_STRING)
-=======
 		/*
 		 * PASSING args are handled appropriately by GetJsonPathVar() /
 		 * JsonItemFromDatum().
@@ -3555,7 +3535,6 @@ transformJsonValueExpr(ParseState *pstate, const char *constructName,
 		if (!isarg &&
 			!only_allow_cast &&
 			exprtype != BYTEAOID && typcategory != TYPCATEGORY_STRING)
->>>>>>> REL_18_BETA1_branch
 			ereport(ERROR,
 					errcode(ERRCODE_DATATYPE_MISMATCH),
 					ve->format->format_type == JS_FORMAT_DEFAULT ?
@@ -3912,12 +3891,8 @@ transformJsonObjectConstructor(ParseState *pstate, JsonObjectConstructor *ctor)
 			Node	   *key = transformExprRecurse(pstate, (Node *) kv->key);
 			Node	   *val = transformJsonValueExpr(pstate, "JSON_OBJECT()",
 													 kv->value,
-<<<<<<< HEAD
-													 JS_FORMAT_DEFAULT);
-=======
 													 JS_FORMAT_DEFAULT,
 													 InvalidOid, false);
->>>>>>> REL_18_BETA1_branch
 
 			args = lappend(args, key);
 			args = lappend(args, val);
@@ -4105,12 +4080,8 @@ transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg)
 	key = transformExprRecurse(pstate, (Node *) agg->arg->key);
 	val = transformJsonValueExpr(pstate, "JSON_OBJECTAGG()",
 								 agg->arg->value,
-<<<<<<< HEAD
-								 JS_FORMAT_DEFAULT);
-=======
 								 JS_FORMAT_DEFAULT,
 								 InvalidOid, false);
->>>>>>> REL_18_BETA1_branch
 	args = list_make2(key, val);
 
 	returning = transformJsonConstructorOutput(pstate, agg->constructor->output,
@@ -4168,14 +4139,8 @@ transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg)
 	Oid			aggfnoid;
 	Oid			aggtype;
 
-<<<<<<< HEAD
-	arg = transformJsonValueExpr(pstate, "JSON_ARRAYAGG()",
-								 agg->arg,
-								 JS_FORMAT_DEFAULT);
-=======
 	arg = transformJsonValueExpr(pstate, "JSON_ARRAYAGG()", agg->arg,
 								 JS_FORMAT_DEFAULT, InvalidOid, false);
->>>>>>> REL_18_BETA1_branch
 
 	returning = transformJsonConstructorOutput(pstate, agg->constructor->output,
 											   list_make1(arg));
@@ -4220,13 +4185,8 @@ transformJsonArrayConstructor(ParseState *pstate, JsonArrayConstructor *ctor)
 		{
 			JsonValueExpr *jsval = castNode(JsonValueExpr, lfirst(lc));
 			Node	   *val = transformJsonValueExpr(pstate, "JSON_ARRAY()",
-<<<<<<< HEAD
-													 jsval,
-													 JS_FORMAT_DEFAULT);
-=======
 													 jsval, JS_FORMAT_DEFAULT,
 													 InvalidOid, false);
->>>>>>> REL_18_BETA1_branch
 
 			args = lappend(args, val);
 		}

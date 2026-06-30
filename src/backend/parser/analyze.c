@@ -14,13 +14,9 @@
  * contain optimizable statements, which we should transform.
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2005-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *	src/backend/parser/analyze.c
@@ -512,8 +508,6 @@ transformStmt(ParseState *pstate, Node *parseTree)
 #ifdef DEBUG_NODE_TESTS_ENABLED
 
 	/*
-<<<<<<< HEAD
-=======
 	 * We apply debug_raw_expression_coverage_test testing to basic DML
 	 * statements; we can't just run it on everything because
 	 * raw_expression_tree_walker() doesn't claim to handle utility
@@ -537,7 +531,6 @@ transformStmt(ParseState *pstate, Node *parseTree)
 #endif							/* DEBUG_NODE_TESTS_ENABLED */
 
 	/*
->>>>>>> REL_18_BETA1_branch
 	 * Caution: when changing the set of statement types that have non-default
 	 * processing here, see also stmt_requires_parse_analysis() and
 	 * analyze_requires_snapshot().
@@ -710,8 +703,6 @@ analyze_requires_snapshot(RawStmt *parseTree)
 }
 
 /*
-<<<<<<< HEAD
-=======
  * query_requires_rewrite_plan()
  *		Returns true if rewriting or planning is non-trivial for this Query.
  *
@@ -751,7 +742,6 @@ query_requires_rewrite_plan(Query *query)
 }
 
 /*
->>>>>>> REL_18_BETA1_branch
  * transformDeleteStmt -
  *	  transforms a Delete Statement
  */
@@ -4390,7 +4380,6 @@ test_raw_expression_coverage(Node *node, void *context)
 									  test_raw_expression_coverage,
 									  context);
 }
-<<<<<<< HEAD
 
 #endif							/* RAW_EXPRESSION_COVERAGE_TEST */
 
@@ -4633,6 +4622,3 @@ sanity_check_on_conflict_update(Oid relid, List *on_conflict_set, Node *on_confl
 			break;
 	}
 }
-=======
-#endif							/* DEBUG_NODE_TESTS_ENABLED */
->>>>>>> REL_18_BETA1_branch

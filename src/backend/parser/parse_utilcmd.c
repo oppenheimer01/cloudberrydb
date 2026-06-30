@@ -292,10 +292,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	cxt.fkconstraints = NIL;
 	cxt.ixconstraints = NIL;
 	cxt.likeclauses = NIL;
-<<<<<<< HEAD
 	cxt.attr_encodings = stmt->attr_encodings;
-=======
->>>>>>> REL_18_BETA1_branch
 	cxt.blist = NIL;
 	cxt.alist = NIL;
 	cxt.pkey = NULL;
@@ -460,11 +457,8 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	 */
 	stmt->tableElts = cxt.columns;
 	stmt->constraints = cxt.ckconstraints;
-<<<<<<< HEAD
 	stmt->attr_encodings = cxt.attr_encodings;
-=======
 	stmt->nnconstraints = cxt.nnconstraints;
->>>>>>> REL_18_BETA1_branch
 
 	result = lappend(cxt.blist, stmt);
 	result = list_concat(result, cxt.alist);
@@ -518,17 +512,6 @@ generateSerialExtraStmts(CreateStmtContext *cxt, ColumnDef *column,
 				errorConflictingDefElem(defel, cxt->pstate);
 			nameEl = defel;
 			seqoptions = foreach_delete_current(seqoptions, option);
-<<<<<<< HEAD
-=======
-		}
-		else if (strcmp(defel->defname, "logged") == 0 ||
-				 strcmp(defel->defname, "unlogged") == 0)
-		{
-			if (loggedEl)
-				errorConflictingDefElem(defel, cxt->pstate);
-			loggedEl = defel;
-			seqoptions = foreach_delete_current(seqoptions, option);
->>>>>>> REL_18_BETA1_branch
 		}
 		else if (strcmp(defel->defname, "logged") == 0 ||
 				 strcmp(defel->defname, "unlogged") == 0)
@@ -1259,7 +1242,6 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	setup_parser_errposition_callback(&pcbstate, cxt->pstate,
 									  table_like_clause->relation->location);
 
-<<<<<<< HEAD
 	/* LIKE INCLUDING is not supported for external tables */
 	if (forceBareCol && table_like_clause->options != 0)
 		ereport(ERROR,
@@ -1269,16 +1251,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	/*
 	 * CBDB: Support CREATE FOREIGN TABLE LIKE.
 	 */
-#if 0
-	/* we could support LIKE in many cases, but worry about it another day */
-	if (cxt->isforeign)
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("LIKE is not supported for creating foreign tables")));
-#endif
 
-=======
->>>>>>> REL_18_BETA1_branch
 	/* Open the relation referenced by the LIKE clause */
 	relation = relation_openrv(table_like_clause->relation, AccessShareLock);
 
@@ -1340,26 +1313,8 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		/*
 		 * Create a new column definition
 		 */
-<<<<<<< HEAD
-		def = makeNode(ColumnDef);
-		def->colname = pstrdup(attributeName);
-		def->typeName = makeTypeNameFromOid(attribute->atttypid,
-											attribute->atttypmod);
-		def->inhcount = 0;
-		def->is_local = true;
-		def->is_not_null = (forceBareCol ? false : attribute->attnotnull);
-		def->is_from_type = false;
-		def->storage = 0;
-		def->raw_default = NULL;
-		def->cooked_default = NULL;
-		def->collClause = NULL;
-		def->collOid = attribute->attcollation;
-		def->constraints = NIL;
-		def->location = -1;
-=======
 		def = makeColumnDef(NameStr(attribute->attname), attribute->atttypid,
 							attribute->atttypmod, attribute->attcollation);
->>>>>>> REL_18_BETA1_branch
 
 		/*
 		 * Add to column list
@@ -1432,8 +1387,6 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	}
 
 	/*
-<<<<<<< HEAD
-=======
 	 * Reproduce not-null constraints, if any, by copying them.  We do this
 	 * regardless of options given.
 	 */
@@ -1447,21 +1400,14 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	}
 
 	/*
->>>>>>> REL_18_BETA1_branch
 	 * We cannot yet deal with defaults, CHECK constraints, indexes, or
 	 * statistics, since we don't yet know what column numbers the copied
 	 * columns will have in the finished table.  If any of those options are
 	 * specified, add the LIKE clause to cxt->likeclauses so that
-<<<<<<< HEAD
-	 * expandTableLikeClause will be called after we do know that.  Also,
-	 * remember the relation OID so that expandTableLikeClause is certain to
-	 * open the same table.
-=======
 	 * expandTableLikeClause will be called after we do know that.
 	 *
 	 * In order for this to work, we remember the relation OID so that
 	 * expandTableLikeClause is certain to open the same table.
->>>>>>> REL_18_BETA1_branch
 	 */
 	if (table_like_clause->options &
 		(CREATE_TABLE_LIKE_DEFAULTS |

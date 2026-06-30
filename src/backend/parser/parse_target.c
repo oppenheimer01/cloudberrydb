@@ -1689,16 +1689,14 @@ expandRecordVariable(ParseState *pstate, Var *var, int levelsup)
 				/* else fall through to inspect the expression */
 			}
 			break;
-<<<<<<< HEAD
 		case RTE_VOID:
 			elog(ERROR, "unexpected RTE type RTE_VOID");
-=======
+			break;
 		case RTE_GROUP:
 
 			/*
 			 * We couldn't get here: the RTE_GROUP RTE has not been added.
 			 */
->>>>>>> REL_18_BETA1_branch
 			break;
 	}
 
@@ -1839,15 +1837,13 @@ FigureColnameInternal(Node *node, char **name)
 			/* make GROUPING() act like a regular function */
 			*name = "grouping";
 			return 2;
-<<<<<<< HEAD
 		case T_GroupId:
 			/* make GROUP_ID() act like a regular function */
 			*name = "group_id";
-=======
+			return 2;
 		case T_MergeSupportFunc:
 			/* make MERGE_ACTION() act like a regular function */
 			*name = "merge_action";
->>>>>>> REL_18_BETA1_branch
 			return 2;
 		case T_SubLink:
 			switch (((SubLink *) node)->subLinkType)

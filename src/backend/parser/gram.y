@@ -6,13 +6,9 @@
  * gram.y
  *	  POSTGRESQL BISON rules/actions
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2010, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -67,11 +63,7 @@
 #include "nodes/nodeFuncs.h"
 #include "parser/parser.h"
 #include "utils/datetime.h"
-<<<<<<< HEAD
-#include "utils/numeric.h"
 #include "utils/varlena.h"
-=======
->>>>>>> REL_18_BETA1_branch
 #include "utils/xml.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
@@ -560,14 +552,9 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %type <str>		unicode_normal_form
 
 %type <boolean> opt_instead
-<<<<<<< HEAD
 %type <boolean> opt_unique opt_concurrently opt_verbose opt_full
 %type <boolean> opt_freeze opt_analyze opt_ao_aux_only opt_default opt_recheck
 %type <boolean> opt_dxl
-=======
-%type <boolean> opt_unique opt_verbose opt_full
-%type <boolean> opt_freeze opt_analyze opt_default
->>>>>>> REL_18_BETA1_branch
 %type <defelt>	opt_binary copy_delimiter
 
 %type <boolean> copy_from opt_program
@@ -600,18 +587,12 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %type <vsetstmt> generic_set set_rest set_rest_more generic_reset reset_rest
 				 SetResetClause FunctionSetResetClause
 
-<<<<<<< HEAD
-%type <node>	TableElement TypedTableElement ConstraintElem TableFuncElement
-%type <node>	columnDef columnOptions
 %type <defelt>	def_elem reloption_elem old_aggr_elem keyvalue_pair operator_def_elem
 %type <node>	ExtTableElement
 %type <node>	ExtcolumnDef
 %type <node>	cdb_string
-=======
 %type <node>	TableElement TypedTableElement ConstraintElem DomainConstraintElem TableFuncElement
 %type <node>	columnDef columnOptions optionalPeriodName
-%type <defelt>	def_elem reloption_elem old_aggr_elem operator_def_elem
->>>>>>> REL_18_BETA1_branch
 %type <node>	def_arg columnElem where_clause where_or_current_clause
 				a_expr b_expr c_expr AexprConst indirection_el opt_slice_bound
 				columnref in_expr having_clause func_table xmltable array_expr
@@ -764,38 +745,17 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 
 %type <boolean> opt_if_not_exists
 %type <boolean> opt_unique_null_treatment
-<<<<<<< HEAD
-%type <ival>	generated_when override_kind
-%type <partspec>	PartitionSpec OptFirstPartitionSpec OptSecondPartitionSpec
-=======
 %type <ival>	generated_when override_kind opt_virtual_or_stored
-%type <partspec>	PartitionSpec OptPartitionSpec
->>>>>>> REL_18_BETA1_branch
+%type <partspec>	PartitionSpec OptFirstPartitionSpec OptSecondPartitionSpec
 %type <partelem>	part_elem
 %type <list>		part_params
 %type <partboundspec> PartitionBoundSpec
 %type <list>		hash_partbound
 %type <defelt>		hash_partbound_elem
 
-<<<<<<< HEAD
 %type <list>	OptWarehouseOptList WarehouseOptList
 %type <defelt>	WarehouseOptElem
 
-%type <node>	json_format_clause_opt
-				json_value_expr
-				json_output_clause_opt
-				json_name_and_value
-				json_aggregate_func
-%type <list>	json_name_and_value_list
-				json_value_expr_list
-				json_array_aggregate_order_by_clause_opt
-%type <ival>	json_encoding_clause_opt
-				json_predicate_type_constraint
-%type <boolean>	json_key_uniqueness_constraint_opt
-				json_object_constructor_null_clause_opt
-				json_array_constructor_null_clause_opt
-
-=======
 %type <node>	json_format_clause
 				json_format_clause_opt
 				json_value_expr
@@ -824,7 +784,6 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 				json_object_constructor_null_clause_opt
 				json_array_constructor_null_clause_opt
 
->>>>>>> REL_18_BETA1_branch
 
 /*
  * Non-keyword token types.  These are hard-wired into the "flex" lexer.
@@ -861,16 +820,9 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	CACHE CALL CALLED CASCADE CASCADED CASE CAST CATALOG_P CHAIN CHAR_P
 	CHARACTER CHARACTERISTICS CHECK CHECKPOINT CLASS CLOSE
 	CLUSTER COALESCE COLLATE COLLATION COLUMN COLUMNS COMMENT COMMENTS COMMIT
-<<<<<<< HEAD
-	COMMITTED COMPRESSION CONCURRENTLY CONFIGURATION CONFLICT CONNECTION CONSTRAINT
-	CONCURRENCY
-	CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY COST CREATE
-	CROSS CSV CUBE CURRENT_P
-=======
 	COMMITTED COMPRESSION CONCURRENTLY CONDITIONAL CONFIGURATION CONFLICT
-	CONNECTION CONSTRAINT CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY
+	CONNECTION CONSTRAINT CONCURRENCY CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY
 	COST CREATE CROSS CSV CUBE CURRENT_P
->>>>>>> REL_18_BETA1_branch
 	CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA
 	CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER CURSOR CYCLE
 
@@ -879,15 +831,9 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	DETACH DICTIONARY DIRECTORY DISABLE_P DISCARD DISTINCT DO DOCUMENT_P DOMAIN_P
 	DOUBLE_P DROP DYNAMIC
 
-<<<<<<< HEAD
-	EACH ELSE ENABLE_P ENCODING ENCRYPTED END_P ENDPOINT ENUM_P ESCAPE EVENT EXCEPT
-	EXCLUDE EXCLUDING EXCLUSIVE EXECUTE EXISTS EXPLAIN EXPRESSION
-	EXTENSION EXTERNAL EXTRACT
-=======
-	EACH ELSE EMPTY_P ENABLE_P ENCODING ENCRYPTED END_P ENFORCED ENUM_P ERROR_P
+	EACH ELSE EMPTY_P ENABLE_P ENCODING ENCRYPTED END_P ENDPOINT ENFORCED ENUM_P ERROR_P
 	ESCAPE EVENT EXCEPT EXCLUDE EXCLUDING EXCLUSIVE EXECUTE EXISTS EXPLAIN
 	EXPRESSION EXTENSION EXTERNAL EXTRACT
->>>>>>> REL_18_BETA1_branch
 
 	FALSE_P FAMILY FETCH FILTER FINALIZE FIRST_P FLOAT_P FOLLOWING FOR
 	FORCE FOREIGN FORMAT FORWARD FREEZE FROM FULL FUNCTION FUNCTIONS
@@ -910,13 +856,8 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 	LEADING LEAKPROOF LEAST LEFT LEVEL LIKE LIMIT LISTEN LOAD LOCAL
 	LOCALTIME LOCALTIMESTAMP LOCATION LOCK_P LOCKED LOCUS LOGGED
 
-<<<<<<< HEAD
-	MAPPING MATCH MATCHED MATERIALIZED MAXVALUE MERGE MEMORY_QUOTA
+	MAPPING MATCH MATCHED MATERIALIZED MAXVALUE MERGE MERGE_ACTION MEMORY_QUOTA
 	METHOD MINUTE_P MINVALUE MIN_COST MODE MONTH_P MOVE
-=======
-	MAPPING MATCH MATCHED MATERIALIZED MAXVALUE MERGE MERGE_ACTION METHOD
-	MINUTE_P MINVALUE MODE MONTH_P MOVE
->>>>>>> REL_18_BETA1_branch
 
 	NAME_P NAMES NATIONAL NATURAL NCHAR NESTED NEW NEXT NFC NFD NFKC NFKD NO
 	NONE NORMALIZE NORMALIZED
@@ -1063,13 +1004,6 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 %nonassoc	BETWEEN IN_P LIKE ILIKE SIMILAR NOT_LA
 %nonassoc	ESCAPE			/* ESCAPE must be just above LIKE/ILIKE/SIMILAR */
 
-<<<<<<< HEAD
-/* SQL/JSON related keywords */
-%nonassoc	UNIQUE JSON
-%nonassoc	KEYS SCALAR
-
-=======
->>>>>>> REL_18_BETA1_branch
 /*
  * Sometimes it is necessary to assign precedence to keywords that are not
  * really part of the operator hierarchy, in order to resolve grammar
@@ -1116,8 +1050,6 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
  * Like the UNBOUNDED PRECEDING/FOLLOWING case, NESTED is assigned a lower
  * precedence than PATH to fix ambiguity in the json_table production.
  */
-<<<<<<< HEAD
-%nonassoc	UNBOUNDED		/* ideally should have same precedence as IDENT */
 %nonassoc	IDENT GENERATED NULL_P PARTITION RANGE ROWS GROUPS PRECEDING FOLLOWING CUBE ROLLUP
 
 /*
@@ -1462,11 +1394,9 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc UNKNOWN
 			%nonassoc ZONE
 
-=======
 %nonassoc	UNBOUNDED NESTED /* ideally would have same precedence as IDENT */
 %nonassoc	IDENT PARTITION RANGE ROWS GROUPS PRECEDING FOLLOWING CUBE ROLLUP
 			SET KEYS OBJECT_P SCALAR VALUE_P WITH WITHOUT PATH
->>>>>>> REL_18_BETA1_branch
 %left		Op OPERATOR		/* multi-character ops and user-defined operators */
 %left		'+' '-'
 %left		'*' '/' '%'
@@ -3878,8 +3808,6 @@ alter_table_cmd:
 					n->subtype = AT_AlterConstraint;
 					n->def = (Node *) c;
 					c->conname = $3;
-<<<<<<< HEAD
-=======
 					if ($4 & (CAS_NOT_ENFORCED | CAS_ENFORCED))
 						c->alterEnforceability = true;
 					if ($4 & (CAS_DEFERRABLE | CAS_NOT_DEFERRABLE |
@@ -3887,7 +3815,6 @@ alter_table_cmd:
 						c->alterDeferrability = true;
 					if ($4 & CAS_NO_INHERIT)
 						c->alterInheritability = true;
->>>>>>> REL_18_BETA1_branch
 					processCASbits($4, @4, "FOREIGN KEY",
 									&c->deferrable,
 									&c->initdeferred,
@@ -4199,13 +4126,8 @@ alter_table_cmd:
 					n->newowner = $3;
 					$$ = (Node *) n;
 				}
-<<<<<<< HEAD
 			/* ALTER TABLE <name> SET ACCESS METHOD <amname> WITH (<reloptions>) */
-			| SET ACCESS METHOD name OptWith
-=======
-			/* ALTER TABLE <name> SET ACCESS METHOD { <amname> | DEFAULT } */
-			| SET ACCESS METHOD set_access_method_name
->>>>>>> REL_18_BETA1_branch
+			| SET ACCESS METHOD set_access_method_name OptWith
 				{
 					AlterTableCmd *n = makeNode(AlterTableCmd);
 					char *witham = greenplumLegacyAOoptions(n->name, &$5);
@@ -21166,17 +21088,14 @@ json_arguments:
 json_argument:
 			json_value_expr AS ColLabel
 			{
-<<<<<<< HEAD
 				/* formatted_expr will be set during parse-analysis. */
 				$$ = (Node *) makeJsonValueExpr((Expr *) $1, NULL,
 												castNode(JsonFormat, $2));
-=======
 				JsonArgument *n = makeNode(JsonArgument);
 
 				n->val = (JsonValueExpr *) $1;
 				n->name = $3;
 				$$ = (Node *) n;
->>>>>>> REL_18_BETA1_branch
 			}
 		;
 
@@ -21933,11 +21852,8 @@ unreserved_keyword:
 			| COMMIT
 			| COMMITTED
 			| COMPRESSION
-<<<<<<< HEAD
 			| CONCURRENCY
-=======
 			| CONDITIONAL
->>>>>>> REL_18_BETA1_branch
 			| CONFIGURATION
 			| CONFLICT
 			| CONNECTION
@@ -21987,15 +21903,11 @@ unreserved_keyword:
 			| ENABLE_P
 			| ENCODING
 			| ENCRYPTED
-<<<<<<< HEAD
 			| ENDPOINT
+            | ENFORCED
 			| ENUM_P
 			| ERRORS
-=======
-			| ENFORCED
-			| ENUM_P
-			| ERROR_P
->>>>>>> REL_18_BETA1_branch
+            | ERROR_P
 			| ESCAPE
 			| EVENT
 			| EVERY
@@ -22137,16 +22049,13 @@ unreserved_keyword:
 			| PARTITIONS
 			| PASSING
 			| PASSWORD
-<<<<<<< HEAD
 			| PASSWORD_LOCK_TIME
 			| PASSWORD_REUSE_MAX
+            | PATH
 			| PERCENT
-			| PERSISTENTLY
-=======
-			| PATH
 			| PERIOD
+			| PERSISTENTLY
 			| PLAN
->>>>>>> REL_18_BETA1_branch
 			| PLANS
 			| POLICY
 			| PRECEDING
@@ -22164,11 +22073,8 @@ unreserved_keyword:
 			| PUBLICATION
 			| QUEUE
 			| QUOTE
-<<<<<<< HEAD
+            | QUOTES
 			| RANDOMLY /* gp */
-=======
-			| QUOTES
->>>>>>> REL_18_BETA1_branch
 			| RANGE
 			| READ
 			| READABLE
@@ -22549,13 +22455,10 @@ PartitionIdentKeyword: ABORT_P
 			| SHARE
 			| SHOW
 			| SIMPLE
-<<<<<<< HEAD
-			| SPLIT
-=======
 			| SKIP
 			| SNAPSHOT
 			| SOURCE
->>>>>>> REL_18_BETA1_branch
+			| SPLIT
 			| SQL_P
 			| STABLE
 			| START
@@ -22566,23 +22469,17 @@ PartitionIdentKeyword: ABORT_P
 			| STORAGE
 			| STORED
 			| STRICT_P
-<<<<<<< HEAD
-			| SUBPARTITION
-			| SUPPORT
-			| SYSID
-			| SYSTEM_P
-			| TABLESAMPLE
-=======
-			| STRING_P
+            | STRING_P
 			| STRIP_P
+			| SUBPARTITION
 			| SUBSCRIPTION
 			| SUPPORT
 			| SYSID
 			| SYSTEM_P
 			| TABLES
+			| TABLESAMPLE
 			| TABLESPACE
 			| TARGET
->>>>>>> REL_18_BETA1_branch
 			| TEMP
 			| TEMPLATE
 			| TEMPORARY
@@ -22606,12 +22503,9 @@ PartitionIdentKeyword: ABORT_P
 			| VALIDATOR
 			| VERSION_P
 			| VIEW
-<<<<<<< HEAD
 			| VALUE_P
-=======
 			| VIEWS
 			| VIRTUAL
->>>>>>> REL_18_BETA1_branch
 			| VOLATILE
 			| WORK
 			| WRITE
@@ -22703,11 +22597,8 @@ col_name_keyword:
 			| JSON_TABLE
 			| JSON_VALUE
 			| LEAST
-<<<<<<< HEAD
 			| MEDIAN
-=======
 			| MERGE_ACTION
->>>>>>> REL_18_BETA1_branch
 			| NATIONAL
 			| NCHAR
 			| NONE
@@ -23020,15 +22911,11 @@ bare_label_keyword:
 			| ENCODING
 			| ENCRYPTED
 			| END_P
-<<<<<<< HEAD
 			| ENDPOINT
-			| ENUM_P
-			| ERRORS
-=======
 			| ENFORCED
 			| ENUM_P
+			| ERRORS
 			| ERROR_P
->>>>>>> REL_18_BETA1_branch
 			| ESCAPE
 			| EVENT
 			| EVERY
@@ -23220,15 +23107,12 @@ bare_label_keyword:
 			| PARTITIONS
 			| PASSING
 			| PASSWORD
-<<<<<<< HEAD
 			| PASSWORD_LOCK_TIME
 			| PASSWORD_REUSE_MAX
-			| PERCENT
-			| PERSISTENTLY
-=======
 			| PATH
+			| PERCENT
 			| PERIOD
->>>>>>> REL_18_BETA1_branch
+			| PERSISTENTLY
 			| PLACING
 			| PLAN
 			| PLANS
@@ -23250,11 +23134,8 @@ bare_label_keyword:
 			| PUBLICATION
 			| QUEUE
 			| QUOTE
-<<<<<<< HEAD
-			| RANDOMLY
-=======
 			| QUOTES
->>>>>>> REL_18_BETA1_branch
+			| RANDOMLY
 			| RANGE
 			| READ
 			| READABLE
@@ -23322,11 +23203,8 @@ bare_label_keyword:
 			| SMALLINT
 			| SNAPSHOT
 			| SOME
-<<<<<<< HEAD
-			| SPLIT
-=======
 			| SOURCE
->>>>>>> REL_18_BETA1_branch
+			| SPLIT
 			| SQL_P
 			| STABLE
 			| STANDALONE_P
@@ -23352,12 +23230,9 @@ bare_label_keyword:
 			| TABLES
 			| TABLESAMPLE
 			| TABLESPACE
-<<<<<<< HEAD
 			| TAG
-			| TASK
-=======
 			| TARGET
->>>>>>> REL_18_BETA1_branch
+			| TASK
 			| TEMP
 			| TEMPLATE
 			| TEMPORARY
@@ -24082,7 +23957,6 @@ mergeTableFuncParameters(List *func_args, List *columns, core_yyscan_t yyscanner
 	{
 		FunctionParameter *p = (FunctionParameter *) lfirst(lc);
 
-<<<<<<< HEAD
 		switch (p->mode)
 		{
 			/* Input modes */
@@ -24106,15 +23980,6 @@ mergeTableFuncParameters(List *func_args, List *columns, core_yyscan_t yyscanner
 						 errmsg("INOUT arguments aren't allowed in TABLE functions")));
 				break;
 		}
-=======
-		if (p->mode != FUNC_PARAM_DEFAULT &&
-			p->mode != FUNC_PARAM_IN &&
-			p->mode != FUNC_PARAM_VARIADIC)
-			ereport(ERROR,
-					(errcode(ERRCODE_SYNTAX_ERROR),
-					 errmsg("OUT and INOUT arguments aren't allowed in TABLE functions"),
-					 parser_errposition(p->location)));
->>>>>>> REL_18_BETA1_branch
 	}
 
 	return list_concat(func_args, columns);
