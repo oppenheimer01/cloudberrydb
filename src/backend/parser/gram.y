@@ -553,7 +553,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 
 %type <boolean> opt_instead
 %type <boolean> opt_unique opt_concurrently opt_verbose opt_full
-%type <boolean> opt_freeze opt_analyze opt_ao_aux_only opt_default opt_recheck
+%type <boolean> opt_freeze opt_analyze opt_ao_aux_only opt_default
 %type <boolean> opt_dxl
 %type <defelt>	opt_binary copy_delimiter
 
@@ -1050,7 +1050,7 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
  * Like the UNBOUNDED PRECEDING/FOLLOWING case, NESTED is assigned a lower
  * precedence than PATH to fix ambiguity in the json_table production.
  */
-%nonassoc	IDENT GENERATED NULL_P PARTITION RANGE ROWS GROUPS PRECEDING FOLLOWING CUBE ROLLUP
+%nonassoc GENERATED NULL_P
 
 /*
  * GPDB_14_MERGE_FIXME: need to update this list to reflect new keywords added
@@ -1220,7 +1220,6 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc NOTIFY
 			%nonassoc NOWAIT
 			%nonassoc NULLS_P
-			%nonassoc OBJECT_P
 			%nonassoc OF
 			%nonassoc OIDS
 			%nonassoc OLD
@@ -1255,7 +1254,6 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc READABLE
 			%nonassoc READS
 			%nonassoc REASSIGN
-			%nonassoc RECHECK
 			%nonassoc RECURSIVE
 			%nonassoc REFERENCING
 			%nonassoc REINDEX
@@ -1333,15 +1331,12 @@ static void check_expressions_in_partition_key(PartitionSpec *spec, core_yyscan_
 			%nonassoc VALID
 			%nonassoc VALIDATION
 			%nonassoc VALIDATOR
-			%nonassoc VALUE_P
 			%nonassoc VARYING
 			%nonassoc VERSION_P
 			%nonassoc VIEW
 			%nonassoc VOLATILE
 			%nonassoc WEB
-			%nonassoc WITH
 			%nonassoc WITHIN
-			%nonassoc WITHOUT
 			%nonassoc WORK
 			%nonassoc WRITABLE
 			%nonassoc WRITE
@@ -2053,13 +2048,13 @@ AlterOptRoleElem:
 			        $$ = makeDefElem("accountislock", (Node*) makeInteger(false), @1);
 			    }
 			| ENABLE_P PROFILE
-                	    {
-                    		$$ = makeDefElem("enableProfile", (Node *) makeInteger(true), @1);
-                	    }
+					    {
+							$$ = makeDefElem("enableProfile", (Node *) makeInteger(true), @1);
+					      	    }
 			| DISABLE_P PROFILE
-                	    {
-                    		$$ = makeDefElem("enableProfile", (Node *) makeInteger(false), @1);
-                	    }
+					    {
+							$$ = makeDefElem("enableProfile", (Node *) makeInteger(false), @1);
+					    }
 			| IDENT
 				{
 					/*
@@ -21088,9 +21083,6 @@ json_arguments:
 json_argument:
 			json_value_expr AS ColLabel
 			{
-				/* formatted_expr will be set during parse-analysis. */
-				$$ = (Node *) makeJsonValueExpr((Expr *) $1, NULL,
-												castNode(JsonFormat, $2));
 				JsonArgument *n = makeNode(JsonArgument);
 
 				n->val = (JsonValueExpr *) $1;
@@ -21586,7 +21578,7 @@ SignedIconst: Iconst								{ $$ = $1; }
 			| '-' Iconst							{ $$ = - $2; }
 		;
 
-QueueId:	NonReservedWord							{ $$ = $1; };
+QueueId:	NonReservedWord							{ $$ = $1; }
 
 /* Role specifications */
 RoleId:		RoleSpec
@@ -21906,8 +21898,8 @@ unreserved_keyword:
 			| ENDPOINT
             | ENFORCED
 			| ENUM_P
+			| ERROR_P
 			| ERRORS
-            | ERROR_P
 			| ESCAPE
 			| EVENT
 			| EVERY
@@ -22133,6 +22125,7 @@ unreserved_keyword:
 			| SIMPLE
 			| SKIP
 			| SNAPSHOT
+			| SOURCE
 			| SPLIT
 			| SQL_P
 			| STABLE
@@ -22145,6 +22138,7 @@ unreserved_keyword:
 			| STORAGE
 			| STORED
 			| STRICT_P
+			| STRING_P
 			| STRIP_P
 			| SUBPARTITION
 			| SUBSCRIPTION
@@ -22154,6 +22148,7 @@ unreserved_keyword:
 			| TABLES
 			| TABLESPACE
 			| TAG
+			| TARGET
 			| TASK
 			| TEMP
 			| TEMPLATE
@@ -22171,6 +22166,7 @@ unreserved_keyword:
 			| UESCAPE
 			| UNBOUNDED
 			| UNCOMMITTED
+			| UNCONDITIONAL
 			| UNENCRYPTED
 			| UNKNOWN
 			| UNLISTEN
@@ -22189,6 +22185,7 @@ unreserved_keyword:
 			| VERSION_P
 			| VIEW
 			| VIEWS
+			| VIRTUAL
 			| VOLATILE
 			| WAREHOUSE
 			| WAREHOUSE_SIZE
@@ -22299,8 +22296,8 @@ PartitionIdentKeyword: ABORT_P
 			| ENCODING
 			| ENCRYPTED
 			| ENDPOINT
-			| ERRORS
 			| ENUM_P
+			| ERRORS
 			| ESCAPE
 			| EVERY
 			| EXCHANGE
@@ -22416,7 +22413,6 @@ PartitionIdentKeyword: ABORT_P
 			| RANGE
 			| READ
 			| REASSIGN
-			| RECHECK
 			| REFERENCING
 			| REINDEX
 			| RELATIVE_P
@@ -22478,7 +22474,6 @@ PartitionIdentKeyword: ABORT_P
 			| SYSTEM_P
 			| TABLES
 			| TABLESAMPLE
-			| TABLESPACE
 			| TARGET
 			| TEMP
 			| TEMPLATE
@@ -22914,8 +22909,8 @@ bare_label_keyword:
 			| ENDPOINT
 			| ENFORCED
 			| ENUM_P
-			| ERRORS
 			| ERROR_P
+			| ERRORS
 			| ESCAPE
 			| EVENT
 			| EVERY
