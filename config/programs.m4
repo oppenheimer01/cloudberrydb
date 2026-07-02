@@ -61,47 +61,9 @@ AC_SUBST(BISONFLAGS)
 # Look for Flex, set the output variable FLEX to its path if found.
 
 AC_DEFUN([PGAC_PATH_FLEX],
-<<<<<<< HEAD
-[AC_CACHE_CHECK([for flex], pgac_cv_path_flex,
-[# Let the user override the test
-if test -n "$FLEX"; then
-  pgac_cv_path_flex=$FLEX
-else
-  pgac_save_IFS=$IFS
-  IFS=$PATH_SEPARATOR
-  for pgac_dir in $PATH; do
-    IFS=$pgac_save_IFS
-    if test -z "$pgac_dir" || test x"$pgac_dir" = x"."; then
-      pgac_dir=`pwd`
-    fi
-    for pgac_prog in flex lex; do
-      pgac_candidate="$pgac_dir/$pgac_prog"
-      if test -f "$pgac_candidate" \
-        && $pgac_candidate --version </dev/null >/dev/null 2>&1
-      then
-        echo '%%'  > conftest.l
-        if $pgac_candidate -t conftest.l 2>/dev/null | grep FLEX_SCANNER >/dev/null 2>&1; then
-          pgac_flex_version=`$pgac_candidate --version 2>/dev/null`
-          if echo "$pgac_flex_version" | sed ['s/[.a-z]/ /g'] | $AWK '{ if ([$]1 == 2 && ([$]2 > 5 || ([$]2 == 5 && [$]3 >= 35))) exit 0; else exit 1;}'
-          then
-            pgac_cv_path_flex=$pgac_candidate
-            break 2
-          else
-            AC_MSG_WARN([
-*** The installed version of Flex, $pgac_candidate, is too old to use with Apache Cloudberry.
-*** Flex version 2.5.35 or later is required, but this is $pgac_flex_version.])
-          fi
-        fi
-      fi
-    done
-  done
-  rm -f conftest.l lex.yy.c
-  : ${pgac_cv_path_flex=no}
-=======
 [PGAC_PATH_PROGS(FLEX, flex)
 if test -z "$FLEX"; then
   AC_MSG_ERROR([flex not found])
->>>>>>> REL_18_BETA1_branch
 fi
 
 pgac_flex_version=`$FLEX --version 2>/dev/null`
@@ -314,7 +276,6 @@ AC_DEFUN([PGAC_CHECK_STRIP],
 ])# PGAC_CHECK_STRIP
 
 
-<<<<<<< HEAD
 # GPAC_PATH_APR_1_CONFIG
 # ----------------------
 # Check for apr-1-config, used by gpfdist
@@ -345,7 +306,7 @@ else
   AC_MSG_ERROR([apr-1-config is required for gpfdist, unable to find binary])
 fi
 ]) # GPAC_PATH_APR_1_CONFIG
-=======
+
 
 # PGAC_CHECK_LIBCURL
 # ------------------
@@ -424,4 +385,3 @@ AC_DEFUN([PGAC_CHECK_LIBCURL],
   LDFLAGS=$pgac_save_LDFLAGS
   LIBS=$pgac_save_LIBS
 ])# PGAC_CHECK_LIBCURL
->>>>>>> REL_18_BETA1_branch

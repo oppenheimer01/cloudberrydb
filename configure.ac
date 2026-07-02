@@ -17,16 +17,12 @@ dnl Read the Autoconf manual for details.
 dnl
 m4_pattern_forbid(^PGAC_)dnl to catch undefined macros
 
-<<<<<<< HEAD
 dnl The PACKAGE_VERSION from upstream PostgreSQL is maintained in the
 dnl PG_PACKAGE_VERSION variable, when merging make sure to update this
 dnl variable with the merge conflict from the AC_INIT() statement.
 AC_INIT([Apache Cloudberry], [3.0.0-devel], [dev@cloudberry.apache.org], [], [https://cloudberry.apache.org/])
-[PG_PACKAGE_VERSION=16.9]
+[PG_PACKAGE_VERSION=18beta1]
 AC_SUBST(PG_PACKAGE_VERSION)
-=======
-AC_INIT([PostgreSQL], [18beta1], [pgsql-bugs@lists.postgresql.org], [], [https://www.postgresql.org/])
->>>>>>> REL_18_BETA1_branch
 
 m4_if(m4_defn([m4_PACKAGE_VERSION]), [2.69], [], [m4_fatal([Autoconf version 2.69 is required.
 Untested combinations of 'autoconf' and PostgreSQL versions are not
@@ -205,7 +201,6 @@ PGAC_ARG_BOOL(enable, rpath, yes,
 AC_SUBST(enable_rpath)
 
 #
-<<<<<<< HEAD
 # Spinlocks
 #
 PGAC_ARG_BOOL(enable, spinlocks, yes,
@@ -261,8 +256,6 @@ PGAC_ARG_BOOL(enable, orafce, no,
 AC_SUBST(enable_orafce)
 
 #
-=======
->>>>>>> REL_18_BETA1_branch
 # --enable-debug adds -g to compiler flags
 #
 PGAC_ARG_BOOL(enable, debug, no,
@@ -1342,10 +1335,11 @@ AC_SUBST(with_uuid)
 
 
 #
-# libcurl
+# libcurl. Used for external table support, the PXF extension, gpcloud,
+# and (optionally) OAuth support in libpq.
 #
 AC_MSG_CHECKING([whether to build with libcurl support])
-PGAC_ARG_BOOL(with, libcurl, no, [build with libcurl support],
+PGAC_ARG_BOOL(with, libcurl, yes, [do not use libcurl],
               [AC_DEFINE([USE_LIBCURL], 1, [Define to 1 to build with libcurl support. (--with-libcurl)])])
 AC_MSG_RESULT([$with_libcurl])
 AC_SUBST(with_libcurl)
@@ -1561,13 +1555,6 @@ PGAC_ARG_BOOL(with, rt, yes,
               [do not use Realtime Library])
 AC_SUBST(with_rt)
 
-#
-# libcurl. Used for external table support and the PXF extension
-#
-PGAC_ARG_BOOL(with, libcurl, yes,
-              [do not use libcurl])
-AC_SUBST(with_libcurl)
-
 if test "$with_libcurl" = "no" && test "$enable_pxf" = "yes"; then
   AC_MSG_ERROR([libcurl is required by PXF])
 fi
@@ -1754,14 +1741,7 @@ AC_SEARCH_LIBS(shmget, cygipc)
 # *BSD:
 AC_SEARCH_LIBS(backtrace_symbols, execinfo)
 
-<<<<<<< HEAD
-if test "$enable_thread_safety" = yes; then
-  AC_SEARCH_LIBS(gethostbyname_r, nsl)
-  AC_SEARCH_LIBS(pthread_barrier_wait, pthread)
-fi
-=======
 AC_SEARCH_LIBS(pthread_barrier_wait, pthread)
->>>>>>> REL_18_BETA1_branch
 
 if test "$with_readline" = yes; then
   PGAC_CHECK_READLINE
@@ -1781,7 +1761,6 @@ failure.  It is possible the compiler isn't looking in the proper directory.
 Use --without-zlib to disable zlib support.])])
 fi
 
-<<<<<<< HEAD
 if test "$with_mdblocales" = yes; then
   AC_CHECK_LIB(mdblocales, mdb_setlocale, [],
                [AC_MSG_ERROR([mdblocales library not found])])
@@ -1810,10 +1789,10 @@ if test "$enable_atomics" = yes; then
 else
   AC_MSG_WARN([
 *** Not using atomic operations will cause poor performance.])
-=======
+fi
+
 if test "$with_libcurl" = yes ; then
   PGAC_CHECK_LIBCURL
->>>>>>> REL_18_BETA1_branch
 fi
 
 if test "$with_gssapi" = yes ; then
@@ -1877,7 +1856,6 @@ if test "$with_ssl" = openssl ; then
   # Minimum required OpenSSL version is 1.1.1
   AC_DEFINE(OPENSSL_API_COMPAT, [0x10101000L],
             [Define to the OpenSSL API version in use. This avoids deprecation warnings from newer OpenSSL versions.])
-<<<<<<< HEAD
   if test "$PORTNAME" != "win32"; then
      AC_CHECK_LIB(crypto, CRYPTO_new_ex_data, [], [AC_MSG_ERROR([library 'crypto' is required for OpenSSL])])
      AC_CHECK_LIB(ssl,    SSL_new, [], [AC_MSG_ERROR([library 'ssl' is required for OpenSSL])])
@@ -1885,31 +1863,12 @@ if test "$with_ssl" = openssl ; then
      AC_SEARCH_LIBS(CRYPTO_new_ex_data, [eay32 crypto], [], [AC_MSG_ERROR([library 'eay32' or 'crypto' is required for OpenSSL])])
      AC_SEARCH_LIBS(SSL_new, [ssleay32 ssl], [], [AC_MSG_ERROR([library 'ssleay32' or 'ssl' is required for OpenSSL])])
   fi
-  # Functions introduced in OpenSSL 1.0.2. LibreSSL does not have
-  # SSL_CTX_set_cert_cb().
-  AC_CHECK_FUNCS([X509_get_signature_nid SSL_CTX_set_cert_cb])
-  # Functions introduced in OpenSSL 1.1.0. We used to check for
-  # OPENSSL_VERSION_NUMBER, but that didn't work with 1.1.0, because LibreSSL
-  # defines OPENSSL_VERSION_NUMBER to claim version 2.0.0, even though it
-  # doesn't have these OpenSSL 1.1.0 functions. So check for individual
-  # functions.
-  AC_CHECK_FUNCS([OPENSSL_init_ssl BIO_meth_new ASN1_STRING_get0_data HMAC_CTX_new HMAC_CTX_free])
-  # OpenSSL versions before 1.1.0 required setting callback functions, for
-  # thread-safety. In 1.1.0, it's no longer required, and CRYPTO_lock()
-  # function was removed.
-  AC_CHECK_FUNCS([CRYPTO_lock])
-  # Function introduced in OpenSSL 1.1.1.
-  AC_CHECK_FUNCS([X509_get_signature_info SSL_CTX_set_num_tickets])
-=======
-  AC_CHECK_LIB(crypto, CRYPTO_new_ex_data, [], [AC_MSG_ERROR([library 'crypto' is required for OpenSSL])])
-  AC_CHECK_LIB(ssl,    SSL_new, [], [AC_MSG_ERROR([library 'ssl' is required for OpenSSL])])
   # Functions introduced in OpenSSL 1.1.1.
   AC_CHECK_FUNCS([SSL_CTX_set_ciphersuites], [], [AC_MSG_ERROR([OpenSSL version >= 1.1.1 is required for SSL support])])
   # Function introduced in OpenSSL 1.0.2, not in LibreSSL.
-  AC_CHECK_FUNCS([SSL_CTX_set_cert_cb])
+  AC_CHECK_FUNCS([X509_get_signature_nid SSL_CTX_set_cert_cb])
   # Function introduced in OpenSSL 1.1.1, not in LibreSSL.
   AC_CHECK_FUNCS([X509_get_signature_info SSL_CTX_set_num_tickets SSL_CTX_set_keylog_callback])
->>>>>>> REL_18_BETA1_branch
   AC_DEFINE([USE_OPENSSL], 1, [Define to 1 to build with OpenSSL support. (--with-ssl=openssl)])
 elif test "$with_ssl" != no ; then
   AC_MSG_ERROR([--with-ssl must specify openssl])
@@ -2305,17 +2264,16 @@ if test "$PORTNAME" = "win32" ; then
    AC_CHECK_HEADERS(crtdefs.h)
 fi
 
-<<<<<<< HEAD
 # OpenBSD requires libexecinfo from ports for backtrace() as it's a glibc addition
 if test "$PORTNAME" = "openbsd"; then
   AC_CHECK_HEADERS([execinfo.h], [], [AC_MSG_ERROR([header file <execinfo.h> is required for backtrace support])])
-=======
+fi
+
 if test "$with_libcurl" = yes ; then
   # Error out early if this platform can't support libpq-oauth.
   if test "$ac_cv_header_sys_event_h" != yes -a "$ac_cv_header_sys_epoll_h" != yes; then
     AC_MSG_ERROR([client-side OAuth is not supported on this platform])
   fi
->>>>>>> REL_18_BETA1_branch
 fi
 
 ##
@@ -2358,7 +2316,6 @@ AC_CHECK_TYPES([struct option], [], [],
 #include <getopt.h>
 #endif])
 
-<<<<<<< HEAD
 if test x"$pgac_cv__builtin_frame_address" = xno && test "$enable_orca" = yes; then :
     AC_MSG_ERROR([[
 Built-in function __builtin_frame_address() is required for ORCA.
@@ -2375,8 +2332,6 @@ Use --without-zlib to disable zlib support.])],
                 [#include <zlib.h>])
 fi
 
-=======
->>>>>>> REL_18_BETA1_branch
 case $host_cpu in
   x86_64)
     # On x86_64, check if we can compile a popcntq instruction
@@ -2438,7 +2393,6 @@ if test "$ac_cv_sizeof_off_t" -lt 8; then
   fi
 fi
 
-<<<<<<< HEAD
 AC_CHECK_SIZEOF([bool], [], [#include <stdbool.h>])
 
 dnl We use <stdbool.h> if bool has size 1 after including it.  Otherwise, c.h
@@ -2448,8 +2402,6 @@ if test "$ac_cv_sizeof_bool" = 1; then
             [Define to 1 to use <stdbool.h> to define type bool.])
 fi
 
-=======
->>>>>>> REL_18_BETA1_branch
 
 ##
 ## Functions, global variables
@@ -2528,21 +2480,12 @@ AC_CHECK_DECLS(posix_fadvise, [], [], [#include <fcntl.h>])
 ]) # fi
 
 AC_CHECK_DECLS(fdatasync, [], [], [#include <unistd.h>])
-<<<<<<< HEAD
-AC_CHECK_DECLS([strlcat, strlcpy, strnlen, timingsafe_bcmp])
-=======
 AC_CHECK_DECLS([strlcat, strlcpy, strnlen, strsep, timingsafe_bcmp])
->>>>>>> REL_18_BETA1_branch
 
 # We can't use AC_CHECK_FUNCS to detect these functions, because it
 # won't handle deployment target restrictions on macOS
-<<<<<<< HEAD
-AC_CHECK_DECLS([preadv], [], [AC_LIBOBJ(preadv)], [#include <sys/uio.h>])
-AC_CHECK_DECLS([pwritev], [], [AC_LIBOBJ(pwritev)], [#include <sys/uio.h>])
-=======
 AC_CHECK_DECLS([preadv], [], [], [#include <sys/uio.h>])
 AC_CHECK_DECLS([pwritev], [], [], [#include <sys/uio.h>])
->>>>>>> REL_18_BETA1_branch
 AC_CHECK_DECLS([strchrnul], [], [], [#include <string.h>])
 
 # This is probably only present on macOS, but may as well check always
@@ -2557,10 +2500,7 @@ AC_REPLACE_FUNCS(m4_normalize([
 	strlcat
 	strlcpy
 	strnlen
-<<<<<<< HEAD
-=======
 	strsep
->>>>>>> REL_18_BETA1_branch
 	timingsafe_bcmp
 ]))
 
