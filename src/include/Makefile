@@ -13,11 +13,7 @@ top_builddir = ../..
 include $(top_builddir)/src/Makefile.global
 
 
-<<<<<<< HEAD
-all: pg_config.h pg_config_ext.h pg_config_os.h check_oids
-=======
-all: pg_config.h pg_config_os.h
->>>>>>> REL_18_BETA1_branch
+all: pg_config.h pg_config_os.h check_oids
 
 
 # Subdirectories containing installable headers
@@ -58,11 +54,7 @@ install: all installdirs
 	  $(INSTALL_DATA) $(srcdir)/$$dir/*.h '$(DESTDIR)$(includedir_server)'/$$dir || exit; \
 	done
 ifeq ($(vpath_build),yes)
-<<<<<<< HEAD
-	for file in catalog/schemapg.h catalog/system_fk_info.h catalog/pg_*_d.h catalog/gp_*_d.h storage/lwlocknames.h utils/probes.h; do \
-=======
-	for file in storage/lwlocknames.h utils/probes.h utils/wait_event_types.h; do \
->>>>>>> REL_18_BETA1_branch
+	for file in catalog/gp_*_d.h storage/lwlocknames.h utils/probes.h utils/wait_event_types.h; do \
 	  $(INSTALL_DATA) $$file '$(DESTDIR)$(includedir_server)'/$$file || exit; \
 	done
 endif
@@ -85,13 +77,7 @@ check_oids:
 
 clean:
 	rm -f utils/fmgroids.h utils/fmgrprotos.h utils/errcodes.h utils/header-stamp
-<<<<<<< HEAD
-	rm -f storage/lwlocknames.h utils/probes.h
-	rm -f catalog/schemapg.h catalog/system_fk_info.h
-	rm -f catalog/pg_*_d.h catalog/gp_*_d.h catalog/header-stamp
-=======
-	rm -f storage/lwlocknames.h utils/probes.h utils/wait_event_types.h
->>>>>>> REL_18_BETA1_branch
+	rm -f catalog/gp_*_d.h storage/lwlocknames.h utils/probes.h utils/wait_event_types.h
 	rm -f nodes/nodetags.h nodes/header-stamp
 	$(MAKE) -C catalog clean
 

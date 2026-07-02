@@ -472,13 +472,10 @@ extern char *strsep(char **stringp, const char *delim);
 extern int	timingsafe_bcmp(const void *b1, const void *b2, size_t len);
 #endif
 
-<<<<<<< HEAD
-=======
 /*
  * Callers should use the qsort() macro defined below instead of calling
  * pg_qsort() directly.
  */
->>>>>>> REL_18_BETA1_branch
 extern void pg_qsort(void *base, size_t nel, size_t elsize,
 					 int (*cmp) (const void *, const void *));
 extern int	pg_qsort_strcmp(const void *a, const void *b);
@@ -534,11 +531,8 @@ extern int	pg_mkdir_p(char *path, int omode);
 /* port/pqsignal.c (see also interfaces/libpq/legacy-pqsignal.c) */
 #ifdef FRONTEND
 #define pqsignal pqsignal_fe
-<<<<<<< HEAD
-=======
 #else
 #define pqsignal pqsignal_be
->>>>>>> REL_18_BETA1_branch
 #endif
 typedef void (*pqsigfunc) (SIGNAL_ARGS);
 extern void pqsignal(int signo, pqsigfunc func);

@@ -9,13 +9,9 @@
  *	  polluting the namespace with lots of stuff...
  *
  *
-<<<<<<< HEAD
  * Portions Copyright (c) 2006-2011, Greenplum inc
  * Portions Copyright (c) 2012-Present VMware, Inc. or its affiliates.
- * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
-=======
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
->>>>>>> REL_18_BETA1_branch
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/c.h
@@ -521,20 +517,8 @@ typedef void (*pg_funcptr_t) (void);
  * bool
  *		Boolean value, either true or false.
  *
-<<<<<<< HEAD
- * We use stdbool.h if bool has size 1 after including it.  That's useful for
- * better compiler and debugger output and for compatibility with third-party
- * libraries.  But PostgreSQL currently cannot deal with bool of other sizes;
- * there are static assertions around the code to prevent that.
- *
- * For C++ compilers, we assume the compiler has a compatible built-in
- * definition of bool.
- *
- * See also the version of this code in src/interfaces/ecpg/include/ecpglib.h.
-=======
  * PostgreSQL currently cannot deal with bool of size other than 1; there are
  * static assertions around the code to prevent that.
->>>>>>> REL_18_BETA1_branch
  */
 
 #include <stdbool.h>
@@ -1391,17 +1375,10 @@ extern int	fdatasync(int fildes);
  * definition of int64.  (For the naming, compare that POSIX has
  * strtoimax()/strtoumax() which return intmax_t/uintmax_t.)
  */
-<<<<<<< HEAD
-#ifdef HAVE_LONG_INT_64
-#define strtoi64(str, endptr, base) strtol(str, endptr, base)
-#define strtou64(str, endptr, base) strtoul(str, endptr, base)
-#else
-=======
 #if SIZEOF_LONG == 8
 #define strtoi64(str, endptr, base) ((int64) strtol(str, endptr, base))
 #define strtou64(str, endptr, base) ((uint64) strtoul(str, endptr, base))
 #elif SIZEOF_LONG_LONG == 8
->>>>>>> REL_18_BETA1_branch
 #define strtoi64(str, endptr, base) ((int64) strtoll(str, endptr, base))
 #define strtou64(str, endptr, base) ((uint64) strtoull(str, endptr, base))
 #else

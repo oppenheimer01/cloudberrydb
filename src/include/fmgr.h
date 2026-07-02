@@ -470,24 +470,17 @@ extern PGDLLEXPORT void _PG_init(void);
 /* Definition of the values we check to verify ABI compatibility */
 typedef struct
 {
-<<<<<<< HEAD
-	int			len;			/* sizeof(this struct) */
 	int			version;		/* product major version */
-=======
-	int			version;		/* PostgreSQL major version */
->>>>>>> REL_18_BETA1_branch
 	int			funcmaxargs;	/* FUNC_MAX_ARGS */
 	int			indexmaxkeys;	/* INDEX_MAX_KEYS */
 	int			namedatalen;	/* NAMEDATALEN */
 	int			float8byval;	/* FLOAT8PASSBYVAL */
 	char		abi_extra[32];	/* see pg_config_manual.h */
-<<<<<<< HEAD
 	int         product;        /* magic product code */
-} Pg_magic_struct;
-
+} Pg_abi_values;
 /*
  * List of product codes for products that support some level of compatability
- * with the postgres contrib module format. 
+ * with the postgres contrib module format.
  *
  * GPDB: A patch for this has been supplied to Postgres in the hope of improved
  * cross product compatibility.  It is currently unknown if they will accept
@@ -498,14 +491,6 @@ typedef enum {
 	PgMagicProductPostgres	   = 1,
 	PgMagicProductCloudberry	   = 2180,     /* 'GPDB' cast to an integer */
 } Pg_magic_product_code;
-
-/* The actual data block contents */
-#define PG_MODULE_MAGIC_DATA \
-{ \
-	sizeof(Pg_magic_struct), \
-	GP_VERSION_NUM / 100, \
-=======
-} Pg_abi_values;
 
 /* Definition of the magic block structure */
 typedef struct
@@ -521,7 +506,6 @@ typedef struct
 #define PG_MODULE_ABI_DATA \
 { \
 	PG_VERSION_NUM / 100, \
->>>>>>> REL_18_BETA1_branch
 	FUNC_MAX_ARGS, \
 	INDEX_MAX_KEYS, \
 	NAMEDATALEN, \
@@ -530,7 +514,6 @@ typedef struct
 	PgMagicProductCloudberry \
 }
 
-<<<<<<< HEAD
 #ifndef FLOAT4PASSBYVAL
 #define FLOAT4PASSBYVAL 1
 #endif
@@ -538,8 +521,6 @@ typedef struct
 #define FLOAT8PASSBYVAL 1
 #endif
 
-StaticAssertDecl(sizeof(FMGR_ABI_EXTRA) <= sizeof(((Pg_magic_struct *) 0)->abi_extra),
-=======
 /*
  * Macro to fill a magic block.  If any arguments are given, they should
  * be field initializers.
@@ -552,7 +533,6 @@ StaticAssertDecl(sizeof(FMGR_ABI_EXTRA) <= sizeof(((Pg_magic_struct *) 0)->abi_e
 }
 
 StaticAssertDecl(sizeof(FMGR_ABI_EXTRA) <= sizeof(((Pg_abi_values *) 0)->abi_extra),
->>>>>>> REL_18_BETA1_branch
 				 "FMGR_ABI_EXTRA too long");
 
 /*

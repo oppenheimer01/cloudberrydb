@@ -271,7 +271,6 @@ extern PGDLLIMPORT char pkglib_path[];
 extern PGDLLIMPORT char postgres_exec_path[];
 #endif
 
-<<<<<<< HEAD
 /* for pljava */
 extern PGDLLIMPORT char* pljava_vmoptions;
 extern PGDLLIMPORT char* pljava_classpath;
@@ -280,13 +279,6 @@ extern PGDLLIMPORT bool  pljava_debug;
 extern PGDLLIMPORT bool  pljava_release_lingering_savepoints;
 extern PGDLLIMPORT bool  pljava_classpath_insecure;
 
-/*
- * done in storage/backendid.h for now.
- *
- * extern BackendId    MyBackendId;
- */
-=======
->>>>>>> REL_18_BETA1_branch
 extern PGDLLIMPORT Oid MyDatabaseId;
 
 extern PGDLLIMPORT Oid MyDatabaseTableSpace;
@@ -400,11 +392,6 @@ extern void PreventCommandIfReadOnly(const char *cmdname);
 extern void PreventCommandIfParallelMode(const char *cmdname);
 extern void PreventCommandDuringRecovery(const char *cmdname);
 
-<<<<<<< HEAD
-/* in utils/misc/guc_tables.c */
-extern PGDLLIMPORT int trace_recovery_messages;
-extern int	trace_recovery(int trace_level);
-
 /*
  * database which is used by dtx recovery, gdd, fts, etc for catalog access.
  * We are not using template1 since it seems that users would like to recreate
@@ -417,8 +404,6 @@ extern int	trace_recovery(int trace_level);
  */
 #define DB_FOR_COMMON_ACCESS	"postgres"
 
-=======
->>>>>>> REL_18_BETA1_branch
 /*****************************************************************************
  *	  pdir.h --																 *
  *			POSTGRES directory path definitions.                             *
@@ -471,14 +456,9 @@ typedef enum BackendType
 	B_ARCHIVER,
 	B_BG_WRITER,
 	B_CHECKPOINTER,
-<<<<<<< HEAD
 	B_LOGIN_MONITOR,
 	B_LOGIN_MONITOR_WORKER,
-	B_LOGGER,
-	B_STANDALONE_BACKEND,
-=======
 	B_IO_WORKER,
->>>>>>> REL_18_BETA1_branch
 	B_STARTUP,
 	B_WAL_RECEIVER,
 	B_WAL_SUMMARIZER,
@@ -496,8 +476,6 @@ typedef enum BackendType
 extern PGDLLIMPORT BackendType MyBackendType;
 
 #define AmRegularBackendProcess()	(MyBackendType == B_BACKEND)
-<<<<<<< HEAD
-=======
 #define AmAutoVacuumLauncherProcess() (MyBackendType == B_AUTOVAC_LAUNCHER)
 #define AmAutoVacuumWorkerProcess()	(MyBackendType == B_AUTOVAC_WORKER)
 #define AmBackgroundWorkerProcess() (MyBackendType == B_BG_WORKER)
@@ -523,7 +501,6 @@ extern PGDLLIMPORT BackendType MyBackendType;
  */
 #define IsExternalConnectionBackend(backend_type) \
 	(backend_type == B_BACKEND || backend_type == B_WAL_SENDER)
->>>>>>> REL_18_BETA1_branch
 
 extern const char *GetBackendTypeDesc(BackendType backendType);
 
@@ -536,18 +513,11 @@ extern char *GetUserNameFromId(Oid roleid, bool noerr);
 extern Oid	GetUserId(void);
 extern Oid	GetOuterUserId(void);
 extern Oid	GetSessionUserId(void);
-<<<<<<< HEAD
 extern void	SetSessionUserId(Oid, bool);
 extern bool IsAuthenticatedUserSuperUser(void);
 extern bool GetSessionUserIsSuperuser(void);
 extern Oid	GetAuthenticatedUserId(void);
-extern bool GetAuthenticatedUserIsSuperuser(void);
-extern void SetAuthenticatedUserId(Oid userid, bool is_superuser);
-=======
-extern bool GetSessionUserIsSuperuser(void);
-extern Oid	GetAuthenticatedUserId(void);
 extern void SetAuthenticatedUserId(Oid userid);
->>>>>>> REL_18_BETA1_branch
 extern void GetUserIdAndSecContext(Oid *userid, int *sec_context);
 extern void SetUserIdAndSecContext(Oid userid, int sec_context);
 extern bool InLocalUserIdChange(void);
@@ -627,14 +597,12 @@ extern PGDLLIMPORT ProcessingMode Mode;
  *****************************************************************************/
 
 /* in utils/init/postinit.c */
-<<<<<<< HEAD
 extern bool FindMyDatabase(const char *dbname, Oid *db_id, Oid *db_tablespace);
-=======
+
 /* flags for InitPostgres() */
 #define INIT_PG_LOAD_SESSION_LIBS		0x0001
 #define INIT_PG_OVERRIDE_ALLOW_CONNS	0x0002
 #define INIT_PG_OVERRIDE_ROLE_LOGIN		0x0004
->>>>>>> REL_18_BETA1_branch
 extern void pg_split_opts(char **argv, int *argcp, const char *optstr);
 extern void InitializeMaxBackends(void);
 extern void InitializeFastPathLocks(void);
