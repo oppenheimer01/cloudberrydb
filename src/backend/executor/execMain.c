@@ -2298,12 +2298,8 @@ InitPlan(QueryDesc *queryDesc, int eflags)
  * CheckValidRowMarkRel.
  */
 void
-<<<<<<< HEAD
-CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation, ModifyTableState *mtstate)
-=======
 CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation,
-					List *mergeActions)
->>>>>>> REL_18_BETA1_branch
+					List *mergeActions, ModifyTableState *mtstate)
 {
 	Relation	resultRel = resultRelInfo->ri_RelationDesc;
 	FdwRoutine *fdwroutine;

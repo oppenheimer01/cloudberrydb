@@ -55,6 +55,7 @@
 #include "utils/builtins.h"
 #include "utils/regproc.h"
 #include "utils/syscache.h"
+#include "utils/guc.h"
 
 static int	extractRemainingColumns(ParseState *pstate,
 									ParseNamespaceColumn *src_nscolumns,

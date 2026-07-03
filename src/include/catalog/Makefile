@@ -95,7 +95,12 @@ CATALOG_HEADERS := \
 	gp_matview_aux.h \
 	gp_matview_tables.h \
 	gp_segment_configuration.h \
-	pg_directory_table.h
+	pg_directory_table.h \
+	pg_proc_callback.h \
+	pg_compression.h \
+	pg_attribute_encoding.h \
+	pg_type_encoding.h \
+	gp_partition_template.h
 
 GENERATED_HEADERS := $(CATALOG_HEADERS:%.h=%_d.h)
 

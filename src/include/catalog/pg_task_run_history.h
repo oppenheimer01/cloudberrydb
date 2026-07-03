@@ -55,8 +55,8 @@ CATALOG(pg_task_run_history,9993,TaskRunHistoryRelationId) BKI_SHARED_RELATION
 
 typedef FormData_pg_task_run_history *Form_pg_task_run_history;
 
-DECLARE_INDEX(pg_task_run_history_jobid_index, 8633, TaskRunHistoryJobIdIndexId, on pg_task_run_history using btree(jobid oid_ops));
-DECLARE_UNIQUE_INDEX_PKEY(pg_task_run_history_runid_index, 8110, TaskRunHistoryRunIdIndexId, on pg_task_run_history using btree(runid oid_ops));
+DECLARE_INDEX(pg_task_run_history_jobid_index, 8633, TaskRunHistoryJobIdIndexId, pg_task_run_history, on pg_task_run_history using btree(jobid oid_ops));
+DECLARE_UNIQUE_INDEX_PKEY(pg_task_run_history_runid_index, 8110, TaskRunHistoryRunIdIndexId, pg_task_run_history, on pg_task_run_history using btree(runid oid_ops));
 
 extern void TaskRunHistoryCreate(Oid runid, int64 *jobid, const char *database, const char *username,
 								 const char *command, const char *status);

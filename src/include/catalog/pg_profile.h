@@ -63,9 +63,9 @@ CATALOG(pg_profile,10135,ProfileRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID(
  */
 typedef FormData_pg_profile *Form_pg_profile;
 
-DECLARE_UNIQUE_INDEX(profile_name_index, 10137, ProfilePrfnameIndexId, on pg_profile using btree(prfname name_ops));
-DECLARE_UNIQUE_INDEX(profile_oid_index, 10138, ProfileOidIndexId, on pg_profile using btree(oid oid_ops));
-DECLARE_INDEX(profile_password_verify_function_index, 10139, ProfileVerifyFunctionIndexId, on pg_profile using btree(prfpasswordverifyfuncdb oid_ops, prfpasswordverifyfunc oid_ops));
+DECLARE_UNIQUE_INDEX(profile_name_index, 10137, ProfilePrfnameIndexId, pg_profile, on pg_profile using btree(prfname name_ops));
+DECLARE_UNIQUE_INDEX(profile_oid_index, 10138, ProfileOidIndexId, pg_profile, on pg_profile using btree(oid oid_ops));
+DECLARE_INDEX(profile_password_verify_function_index, 10139, ProfileVerifyFunctionIndexId, pg_profile, on pg_profile using btree(prfpasswordverifyfuncdb oid_ops, prfpasswordverifyfunc oid_ops));
 
 #define DefaultProfileOID	10140
 

@@ -161,10 +161,9 @@ extern void MemoryContextCheck(MemoryContext context);
 extern bool MemoryContextContains(MemoryContext context, void *pointer);
 extern bool MemoryContextContainsGenericAllocation(MemoryContext context, void *pointer);
 
-extern void MemoryContextError(int errorcode, MemoryContext context,
+pg_noreturn extern void MemoryContextError(int errorcode, MemoryContext context,
                                const char *sfile, int sline,
                                const char *fmt, ...)
-                              pg_attribute_noreturn()
                               pg_attribute_printf(5, 6);
 
 /* Handy macro for copying and assigning context ID ... but note double eval */

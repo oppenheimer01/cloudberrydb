@@ -57,6 +57,6 @@ typedef FormData_gp_matview_tables *Form_gp_matview_tables;
 
 DECLARE_UNIQUE_INDEX(gp_matview_tables_mvoid_relid_index, 7151, GpMatviewTablesMvRelIndexId, gp_matview_tables, on gp_matview_tables using btree(mvoid oid_ops, relid oid_ops));
 
-DECLARE_INDEX(gp_matview_tables_relid_index, 7152, GpMatviewTablesRelIndexId, on gp_matview_tables using btree(relid oid_ops));
+DECLARE_INDEX(gp_matview_tables_relid_index, 7152, GpMatviewTablesRelIndexId, gp_matview_tables, on gp_matview_tables using btree(relid oid_ops));
 
 #endif			/* gp_matview_tables_H */

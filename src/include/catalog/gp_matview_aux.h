@@ -60,9 +60,9 @@ typedef FormData_gp_matview_aux *Form_gp_matview_aux;
 
 DECLARE_UNIQUE_INDEX(gp_matview_aux_mvoid_index, 7147, GpMatviewAuxMvoidIndexId, gp_matview_aux, on gp_matview_aux using btree(mvoid oid_ops));
 
-DECLARE_INDEX(gp_matview_aux_mvname_index, 7148, GpMatviewAuxMvnameIndexId, on gp_matview_aux using btree(mvname name_ops));
+DECLARE_INDEX(gp_matview_aux_mvname_index, 7148, GpMatviewAuxMvnameIndexId, gp_matview_aux, on gp_matview_aux using btree(mvname name_ops));
 
-DECLARE_INDEX(gp_matview_aux_datastatus_index, 7149, GpMatviewAuxDatastatusIndexId, on gp_matview_aux using btree(datastatus char_ops));
+DECLARE_INDEX(gp_matview_aux_datastatus_index, 7149, GpMatviewAuxDatastatusIndexId, gp_matview_aux, on gp_matview_aux using btree(datastatus char_ops));
 
 #define		MV_DATA_STATUS_UP_TO_DATE				'u'	/* data is up to date */
 #define		MV_DATA_STATUS_UP_REORGANIZED			'r' /* data is up to date, but reorganized. VACUUM FULL/CLUSTER */
