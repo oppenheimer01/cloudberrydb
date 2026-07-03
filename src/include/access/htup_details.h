@@ -852,7 +852,7 @@ static inline HeapTuple heap_form_tuple(TupleDesc tupleDescriptor,
 }
 
 extern HeapTuple heap_form_tuple(TupleDesc tupleDescriptor,
-								 const Datum *values, const bool *isnull);
+								 Datum *values, bool *isnull);
 extern HeapTuple heap_modify_tuple(HeapTuple tuple,
 								   TupleDesc tupleDesc,
 								   const Datum *replValues,

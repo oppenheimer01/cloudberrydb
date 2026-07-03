@@ -12553,7 +12553,7 @@
   proname => 'icu_unicode_version', prorettype => 'text', proargtypes => '',
   prosrc => 'icu_unicode_version' },
 
-{ oid => '6105', descr => 'check valid Unicode',
+{ oid => '6108', descr => 'check valid Unicode',
   proname => 'unicode_assigned', prorettype => 'bool', proargtypes => 'text',
   prosrc => 'unicode_assigned' },
 

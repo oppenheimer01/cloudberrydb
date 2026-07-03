@@ -81,7 +81,21 @@ CATALOG_HEADERS := \
 	pg_publication_namespace.h \
 	pg_publication_rel.h \
 	pg_subscription.h \
-	pg_subscription_rel.h
+	pg_subscription_rel.h \
+	gp_configuration_history.h \
+	gp_id.h \
+	gp_distribution_policy.h \
+	gp_version_at_initdb.h \
+	gp_warehouse.h \
+	pg_appendonly.h \
+	gp_fastsequence.h \
+	pg_extprotocol.h \
+	gp_storage_server.h \
+	gp_storage_user_mapping.h \
+	gp_matview_aux.h \
+	gp_matview_tables.h \
+	gp_segment_configuration.h \
+	pg_directory_table.h
 
 GENERATED_HEADERS := $(CATALOG_HEADERS:%.h=%_d.h)
 

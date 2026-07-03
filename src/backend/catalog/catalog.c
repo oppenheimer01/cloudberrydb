@@ -96,7 +96,7 @@ bool system_relation_modified = false;
  * and the filename separately.
  */
 void
-reldir_and_filename(RelFileLocator node, BackendId backend, ForkNumber forknum,
+reldir_and_filename(RelFileLocator node, ProcNumber backend, ForkNumber forknum,
 					char **dir, char **filename)
 {
 	char	   *path;

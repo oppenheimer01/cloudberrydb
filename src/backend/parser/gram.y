@@ -6595,7 +6595,7 @@ OptSecondPartitionSpec:
 				{
 					PartitionSpec *n = makeNode(PartitionSpec);
 
-					n->strategy = parsePartitionStrategy($3);
+					n->strategy = parsePartitionStrategy($3, @3, yyscanner);
 					n->partParams = $5;
 					n->gpPartDef = (GpPartitionDefinition *) $8;
 					n->subPartSpec = (PartitionSpec *) $7;
@@ -7191,7 +7191,7 @@ TabSubPartitionBy: SUBPARTITION BY
 				{
 					PartitionSpec *n = makeNode(PartitionSpec);
 
-					n->strategy =  parsePartitionStrategy($3);
+					n->strategy =  parsePartitionStrategy($3, @3, yyscanner);
 					n->partParams = $5;
 					n->location = @1;
 

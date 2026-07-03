@@ -407,7 +407,7 @@ PageGetMaxOffsetNumber(const PageData *page)
  * local buffers do not need to worry about concurrency.
  *
  */
-extern bool BufferLockHeldByMe(Page page);
+extern bool BufferLockHeldByMe(const PageData *page);
 static inline XLogRecPtr
 PageGetLSN(const PageData *page)
 {

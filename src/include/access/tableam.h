@@ -1032,7 +1032,6 @@ table_beginscan_es(Relation relation, Snapshot snapshot,
 	/* reset snapshot if in parallel mode */
 	if (isParallel)
 	{
-		Assert(RelationGetRelid(relation) == parallel_scan->phs_relid);
 		if (!parallel_scan->phs_snapshot_any) {
 			/* Snapshot was serialized -- restore it */
 			snapshot = RestoreSnapshot((char *) parallel_scan +

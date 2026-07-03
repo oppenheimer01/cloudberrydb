@@ -42,7 +42,7 @@ CATALOG(gp_warehouse,8690,GpWarehouseRelationId) BKI_SHARED_RELATION
 
 typedef FormData_gp_warehouse *Form_gp_warehouse;
 
-DECLARE_UNIQUE_INDEX(gp_warehouse_oid_index, 8086, GpWarehouseOidIndexId, on gp_warehouse using btree(oid oid_ops));
-DECLARE_UNIQUE_INDEX(gp_warehouse_name_index, 8059, GpWarehouseNameIndexId, on gp_warehouse using btree(warehouse_name text_ops));
+DECLARE_UNIQUE_INDEX(gp_warehouse_oid_index, 8086, GpWarehouseOidIndexId, gp_warehouse, on gp_warehouse using btree(oid oid_ops));
+DECLARE_UNIQUE_INDEX(gp_warehouse_name_index, 8059, GpWarehouseNameIndexId, gp_warehouse, on gp_warehouse using btree(warehouse_name text_ops));
 
 #endif   /* GP_WAREHOUSE_H */

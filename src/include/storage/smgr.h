@@ -168,7 +168,7 @@ typedef struct f_smgr_ao {
 
 
 typedef void (*smgr_init_hook_type) (void);
-typedef void (*smgr_hook_type) (SMgrRelation reln, BackendId backend, SMgrImpl which, Relation rel);
+typedef void (*smgr_hook_type) (SMgrRelation reln, ProcNumber backend, SMgrImpl which, Relation rel);
 typedef void (*smgr_shutdown_hook_type) (void);
 extern PGDLLIMPORT smgr_init_hook_type smgr_init_hook;
 extern PGDLLIMPORT smgr_hook_type smgr_hook;

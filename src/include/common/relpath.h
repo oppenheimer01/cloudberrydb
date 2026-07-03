@@ -104,7 +104,7 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
 		+ sizeof((char)'/') \
 		+ OIDCHARS /* spcOid */ \
 		+ sizeof((char)'/') \
-		+ sizeof(TABLESPACE_VERSION_DIRECTORY) - 1 \
+		+ sizeof(GP_TABLESPACE_VERSION_DIRECTORY) - 1 \
 		+ sizeof((char)'/') \
 		+ OIDCHARS /* dbOid */ \
 		+ sizeof((char)'/') \
