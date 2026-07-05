@@ -165,7 +165,7 @@ typedef struct ExecSlice
  */
 typedef struct SliceTable
 {
-	pg_node_attr(custom_read_write, custom_copy_equal)
+	pg_node_attr(custom_read_write, custom_copy_equal, no_equal)
 	
 	NodeTag		type;
 

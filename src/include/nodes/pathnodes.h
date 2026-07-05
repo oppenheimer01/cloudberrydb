@@ -1945,7 +1945,7 @@ typedef enum VolatileFunctionStatus
  */
 typedef struct PathTarget
 {
-	pg_node_attr(no_read, no_query_jumble)
+	pg_node_attr(no_copy_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
 

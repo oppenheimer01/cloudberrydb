@@ -641,50 +641,6 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 }
 
 static void
-_outConstraint(StringInfo str, const Constraint *node)
-{
-	WRITE_NODE_TYPE("CONSTRAINT");
-
-	WRITE_ENUM_FIELD(contype, ConstrType);
-	/* name, or NULL if unnamed */
-	WRITE_STRING_FIELD(conname);
-	WRITE_BOOL_FIELD(deferrable);
-	WRITE_BOOL_FIELD(initdeferred);
-	WRITE_LOCATION_FIELD(location);
-
-	WRITE_BOOL_FIELD(is_no_inherit);
-	WRITE_NODE_FIELD(raw_expr);
-	WRITE_STRING_FIELD(cooked_expr);
-	WRITE_CHAR_FIELD(generated_when);
-	WRITE_BOOL_FIELD(nulls_not_distinct);
-
-	WRITE_NODE_FIELD(keys);
-	WRITE_NODE_FIELD(including);
-
-	WRITE_NODE_FIELD(exclusions);
-
-	WRITE_NODE_FIELD(options);
-	WRITE_STRING_FIELD(indexname);
-	WRITE_STRING_FIELD(indexspace);
-	WRITE_BOOL_FIELD(reset_default_tblspc);
-
-	WRITE_STRING_FIELD(access_method);
-	WRITE_NODE_FIELD(where_clause);
-
-	WRITE_NODE_FIELD(pktable);
-	WRITE_NODE_FIELD(fk_attrs);
-	WRITE_NODE_FIELD(pk_attrs);
-	WRITE_CHAR_FIELD(fk_matchtype);
-	WRITE_CHAR_FIELD(fk_upd_action);
-	WRITE_CHAR_FIELD(fk_del_action);
-	WRITE_NODE_FIELD(old_conpfeqop);
-	WRITE_OID_FIELD(old_pktable_oid);
-
-	WRITE_BOOL_FIELD(skip_validation);
-	WRITE_BOOL_FIELD(initially_valid);
-}
-
-static void
 _outPlannerGlobal(StringInfo str, const PlannerGlobal *node)
 {
 	WRITE_NODE_TYPE("PLANNERGLOBAL");
@@ -817,9 +773,10 @@ _outEquivalenceClass(StringInfo str, const EquivalenceClass *node)
 
 	WRITE_NODE_FIELD(ec_opfamilies);
 	WRITE_OID_FIELD(ec_collation);
+	WRITE_INT_FIELD(ec_childmembers_size);
 	WRITE_NODE_FIELD(ec_members);
 	WRITE_NODE_FIELD(ec_sources);
-	WRITE_NODE_FIELD(ec_derives);
+	WRITE_NODE_FIELD(ec_derives_list);
 	WRITE_BITMAPSET_FIELD(ec_relids);
 	WRITE_BOOL_FIELD(ec_has_const);
 	WRITE_BOOL_FIELD(ec_has_volatile);
