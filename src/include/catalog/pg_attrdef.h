@@ -65,13 +65,6 @@ extern void RemoveAttrDefault(Oid relid, AttrNumber attnum,
 							  DropBehavior behavior,
 							  bool complain, bool internal);
 extern void RemoveAttrDefaultById(Oid attrdefId);
-extern Oid	StoreAttrDefault(Relation rel, AttrNumber attnum,
-							   Node *expr,
-							   bool *cookedMissingVal,
-							   Datum *missingval_p,
-							   bool *missingIsNull_p,
-							   bool is_internal,
-							   bool add_column_mode);
 
 extern Oid	GetAttrDefaultOid(Oid relid, AttrNumber attnum);
 extern ObjectAddress GetAttrDefaultColumnAddress(Oid attrdefoid);

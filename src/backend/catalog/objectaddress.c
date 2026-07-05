@@ -20,6 +20,7 @@
 #include "access/relation.h"
 #include "access/table.h"
 #include "catalog/catalog.h"
+#include "catalog/gp_matview_aux.h"
 #include "catalog/gp_storage_server.h"
 #include "catalog/gp_storage_user_mapping.h"
 #include "catalog/objectaddress.h"
@@ -35,6 +36,7 @@
 #include "catalog/pg_conversion.h"
 #include "catalog/pg_database.h"
 #include "catalog/pg_default_acl.h"
+#include "catalog/pg_directory_table.h"
 #include "catalog/pg_event_trigger.h"
 #include "catalog/pg_extension.h"
 #include "catalog/pg_extprotocol.h"
@@ -4270,14 +4272,14 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-		case OCLASS_EXTPROTOCOL:
+		case ExtprotocolRelationId:
 			{
 				appendStringInfo(&buffer, _("protocol %s"),
 								 ExtProtocolGetNameByOid(object->objectId));
 				break;
 			}
 
-		case OCLASS_TASK:
+		case TaskRelationId:
 			{
 				char *taskname;
 				taskname = GetTaskNameById(object->objectId);
@@ -4292,7 +4294,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-		case OCLASS_PROFILE:
+		case ProfileRelationId:
 			{
 				char	*profilename = ProfileGetNameByOid(object->objectId,
 												missing_ok);
@@ -4301,7 +4303,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 					appendStringInfo(&buffer, _("profile %s"), profilename);
 				break;
 			}
-		case OCLASS_PASSWORDHISTORY:
+		case PasswordHistoryRelationId:
 			{
 				char	*username = GetUserNameFromId(object->objectId,
 									     		missing_ok);
@@ -4311,10 +4313,10 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-		case OCLASS_MATVIEW_AUX:
+		case GpMatviewAuxId:
 			break;
 
-		case OCLASS_STORAGE_SERVER:
+		case StorageServerRelationId:
 			{
 				StorageServer *srv;
 
@@ -4324,7 +4326,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-		case OCLASS_STORAGE_USER_MAPPING:
+		case StorageUserMappingRelationId:
 			{
 				HeapTuple	tup;
 				Oid			useid;
@@ -4358,7 +4360,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 
-		case OCLASS_TAG:
+		case TagRelationId:
 			{
 				char	*tagname = TagGetNameByOid(object->objectId, missing_ok);
 
@@ -4367,7 +4369,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				break;
 			}
 		
-		case OCLASS_TAG_DESCRIPTION:
+		case TagDescriptionRelationId:
 			{
 				Relation	tag_desc_rel;
 				ScanKeyData	skey;
@@ -5039,43 +5041,43 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			appendStringInfoString(&buffer, "transform");
 			break;
 
-		case OCLASS_EXTPROTOCOL:
+		case ExtprotocolRelationId:
 			appendStringInfoString(&buffer, "external protocol");
 			break;
 
-		case OCLASS_TASK:
+		case TaskRelationId:
 			appendStringInfoString(&buffer, "task");
 			break;
 
-		case OCLASS_PROFILE:
+		case ProfileRelationId:
 			appendStringInfoString(&buffer, "profile");
 			break;
 
-		case OCLASS_PASSWORDHISTORY:
+		case PasswordHistoryRelationId:
 			appendStringInfoString(&buffer, "password_history");
 			break;
 
-		case OCLASS_DIRTABLE:
+		case DirectoryTableRelationId:
 			appendStringInfoString(&buffer, "directory table");
 			break;
 
-		case OCLASS_MATVIEW_AUX:
+		case GpMatviewAuxId:
 			appendStringInfoString(&buffer, "matview_aux");
 			break;
 
-		case OCLASS_STORAGE_SERVER:
+		case StorageServerRelationId:
 			appendStringInfoString(&buffer, "storage server");
 			break;
 
-		case OCLASS_STORAGE_USER_MAPPING:
+		case StorageUserMappingRelationId:
 			appendStringInfoString(&buffer, "storage user mapping");
 			break;
 
-		case OCLASS_TAG:
+		case TagRelationId:
 			appendStringInfoString(&buffer, "tag");
 			break;
 
-		case OCLASS_TAG_DESCRIPTION:
+		case TagDescriptionRelationId:
 			appendStringInfoString(&buffer, "tag description");
 			break;
 
@@ -6090,7 +6092,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-		case OCLASS_STORAGE_SERVER:
+		case StorageServerRelationId:
 			{
 				StorageServer *srv;
 
@@ -6147,7 +6149,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-		case OCLASS_STORAGE_USER_MAPPING:
+		case StorageUserMappingRelationId:
 			{
 				HeapTuple 	tup;
 				Oid 		useid;
@@ -6502,7 +6504,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 			}
 			break;
 
-		case OCLASS_EXTPROTOCOL:
+		case ExtprotocolRelationId:
 			{
 				char	   *extprotname;
 
@@ -6514,7 +6516,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 			}
 			break;
 
-		case OCLASS_TASK:
+		case TaskRelationId:
 			{
 				char *taskname;
 				taskname = GetTaskNameById(object->objectId);
@@ -6527,7 +6529,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 			}
 			break;
 		
-		case OCLASS_PROFILE:
+		case ProfileRelationId:
 			{
 				char	*prfname;
 
@@ -6541,7 +6543,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-		case OCLASS_PASSWORDHISTORY:
+		case PasswordHistoryRelationId:
 			{
 				char	*username;
 
@@ -6556,10 +6558,10 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-		case OCLASS_MATVIEW_AUX:
+		case GpMatviewAuxId:
 			break;
 
-		case OCLASS_TAG:
+		case TagRelationId:
 			{
 				char *tagname;
 				
@@ -6573,7 +6575,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 				break;
 			}
 
-		case OCLASS_TAG_DESCRIPTION:
+		case TagDescriptionRelationId:
 			{
 				Relation	tag_desc_rel;
 				ScanKeyData	skey;

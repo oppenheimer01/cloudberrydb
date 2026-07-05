@@ -59,4 +59,6 @@ DECLARE_UNIQUE_INDEX(gp_matview_tables_mvoid_relid_index, 7151, GpMatviewTablesM
 
 DECLARE_INDEX(gp_matview_tables_relid_index, 7152, GpMatviewTablesRelIndexId, gp_matview_tables, on gp_matview_tables using btree(relid oid_ops));
 
+MAKE_SYSCACHE(MVTABLESMVRELOID, gp_matview_tables_mvoid_relid_index, 128);
+
 #endif			/* gp_matview_tables_H */

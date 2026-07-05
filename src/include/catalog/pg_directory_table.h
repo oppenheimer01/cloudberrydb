@@ -51,6 +51,8 @@ DECLARE_TOAST(pg_directory_table, 8546, 8547);
 
 DECLARE_UNIQUE_INDEX_PKEY(pg_directory_table_relid_index, 8548, DirectoryTableRelidIndexId, pg_directory_table, on pg_directory_table using btree(dtrelid oid_ops));
 
+MAKE_SYSCACHE(DIRECTORYTABLEREL, pg_directory_table_relid_index, 128);
+
 typedef struct DirectoryTable
 {
 	Oid		relId;		/* relation Oid */

@@ -6548,6 +6548,101 @@ heap_inplace_lock(Relation relation,
 }
 
 /*
+ * heap_inplace_update - deprecated
+ *
+ * This exists only to keep modules working in back branches.  Affected
+ * modules should migrate to systable_inplace_update_begin().
+ */
+void
+heap_inplace_update(Relation relation, HeapTuple tuple)
+{
+	Buffer		buffer;
+	Page		page;
+	OffsetNumber offnum;
+	ItemId		lp = NULL;
+	HeapTupleHeader htup;
+	uint32		oldlen;
+	uint32		newlen;
+
+	/*
+	 * For now, we don't allow parallel updates.  Unlike a regular update,
+	 * this should never create a combo CID, so it might be possible to relax
+	 * this restriction, but not without more thought and testing.  It's not
+	 * clear that it would be useful, anyway.
+	 */
+	if (IsInParallelMode())
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
+				 errmsg("cannot update tuples during a parallel operation")));
+
+	buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(&(tuple->t_self)));
+	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
+	page = (Page) BufferGetPage(buffer);
+
+	offnum = ItemPointerGetOffsetNumber(&(tuple->t_self));
+	if (PageGetMaxOffsetNumber(page) >= offnum)
+		lp = PageGetItemId(page, offnum);
+
+	if (PageGetMaxOffsetNumber(page) < offnum || !ItemIdIsNormal(lp))
+		elog(ERROR, "invalid lp");
+
+	htup = (HeapTupleHeader) PageGetItem(page, lp);
+
+	oldlen = ItemIdGetLength(lp) - htup->t_hoff;
+	newlen = tuple->t_len - tuple->t_data->t_hoff;
+	if (oldlen != newlen || htup->t_hoff != tuple->t_data->t_hoff)
+		elog(ERROR, "wrong tuple length");
+
+	/* NO EREPORT(ERROR) from here till changes are logged */
+	START_CRIT_SECTION();
+
+	memcpy((char *) htup + htup->t_hoff,
+		   (char *) tuple->t_data + tuple->t_data->t_hoff,
+		   newlen);
+
+	MarkBufferDirty(buffer);
+
+	/* XLOG stuff */
+	if (RelationNeedsWAL(relation))
+	{
+		xl_heap_inplace xlrec;
+		XLogRecPtr	recptr;
+
+		xlrec.offnum = ItemPointerGetOffsetNumber(&tuple->t_self);
+
+		XLogBeginInsert();
+		XLogRegisterData((char *) &xlrec, SizeOfHeapInplace);
+
+		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
+		XLogRegisterBufData(0, (char *) htup + htup->t_hoff, newlen);
+
+		/* inplace updates aren't decoded atm, don't log the origin */
+
+		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_INPLACE);
+
+		PageSetLSN(page, recptr);
+	}
+
+	END_CRIT_SECTION();
+
+	UnlockReleaseBuffer(buffer);
+
+	/*
+	 * Send out shared cache inval if necessary.  Note that because we only
+	 * pass the new version of the tuple, this mustn't be used for any
+	 * operations that could change catcache lookup keys.  But we aren't
+	 * bothering with index updates either, so that's true a fortiori.
+	 */
+	if (!IsBootstrapProcessingMode())
+		CacheInvalidateHeapTuple(relation, tuple, NULL);
+
+	if (IsCatalogRelation(relation))
+	{
+		system_relation_modified = true;
+	}
+}
+
+/*
  * heap_inplace_update_and_unlock - core of systable_inplace_update_finish
  *
  * The tuple cannot change size, and therefore its header fields and null

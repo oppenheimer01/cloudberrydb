@@ -64,4 +64,7 @@ typedef FormData_pg_tag *Form_pg_tag;
 DECLARE_UNIQUE_INDEX_PKEY(pg_tag_tagname_index, 6463, TagNameIndexId, pg_tag, on pg_tag using btree(tagname name_ops));
 DECLARE_UNIQUE_INDEX(pg_tag_oid_index, 6465, TagOidIndexId, pg_tag, on pg_tag using btree(oid oid_ops));
 
+MAKE_SYSCACHE(TAGOID, pg_tag_oid_index, 128);
+MAKE_SYSCACHE(TAGNAME, pg_tag_tagname_index, 128);
+
 #endif							/* PG_TAG_H */

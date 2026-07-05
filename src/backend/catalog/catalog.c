@@ -83,6 +83,7 @@
 #include "cdb/cdbvars.h"
 
 #include "catalog/gp_indexing.h"
+#include "storage/backendid.h"
 #ifdef USE_INTERNAL_FTS
 #include "catalog/gp_segment_configuration_indexing.h"
 #endif
@@ -92,59 +93,25 @@ static bool IsExtAuxClass(Form_pg_class reltuple);
 bool system_relation_modified = false;
 
 /*
- * Like relpath(), but gets the directory containing the data file
- * and the filename separately.
- */
-void
-reldir_and_filename(RelFileLocator node, ProcNumber backend, ForkNumber forknum,
-					char **dir, char **filename)
-{
-	char	   *path;
-	int			i;
-
-	path = relpathbackend(node, backend, forknum);
-
-	/*
-	 * The base path is like "<path>/<rnode>". Split it into
-	 * path and filename parts.
-	 */
-	for (i = strlen(path) - 1; i >= 0; i--)
-	{
-		if (path[i] == '/')
-			break;
-	}
-	if (i <= 0 || path[i] != '/')
-		elog(ERROR, "unexpected path: \"%s\"", path);
-
-	*dir = pnstrdup(path, i);
-	*filename = pstrdup(&path[i + 1]);
-
-	pfree(path);
-}
-
-/*
  * Like relpathbackend(), but more convenient when dealing with
  * AO relations. The filename pattern is the same as for heap
  * tables, but this variant takes also 'segno' as argument.
  *
  * XXX This is very similar to _mdfd_segpath(), let's use that one
  */
-char *
-aorelpathbackend(RelFileLocator node, BackendId backend, int32 segno)
+RelPathStr
+aorelpathbackend(RelFileLocator node, ProcNumber backend, int32 segno)
 {
-	char	   *fullpath;
-	char	   *path;
+	RelPathStr	fullpath;
+	RelPathStr	path;
 
 	path = relpathbackend(node, backend, MAIN_FORKNUM);
 	if (segno == 0)
-		fullpath = path;
-	else
-	{
-		/* be sure we have enough space for the '.segno' */
-		fullpath = (char *) palloc(strlen(path) + 12);
-		sprintf(fullpath, "%s.%u", path, segno);
-		pfree(path);
-	}
+		return path;
+
+	/* be sure we have enough space for the '.segno' */
+	sprintf(fullpath.str, "%s.%u", path.str, segno);
+
 	return fullpath;
 }
 
@@ -905,12 +872,12 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 static bool
 GpCheckRelFileCollision(RelFileLocatorBackend rnode)
 {
-	char	   *rpath;
+	RelPathStr	rpath;
 	bool		collides;
 
 	/* Check for existing file of same name */
 	rpath = relpath(rnode, MAIN_FORKNUM);
-	if (access(rpath, F_OK) == 0)
+	if (access(rpath.str, F_OK) == 0)
 		collides = true;
 	else
 	{
@@ -923,8 +890,6 @@ GpCheckRelFileCollision(RelFileLocatorBackend rnode)
 		 */
 		collides = false;
 	}
-
-	pfree(rpath);
 
 	return collides;
 }
@@ -951,7 +916,6 @@ RelFileNumber
 GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 {
 	RelFileLocatorBackend rlocator;
-	RelPathStr	rpath;
 	bool		collides;
 	ProcNumber	procNumber;
 
@@ -1014,7 +978,7 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 			 * buffers at all. We have to make this additional check to make
 			 * sure of that.
 			 */
-			rlocator.backend = (backend == InvalidBackendId) ? TempRelBackendId
+			rlocator.backend = (procNumber == INVALID_PROC_NUMBER) ? TempRelBackendId
 														  : InvalidBackendId;
 			collides = GpCheckRelFileCollision(rlocator);
 		}

@@ -357,7 +357,7 @@ CreateDirectoryTableIndex(Relation rel)
 								  indexColNames,
 								  BTREE_AM_OID,
 								  InvalidOid,
-								  &collationObjectId, classObjectId, coloptions, (Datum) 0,
+								  &collationObjectId, classObjectId, NULL, coloptions, NULL, (Datum) 0,
 								  INDEX_CREATE_IS_PRIMARY, 0, true, true, NULL);
 
 	ReleaseSysCache(tuple);

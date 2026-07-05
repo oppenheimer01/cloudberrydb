@@ -64,6 +64,8 @@ DECLARE_INDEX(gp_matview_aux_mvname_index, 7148, GpMatviewAuxMvnameIndexId, gp_m
 
 DECLARE_INDEX(gp_matview_aux_datastatus_index, 7149, GpMatviewAuxDatastatusIndexId, gp_matview_aux, on gp_matview_aux using btree(datastatus char_ops));
 
+MAKE_SYSCACHE(MVAUXOID, gp_matview_aux_mvoid_index, 128);
+
 #define		MV_DATA_STATUS_UP_TO_DATE				'u'	/* data is up to date */
 #define		MV_DATA_STATUS_UP_REORGANIZED			'r' /* data is up to date, but reorganized. VACUUM FULL/CLUSTER */
 #define		MV_DATA_STATUS_EXPIRED					'e'	/* data is expired */

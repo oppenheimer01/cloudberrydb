@@ -100,7 +100,22 @@ CATALOG_HEADERS := \
 	pg_compression.h \
 	pg_attribute_encoding.h \
 	pg_type_encoding.h \
-	gp_partition_template.h
+	gp_partition_template.h \
+	pg_tag.h \
+	pg_auth_time_constraint.h \
+	pg_tag_description.h \
+	pg_task.h \
+	pg_task_run_history.h \
+	pg_resourcetype.h \
+	pg_resqueue.h \
+	pg_resqueuecapability.h \
+	pg_resgroup.h \
+	pg_resgroupcapability.h \
+	pg_profile.h \
+	pg_password_history.h \
+	pg_stat_last_operation.h \
+	pg_stat_last_shoperation.h \
+	pg_foreign_table_seg.h
 
 GENERATED_HEADERS := $(CATALOG_HEADERS:%.h=%_d.h)
 

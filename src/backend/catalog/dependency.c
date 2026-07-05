@@ -1248,7 +1248,7 @@ DropObjectById(const ObjectAddress *object)
 	* GPDB_14_MERGE_FIXME: specific for GPDB's pg_stat_last_* tables.
 	* TODO: check more objects as api changed.
 	*/
-	if ((Gp_role == GP_ROLE_DISPATCH) && (OCLASS_TRANSFORM == getObjectClass(object)))
+	if ((Gp_role == GP_ROLE_DISPATCH) && (TransformRelationId == object->classId))
 		MetaTrackDropObject(TransformRelationId, object->objectId);
 
 	cacheId = get_object_catcache_oid(object->classId);
@@ -3078,16 +3078,6 @@ struct CustomObjectClass *
 find_custom_object_class_by_classid(Oid class_id, bool missing_ok)
 {
 	ListCell *lc;
-
-#ifdef USE_ASSERT_CHECKING
-	int n = lengthof(object_classes);
-	Assert(n < FIRST_COSTOM_OBJECT_CLASS);
-
-	for (int i = 0; i < n; i++) {
-		if (object_classes[i] == class_id)
-			elog(ERROR, "find builtin object class by class id %u", class_id);
-	}
-#endif
 
 	foreach(lc, custom_object_class_list) {
 		struct CustomObjectClass *coc = (struct CustomObjectClass *)lfirst(lc);

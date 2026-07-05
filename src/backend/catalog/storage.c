@@ -91,7 +91,7 @@ StorageDoPendingRelDelete(PendingRelDelete *delete)
 	 */
 	srel = smgropen(delete->rlocator.node,
 					delete->rlocator.isTempRelation ?
-					TempRelBackendId : InvalidBackendId,
+					TEMPREL_PROC_NUMBER : INVALID_PROC_NUMBER,
 					delete->rlocator.smgr_which, NULL);
 	smgrdounlinkall(&srel, 1, false);
 	smgrclose(srel);
@@ -189,7 +189,7 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence, bool registe
 		pending = (PendingRelDelete *)
 			MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
 		pending->rlocator.node = rlocator;
-		pending->rlocator.isTempRelation = procNumber == TempRelBackendId;
+		pending->rlocator.isTempRelation = procNumber == TEMPREL_PROC_NUMBER;
 		pending->procNumber = procNumber;
 		pending->atCommit = false;	/* delete if abort */
 		pending->nestLevel = GetCurrentTransactionNestLevel();
@@ -240,7 +240,7 @@ RelationDropStorage(Relation rel)
 	pending = (PendingRelDelete *)
 		MemoryContextAlloc(TopMemoryContext, sizeof(PendingRelDelete));
 	pending->rlocator.node = rel->rd_locator;
-	pending->rlocator.isTempRelation = rel->rd_backend == TempRelBackendId;
+	pending->rlocator.isTempRelation = rel->rd_backend == TEMPREL_PROC_NUMBER;
 	pending->procNumber = rel->rd_backend;
 	pending->atCommit = true;	/* delete if commit */
 	pending->nestLevel = GetCurrentTransactionNestLevel();

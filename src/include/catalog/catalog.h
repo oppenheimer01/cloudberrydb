@@ -54,9 +54,7 @@ extern bool IsSharedRelation(Oid relationId);
 extern Oid GetNewOidWithIndex(Relation relation, Oid indexId,
 							  AttrNumber oidcolumn);
 
-extern void reldir_and_filename(RelFileLocator rnode, ProcNumber backend, ForkNumber forknum,
-					char **dir, char **filename);
-extern char *aorelpathbackend(RelFileLocator node, ProcNumber backend, int32 segno);
+extern RelPathStr aorelpathbackend(RelFileLocator node, ProcNumber backend, int32 segno);
 
 extern bool system_relation_modified;
 

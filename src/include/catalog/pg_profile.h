@@ -67,6 +67,9 @@ DECLARE_UNIQUE_INDEX(profile_name_index, 10137, ProfilePrfnameIndexId, pg_profil
 DECLARE_UNIQUE_INDEX(profile_oid_index, 10138, ProfileOidIndexId, pg_profile, on pg_profile using btree(oid oid_ops));
 DECLARE_INDEX(profile_password_verify_function_index, 10139, ProfileVerifyFunctionIndexId, pg_profile, on pg_profile using btree(prfpasswordverifyfuncdb oid_ops, prfpasswordverifyfunc oid_ops));
 
+MAKE_SYSCACHE(PROFILEID, profile_oid_index, 128);
+MAKE_SYSCACHE(PROFILENAME, profile_name_index, 128);
+
 #define DefaultProfileOID	10140
 
 #define PROFILE_UNLIMITED	-2

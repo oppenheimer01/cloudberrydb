@@ -809,10 +809,10 @@ index_create(Relation heapRelation,
 									  relFileNumber,
                                       indexInfo,
                                       indexColNames,
-                                      accessMethodObjectId,
+                                      accessMethodId,
                                       tableSpaceId,
-                                      collationObjectId,
-                                      classObjectId,
+                                      collationIds,
+                                      opclassIds,
                                       coloptions,
                                       reloptions,
                                       flags,
@@ -829,11 +829,13 @@ index_create(Relation heapRelation,
 									  relFileNumber,
                                       indexInfo,
                                       indexColNames,
-                                      accessMethodObjectId,
+                                      accessMethodId,
                                       tableSpaceId,
-                                      collationObjectId,
-                                      classObjectId,
+                                      collationIds,
+                                      opclassIds,
+                                      opclassOptions,
                                       coloptions,
+                                      stattargets,
                                       reloptions,
                                       flags,
                                       constr_flags,
@@ -850,12 +852,14 @@ index_create_internal(Relation heapRelation,
                       Oid parentConstraintId,
                       Oid relFileNumber,
                       IndexInfo *indexInfo,
-                      List *indexColNames,
-                      Oid accessMethodObjectId,
+                      const List *indexColNames,
+                      Oid accessMethodId,
                       Oid tableSpaceId,
-                      Oid *collationObjectId,
-                      Oid *classObjectId,
-                      int16 *coloptions,
+                      const Oid *collationIds,
+                      const Oid *opclassIds,
+                      const Datum *opclassOptions,
+                      const int16 *coloptions,
+                      const NullableDatum *stattargets,
                       Datum reloptions,
                       bits16 flags,
                       bits16 constr_flags,
@@ -4344,21 +4348,21 @@ reindex_relation(const ReindexStmt *stmt, Oid relid, int flags,
 	 * still hold the lock on the master table.
 	 */
 	if (OidIsValid(aoseg_relid))
-		result |= reindex_relation(aoseg_relid, 0, params);
+		result |= reindex_relation(stmt, aoseg_relid, 0, params);
 
 	/*
 	 * If an AO rel has a secondary block directory rel, reindex that too while we
 	 * still hold the lock on the master table.
 	 */
 	if (OidIsValid(aoblkdir_relid))
-		result |= reindex_relation(aoblkdir_relid, 0, params);
+		result |= reindex_relation(stmt, aoblkdir_relid, 0, params);
 
 	/*
 	 * If an AO rel has a secondary visibility map rel, reindex that too while we
 	 * still hold the lock on the master table.
 	 */
 	if (OidIsValid(aovisimap_relid))
-		result |= reindex_relation(aovisimap_relid, 0, params);
+		result |= reindex_relation(stmt, aovisimap_relid, 0, params);
 
 	return result;
 }

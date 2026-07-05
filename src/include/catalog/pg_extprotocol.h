@@ -45,6 +45,10 @@ FOREIGN_KEY(ptcwritefn REFERENCES pg_proc(oid));
 FOREIGN_KEY(ptcvalidatorfn REFERENCES pg_proc(oid));
 DECLARE_UNIQUE_INDEX(pg_extprotocol_oid_index, 7156, ExtprotocolOidIndexId, pg_extprotocol, on pg_extprotocol using btree(oid oid_ops));
 DECLARE_UNIQUE_INDEX(pg_extprotocol_ptcname_index, 7177, ExtprotocolPtcnameIndexId, pg_extprotocol, on pg_extprotocol using btree(ptcname name_ops));
+
+MAKE_SYSCACHE(EXTPROTOCOLOID, pg_extprotocol_oid_index, 128);
+MAKE_SYSCACHE(EXTPROTOCOLNAME, pg_extprotocol_ptcname_index, 128);
+
 /* ----------------
  *		Form_pg_extprotocol corresponds to a pointer to a tuple with
  *		the format of pg_extprotocol relation.

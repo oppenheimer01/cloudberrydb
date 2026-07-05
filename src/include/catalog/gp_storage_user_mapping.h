@@ -64,4 +64,7 @@ DECLARE_TOAST(gp_storage_user_mapping, 6132, 6133);
 DECLARE_UNIQUE_INDEX_PKEY(gp_storage_user_mapping_oid_index, 6134, StorageUserMappingOidIndexId, gp_storage_user_mapping, on gp_storage_user_mapping using btree(oid oid_ops));
 DECLARE_UNIQUE_INDEX(gp_storage_user_mapping_server_index, 6135, StorageUserMappingServerIndexId, gp_storage_user_mapping, on gp_storage_user_mapping using btree(umuser oid_ops, umserver oid_ops));
 
+MAKE_SYSCACHE(STORAGEUSERMAPPINGOID, gp_storage_user_mapping_oid_index, 128);
+MAKE_SYSCACHE(STORAGEUSERMAPPINGUSERSERVER, gp_storage_user_mapping_server_index, 128);
+
 #endif //GP_STORAGE_USER_MAPPING_H

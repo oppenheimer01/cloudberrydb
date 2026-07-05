@@ -63,6 +63,8 @@ DECLARE_UNIQUE_INDEX(pg_attribute_encoding_attrelid_filenum_index, 6453, Attribu
 DECLARE_INDEX(pg_attribute_encoding_attrelid_index, 6467, AttributeEncodingAttrelidIndexId, pg_attribute_encoding, on pg_attribute_encoding using btree(attrelid oid_ops));
 DECLARE_UNIQUE_INDEX(pg_attribute_encoding_attrelid_attnum_index, 6466, AttributeEncodingAttrelidAttnumIndexId, pg_attribute_encoding, on pg_attribute_encoding using btree(attrelid oid_ops, attnum int2_ops));
 
+MAKE_SYSCACHE(ATTENCODINGNUM, pg_attribute_encoding_attrelid_attnum_index, 128);
+
 extern PGFunction *get_funcs_for_compression(char *compresstype);
 extern StdRdOptions **RelationGetAttributeOptions(Relation rel);
 extern List **RelationGetUntransformedAttributeOptions(Relation rel);

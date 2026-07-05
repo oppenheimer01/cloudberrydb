@@ -56,13 +56,7 @@ extern ObjectAddress AlterTypeNamespace(List *names, const char *newschema,
 
 extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
 								   ObjectAddresses *objsMoved);
-extern Oid	AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
-									   bool isImplicitArray,
-									   bool ignoreDependent,
-									   bool errorOnTableType,
-									   ObjectAddresses *objsMoved);
 
-extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, ObjectAddresses *objsMoved);
 extern Oid AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
 									  bool isImplicitArray,
 									  bool errorOnTableType,

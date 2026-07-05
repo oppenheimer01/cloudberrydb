@@ -346,6 +346,7 @@ extern void heap_inplace_update_and_unlock(Relation relation,
 										   Buffer buffer);
 extern void heap_inplace_unlock(Relation relation,
 								HeapTuple oldtup, Buffer buffer);
+extern void heap_inplace_update(Relation relation, HeapTuple tuple);
 extern bool heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 									  const struct VacuumCutoffs *cutoffs,
 									  HeapPageFreeze *pagefrz,
