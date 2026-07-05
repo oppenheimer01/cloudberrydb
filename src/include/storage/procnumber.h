@@ -24,7 +24,7 @@
 typedef int ProcNumber;
 
 #define INVALID_PROC_NUMBER		(-1)
-#define TEMPREL_PROC_NUMBER		(-1)
+#define TEMPREL_PROC_NUMBER		(-2)
 
 /*
  * Note: MAX_BACKENDS_BITS is 18 as that is the space available for buffer
