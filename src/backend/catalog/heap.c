@@ -111,10 +111,12 @@
 #include "catalog/gp_matview_aux.h"
 
 /* Potentially set by pg_upgrade_support functions */
+#if 0
 Oid			binary_upgrade_next_heap_pg_class_oid = InvalidOid;
 Oid			binary_upgrade_next_toast_pg_class_oid = InvalidOid;
 RelFileNumber binary_upgrade_next_heap_pg_class_relfilenumber = InvalidRelFileNumber;
 RelFileNumber binary_upgrade_next_toast_pg_class_relfilenumber = InvalidRelFileNumber;
+#endif
 
 static void MetaTrackAddUpdInternal(Oid			classid,
 									Oid			objoid,

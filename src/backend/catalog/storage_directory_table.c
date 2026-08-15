@@ -97,7 +97,7 @@ UfileDoPendingRelDelete(PendingRelDelete *reldelete)
 	UFileUnlink(ufiledelete->filenode.spcId, ufiledelete->filenode.relativePath);
 }
 
-struct PendingRelDeleteAction ufile_pending_rel_deletes_action = {
+static struct PendingRelDeleteAction ufile_pending_rel_deletes_action = {
 	.flags = PENDING_REL_DELETE_DEFAULT_FLAG,
 	.destroy_pending_rel_delete = UfileDestroyPendingRelDelete,
 	.do_pending_rel_delete = UfileDoPendingRelDelete

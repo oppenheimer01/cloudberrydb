@@ -34,7 +34,7 @@ static bool planstate_walk_members(PlanState **planstates, int nplans,
 								   void *context);
 
 static Node *
-range_table_entry_mutator(RangeTblEntry *rte, Node *(*mutator)(), void *context, int flags);
+range_table_entry_mutator(RangeTblEntry *rte, Node *(*mutator)(Node *, void *), void *context, int flags);
 
 /*
  *	exprType -
@@ -4154,7 +4154,7 @@ query_tree_mutator_impl(Query *query,
 }
 
 static Node *
-range_table_entry_mutator(RangeTblEntry *rte, Node *(*mutator)(), void *context, int flags)
+range_table_entry_mutator(RangeTblEntry *rte, Node *(*mutator)(Node *, void *), void *context, int flags)
 {
 	RangeTblEntry *newrte;
 

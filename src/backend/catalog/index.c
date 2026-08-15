@@ -97,9 +97,11 @@
 /* GUC variables */
 char       *default_index_access_method = DEFAULT_INDEX_TYPE;
 /* Potentially set by pg_upgrade_support functions */
+#if 0
 Oid			binary_upgrade_next_index_pg_class_oid = InvalidOid;
 RelFileNumber binary_upgrade_next_index_pg_class_relfilenumber =
 InvalidRelFileNumber;
+#endif
 
 index_create_hook_type index_create_hook = NULL;
 

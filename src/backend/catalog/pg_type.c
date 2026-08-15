@@ -51,7 +51,9 @@
  * for binary upgrade?
  */
 /* Potentially set by pg_upgrade_support functions */
+#if 0
 Oid			binary_upgrade_next_pg_type_oid = InvalidOid;
+#endif
 
 /*
  * Record a type's default encoding clause in the catalog.
@@ -1098,7 +1100,7 @@ char *
 makeMultirangeTypeName(const char *rangeTypeName, Oid typeNamespace)
 {
 	char	   *buf;
-	char	   *rangestr;
+	const char	   *rangestr;
 
 	/*
 	 * If the range type name contains "range" then change that to

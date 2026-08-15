@@ -83,7 +83,6 @@
 #include "cdb/cdbvars.h"
 
 #include "catalog/gp_indexing.h"
-#include "storage/backendid.h"
 #ifdef USE_INTERNAL_FTS
 #include "catalog/gp_segment_configuration_indexing.h"
 #endif
@@ -978,8 +977,8 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 			 * buffers at all. We have to make this additional check to make
 			 * sure of that.
 			 */
-			rlocator.backend = (procNumber == INVALID_PROC_NUMBER) ? TempRelBackendId
-														  : InvalidBackendId;
+			rlocator.backend = (procNumber == INVALID_PROC_NUMBER) ? TEMPREL_PROC_NUMBER
+														  : INVALID_PROC_NUMBER;
 			collides = GpCheckRelFileCollision(rlocator);
 		}
 	} while (collides);

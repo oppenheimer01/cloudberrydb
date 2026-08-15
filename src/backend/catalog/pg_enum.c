@@ -37,7 +37,9 @@
 #include "catalog/oid_dispatch.h"
 
 /* Potentially set by pg_upgrade_support functions */
+#if 0
 Oid			binary_upgrade_next_pg_enum_oid = InvalidOid;
+#endif
 
 /*
  * We keep two transaction-lifespan hash tables, one containing the OIDs
