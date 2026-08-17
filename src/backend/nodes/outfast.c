@@ -884,7 +884,7 @@ _outTupleDescNode(StringInfo str, const TupleDescNode *node)
 	WRITE_INT_FIELD(tuple->natts);
 
 	for (i = 0; i < node->tuple->natts; i++)
-		appendBinaryStringInfo(str, (char *) &node->tuple->attrs[i], ATTRIBUTE_FIXED_PART_SIZE);
+		appendBinaryStringInfo(str, (char *) TupleDescAttr(node->tuple, i), ATTRIBUTE_FIXED_PART_SIZE);
 
 	Assert(node->tuple->constr == NULL);
 

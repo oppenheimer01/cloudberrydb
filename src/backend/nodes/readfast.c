@@ -521,52 +521,6 @@ _readRangeTblEntry(void)
 	READ_DONE();
 }
 
-static Constraint *
-_readConstraint(void)
-{
-	READ_LOCALS(Constraint);
-
-	READ_ENUM_FIELD(contype, ConstrType);
-	READ_STRING_FIELD(conname);			/* name, or NULL if unnamed */
-	READ_BOOL_FIELD(deferrable);
-	READ_BOOL_FIELD(initdeferred);
-	READ_LOCATION_FIELD(location);
-
-	READ_BOOL_FIELD(is_no_inherit);
-	READ_NODE_FIELD(raw_expr);
-	READ_STRING_FIELD(cooked_expr);
-	READ_CHAR_FIELD(generated_when);
-	READ_BOOL_FIELD(nulls_not_distinct);
-
-	READ_NODE_FIELD(keys);
-	READ_NODE_FIELD(including);
-
-	READ_NODE_FIELD(exclusions);
-
-	READ_NODE_FIELD(options);
-	READ_STRING_FIELD(indexname);
-	READ_STRING_FIELD(indexspace);
-	READ_BOOL_FIELD(reset_default_tblspc);
-
-	READ_STRING_FIELD(access_method);
-	READ_NODE_FIELD(where_clause);
-
-	READ_NODE_FIELD(pktable);
-	READ_NODE_FIELD(fk_attrs);
-	READ_NODE_FIELD(pk_attrs);
-	READ_CHAR_FIELD(fk_matchtype);
-	READ_CHAR_FIELD(fk_upd_action);
-	READ_CHAR_FIELD(fk_del_action);
-	READ_NODE_FIELD(old_conpfeqop);
-	READ_OID_FIELD(old_pktable_oid);
-
-	READ_BOOL_FIELD(skip_validation);
-	READ_BOOL_FIELD(initially_valid);
-
-	READ_DONE();
-}
-
-
 static ExtensibleNode *
 _readExtensibleNode(void)
 {
@@ -791,7 +745,7 @@ _readTupleDescNode(void)
 		int i = 0;
 		for (; i < local_node->tuple->natts; i++)
 		{
-			memcpy(&local_node->tuple->attrs[i], read_str_ptr, ATTRIBUTE_FIXED_PART_SIZE);
+			memcpy(TupleDescAttr(local_node->tuple, i), read_str_ptr, ATTRIBUTE_FIXED_PART_SIZE);
 			read_str_ptr+=ATTRIBUTE_FIXED_PART_SIZE;
 		}
 	}

@@ -1500,14 +1500,14 @@ _read${n}(void)
 		elsif($t eq 'TupleDesc')
 		{
 			print $ofaf "\tfor (int i = 0; i < node->$f->natts; i++)
-	\tappendBinaryStringInfo(str, (char *) &node->$f->attrs[i], ATTRIBUTE_FIXED_PART_SIZE);\n";
+	\tappendBinaryStringInfo(str, (char *) TupleDescAttr(node->$f, i), ATTRIBUTE_FIXED_PART_SIZE);\n";
 			print $rfaf "\tlocal_node->tuple = CreateTemplateTupleDesc(local_node->natts);
 	if (local_node->$f->natts > 0)
 	{
 		int i = 0;
 		for (; i < local_node->$f->natts; i++)
 		{
-			memcpy(&local_node->$f->attrs[i], read_str_ptr, ATTRIBUTE_FIXED_PART_SIZE);
+			memcpy(TupleDescAttr(local_node->$f, i), read_str_ptr, ATTRIBUTE_FIXED_PART_SIZE);
 			read_str_ptr+=ATTRIBUTE_FIXED_PART_SIZE;
 		}
 	}\n"
